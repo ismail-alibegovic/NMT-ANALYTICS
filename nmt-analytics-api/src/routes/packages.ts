@@ -7,6 +7,7 @@ import { auditPackageCreate, auditPackageUpdate, auditPackageDelete } from '../m
 import { createSuccessResponse } from '../middleware/logging';
 import { formatListResponse, paginationQuerySchema, dateRangeQuerySchema, getPaginationParams, getDateRangeParams } from '../utils/pagination';
 import { apiError } from "../lib/errors";
+import { requireMinimumRole } from '../middleware/requireRole';
 
 const router = Router();
 
