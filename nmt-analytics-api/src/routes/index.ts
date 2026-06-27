@@ -20,6 +20,7 @@ import aiRoutes from './ai';
 import settingsRoutes from './settings';
 import notificationsRoutes from './notifications';
 import emailSettingsRoutes from './emailSettings';
+import paylinksRoutes from './paylinks';
 import publicRoutes from './public';
 
 const router = Router();
@@ -43,6 +44,7 @@ router.use('/', exportRoutes);
 router.use('/', paymentsRoutes);
 router.use('/', notificationsRoutes);
 router.use('/settings/email', emailSettingsRoutes);
+router.use('/paylinks', paylinksRoutes);
 router.use('/settings', settingsRoutes);
 
 // Mount routes that rely on parent prefix
