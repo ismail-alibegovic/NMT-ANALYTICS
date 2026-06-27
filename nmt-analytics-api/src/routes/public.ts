@@ -1,9 +1,32 @@
 import { Router, Request, Response } from 'express';
+import { RequestHandler } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
 import { z } from 'zod';
+import path from "path";
+import fs from "fs";
 import { apiError } from '../lib/errors';
 
 const router = Router();
+
+// Serve widget HTML
+router.get("/public/:orgId/widget", async (req: Request, res: Response) => {
+  const widgetPath = path.resolve(__dirname, "../../public/widget.html");
+  if (!widgetPath) return res.status(404).send("Widget not found");
+  const html = require("fs").readFileSync(widgetPath, "utf-8");
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(html.replace("{{ORG_ID}}", req.params.orgId));
+});
+
+// Public CORS middleware
+router.use("/public", (req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
+
 
 // Public route - no auth required
 // Returns HTML snippet that agencies embed on their site

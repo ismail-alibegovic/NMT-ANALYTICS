@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rezervišite putovanje</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f11; color: #e4e4e7; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .widget { width: 100%; max-width: 480px; background: #18181b; border-radius: 16px; padding: 32px; border: 1px solid #27272a; }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { color: #a1a1aa; font-size: 14px; margin-bottom: 24px; }
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #d4d4d8; }
+  select, input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #27272a; background: #1f1f23; color: #e4e4e7; font-size: 14px; }
+  select:focus, input:focus { outline: none; border-color: #8b5cf6; }
+  button { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #8b5cf6; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; transition: background .2s; }
+  button:hover { background: #7c3aed; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; margin-right: 8px; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .msg { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 14px; display: none; }
+  .msg.success { display: block; background: #065f46; color: #a7f3d0; }
+  .msg.error { display: block; background: #7f1d1d; color: #fca5a5; }
+  .fee { font-size: 12px; color: #71717a; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="widget">
+  <h1>🌍 Rezervišite putovanje</h1>
+  <p class="subtitle">Unesite podatke i pošaljite upit</p>
+  <form id="bookingForm">
+    <div class="form-group">
+      <label for="package">Aranžman</label>
+      <select id="package" required><option value="">Učitavanje...</option></select>
+    </div>
+    <div class="form-group">
+      <label for="departure">Polazak</label>
+      <select id="departure" required><option value="">Prvo izaberite aranžman</option></select>
+    </div>
+    <div class="form-group">
+      <label for="name">Ime i prezime</label>
+      <input id="name" type="text" required placeholder="Npr. Ana Marić">
+    </div>
+    <div class="form-group">
+      <label for="phone">Telefon</label>
+      <input id="phone" type="tel" required placeholder="+387 61 123 456">
+    </div>
+    <div class="form-group">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="ana@email.com">
+    </div>
+    <div class="form-group">
+      <label for="party">Broj osoba</label>
+      <input id="party" type="number" min="1" max="99" value="2" required>
+    </div>
+    <p class="fee">*Ovo je upit. Agencija će vas kontaktirati za potvrdu.</p>
+    <button type="submit" id="submitBtn">Pošaljite upit</button>
+  </form>
+  <div id="msg" class="msg"></div>
+  <p style="margin-top:20px;text-align:center;font-size:12px;color:#52525b">Powered by NMT Analytics</p>
+</div>
+
+<script>
+const API = '/api/public';
+
+async function loadPackages() {
+  const sel = document.getElementById('package');
+  try {
+    const r = await fetch(API + '/packages');
+    const data = await r.json();
+    sel.innerHTML = '<option value="">— Izaberite aranžman —</option>';
+    (data || []).forEach(p => {
+      sel.innerHTML += `<option value="${p.id}">${p.name} — ${p.destination}</option>`;
+    });
+  } catch { sel.innerHTML = '<option value="">Greška pri učitavanju</option>'; }
+}
+
+async function loadDepartures(pkgId) {
+  const sel = document.getElementById('departure');
+  if (!pkgId) { sel.innerHTML = '<option value="">Prvo izaberite aranžman</option>'; return; }
+  try {
+    const r = await fetch(API + '/departures?packageId=' + pkgId);
+    const data = await r.json();
+    sel.innerHTML = '<option value="">— Izaberite polazak —</option>';
+    (data || []).forEach(d => {
+      const d1 = new Date(d.depart_at).toLocaleDateString('bs-BA');
+      const d2 = new Date(d.return_at).toLocaleDateString('bs-BA');
+      sel.innerHTML += `<option value="${d.id}">${d1} — ${d2} (${d.available} mjesta)</option>`;
+    });
+  } catch { sel.innerHTML = '<option value="">Greška pri učitavanju</option>'; }
+}
+
+document.getElementById('package').addEventListener('change', e => loadDepartures(e.target.value));
+
+document.getElementById('bookingForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('submitBtn');
+  const msg = document.getElementById('msg');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Slanje...';
+  msg.className = 'msg'; msg.textContent = '';
+
+  try {
+    const body = {
+      departureId: document.getElementById('departure').value,
+      customerName: document.getElementById('name').value,
+      customerPhone: document.getElementById('phone').value,
+      partySize: parseInt(document.getElementById('party').value),
+      source: 'web',
+    };
+    const email = document.getElementById('email').value;
+    if (email) body.email = email;
+
+    const r = await fetch(API + '/reservations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.message || 'Greška pri slanju');
+    }
+
+    msg.className = 'msg success';
+    msg.textContent = '✅ Upit uspješno poslan! Kontaktirat ćemo vas uskoro.';
+    document.getElementById('bookingForm').reset();
+    document.getElementById('departure').innerHTML = '<option value="">Prvo izaberite aranžman</option>';
+  } catch (err) {
+    msg.className = 'msg error';
+    msg.textContent = '❌ ' + err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Pošaljite upit';
+  }
+});
+
+loadPackages();
+</script>
+</body>
+</html>
