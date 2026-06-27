@@ -4,6 +4,7 @@ import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
 import { auditCustomerCreate, auditCustomerUpdate, auditCustomerDelete, logAuditEntry } from '../middleware/auditLogger';
 import { apiError } from "../lib/errors";
+import { requireMinimumRole } from '../middleware/requireRole';
 
 const router = Router();
 

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { auditDepartureCreate, auditDepartureUpdate, auditDepartureDelete } from '../middleware/auditLogger';
 import { formatListResponse, paginationQuerySchema, dateRangeQuerySchema, getPaginationParams, getDateRangeParams } from '../utils/pagination';
 import { apiError } from "../lib/errors";
+import { requireMinimumRole } from '../middleware/requireRole';
 import { getDepartureStatus } from '../utils/business';
 
 const router = Router();

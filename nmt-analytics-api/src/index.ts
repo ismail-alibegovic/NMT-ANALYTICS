@@ -1,5 +1,8 @@
 import 'dotenv/config';
 import app from './app';
+import { activateSmtpProvider } from './lib/email/activateSmtpProvider';
+
+activateSmtpProvider();
 
 const PORT = process.env.PORT || 3001;
 
