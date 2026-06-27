@@ -20,8 +20,11 @@ import aiRoutes from './ai';
 import settingsRoutes from './settings';
 import notificationsRoutes from './notifications';
 import emailSettingsRoutes from './emailSettings';
+import publicRoutes from './public';
 
 const router = Router();
+
+router.use('/', publicRoutes);
 
 // Mount routes that include their own prefixes
 router.use('/', healthRoutes);
