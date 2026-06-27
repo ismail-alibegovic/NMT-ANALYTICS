@@ -218,4 +218,113 @@ router.get('/ai/revenue-down', authenticateToken, requireOrgContext, async (req:
     }
 });
 
+
+
+/**
+ * GET /ai/occupancy — Occupancy prediction
+ */
+router.get('/ai/occupancy', authenticateToken, requireOrgContext, async (req: Request, res: Response) => {
+    try {
+        const orgId = req.orgId!;
+        const daysAhead = parseInt(req.query.days as string) || 30;
+        const now = new Date();
+        const horizon = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000);
+
+        const { data: departures, error } = await supabaseAdmin
+            .from('departures')
+            .select('id, depart_at, return_at, capacity, booked, status, packages(id, name, destination, base_price)')
+            .eq('org_id', orgId)
+            .eq('status', 'active')
+            .gte('depart_at', now.toISOString().split('T')[0])
+            .lte('depart_at', horizon.toISOString().split('T')[0])
+            .order('depart_at', { ascending: true });
+
+        if (error) return apiError(res, 500, 'FETCH_FAILED', error.message);
+
+        const predictions = (departures || []).map((dep: any) => {
+            const pkg = dep.packages || {};
+            const cap = dep.capacity || 1;
+            const booked = dep.booked || 0;
+            const fillRate = Math.round((booked / cap) * 100);
+            const remaining = Math.max(0, cap - booked);
+            const daysUntil = Math.max(0, Math.ceil((new Date(dep.depart_at).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+
+            let prediction = 'low_demand';
+            if (fillRate >= 100) prediction = 'sold_out';
+            else if (fillRate >= 70 && daysUntil > 7) prediction = 'likely_sell_out';
+            else if (fillRate >= 50) prediction = 'strong_demand';
+            else if (fillRate >= 30) prediction = 'moderate_demand';
+            else if (daysUntil < 7) prediction = 'low_demand_urgent';
+
+            return {
+                departureId: dep.id, packageName: pkg.name || 'Unknown',
+                destination: pkg.destination || '', departAt: dep.depart_at,
+                capacity: cap, booked, remaining, fillRatePercent: fillRate,
+                daysUntilDeparture: daysUntil, prediction,
+            };
+        });
+
+        const soldOut = predictions.filter(p => p.prediction === 'sold_out').length;
+        const likelySellOut = predictions.filter(p => p.prediction === 'likely_sell_out').length;
+        const avgFillRate = predictions.length ? Math.round(predictions.reduce((s, p) => s + p.fillRatePercent, 0) / predictions.length) : 0;
+
+        return res.json({
+            totalDepartures: departures?.length || 0,
+            stats: { soldOut, likelySellOut, avgFillRate },
+            predictions,
+        });
+    } catch (err: any) {
+        return apiError(res, 500, 'AI_ERROR', err.message);
+    }
+});
+
+/**
+ * GET /ai/recommend-packages — Package recommendations
+ */
+router.get('/ai/recommend-packages', authenticateToken, requireOrgContext, async (req: Request, res: Response) => {
+    try {
+        const orgId = req.orgId!;
+        const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+
+        const { data: reservations } = await supabaseAdmin
+            .from('reservations')
+            .select('party_size, departures!inner(package_id, packages!inner(id, name, destination, base_price))')
+            .eq('org_id', orgId)
+            .neq('status', 'cancelled')
+            .gte('created_at', ninetyDaysAgo);
+
+        const pkgMap = new Map<string, { bookings: number; revenue: number }>();
+        for (const r of (reservations || [])) {
+            const pkg = (r as any).departures?.packages;
+            if (!pkg?.id) continue;
+            const key = pkg.id;
+            const existing = pkgMap.get(key) || { bookings: 0, revenue: 0 };
+            existing.bookings += r.party_size || 1;
+            existing.revenue += (pkg.base_price || 0) * (r.party_size || 1);
+            pkgMap.set(key, existing);
+        }
+
+        const top = [...pkgMap.entries()].map(([id, d]) => ({ id, ...d }))
+            .sort((a, b) => b.bookings - a.bookings).slice(0, 5);
+
+        const { data: allP } = await supabaseAdmin
+            .from('packages').select('id, name, destination, base_price')
+            .eq('org_id', orgId);
+
+        const zero = (allP || []).filter(p => !pkgMap.has(p.id)).slice(0, 5);
+
+        return res.json({
+            topPerforming: top,
+            underperforming: zero.map(p => ({
+                id: p.id, name: p.name, destination: p.destination,
+                basePrice: p.base_price,
+                reason: 'No bookings in last 90 days',
+            })),
+        });
+    } catch (err: any) {
+        return apiError(res, 500, 'AI_ERROR', err.message);
+    }
+});
+
+
 export default router;
