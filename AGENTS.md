@@ -62,3 +62,36 @@ nmt-analytics-admin/  — React + Vite + Tailwind frontend
 - Role types: src/types/roles.ts (both api + admin)
 - Notifications API: src/routes/notifications.ts
 - AuthGuard: admin/src/components/auth/AuthGuard.tsx
+
+## Phase 5 — Features (completed 2026-06-27)
+
+### AI Assistant — Occupancy Predictions
+- `GET /ai/occupancy-prediction` — predicts departure fill rate based on historical booking velocity + remaining capacity
+- `GET /ai/recommend` — recommends top packages for a given date range based on past booking patterns
+- Existing `GET /ai/revenue-down` — period-over-period revenue comparison with signals
+
+### Short Payment Links
+- `GET /paylinks/:code` — public redirect to reservation payment page (no auth required)
+- `POST /paylinks` — generate short code for a reservation (manager+)
+- `GET /paylinks` — list all links for org (manager+)
+- DB table: `payment_links` with 8-char nanoid codes, tracked click count
+- Migration: supabase/sql/022_payment_links.sql
+
+### Public Booking Widget
+- `GET /public/packages?org=<slug>` — public list of available packages
+- `GET /public/departures?package_id=<id>` — public departure dates
+- `POST /public/reservations` — create reservation without auth (rate-limited)
+- `GET /public/widget.html` — embeddable booking widget HTML
+- Route: nmt-analytics-api/src/routes/public.ts
+- CORS configured for cross-origin embedding
+
+### SMTP Email Settings
+- UI route: `GET/POST /settings/email` — configure SMTP per org (director+)
+- `POST /settings/email/test` — send test email
+- SmtpEmailProvider — falls back to mock when not configured
+- Auto-activated on server start if env vars present
+- Nodemailer transport, supports attachments (voucher/invoice PDFs)
+
+### Invoice PDFs
+- `GET /reservations/:id/invoice.pdf` — professional invoice with org details, line items, payment summary, due date
+- Frontend "Faktura" button on Reservations page (hidden for agents)
