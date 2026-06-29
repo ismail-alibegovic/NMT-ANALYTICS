@@ -51,6 +51,14 @@ export default function PaymentsModal({
     const [paymentDate, setPaymentDate] = useState<string>(
         new Date().toISOString().split('T')[0]
     );
+    const [paymentMethod, setPaymentMethod] = useState<string>('');
+
+    const paymentMethods = [
+        { value: 'cash', label: 'Gotovina' },
+        { value: 'card', label: 'Kartica' },
+        { value: 'bank_transfer', label: 'Bankovni transfer' },
+        { value: 'other', label: 'Ostalo' },
+    ];
 
     const statusOptions = [
         { value: 'succeeded', label: 'Uspješno' },
@@ -96,6 +104,7 @@ export default function PaymentsModal({
                 currency,
                 status: status as any,
                 payment_date: paymentDate || undefined,
+                payment_method: paymentMethod || undefined,
             };
 
             await createPayment(paymentData);
@@ -272,6 +281,20 @@ export default function PaymentsModal({
                                         defaultValue={status}
                                         onChange={setStatus}
                                     />
+                                </div>
+
+                                <div>
+                                    <Label>Način plaćanja</Label>
+                                    <select
+                                        value={paymentMethod}
+                                        onChange={(e) => setPaymentMethod(e.target.value)}
+                                        className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-800"
+                                    >
+                                        <option value="">Odaberite način</option>
+                                        {paymentMethods.map(m => (
+                                            <option key={m.value} value={m.value}>{m.label}</option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
 

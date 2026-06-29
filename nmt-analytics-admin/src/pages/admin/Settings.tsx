@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PageMeta from '../../components/common/PageMeta';
 import api from '../../lib/apiClient';
 
@@ -24,10 +24,16 @@ export default function Settings() {
     phone: '',
     address: ''
   });
+  const showMessage = (text: string, type: 'success' | 'error') => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage(null), 5000);
+  };
+
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     fetchSettings();
+    fetchSmtpSettings();
   }, []);
 
   const fetchSettings = async () => {
@@ -47,6 +53,27 @@ export default function Settings() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveSmtp = async () => {
+    setSmtpSaving(true);
+    try {
+      await api.post('/settings/email', smtpSettings);
+      setShowSmtpForm(false);
+      showMessage('SMTP postavke spremljene!', 'success');
+    } catch (e: any) {
+      showMessage(e.message || 'Greška', 'error');
+    } finally { setSmtpSaving(false); }
+  };
+
+  const handleTestEmail = async () => {
+    setTesting(true);
+    try {
+      await api.post('/settings/email/test', { to: testEmail });
+      showMessage('Test email poslan!', 'success');
+    } catch (e: any) {
+      showMessage(e.message || 'Greška', 'error');
+    } finally { setTesting(false); }
   };
 
   const handleSave = async () => {
@@ -195,6 +222,76 @@ export default function Settings() {
               </select>
             </div>
           </div>
+        </div>
+
+
+        {/* SMTP Email Settings */}
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Email (SMTP) postavke</h2>
+            <button
+              onClick={() => setShowSmtpForm(!showSmtpForm)}
+              className="text-sm text-brand-600 hover:text-brand-700 font-medium"
+            >
+              {showSmtpForm ? 'Sakrij' : 'Konfiguriši SMTP'}
+            </button>
+          </div>
+
+          {smtpMessage && (
+            <div className={`mb-4 p-3 rounded-lg text-sm ${smtpMessage.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400'}`}>
+              {smtpMessage.text}
+            </div>
+          )}
+
+          {showSmtpForm && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SMTP Host</label>
+                  <input type="text" value={smtpSettings.host} onChange={(e) => setSmtpSettings({...smtpSettings, host: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="smtp.example.com" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Port</label>
+                  <input type="text" value={smtpSettings.port} onChange={(e) => setSmtpSettings({...smtpSettings, port: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="587" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Korisničko ime</label>
+                  <input type="text" value={smtpSettings.user} onChange={(e) => setSmtpSettings({...smtpSettings, user: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lozinka</label>
+                  <input ref={smtpPasswordRef} type="password" value={smtpSettings.pass} onChange={(e) => setSmtpSettings({...smtpSettings, pass: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="••••••••" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email pošiljaoca</label>
+                  <input type="email" value={smtpSettings.from_email} onChange={(e) => setSmtpSettings({...smtpSettings, from_email: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="noreply@kompanija.ba" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ime pošiljaoca</label>
+                  <input type="text" value={smtpSettings.from_name} onChange={(e) => setSmtpSettings({...smtpSettings, from_name: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="NMT Analytics" />
+                </div>
+              </div>
+              <div className="flex gap-3 items-end">
+                <button onClick={handleSaveSmtp} disabled={smtpSaving}
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm">
+                  {smtpSaving ? 'Spremanje...' : 'Spremi SMTP'}
+                </button>
+                <div className="flex-1" />
+                <input type="email" value={testEmail} onChange={(e) => setTestEmail(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm w-64" placeholder="test@email.com" />
+                <button onClick={handleTestEmail} disabled={testing || !testEmail}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:border-gray-600 disabled:opacity-50">
+                  {testing ? 'Slanje...' : 'Testiraj'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Save Button */}

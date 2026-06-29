@@ -30,6 +30,13 @@ export default function AddPaymentModal({
     // Currency is set from reservation and is read-only
     const currency = reservationCurrency;
     const [status, setStatus] = useState<string>('succeeded');
+    const [paymentMethod, setPaymentMethod] = useState<string>("");
+    const paymentMethodOptions = [
+        { value: "cash", label: "Gotovina" },
+        { value: "card", label: "Kartica" },
+        { value: "bank_transfer", label: "Bankovni transfer" },
+        { value: "credit", label: "Kredit" },
+    ];
     const [paymentDate, setPaymentDate] = useState<string>(
         new Date().toISOString().split('T')[0]
     );
@@ -58,6 +65,7 @@ export default function AddPaymentModal({
                 currency,
                 status: status as any,
                 payment_date: paymentDate || undefined,
+                paymentMethod: paymentMethod || undefined,
             };
 
             const result = await createPayment(paymentData);
@@ -144,6 +152,23 @@ export default function AddPaymentModal({
                                 onChange={setStatus}
                             />
                         </div>
+                    </div>
+
+                    {/* Payment Method */}
+                    <div>
+                        <Label htmlFor="paymentMethod">Način plaćanja</Label>
+                        <select
+                            id="paymentMethod"
+                            value={paymentMethod}
+                            onChange={(e) => setPaymentMethod(e.target.value)}
+                            disabled={isSubmitting}
+                            className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-800"
+                        >
+                            <option value="">Odaberite način</option>
+                            {paymentMethodOptions.map(m => (
+                                <option key={m.value} value={m.value}>{m.label}</option>
+                            ))}
+                        </select>
                     </div>
 
                     {/* Payment Date */}

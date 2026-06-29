@@ -176,8 +176,8 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Handle 401/403
-    if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry) {
+    // Handle 401 (unauthorized = session expired, sign out)
+    if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       await supabase.auth.signOut();
@@ -185,6 +185,11 @@ api.interceptors.response.use(
         detail: { message: 'Session expired' }
       }));
       window.location.href = '/auth/signin';
+      return Promise.reject(error);
+    }
+    // Handle 403 (forbidden = role-based access denied) - do NOT sign out, just reject
+    if (error.response?.status === 403 && !originalRequest._retry) {
+      originalRequest._retry = true;
       return Promise.reject(error);
     }
 
