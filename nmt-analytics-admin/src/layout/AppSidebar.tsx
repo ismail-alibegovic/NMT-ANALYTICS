@@ -16,6 +16,7 @@ import {
   PlugInIcon,
   LockIcon,
   FileIcon,
+  SettingsIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { useApp } from "../context/AppContext";
