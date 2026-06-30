@@ -14,7 +14,7 @@ const CustomerDetail = lazy(() => import("./pages/CustomerDetail"));
 const Packages = lazy(() => import("./pages/admin/Packages"));
 const Reservations = lazy(() => import("./pages/Reservations"));
 const Departures = lazy(() => import("./pages/admin/Departures"));
-const UnifiedPayments = lazy(() => import("./pages/admin/Payments"));
+const UnifiedPayments = lazy(() => import("./pages/admin/UnifiedPayments"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Integrations = lazy(() => import("./pages/admin/Integrations"));
 const Settings = lazy(() => import("./pages/admin/Settings"));
