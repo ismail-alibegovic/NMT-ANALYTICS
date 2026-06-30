@@ -7,6 +7,7 @@ import Button from '../../components/ui/button/Button';
 import { useToast } from '../../context/ToastContext';
 import { analyzeRevenueDrop, RevenueAnalysisResponse } from '../../api/ai';
 import { formatCurrency } from '../../utils/business';
+import { useApp } from '../../context/AppContext';
 
 const Integrations = () => {
     const { success, error: toastError } = useToast();
@@ -18,6 +19,19 @@ const Integrations = () => {
     const [copilotDateTo, setCopilotDateTo] = useState('');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisData, setAnalysisData] = useState<RevenueAnalysisResponse | null>(null);
+
+    const { userContext } = useApp();
+    const [copiedWidget, setCopiedWidget] = useState(false);
+    const orgId = userContext?.orgId || '';
+    const widgetUrl = `/api/public/${orgId}/widget`;
+    const embedCode = orgId
+      ? `<!-- NMT Booking Widget -->\n<iframe src="${widgetUrl}" width="100%" height="600" frameborder="0" style="border:none;max-width:400px;margin:0 auto;display:block;"></iframe>`
+      : '';
+
+    const copyToClipboard = async (text: string) => {
+      try { await navigator.clipboard.writeText(text); setCopiedWidget(true); setTimeout(() => setCopiedWidget(false), 2000); }
+      catch { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); setCopiedWidget(true); setTimeout(() => setCopiedWidget(false), 2000); }
+    };
 
     // Mock state for integration status
     const [integrationStatuses, setIntegrationStatuses] = useState<Record<string, 'connected' | 'not_configured'>>({
@@ -265,6 +279,44 @@ const Integrations = () => {
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* Booking Widget */}
+            <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.05] rounded-xl p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">Booking Widget</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Ugradite booking formu na svoju web stranicu</p>
+                </div>
+              </div>
+
+              {orgId ? (
+                <div className="space-y-4">
+                  <div className="bg-gray-50 dark:bg-white/[0.02] border border-gray-100 dark:border-white/[0.05] rounded-lg p-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Embed kod (iframe)</label>
+                    <pre className="text-xs bg-gray-800 text-gray-100 p-3 rounded-lg overflow-x-auto whitespace-pre-wrap break-all">{embedCode}</pre>
+                    <Button size="sm" variant="outline" className="mt-2" onClick={() => copyToClipboard(embedCode)}>
+                      {copiedWidget ? '✓ Kopirano' : 'Kopiraj kod'}
+                    </Button>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-white/[0.02] border border-gray-100 dark:border-white/[0.05] rounded-lg p-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Direktan link</label>
+                    <a href={widgetUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-brand-600 dark:text-brand-400 hover:underline break-all">
+                      {widgetUrl}
+                    </a>
+                    <p className="text-xs text-gray-400 mt-2">Otvorite link da vidite kako widget izgleda. Zatim ugradite iframe kod na svoj sajt.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4 text-gray-400 text-sm">
+                  Učitavanje podataka organizacije...
+                </div>
+              )}
             </div>
 
             <ConfigureIntegrationModal
