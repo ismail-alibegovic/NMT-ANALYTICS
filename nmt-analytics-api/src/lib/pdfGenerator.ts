@@ -140,6 +140,8 @@ export async function generateInvoicePDF(reservation: any, orgSettings?: Partial
       if (org.address) doc.text(org.address, 50, 65);
       if (org.email) doc.text(org.email, 50, 78);
       if (org.phone) doc.text(org.phone, 50, 91);
+      if (org.tax_id) doc.text(`ID: ${org.tax_id}`, 50, 104);
+      if (org.bank_account) doc.text(`IBAN: ${org.bank_account}`, 50, 117);
 
       doc.fillColor(style.secondaryColor);
       const mainStart = 190;
@@ -214,13 +216,15 @@ export async function generateInvoicePDF(reservation: any, orgSettings?: Partial
       doc.fontSize(10).font('Helvetica').fillColor(style.secondaryColor);
       doc.text(`Status: ${(reservation.payment_status || 'unpaid').replace(/_/g, ' ').toUpperCase()}`);
       doc.text(`Payment Terms: Due within 15 days`);
+      if (org.tax_id) doc.text(`Porezni ID: ${org.tax_id}`);
+      if (org.bank_account) doc.text(`IBAN: ${org.bank_account}`);
 
       // === FOOTER ===
       doc.moveDown(2);
       doc.rect(50, doc.y, 495.28, 0.5).fill(style.primaryColor);
       doc.moveDown(0.5);
       doc.fontSize(9).fillColor('#6B7280')
-        .text(style.footerText || 'Thank you for your business!', { align: 'center' });
+        .text(org.invoice_footer || style.footerText || "Thank you for your business!", { align: 'center' });
 
       const pageBottom = 780;
       doc.fontSize(7).fillColor('#9CA3AF')
