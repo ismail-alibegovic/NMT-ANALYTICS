@@ -7,13 +7,18 @@ import Badge from "../../components/ui/badge/Badge";
 import { useToast } from "../../context/ToastContext";
 import { formatDate, getDepartureStatus } from "../../utils/business";
 import Button from "../../components/ui/button/Button";
+import { FormModal } from "../../components/ui/FormModal";
 import ImportModal from "../../components/import/ImportModal";
 import { FileIcon, TableIcon, CalenderIcon } from "../../icons";
 import DepartureCalendarView from "../../components/departures/DepartureCalendarView";
 import {
   getDepartures,
+  createDeparture,
+  updateDeparture,
+  deleteDeparture,
   Departure,
-  DepartureFilters
+  DepartureFilters,
+  CreateDepartureData,
 } from "../../api/departures";
 import { getPackages, Package } from "../../api/packages";
 
@@ -30,6 +35,9 @@ export default function Departures() {
   const [loading, setLoading] = useState(true);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingDeparture, setEditingDeparture] = useState<Departure | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // Filter states
   const [packageId, setPackageId] = useState<string>("");
@@ -100,6 +108,79 @@ export default function Departures() {
         return "light";
     }
   };
+
+  const handleCreate = () => {
+    setEditingDeparture(null);
+    setModalOpen(true);
+  };
+
+  const handleEdit = (dep: Departure) => {
+    setEditingDeparture(dep);
+    setModalOpen(true);
+  };
+
+  const handleDelete = async (dep: Departure) => {
+    if (!confirm(`Jeste li sigurni da želite obrisati polazak za "${dep.packageName}"?`)) return;
+    try {
+      await deleteDeparture(dep.id);
+      showSuccess('Polazak obrisan');
+      fetchDepartures(currentPage);
+    } catch {
+      showError('Brisanje polaska nije uspjelo');
+    }
+  };
+
+  const handleSubmit = async (data: any) => {
+    setSubmitting(true);
+    try {
+      if (editingDeparture) {
+        await updateDeparture(editingDeparture.id, {
+          packageId: data.packageId,
+          departAt: data.departAt,
+          returnAt: data.returnAt,
+          capacity: Number(data.capacity),
+          status: data.status,
+        });
+      } else {
+        await createDeparture({
+          packageId: data.packageId,
+          departAt: data.departAt,
+          returnAt: data.returnAt,
+          capacity: Number(data.capacity),
+          status: data.status || 'active',
+        });
+      }
+      setModalOpen(false);
+      fetchDepartures(currentPage);
+    } catch (err: any) {
+      showError(err?.message || 'Greška pri čuvanju polaska');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const formFields = [
+    {
+      name: 'packageId',
+      label: 'Paket',
+      type: 'select' as const,
+      required: true,
+      options: packages.map(p => ({ value: p.id, label: `${p.name} - ${p.destination}` })),
+    },
+    { name: 'departAt', label: 'Polazak', type: 'datetime-local' as const, required: true },
+    { name: 'returnAt', label: 'Povratak', type: 'datetime-local' as const, required: true },
+    { name: 'capacity', label: 'Kapacitet (broj mjesta)', type: 'number' as const, required: true },
+    {
+      name: 'status',
+      label: 'Status',
+      type: 'select' as const,
+      options: [
+        { value: 'active', label: 'Aktivan' },
+        { value: 'cancelled', label: 'Otkazan' },
+        { value: 'completed', label: 'Završen' },
+      ],
+    },
+  ];
 
   const columns: Column<Departure>[] = [
     {
@@ -172,6 +253,20 @@ export default function Departures() {
         </Badge>
       )
     },
+    {
+      key: 'actions',
+      header: 'Akcije',
+      render: (_, dep) => (
+        <div className="flex gap-2 justify-end">
+          <Button size="sm" variant="outline" onClick={() => handleEdit(dep)} className="px-2 py-1 text-xs">
+            Uredi
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => handleDelete(dep)} className="px-2 py-1 text-xs text-red-600 hover:text-red-700">
+            Obriši
+          </Button>
+        </div>
+      )
+    },
   ];
 
   return (
@@ -183,6 +278,7 @@ export default function Departures() {
         searchValue=""
         onSearchChange={() => { }}
         searchPlaceholder="Traži polaske..."
+        createButton={{ label: "Dodaj polazak", onClick: handleCreate }}
         actions={
           <Button
             variant="outline"
@@ -297,6 +393,23 @@ export default function Departures() {
           setIsImportOpen(false);
           fetchDepartures(currentPage);
         }}
+      />
+
+      <FormModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editingDeparture ? 'Uredi polazak' : 'Dodaj polazak'}
+        fields={formFields}
+        onSubmit={handleSubmit}
+        initialData={editingDeparture ? {
+          packageId: editingDeparture.package_id,
+          departAt: editingDeparture.depart_at?.slice(0, 16) || '',
+          returnAt: editingDeparture.return_at?.slice(0, 16) || '',
+          capacity: editingDeparture.capacity,
+          status: editingDeparture.status,
+        } : { status: 'active' }}
+        submitButtonText={editingDeparture ? 'Sačuvaj' : 'Dodaj'}
+        loading={submitting}
       />
     </>
   );

@@ -4,6 +4,7 @@ export interface Reservation {
   id: string;
   customerId: string;
   customerName: string;
+  customerPhone?: string;
   departureId: string;
   departureName: string;
   packageId: string;
@@ -11,28 +12,45 @@ export interface Reservation {
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   totalAmount: number;
   paidAmount: number;
-  balanceDue: number; // DB-calculated: total_amount - paid_amount (can be negative for overpayment)
-  remainingAmount: number; // Legacy field for backward compatibility
-  paymentStatus: 'unpaid' | 'partially_paid' | 'paid' | 'refunded'; // DB-calculated payment status
+  balanceDue: number;
+  remainingAmount: number;
+  paymentStatus: 'unpaid' | 'partially_paid' | 'paid' | 'refunded';
   currency: string;
   participants: number;
+  partySize?: number;
   bookingDate: string;
+  reservationAt?: string;
   notes?: string;
+  source?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateReservationData {
-  customerId: string;
-  departureId: string;
-  participants: number;
-  notes?: string;
+  customerName: string;
+  customerPhone: string;
+  partySize: number;
+  reservationAt: string;
+  departureId?: string;
+  customerId?: string;
+  totalAmount?: number;
+  currency?: string;
+  status?: 'pending' | 'confirmed' | 'cancelled';
+  source?: 'phone' | 'agent' | 'walk-in' | 'web' | 'other';
 }
 
 export interface UpdateReservationData {
   status?: Reservation['status'];
+  customerName?: string;
+  customerPhone?: string;
+  partySize?: number;
+  reservationAt?: string;
+  departureId?: string;
+  totalAmount?: number;
   paidAmount?: number;
+  currency?: string;
   notes?: string;
+  source?: string;
 }
 
 export interface ReservationFilters {
