@@ -73,6 +73,10 @@ router.get('/', async (req, res: Response) => {
         address,
         currency,
         timezone,
+        tax_id,
+        bank_account,
+        invoice_footer,
+        invoice_notes,
         created_at
       `)
       .eq('id', orgId)
@@ -100,7 +104,11 @@ router.get('/', async (req, res: Response) => {
       currency: org.currency || 'BAM',
       timezone: org.timezone || 'Europe/Sarajevo',
       date_format: 'DD.MM.YYYY',
-      language: 'bs'
+      language: 'bs',
+      tax_id: org.tax_id || null,
+      bank_account: org.bank_account || null,
+      invoice_footer: org.invoice_footer || null,
+      invoice_notes: org.invoice_notes || null
     });
   } catch (err) {
     console.error('[SETTINGS] Exception:', err);
@@ -114,7 +122,7 @@ router.patch('/', auditSettingsUpdate, async (req, res: Response) => {
   const userId = req.user?.id;
 
   // Only allow updating columns that exist
-  const allowedUpdates = ['name', 'slug', 'phone', 'email', 'address', 'currency', 'timezone'];
+  const allowedUpdates = ['name', 'slug', 'phone', 'email', 'address', 'currency', 'timezone', 'tax_id', 'bank_account', 'invoice_footer', 'invoice_notes'];
   const updates: Record<string, unknown> = {};
   
   for (const key of allowedUpdates) {
