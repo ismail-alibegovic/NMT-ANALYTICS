@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
-import { importData, ImportResponse } from '../../api/import';
+import { importData, ImportResponse, getImportHeaders } from '../../api/import';
 import { useToast } from '../../context/ToastContext';
 
 interface ImportModalProps {
@@ -56,21 +55,18 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, entity, fiel
                 },
             });
         } else {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const data = e.target?.result;
-                const workbook = XLSX.read(data, { type: 'binary' });
-                const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                const firstRow = json[0] as string[];
-                if (firstRow) {
-                    setHeaders(firstRow);
-                    autoMap(firstRow);
-                    setStep('map');
+            // Use API to extract headers for XLSX files
+            getImportHeaders(entity, selectedFile).then((result: any) => {
+                if (result.headers) {
+                    setHeaders(result.headers);
+                    autoMap(result.headers);
+                    setStep("map");
+                } else {
+                    showError("Failed to read XLSX headers");
                 }
-            };
-            reader.readAsBinaryString(selectedFile);
+            }).catch((err: any) => {
+                showError(err.message || "Failed to parse XLSX file");
+            });
         }
     };
 

@@ -42,3 +42,26 @@ export async function importData(
 
     return data;
 }
+
+/**
+ * Extract column headers from an XLSX/CSV file via the API
+ */
+export async function getImportHeaders(
+    entity: string,
+    file: File
+): Promise<{ headers: string[] }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const { data } = await post<{ success: boolean; headers: string[] }>(
+        `/import/${entity}/headers`,
+        formData,
+        {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        }
+    );
+
+    return data;
+}

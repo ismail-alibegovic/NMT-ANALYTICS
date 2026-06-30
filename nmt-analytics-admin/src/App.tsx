@@ -14,9 +14,7 @@ const CustomerDetail = lazy(() => import("./pages/CustomerDetail"));
 const Packages = lazy(() => import("./pages/admin/Packages"));
 const Reservations = lazy(() => import("./pages/Reservations"));
 const Departures = lazy(() => import("./pages/admin/Departures"));
-const Payments = lazy(() => import("./pages/admin/Payments"));
-const PaymentDashboard = lazy(() => import("./pages/PaymentDashboard"));
-const Transactions = lazy(() => import("./pages/admin/Transactions"));
+const UnifiedPayments = lazy(() => import("./pages/admin/Payments"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Integrations = lazy(() => import("./pages/admin/Integrations"));
 const Settings = lazy(() => import("./pages/admin/Settings"));
@@ -46,9 +44,7 @@ export default function App() {
           <Route path="/packages" element={<SuspenseWrapper><Packages /></SuspenseWrapper>} />
           <Route path="/reservations" element={<SuspenseWrapper><Reservations /></SuspenseWrapper>} />
           <Route path="/departures" element={<SuspenseWrapper><Departures /></SuspenseWrapper>} />
-          <Route path="/payments" element={<SuspenseWrapper><Payments /></SuspenseWrapper>} />
-          <Route path="/payment-dashboard" element={<SuspenseWrapper><PaymentDashboard /></SuspenseWrapper>} />
-          <Route path="/transactions" element={<SuspenseWrapper><Transactions /></SuspenseWrapper>} />
+          <Route path="/payments" element={<SuspenseWrapper><UnifiedPayments /></SuspenseWrapper>} />
           <Route path="/reports" element={<SuspenseWrapper><Reports /></SuspenseWrapper>} />
           <Route path="/integrations" element={<SuspenseWrapper><Integrations /></SuspenseWrapper>} />
           <Route path="/settings" element={<SuspenseWrapper><Settings /></SuspenseWrapper>} />

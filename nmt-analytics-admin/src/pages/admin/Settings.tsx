@@ -12,6 +12,15 @@ interface OrgSettings {
   address: string;
 }
 
+interface SmtpSettings {
+  host: string;
+  port: string;
+  user: string;
+  pass: string;
+  from_email: string;
+  from_name: string;
+}
+
 export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -24,12 +33,27 @@ export default function Settings() {
     phone: '',
     address: ''
   });
-  const showMessage = (text: string, type: 'success' | 'error') => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 5000);
-  };
-
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const [showSmtpForm, setShowSmtpForm] = useState(false);
+  const [smtpSettings, setSmtpSettings] = useState<SmtpSettings>({
+    host: '',
+    port: '587',
+    user: '',
+    pass: '',
+    from_email: '',
+    from_name: ''
+  });
+  const [smtpSaving, setSmtpSaving] = useState(false);
+  const [smtpMessage, setSmtpMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [testEmail, setTestEmail] = useState('');
+  const [testing, setTesting] = useState(false);
+  const smtpPasswordRef = useRef<HTMLInputElement>(null);
+
+  const showSmtpMessage = (text: string, type: 'success' | 'error') => {
+    setSmtpMessage({ type, text });
+    setTimeout(() => setSmtpMessage(null), 5000);
+  };
 
   useEffect(() => {
     fetchSettings();
@@ -55,14 +79,32 @@ export default function Settings() {
     }
   };
 
+  const fetchSmtpSettings = async () => {
+    try {
+      const { data } = await api.get<SmtpSettings>('/settings/email');
+      if (data) {
+        setSmtpSettings({
+          host: data.host || '',
+          port: data.port || '587',
+          user: data.user || '',
+          pass: '',
+          from_email: data.from_email || '',
+          from_name: data.from_name || ''
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch SMTP settings:', error);
+    }
+  };
+
   const handleSaveSmtp = async () => {
     setSmtpSaving(true);
     try {
       await api.post('/settings/email', smtpSettings);
       setShowSmtpForm(false);
-      showMessage('SMTP postavke spremljene!', 'success');
+      showSmtpMessage('SMTP postavke spremljene!', 'success');
     } catch (e: any) {
-      showMessage(e.message || 'Greška', 'error');
+      showSmtpMessage(e.message || 'Greška', 'error');
     } finally { setSmtpSaving(false); }
   };
 
@@ -70,9 +112,9 @@ export default function Settings() {
     setTesting(true);
     try {
       await api.post('/settings/email/test', { to: testEmail });
-      showMessage('Test email poslan!', 'success');
+      showSmtpMessage('Test email poslan!', 'success');
     } catch (e: any) {
-      showMessage(e.message || 'Greška', 'error');
+      showSmtpMessage(e.message || 'Greška', 'error');
     } finally { setTesting(false); }
   };
 

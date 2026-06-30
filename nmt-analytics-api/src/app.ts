@@ -1,4 +1,5 @@
 import express from 'express';
+import helmet from 'helmet';
 import cors from 'cors';
 import path from 'path';
 import { requestId, requestLogging } from './middleware/logging';
@@ -8,6 +9,12 @@ import apiRouter from './routes/index';
 
 const app = express();
 app.set('trust proxy', 1);
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: false, // Disabled to allow SPA with inline styles/scripts
+  crossOriginEmbedderPolicy: false,
+}));
 
 function isAllowedOrigin(origin: string): boolean {
   if (origin === config.ADMIN_URL) return true;
