@@ -65,7 +65,6 @@ export default function AddPaymentModal({
                 currency,
                 status: status as any,
                 payment_date: paymentDate || undefined,
-                paymentMethod: paymentMethod || undefined,
             };
 
             const result = await createPayment(paymentData);

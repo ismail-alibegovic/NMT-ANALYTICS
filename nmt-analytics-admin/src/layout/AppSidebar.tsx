@@ -16,7 +16,6 @@ import {
   PlugInIcon,
   LockIcon,
   FileIcon,
-  SettingsIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { useApp } from "../context/AppContext";
@@ -64,20 +63,6 @@ const allNavItems: NavItem[] = [
     name: "Payments",
     path: "/payments",
     module: "payments",
-    minRole: "manager",
-  },
-  {
-    icon: <DollarLineIcon />,
-    name: "Payment Dashboard",
-    path: "/payment-dashboard",
-    module: "payments",
-    minRole: "manager",
-  },
-  {
-    icon: <DollarLineIcon />,
-    name: "Transactions",
-    path: "/transactions",
-    module: "transactions",
     minRole: "manager",
   },
   {

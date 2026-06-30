@@ -104,7 +104,6 @@ export default function PaymentsModal({
                 currency,
                 status: status as any,
                 payment_date: paymentDate || undefined,
-                payment_method: paymentMethod || undefined,
             };
 
             await createPayment(paymentData);

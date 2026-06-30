@@ -530,8 +530,15 @@ router.get('/reservations/:id/voucher.pdf', authenticateToken, requireOrgContext
       return apiError(res, 404, "NOT_FOUND", "Reservation not found");
     }
 
+    // Fetch org settings for branding
+    const { data: orgSettings } = await supabaseAdmin
+      .from('organizations')
+      .select('branding')
+      .eq('id', orgId)
+      .single();
+
     // Generate PDF using helper
-    const pdfBuffer = await generateVoucherPDF(reservation);
+    const pdfBuffer = await generateVoucherPDF(reservation, orgSettings?.branding);
 
     // Set response headers
     res.setHeader('Content-Type', 'application/pdf');

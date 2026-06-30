@@ -30,7 +30,7 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom', 'react-router'],
           'vendor-charts': ['apexcharts', 'react-apexcharts'],
           'vendor-calendar': ['@fullcalendar/core', '@fullcalendar/react', '@fullcalendar/daygrid', '@fullcalendar/timegrid', '@fullcalendar/interaction', '@fullcalendar/list'],
-          'vendor-data': ['xlsx', 'papaparse'],
+          'vendor-data': ['papaparse'],
         },
       },
     },
