@@ -25,6 +25,7 @@ export interface CustomerFilters {
   page?: number;
   limit?: number;
   status?: string;
+  packageId?: string;
 }
 
 export interface CustomerListResponse {
@@ -50,6 +51,7 @@ export async function getCustomers(filters: CustomerFilters = {}): Promise<Custo
   if (filters.page) params.page = filters.page;
   if (filters.limit) params.limit = filters.limit;
   if (filters.status) params.status = filters.status;
+  if (filters.packageId) params.packageId = filters.packageId;
 
   const { data } = await get<CustomerListResponse>('/customers', { params });
   return data;

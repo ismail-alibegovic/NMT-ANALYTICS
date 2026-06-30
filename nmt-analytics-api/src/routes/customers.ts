@@ -12,10 +12,66 @@ const router = Router();
 router.get('/customers', authenticateToken, requireOrgContext, async (req: any, res) => {
   try {
     const orgId = req.orgId;
-    const { search, page: pageStr, limit: limitStr, status } = req.query;
+    const { search, page: pageStr, limit: limitStr, status, packageId } = req.query;
     const page = Math.max(1, parseInt(pageStr) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(limitStr) || 50));
     const offset = (page - 1) * limit;
+
+    if (packageId) {
+      // Step 1: Get departure IDs for this package
+      const { data: departures } = await supabaseAdmin
+        .from('departures')
+        .select('id')
+        .eq('org_id', orgId)
+        .eq('package_id', packageId);
+
+      const departureIds = (departures || []).map((d: any) => d.id);
+
+      if (departureIds.length === 0) {
+        return res.json({ data: [], total: 0, page, limit, totalPages: 0 });
+      }
+
+      // Step 2: Get customer IDs from reservations for those departures
+      const { data: reservationCustomers } = await supabaseAdmin
+        .from('reservations')
+        .select('customer_id')
+        .eq('org_id', orgId)
+        .not('customer_id', 'is', null)
+        .in('departure_id', departureIds);
+
+      if (!reservationCustomers || reservationCustomers.length === 0) {
+        return res.json({ data: [], total: 0, page, limit, totalPages: 0 });
+      }
+
+      const customerIds = [...new Set(reservationCustomers.map((r: any) => r.customer_id))];
+
+      let query = supabaseAdmin
+        .from('customers')
+        .select('*', { count: 'exact' })
+        .eq('org_id', orgId)
+        .in('id', customerIds)
+        .order('created_at', { ascending: false });
+
+      if (search) {
+        const q = `%${search}%`;
+        query = query.or(`full_name.ilike.${q},phone.ilike.${q},email.ilike.${q}`);
+      }
+
+      if (status) {
+        query = query.eq('status', status);
+      }
+
+      const { data, error, count } = await query.range(offset, offset + limit - 1);
+      if (error) throw error;
+
+      return res.json({
+        data: data || [],
+        total: count || 0,
+        page,
+        limit,
+        totalPages: Math.ceil((count || 0) / limit),
+      });
+    }
 
     let query = supabaseAdmin
       .from('customers')

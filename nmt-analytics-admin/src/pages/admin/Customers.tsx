@@ -20,6 +20,7 @@ import {
   deleteCustomer,
   Customer
 } from '../../api/customers';
+import { getPackages, Package } from '../../api/packages';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -38,14 +39,16 @@ export default function Customers() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [packageFilter, setPackageFilter] = useState<string>('');
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
-  const fetchCustomers = async (page = 1, search = '') => {
+  const fetchCustomers = async (page = 1, search = '', pkgId = '') => {
     setLoading(true);
     setError(null);
     try {
-      const response = await getCustomers({ page, limit: ITEMS_PER_PAGE, search: search || undefined });
+      const response = await getCustomers({ page, limit: ITEMS_PER_PAGE, search: search || undefined, packageId: pkgId || undefined });
       setCustomers(response.data || []);
       setTotalItems(response.total || 0);
       setCurrentPage(page);
@@ -57,13 +60,26 @@ export default function Customers() {
     }
   };
 
+  const fetchPackagesList = async () => {
+    try {
+      const res = await getPackages({ limit: 200 });
+      setPackages(res.data);
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchPackagesList();
+  }, []);
+
   useEffect(() => {
     if (!authLoading && user) {
       const page = parseInt(getParam('page', '1'));
       const q = getParam('q', '');
+      const pkg = getParam('package', '');
       setCurrentPage(page);
       setSearchTerm(q);
-      fetchCustomers(page, q);
+      setPackageFilter(pkg);
+      fetchCustomers(page, q, pkg);
     } else if (!authLoading) {
       setLoading(false);
     }
@@ -75,23 +91,24 @@ export default function Customers() {
       setParams({
         page: currentPage > 1 ? currentPage : null,
         q: searchTerm || null,
+        package: packageFilter || null,
       });
     }
-  }, [currentPage, searchTerm, setParams, authLoading, user]);
+  }, [currentPage, searchTerm, packageFilter, setParams, authLoading, user]);
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
-    fetchCustomers(1, value);
+    fetchCustomers(1, value, packageFilter);
   };
 
   useDataInvalidation('customers', () => {
-    fetchCustomers(currentPage, searchTerm);
+    fetchCustomers(currentPage, searchTerm, packageFilter);
   });
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    fetchCustomers(page, searchTerm);
+    fetchCustomers(page, searchTerm, packageFilter);
   };
 
   const handleCreate = () => {
@@ -109,7 +126,7 @@ export default function Customers() {
     try {
       await deleteCustomer(customer.id);
       showSuccess('Customer deleted successfully');
-      fetchCustomers(currentPage, searchTerm);
+      fetchCustomers(currentPage, searchTerm, packageFilter);
     } catch {
       showError('Failed to delete customer');
     }
@@ -134,7 +151,7 @@ export default function Customers() {
         showSuccess('Customer created successfully');
       }
       setModalOpen(false);
-      fetchCustomers(currentPage, searchTerm);
+      fetchCustomers(currentPage, searchTerm, packageFilter);
     } catch (err: any) {
       console.error('Customer submission error:', err);
       // Use backend error message if available
@@ -246,9 +263,34 @@ export default function Customers() {
         entity="customers"
         onSuccess={() => {
           setImportModalOpen(false);
-          fetchCustomers(currentPage, searchTerm);
+          fetchCustomers(currentPage, searchTerm, packageFilter);
         }}
       />
+
+      {/* Filter by package */}
+      <div className="mb-6">
+        <div className="w-full sm:w-64">
+          <select
+            value={packageFilter}
+            onChange={(e) => {
+              setPackageFilter(e.target.value);
+              setCurrentPage(1);
+              fetchCustomers(1, searchTerm, e.target.value);
+            }}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/[0.1] dark:bg-gray-900 dark:text-white"
+          >
+            <option value="">Svi klijenti (svi aranžmani)</option>
+            {packages.map((pkg) => (
+              <option key={pkg.id} value={pkg.id}>{pkg.name} - {pkg.destination}</option>
+            ))}
+          </select>
+        </div>
+        {packageFilter && (
+          <p className="text-xs text-gray-500 mt-2">
+            Prikazani su klijenti koji imaju rezervaciju za odabrani aranžman.
+          </p>
+        )}
+      </div>
 
       {loading ? (
         <div className="flex items-center justify-center p-20">
@@ -256,7 +298,7 @@ export default function Customers() {
         </div>
       ) : error ? (
         <div className="p-6">
-          <EmptyState title="Failed to load customers" description={error} action={{ label: "Try Again", onClick: () => fetchCustomers(currentPage, searchTerm) }} />
+          <EmptyState title="Failed to load customers" description={error} action={{ label: "Try Again", onClick: () => fetchCustomers(currentPage, searchTerm, packageFilter) }} />
         </div>
       ) : customers.length === 0 ? (
         <EmptyState title="No customers found" description={searchTerm ? "Try searching for something else" : "Get started by adding your first customer"} action={!searchTerm ? { label: "Add Customer", onClick: handleCreate } : undefined} />

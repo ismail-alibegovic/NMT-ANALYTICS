@@ -12,16 +12,25 @@ import { useQueryParams } from "../hooks/useQueryParams";
 import { useDataInvalidation } from "../hooks/useDataInvalidation";
 import { useApp } from "../context/AppContext";
 import EmptyState from "../components/ui/EmptyState";
+import { FormModal } from "../components/ui/FormModal";
+import CreateReservationModal from "../components/reservations/CreateReservationModal";
+import EditReservationModal from "../components/reservations/EditReservationModal";
 import { formatCurrency, normalizeMoney } from "../utils/business";
 import {
   getReservations,
   downloadVoucher,
   downloadInvoice,
   batchUpdateStatus,
+  createReservation,
+  updateReservation,
+  deleteReservation,
   Reservation,
   ReservationListResponse,
   ReservationFilters
 } from "../api/reservations";
+import { getCustomers, Customer } from "../api/customers";
+import { getPackages, Package } from "../api/packages";
+import { getDepartures, Departure } from "../api/departures";
 import { hasAccess } from "../types/roles";
 
 const ITEMS_PER_PAGE = 10;
@@ -44,7 +53,10 @@ export default function Reservations() {
   const [assignedOnly, setAssignedOnly] = useState<boolean>(getParam('my', '') === 'true');
 
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -151,6 +163,27 @@ export default function Reservations() {
   const handleOpenPaymentModal = (reservation: Reservation) => {
     setSelectedReservation(reservation);
     setIsPaymentModalOpen(true);
+  };
+
+  const handleEdit = (reservation: Reservation) => {
+    setEditingReservation(reservation);
+    setIsEditOpen(true);
+  };
+
+  const handleDelete = async (reservation: Reservation) => {
+    if (!confirm(`Jeste li sigurni da želite obrisati rezervaciju za ${reservation.customerName}?`))
+      return;
+    try {
+      await deleteReservation(reservation.id);
+      showSuccess("Rezervacija obrisana");
+      fetchReservations(currentPage, statusFilter, dateFrom, dateTo);
+    } catch (err: any) {
+      showError(err?.message || "Greška pri brisanju rezervacije");
+    }
+  };
+
+  const handleEditSuccess = () => {
+    fetchReservations(currentPage, statusFilter, dateFrom, dateTo);
   };
 
   const handlePaymentCreated = () => {
@@ -333,6 +366,14 @@ export default function Reservations() {
       header: 'Akcije',
       render: (_, res) => (
         <div className="flex flex-wrap gap-1 justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs px-2 py-1 whitespace-nowrap"
+            onClick={() => handleEdit(res)}
+          >
+            Uredi
+          </Button>
           {!isAgent && (
           <Button
             size="sm"
@@ -360,6 +401,14 @@ export default function Reservations() {
               Faktura
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs px-2 py-1 whitespace-nowrap text-red-600 hover:text-red-700"
+            onClick={() => handleDelete(res)}
+          >
+            Obriši
+          </Button>
         </div>
       )
     }
@@ -386,6 +435,12 @@ export default function Reservations() {
         searchPlaceholder="Traži rezervacije..."
         actions={
           <div className="flex gap-2">
+            <Button
+              onClick={() => setIsCreateOpen(true)}
+              className="flex items-center gap-2"
+            >
+              + Nova rezervacija
+            </Button>
             <Button
               variant="outline"
               onClick={() => setIsImportOpen(true)}
@@ -562,6 +617,26 @@ export default function Reservations() {
           onPaymentCreated={handlePaymentCreated}
         />
       )}
+
+      {editingReservation && (
+        <EditReservationModal
+          isOpen={isEditOpen}
+          onClose={() => {
+            setIsEditOpen(false);
+            setEditingReservation(null);
+          }}
+          reservation={editingReservation}
+          onSuccess={handleEditSuccess}
+        />
+      )}
+
+      <CreateReservationModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onSuccess={() => {
+          fetchReservations(currentPage, statusFilter, dateFrom, dateTo);
+        }}
+      />
     </>
   );
 }

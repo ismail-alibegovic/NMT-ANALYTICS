@@ -23,15 +23,19 @@ export interface Departure {
 
 export interface CreateDepartureData {
   packageId: string;
-  departureDate: string;
-  returnDate: string;
-  totalSpots: number;
-  price: number;
-  currency: string;
+  departAt: string;
+  returnAt: string;
+  capacity: number;
   status?: 'active' | 'cancelled' | 'completed';
 }
 
-export interface UpdateDepartureData extends Partial<CreateDepartureData> { }
+export interface UpdateDepartureData {
+  packageId?: string;
+  departAt?: string;
+  returnAt?: string;
+  capacity?: number;
+  status?: 'active' | 'cancelled' | 'completed';
+}
 
 export interface DepartureFilters {
   packageId?: string;
