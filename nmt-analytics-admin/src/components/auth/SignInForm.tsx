@@ -31,7 +31,7 @@ export default function SignInForm() {
       // The backend has DEV_BYPASS_AUTH=true which accepts requests without valid JWT
       // We need to create a minimal Supabase session
       const { error } = await supabase.auth.signInWithPassword({
-        email: "dev@nmt-analytics.local",
+        email: "dev@travline.app",
         password: "devpassword123",
       });
 
@@ -44,7 +44,7 @@ export default function SignInForm() {
         localStorage.setItem('nmt_auth_token', 'dev-token');
         localStorage.setItem('nmt_user', JSON.stringify({
           id: '72ed5a01-9095-4045-bd9a-14b3beed9962',
-          email: 'dev@nmt-analytics.local'
+          email: 'dev@travline.app'
         }));
         
         // Force page reload to trigger AppContext to fetch context

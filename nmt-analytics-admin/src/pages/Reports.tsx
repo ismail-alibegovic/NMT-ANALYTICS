@@ -82,7 +82,7 @@ export default function Reports() {
             if (dateRange.from) params.append('from', dateRange.from);
             if (dateRange.to) params.append('to', dateRange.to);
 
-            const token = localStorage.getItem('nmt_auth_token');
+            const token = localStorage.getItem('travline_auth_token');
             const response = await fetch(`${import.meta.env.VITE_API_URL}/analytics/overview.csv?${params.toString()}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -111,7 +111,7 @@ export default function Reports() {
             if (dateRange.from) params.append('from', dateRange.from);
             if (dateRange.to) params.append('to', dateRange.to);
 
-            const token = localStorage.getItem('nmt_auth_token');
+            const token = localStorage.getItem('travline_auth_token');
             const response = await fetch(`${import.meta.env.VITE_API_URL}/analytics/by-package.csv?${params.toString()}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`

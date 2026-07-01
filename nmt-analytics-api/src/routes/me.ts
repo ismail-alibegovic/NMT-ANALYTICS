@@ -60,7 +60,7 @@ router.get('/me/context', authenticateToken, requireOrgContext, async (req, res)
           id: req.user!.id,
           email: req.user!.email
         },
-        org: { id: req.orgId, name: 'Travline', slug: 'nmt-analytics' },
+        org: { id: req.orgId, name: 'Travline', slug: 'travline' },
         role: req.user!.role || 'director',
         modules: ['dashboard', 'customers', 'packages', 'reservations', 'departures', 'payments', 'transactions', 'analytics', 'integrations']
       };

@@ -9,7 +9,7 @@ export const dataEvents = {
      * Emit an invalidation event for a specific entity or 'all'
      */
     emit(entity: EntityType | 'all') {
-        const event = new CustomEvent('nmt:data_invalidated', {
+        const event = new CustomEvent('travline:data_invalidated', {
             detail: { entity }
         });
         window.dispatchEvent(event);
@@ -25,7 +25,7 @@ export const dataEvents = {
             callback(detail.entity);
         };
 
-        window.addEventListener('nmt:data_invalidated', handler);
-        return () => window.removeEventListener('nmt:data_invalidated', handler);
+        window.addEventListener('travline:data_invalidated', handler);
+        return () => window.removeEventListener('travline:data_invalidated', handler);
     }
 };

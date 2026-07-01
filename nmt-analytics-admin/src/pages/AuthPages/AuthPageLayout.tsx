@@ -19,7 +19,7 @@ export default function AuthLayout({
             <div className="flex flex-col items-center max-w-sm">
               <Link to="/" className="block mb-6">
                 <img
-                  src="/images/brand/NMT analytics.png"
+                  src="/images/brand/Travline.png"
                   alt="Travline"
                   className="h-12 w-auto"
                 />

@@ -1,11 +1,11 @@
-# Travline (formerly NMT Analytics) — Project Index
+# Travline (renamed to Travline) — Project Index
 
 ## Architecture
 nmt-analytics-api/    — Express + Supabase backend (TypeScript)
 nmt-analytics-admin/  — React + Vite + Tailwind frontend
 
 ## Live URL
-https://nmt-analytics-sprypine.zocomputer.io
+https://travline.zocomputer.io
 
 ## Auth Credentials
 - director role: admin@nmt.ba / NmtAdmin2025!

@@ -11,7 +11,7 @@ export async function authenticateToken(
   // DEV_BYPASS_AUTH: allow testing without a real JWT
   if (config.DEV_BYPASS_AUTH) {
     const bypassId = "00000000-0000-0000-0000-000000000000";
-    req.user = { id: bypassId, email: "dev-bypass@nmt-analytics.com", role: "super_admin" };
+    req.user = { id: bypassId, email: "dev-bypass@travline.app", role: "super_admin" };
 
     // Set orgId from DEV_ORG_ID or fetch first org
     if (config.DEV_ORG_ID) {

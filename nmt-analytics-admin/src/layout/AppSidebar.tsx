@@ -311,7 +311,7 @@ const AppSidebar: React.FC = () => {
       >
         <Link to="/" className="flex items-center gap-3">
           <img
-            src="/images/brand/NMT analytics.png"
+            src="/images/brand/Travline.png"
             alt="Travline"
             className="h-7 w-auto rounded-lg object-contain shrink-0"
           />
