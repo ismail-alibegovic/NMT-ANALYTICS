@@ -86,11 +86,11 @@ const AppHeader: React.FC = () => {
           <Link to="/" className="flex items-center gap-2 lg:hidden">
             <img
               src="/images/brand/NMT analytics.png"
-              alt="NMT Analytics"
+              alt="Travline"
               className="h-7 w-auto rounded-md object-contain"
             />
             <span className="text-lg font-bold text-gray-900 dark:text-white">
-              NMT Analytics
+              Travline
             </span>
           </Link>
 

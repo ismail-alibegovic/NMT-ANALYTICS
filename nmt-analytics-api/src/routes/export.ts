@@ -19,27 +19,7 @@ router.get('/export/all.zip', authenticateToken, requireOrgContext, async (req, 
   try {
     const orgId = req.orgId!;
     const dateStr = new Date().toISOString().split('T')[0];
-    const filename = `nmt-export-${dateStr}.zip`;
-
-    // Set response headers
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-
-    // Create ZIP archive
-    const archive = archiver('zip', {
-      zlib: { level: 9 } // Maximum compression
-    });
-
-    // Handle archive errors
-    archive.on('error', (err) => {
-      console.error('Archive error:', err);
-      if (!res.headersSent) {
-        apiError(res, 500, 'ARCHIVE_ERROR', 'Failed to create archive');
-      }
-    });
-
-    // Pipe archive to response
-    archive.pipe(res);
+    const filename = `travline-export-${dateStr}.zip`;
 
     // Fetch all data in parallel
     const [customersResult, packagesResult, departuresResult, reservationsResult, transactionsResult] = await Promise.all([
@@ -85,126 +65,107 @@ router.get('/export/all.zip', authenticateToken, requireOrgContext, async (req, 
         .order('occurred_at')
     ]);
 
-    // Check for errors
     if (customersResult.error) throw customersResult.error;
     if (packagesResult.error) throw packagesResult.error;
     if (departuresResult.error) throw departuresResult.error;
     if (reservationsResult.error) throw reservationsResult.error;
     if (transactionsResult.error) throw transactionsResult.error;
 
-    // Helper function to convert array of objects to CSV
-    const arrayToCSV = (data: any[], headers: string[]): string => {
-      const csvRows = [headers.join(',')];
-
-      for (const row of data) {
-        const values = headers.map(header => {
-          const value = row[header];
-          // Escape commas and quotes in CSV
-          if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
-            return `"${value.replace(/"/g, '""')}"`;
-          }
-          return value || '';
-        });
-        csvRows.push(values.join(','));
-      }
-
-      return csvRows.join('\n');
-    };
-
-    // Generate CSV files
+    // Build all CSVs in memory
+    const files: { name: string; content: string }[] = [];
 
     // Customers CSV
-    const customersHeaders = ['id', 'full_name', 'phone', 'email', 'notes', 'created_at', 'updated_at'];
-    const customersCSV = arrayToCSV(customersResult.data || [], customersHeaders);
-    archive.append(customersCSV, { name: 'customers.csv' });
+    const customerHeaders = ['id', 'full_name', 'phone', 'email', 'notes', 'created_at', 'updated_at'];
+    files.push({
+      name: 'customers.csv',
+      content: toCSV(customersResult.data || [], customerHeaders)
+    });
 
     // Packages CSV
-    const packagesHeaders = ['id', 'name', 'destination', 'base_price', 'currency', 'is_active', 'description', 'duration_days', 'max_participants', 'start_date', 'end_date', 'created_at', 'updated_at'];
-    const packagesCSV = arrayToCSV(packagesResult.data || [], packagesHeaders);
-    archive.append(packagesCSV, { name: 'packages.csv' });
+    const pkgHeaders = ['id', 'name', 'destination', 'base_price', 'currency', 'is_active', 'description', 'duration_days', 'max_participants', 'start_date', 'end_date', 'created_at', 'updated_at'];
+    files.push({
+      name: 'packages.csv',
+      content: toCSV(packagesResult.data || [], pkgHeaders)
+    });
 
     // Departures CSV
-    const departuresData = (departuresResult.data || []).map(dep => ({
-      id: dep.id,
-      package_name: dep.packages?.name || '',
-      package_destination: dep.packages?.destination || '',
-      depart_at: dep.depart_at,
-      return_at: dep.return_at,
-      capacity: dep.capacity,
-      booked: dep.booked,
-      status: dep.status,
-      created_at: dep.created_at,
-      updated_at: dep.updated_at
+    const depData = (departuresResult.data || []).map(d => ({
+      id: d.id,
+      package_name: d.packages?.name || '',
+      package_destination: d.packages?.destination || '',
+      depart_at: d.depart_at,
+      return_at: d.return_at,
+      capacity: d.capacity,
+      booked: d.booked,
+      status: d.status,
+      created_at: d.created_at,
+      updated_at: d.updated_at
     }));
-    const departuresHeaders = ['id', 'package_name', 'package_destination', 'depart_at', 'return_at', 'capacity', 'booked', 'status', 'created_at', 'updated_at'];
-    const departuresCSV = arrayToCSV(departuresData, departuresHeaders);
-    archive.append(departuresCSV, { name: 'departures.csv' });
+    const depHeaders = ['id', 'package_name', 'package_destination', 'depart_at', 'return_at', 'capacity', 'booked', 'status', 'created_at', 'updated_at'];
+    files.push({
+      name: 'departures.csv',
+      content: toCSV(depData, depHeaders)
+    });
 
     // Reservations CSV
-    const reservationsData = (reservationsResult.data || []).map(res => ({
-      id: res.id,
-      customer_name: res.customers?.full_name || res.customer_name,
-      customer_phone: res.customers?.phone || res.customer_phone,
-      customer_email: res.customers?.email || '',
-      package_name: res.departures?.packages?.name || '',
-      package_destination: res.departures?.packages?.destination || '',
-      departure_date: res.departures?.depart_at || '',
-      return_date: res.departures?.return_at || '',
-      party_size: res.party_size,
-      reservation_at: res.reservation_at,
-      status: res.status,
-      total_amount: res.total_amount,
-      currency: res.currency,
-      source: res.source,
-      created_at: res.created_at,
-      updated_at: res.updated_at
+    const resData = (reservationsResult.data || []).map(r => ({
+      id: r.id,
+      customer_name: r.customers?.full_name || r.customer_name,
+      customer_phone: r.customers?.phone || r.customer_phone,
+      customer_email: r.customers?.email || '',
+      package_name: r.departures?.packages?.name || '',
+      package_destination: r.departures?.packages?.destination || '',
+      departure_date: r.departures?.depart_at || '',
+      return_date: r.departures?.return_at || '',
+      party_size: r.party_size,
+      reservation_at: r.reservation_at,
+      status: r.status,
+      total_amount: r.total_amount,
+      paid_amount: r.paid_amount,
+      currency: r.currency,
+      source: r.source || '',
+      created_at: r.created_at,
+      updated_at: r.updated_at
     }));
-    const reservationsHeaders = ['id', 'customer_name', 'customer_phone', 'customer_email', 'package_name', 'package_destination', 'departure_date', 'return_date', 'party_size', 'reservation_at', 'status', 'total_amount', 'currency', 'source', 'created_at', 'updated_at'];
-    const reservationsCSV = arrayToCSV(reservationsData, reservationsHeaders);
-    archive.append(reservationsCSV, { name: 'reservations.csv' });
+    const resHeaders = ['id', 'customer_name', 'customer_phone', 'customer_email', 'package_name', 'package_destination', 'departure_date', 'return_date', 'party_size', 'reservation_at', 'status', 'total_amount', 'paid_amount', 'currency', 'source', 'created_at', 'updated_at'];
+    files.push({
+      name: 'reservations.csv',
+      content: toCSV(resData, resHeaders)
+    });
 
     // Transactions CSV
-    const transactionsHeaders = ['id', 'amount', 'currency', 'type', 'note', 'occurred_at', 'created_at', 'updated_at'];
-    const transactionsCSV = arrayToCSV(transactionsResult.data || [], transactionsHeaders);
-    archive.append(transactionsCSV, { name: 'transactions.csv' });
+    const txHeaders = ['id', 'reservation_id', 'amount', 'currency', 'type', 'note', 'occurred_at', 'created_at', 'updated_at'];
+    files.push({
+      name: 'transactions.csv',
+      content: toCSV(transactionsResult.data || [], txHeaders)
+    });
 
-    // Add a README file to the ZIP
-    const readmeContent = `# NMT Analytics Data Export
+    // README
+    files.push({
+      name: 'README.md',
+      content: `# Travline Data Export\n\nThis archive contains all data exported on ${new Date().toISOString()}.\n\nFiles:\n- customers.csv\n- packages.csv\n- departures.csv\n- reservations.csv\n- transactions.csv\n`
+    });
 
-This archive contains all data for your organization exported on ${new Date().toISOString()}.
+    // Build ZIP archive into buffer
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    const chunks: Buffer[] = [];
 
-## Files Included:
+    archive.on('data', (chunk: Buffer) => chunks.push(chunk));
+    archive.on('error', (err: any) => { throw err; });
 
-- customers.csv: All customer records
-- packages.csv: All travel packages
-- departures.csv: All departure schedules
-- reservations.csv: All booking records
-- transactions.csv: All payment transactions
+    for (const file of files) {
+      archive.append(file.content, { name: file.name });
+    }
 
-## Import Instructions:
-
-To import this data into another NMT Analytics instance:
-
-1. Extract the ZIP file
-2. Use the import API endpoint: POST /api/import
-3. Send the data as JSON arrays in the request body
-4. Or use the admin interface import feature
-
-## Notes:
-
-- All data is organization-scoped
-- Dates are in ISO format (YYYY-MM-DDTHH:mm:ss.sssZ)
-- IDs are internal identifiers and may change between systems
-- Use natural keys (names, phones, dates) for cross-system compatibility
-`;
-
-    archive.append(readmeContent, { name: 'README.md' });
-
-    // Finalize the archive
     await archive.finalize();
+    const zipBuffer = Buffer.concat(chunks);
 
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', zipBuffer.length);
+    return res.send(zipBuffer);
   } catch (error) {
-    console.error('Error in GET /export/all.zip:', error);
+    console.error('Error in export/all.zip:', error);
     if (!res.headersSent) {
       apiError(res, 500, 'EXPORT_ERROR', 'Failed to export data');
     }
@@ -587,5 +548,23 @@ router.get('/export/transactions.csv', authenticateToken, requireOrgContext, asy
     apiError(res, 500, 'EXPORT_ERROR', 'Failed to export transactions');
   }
 });
+
+// ── Helper: convert array of objects to CSV ──────────────────────────────
+function toCSV(data: Record<string, any>[], headers: string[]): string {
+  const BOM = '\ufeff';
+  const rows = data.map(row =>
+    headers.map(h => {
+      const v = row[h];
+      if (v === null || v === undefined) return '';
+      const s = String(v);
+      // Escape quotes and wrap in quotes if contains comma, quote, or newline
+      if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    }).join(',')
+  );
+  return BOM + headers.join(',') + '\n' + rows.join('\n');
+}
 
 export default router;

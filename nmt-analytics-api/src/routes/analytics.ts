@@ -768,8 +768,8 @@ router.get('/analytics/overview.csv', authenticateToken, requireOrgContext, asyn
       .select('total_amount, paid_amount, balance_due, payment_status')
       .eq('org_id', orgId);
 
-    if (from) reservationQuery = reservationQuery.gte('created_at', from);
-    if (to) reservationQuery = reservationQuery.lte('created_at', `${to}T23:59:59.999Z`);
+    if (from) reservationQuery = reservationQuery.gte('reservation_at', from);
+    if (to) reservationQuery = reservationQuery.lte('reservation_at', `${to}T23:59:59.999Z`);
 
     const { data: reservations, error: reservationError } = await reservationQuery;
 
@@ -857,8 +857,8 @@ router.get('/analytics/by-package.csv', authenticateToken, requireOrgContext, as
             `)
       .eq('org_id', orgId);
 
-    if (from) query = query.gte('created_at', from);
-    if (to) query = query.lte('created_at', `${to}T23:59:59.999Z`);
+    if (from) query = query.gte('reservation_at', from);
+    if (to) query = query.lte('reservation_at', `${to}T23:59:59.999Z`);
 
     const { data: reservations, error } = await query;
 

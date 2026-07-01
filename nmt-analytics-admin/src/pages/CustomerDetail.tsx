@@ -105,7 +105,7 @@ export default function CustomerDetail() {
   if (loading) {
     return (
       <>
-        <PageMeta title="Customer Detail | NMT Analytics" description="Customer details and activity" />
+        <PageMeta title="Customer Detail | Travline" description="Customer details and activity" />
         <div className="flex items-center justify-center p-20">
           <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
@@ -129,7 +129,7 @@ export default function CustomerDetail() {
 
   return (
     <>
-      <PageMeta title={`${customer.full_name} | NMT Analytics`} description={`Customer details for ${customer.full_name}`} />
+      <PageMeta title={`${customer.full_name} | Travline`} description={`Customer details for ${customer.full_name}`} />
 
       <div className="p-6">
         <div className="mb-6 flex items-center gap-4">

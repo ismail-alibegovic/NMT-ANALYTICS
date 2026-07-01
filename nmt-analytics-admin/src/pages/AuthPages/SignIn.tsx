@@ -6,8 +6,8 @@ export default function SignIn() {
   return (
     <>
       <PageMeta
-        title="Sign In | NMT Analytics"
-        description="Sign in to NMT Analytics"
+        title="Sign In | Travline"
+        description="Sign in to Travline"
       />
       <AuthLayout>
         <SignInForm />

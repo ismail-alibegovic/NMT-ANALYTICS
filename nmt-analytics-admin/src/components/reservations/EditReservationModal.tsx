@@ -193,7 +193,7 @@ export default function EditReservationModal({
                 <Label>Broj osoba</Label>
                 <Input
                   type="number"
-                  min={1}
+                  min="1"
                   value={String(partySize)}
                   onChange={(e) => setPartySize(Math.max(1, parseInt(e.target.value) || 1))}
                 />
@@ -202,7 +202,7 @@ export default function EditReservationModal({
                 <Label>Iznos (BAM)</Label>
                 <Input
                   type="number"
-                  min={0}
+                  min="0"
                   value={totalAmount}
                   onChange={(e) => setTotalAmount(e.target.value)}
                 />

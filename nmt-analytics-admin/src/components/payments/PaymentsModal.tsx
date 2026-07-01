@@ -9,6 +9,7 @@ import {
     createPayment,
     updatePayment,
     voidPayment,
+    refundPayment,
     Payment,
     CreatePaymentInput
 } from '../../api/payments';
@@ -103,6 +104,7 @@ export default function PaymentsModal({
                 amount: amountNum,
                 currency,
                 status: status as any,
+                payment_method: paymentMethod || undefined,
                 payment_date: paymentDate || undefined,
             };
 
@@ -172,6 +174,20 @@ export default function PaymentsModal({
             if (onPaymentCreated) onPaymentCreated();
         } catch (err: any) {
             showError(err.message || 'Greška pri otkazivanju');
+        }
+    };
+
+    const handleRefundPayment = async (id: string) => {
+        const reason = window.prompt('Razlog za refundaciju (opcionalno):');
+        if (reason === null) return; // cancelled prompt
+
+        try {
+            await refundPayment(id, reason || undefined);
+            showSuccess('Plaćanje refundirano');
+            await fetchPayments();
+            if (onPaymentCreated) onPaymentCreated();
+        } catch (err: any) {
+            showError(err.message || 'Greška pri refundaciji');
         }
     };
 
@@ -375,6 +391,11 @@ export default function PaymentsModal({
                                                 <div><span className="opacity-70">Kreirano:</span> {formatDate(payment.createdAt)}</div>
                                                 <div className="text-xs font-mono"><span className="opacity-70">ID:</span> {payment.id.substring(0, 8)}</div>
                                                 <div className="text-xs"><span className="opacity-70">Valuta:</span> {payment.currency}</div>
+                                                {payment.paymentMethod && (
+                                                    <div className="text-xs"><span className="opacity-70">Način:</span> {
+                                                        { cash: 'Gotovina', card: 'Kartica', bank_transfer: 'Bankovni transfer', credit: 'Kredit', other: 'Ostalo' }[payment.paymentMethod] || payment.paymentMethod
+                                                    }</div>
+                                                )}
                                             </div>
                                         </div>
 
@@ -393,7 +414,7 @@ export default function PaymentsModal({
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    onClick={() => handleUpdateStatus(payment.id, 'refunded')}
+                                                    onClick={() => handleRefundPayment(payment.id)}
                                                     className="text-xs py-1 h-auto text-info-600 border-info-200 hover:bg-info-50"
                                                 >
                                                     Refundiraj

@@ -30,7 +30,7 @@ const envSchema = z.object({
 
   // Dev auto-bootstrap (creates org/profile/modules automatically)
   DEV_AUTO_BOOTSTRAP: z.string().optional().transform(val => val === 'true'),
-  DEV_DEFAULT_ORG_NAME: z.string().default('NMT Analytics'),
+  DEV_DEFAULT_ORG_NAME: z.string().default('Travline'),
   DEV_DEFAULT_ROLE: z.string().default('director'),
   DEV_DEFAULT_MODULES: z.string().default('dashboard,customers,packages,reservations,departures,payments,transactions'),
 });

@@ -203,7 +203,7 @@ export default function Packages() {
 
   return (
     <>
-      <PageMeta title="Packages | NMT Analytics" description="Manage travel packages and destinations" />
+      <PageMeta title="Packages | Travline" description="Manage travel packages and destinations" />
       <PageToolbar
         title="Packages"
         description="Manage travel packages and destinations"

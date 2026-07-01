@@ -18,7 +18,6 @@ import {
   deleteDeparture,
   Departure,
   DepartureFilters,
-  CreateDepartureData,
 } from "../../api/departures";
 import { getPackages, Package } from "../../api/packages";
 
@@ -27,7 +26,7 @@ const ITEMS_PER_PAGE = 10;
 type ViewMode = "table" | "calendar";
 
 export default function Departures() {
-  const { error: showError } = useToast();
+  const { error: showError, success: showSuccess } = useToast();
   const [departures, setDepartures] = useState<Departure[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -43,6 +42,7 @@ export default function Departures() {
   const [packageId, setPackageId] = useState<string>("");
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
@@ -65,6 +65,7 @@ export default function Departures() {
         packageId: packageId || undefined,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
+        search: searchQuery || undefined,
       };
 
       const response = await getDepartures(filters);
@@ -77,7 +78,7 @@ export default function Departures() {
     } finally {
       setLoading(false);
     }
-  }, [packageId, dateFrom, dateTo, showError, viewMode]);
+  }, [packageId, dateFrom, dateTo, searchQuery, showError, viewMode]);
 
   useEffect(() => {
     fetchPackages();
@@ -271,12 +272,12 @@ export default function Departures() {
 
   return (
     <>
-      <PageMeta title="Departures | NMT Analytics" description="Manage departures and capacities" />
+      <PageMeta title="Departures | Travline" description="Manage departures and capacities" />
       <PageToolbar
         title="Polasci"
         description="Upravljanje polascima i kapacitetima"
-        searchValue=""
-        onSearchChange={() => { }}
+        searchValue={searchQuery}
+        onSearchChange={(query) => setSearchQuery(query)}
         searchPlaceholder="Traži polaske..."
         createButton={{ label: "Dodaj polazak", onClick: handleCreate }}
         actions={

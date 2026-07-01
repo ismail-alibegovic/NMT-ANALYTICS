@@ -1,4 +1,5 @@
 {
+  "name": "travline",
   "dependencies": {
     "n": "^10.2.0"
   }

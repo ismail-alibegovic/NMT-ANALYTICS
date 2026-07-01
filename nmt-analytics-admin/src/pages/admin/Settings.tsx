@@ -150,7 +150,7 @@ export default function Settings() {
 
   return (
     <>
-      <PageMeta title="Postavke | NMT Analytics" description="Postavke organizacije" />
+      <PageMeta title="Postavke | Travline" description="Postavke organizacije" />
       
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Postavke</h1>
@@ -325,7 +325,7 @@ export default function Settings() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ime pošiljaoca</label>
                   <input type="text" value={smtpSettings.from_name} onChange={(e) => setSmtpSettings({...smtpSettings, from_name: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="NMT Analytics" />
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="Travline" />
                 </div>
               </div>
               <div className="flex gap-3 items-end">

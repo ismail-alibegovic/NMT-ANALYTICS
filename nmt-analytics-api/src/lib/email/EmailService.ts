@@ -59,4 +59,26 @@ export class EmailService {
             ]
         });
     }
+
+    static async sendPaymentConfirmation(reservation: any, pdfBuffer?: Buffer) {
+        const customerEmail = reservation.customers?.email || reservation.customer_email || reservation.customerEmail;
+        const customerName = reservation.customers?.full_name || reservation.customer_name || reservation.customerName || 'Customer';
+        const amount = reservation.amount;
+        const currency = reservation.currency || 'BAM';
+        const paymentId = reservation.paymentId || reservation.id || '';
+
+        return this.provider.sendEmail({
+            to: customerEmail,
+            subject: `Potvrda uplate - ${paymentId.substring(0, 8).toUpperCase()}`,
+            body: `Poštovani ${customerName},\n\nVaša uplata od ${amount} ${currency} je uspješno primljena.\n\nHvala na povjerenju!\n${reservation.orgName || 'Travline'}`,
+        });
+    }
+
+    static async sendPaymentOverdueReminder(customerEmail: string, customerName: string, amount: number, reservationId: string) {
+        return this.provider.sendEmail({
+            to: customerEmail,
+            subject: `Podsjetnik: dospjela uplata - ${reservationId.substring(0, 8).toUpperCase()}`,
+            body: `Poštovani ${customerName},\n\nPodsjećamo Vas da imate dospjelu uplatu od ${amount} BAM.\n\nMolimo izvršite uplatu u najkraćem mogućem roku.\n\nSrdačno,\nTravline`,
+        });
+    }
 }

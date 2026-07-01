@@ -60,7 +60,7 @@ router.post('/test', requireMinimumRole('director'), async (req: Request, res: R
 
     await provider.sendEmail({
       to: req.user!.email || 'test@example.com',
-      subject: 'NMT Analytics — SMTP Test',
+      subject: 'Travline — SMTP Test',
       body: 'SMTP configuration is working correctly.',
     });
 

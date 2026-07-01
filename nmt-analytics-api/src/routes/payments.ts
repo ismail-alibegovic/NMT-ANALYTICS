@@ -7,6 +7,7 @@ import { logAction } from '../lib/audit';
 import { z } from 'zod';
 import { auditPaymentCreate, auditPaymentUpdate } from '../middleware/auditLogger';
 import { notifyPaymentReceived } from '../lib/notificationService';
+import { EmailService } from '../lib/email/EmailService';
 import { requireMinimumRole } from '../middleware/requireRole';
 
 
@@ -39,6 +40,7 @@ const createPaymentSchema = z.object({
     currency: z.string().optional(), // Optional: defaults to reservation.currency
     status: z.enum(['pending', 'succeeded', 'failed', 'refunded', 'cancelled']).optional().default('succeeded'),
     payment_date: z.string().optional(), // YYYY-MM-DD
+    payment_method: z.enum(['cash', 'card', 'bank_transfer', 'credit', 'other']).optional(),
 });
 
 type CreatePaymentInput = z.infer<typeof createPaymentSchema>;
@@ -94,6 +96,7 @@ router.get('/payments', async (req: Request, res: Response) => {
                 amount,
                 currency,
                 status,
+                payment_method,
                 payment_date,
                 created_at
             `, { count: 'exact' })
@@ -150,6 +153,7 @@ router.get('/payments', async (req: Request, res: Response) => {
                 amount: Number(payment.amount),
                 currency: payment.currency,
                 status: payment.status,
+                paymentMethod: payment.payment_method,
                 paymentDate: payment.payment_date,
                 createdAt: payment.created_at,
             };
@@ -209,14 +213,14 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
             return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid request body', validationResult.error.issues);
         }
 
-        const { reservation_id, amount, currency, status, payment_date } = validationResult.data;
+        const { reservation_id, amount, currency, status, payment_method, payment_date } = validationResult.data;
         const orgId = req.orgId!;
 
         // Verify reservation exists and belongs to this org
         // ALSO fetch currency to use as source of truth
         const { data: reservation, error: reservationError } = await supabaseAdmin
             .from('reservations')
-            .select('id, org_id, total_amount, paid_amount, status, currency, customer_name')
+            .select('id, org_id, total_amount, paid_amount, status, currency, customer_name, customer_id')
             .eq('id', reservation_id)
             .eq('org_id', orgId)
             .single();
@@ -241,6 +245,7 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
                 amount,
                 currency: effectiveCurrency,
                 status,
+                payment_method: payment_method || null,
                 payment_date: effectivePaymentDate,
             })
             .select(`
@@ -249,6 +254,7 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
         amount,
         currency,
         status,
+        payment_method,
         payment_date,
         created_at
       `)
@@ -273,6 +279,31 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
         if (status === 'succeeded') {
             notifyPaymentReceived(orgId, reservation.customer_name || 'Klijent', amount, effectiveCurrency, payment.id)
                 .catch((notificationError) => console.warn('Failed to create payment notification:', notificationError));
+
+            // Send payment confirmation email if customer has email on file
+            if (reservation.customer_id) {
+                (async () => {
+                    try {
+                        const { data: customer } = await supabaseAdmin
+                            .from('customers')
+                            .select('email, full_name')
+                            .eq('id', reservation.customer_id)
+                            .single();
+                        if (customer?.email) {
+                            await EmailService.sendPaymentConfirmation({
+                                customerName: reservation.customer_name || customer.full_name || 'Klijent',
+                                customerEmail: customer.email,
+                                amount,
+                                currency: effectiveCurrency,
+                                paymentId: payment.id,
+                                reservationId: reservation_id,
+                            });
+                        }
+                    } catch (emailErr) {
+                        console.warn('Failed to send payment confirmation email:', emailErr);
+                    }
+                })();
+            }
         }
 
         // Return created payment with updated reservation info
@@ -283,6 +314,7 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
                 amount: Number(payment.amount),
                 currency: payment.currency,
                 status: payment.status,
+                paymentMethod: payment.payment_method,
                 paymentDate: payment.payment_date,
                 createdAt: payment.created_at,
             },
@@ -314,6 +346,7 @@ const updatePaymentSchema = z.object({
     currency: z.string().optional(),
     status: z.enum(['pending', 'succeeded', 'failed', 'refunded', 'cancelled']).optional(),
     payment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional(),
+    payment_method: z.enum(['cash', 'card', 'bank_transfer', 'credit', 'other']).optional(),
 });
 
 type UpdatePaymentInput = z.infer<typeof updatePaymentSchema>;
@@ -394,10 +427,11 @@ router.patch('/payments/:id', auditPaymentUpdate, async (req: Request, res: Resp
                 ...(updateData.currency && { currency: updateData.currency }),
                 ...(updateData.status && { status: updateData.status }),
                 ...(updateData.payment_date && { payment_date: updateData.payment_date }),
+                ...(updateData.payment_method && { payment_method: updateData.payment_method }),
             })
             .eq('id', paymentId)
             .eq('org_id', orgId)
-            .select('id, reservation_id, amount, currency, status, payment_date, created_at')
+            .select('id, reservation_id, amount, currency, status, payment_method, payment_date, created_at')
             .single();
 
         if (updateError) {
@@ -445,6 +479,7 @@ router.patch('/payments/:id', auditPaymentUpdate, async (req: Request, res: Resp
                 amount: Number(updatedPayment.amount),
                 currency: updatedPayment.currency,
                 status: updatedPayment.status,
+                paymentMethod: updatedPayment.payment_method,
                 paymentDate: updatedPayment.payment_date,
                 createdAt: updatedPayment.created_at,
                 updatedAt: updatedPayment.created_at,
@@ -517,7 +552,7 @@ router.post('/payments/:id/void', auditPaymentUpdate, async (req: Request, res: 
             })
             .eq('id', paymentId)
             .eq('org_id', orgId)
-            .select('id, reservation_id, amount, currency, status, payment_date, created_at')
+            .select('id, reservation_id, amount, currency, status, payment_method, payment_date, created_at')
             .single();
 
         if (updateError) {
@@ -553,6 +588,7 @@ router.post('/payments/:id/void', auditPaymentUpdate, async (req: Request, res: 
                 amount: Number(updatedPayment.amount),
                 currency: updatedPayment.currency,
                 status: updatedPayment.status,
+                paymentMethod: updatedPayment.payment_method,
                 paymentDate: updatedPayment.payment_date,
                 createdAt: updatedPayment.created_at,
                 updatedAt: updatedPayment.created_at,
@@ -572,6 +608,117 @@ router.post('/payments/:id/void', auditPaymentUpdate, async (req: Request, res: 
     } catch (error) {
         console.error('Error voiding payment:', error);
         return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to void payment', error instanceof Error ? error.message : String(error));
+    }
+});
+
+// ============================================================================
+// POST /api/payments/:id/refund
+// ============================================================================
+
+/**
+ * POST /api/payments/:id/refund
+ * 
+ * Refund a payment (sets status to 'refunded')
+ * 
+ * Returns:
+ * - payment: Updated payment with status='refunded'
+ * - reservation: Affected reservation with updated paid_amount
+ */
+router.post('/payments/:id/refund', auditPaymentUpdate, async (req: Request, res: Response) => {
+    try {
+        const paymentId = req.params.id;
+        const orgId = req.orgId;
+
+        if (!orgId) {
+            return apiError(res, 403, 'ORG_REQUIRED', 'Organization context required');
+        }
+
+        // Validate payment ID
+        if (!z.string().uuid().safeParse(paymentId).success) {
+            return apiError(res, 400, 'INVALID_ID', 'Invalid payment ID format');
+        }
+
+        // Check if payment exists and belongs to org
+        const { data: existingPayment, error: fetchError } = await supabaseAdmin
+            .from('payments')
+            .select('id, reservation_id, org_id, status')
+            .eq('id', paymentId)
+            .eq('org_id', orgId)
+            .single();
+
+        if (fetchError || !existingPayment) {
+            return apiError(res, 404, 'NOT_FOUND', 'Payment not found');
+        }
+
+        // Check if already refunded
+        if (existingPayment.status === 'refunded') {
+            return apiError(res, 400, 'ALREADY_REFUNDED', 'Payment is already refunded');
+        }
+
+        // Update payment status to refunded
+        const { data: updatedPayment, error: updateError } = await supabaseAdmin
+            .from('payments')
+            .update({
+                status: 'refunded',
+            })
+            .eq('id', paymentId)
+            .eq('org_id', orgId)
+            .select('id, reservation_id, amount, currency, status, payment_method, payment_date, created_at')
+            .single();
+
+        if (updateError) {
+            return handleSupabaseError(res, updateError, 'Failed to refund payment');
+        }
+
+        // Audit log: payment.refunded
+        await logAction(req, 'payment.refunded', 'payment', paymentId, {
+            oldValues: {
+                status: existingPayment.status,
+            },
+            newValues: {
+                status: 'refunded',
+            },
+            metadata: {
+                reservation_id: existingPayment.reservation_id,
+                payment_id: paymentId,
+            },
+        });
+
+        // Fetch updated reservation (trigger will have updated paid_amount)
+        const { data: updatedReservation } = await supabaseAdmin
+            .from('reservations')
+            .select('id, total_amount, paid_amount, status')
+            .eq('id', existingPayment.reservation_id)
+            .eq('org_id', orgId)
+            .single();
+
+        return res.status(200).json({
+            payment: {
+                id: updatedPayment.id,
+                reservationId: updatedPayment.reservation_id,
+                amount: Number(updatedPayment.amount),
+                currency: updatedPayment.currency,
+                status: updatedPayment.status,
+                paymentMethod: updatedPayment.payment_method,
+                paymentDate: updatedPayment.payment_date,
+                createdAt: updatedPayment.created_at,
+                updatedAt: updatedPayment.created_at,
+            },
+            reservation: updatedReservation ? {
+                id: updatedReservation.id,
+                totalAmount: Number(updatedReservation.total_amount),
+                paidAmount: Number(updatedReservation.paid_amount || 0),
+                remainingAmount: Math.max(
+                    Number(updatedReservation.total_amount) - Number(updatedReservation.paid_amount || 0),
+                    0
+                ),
+                status: updatedReservation.status,
+            } : null,
+        });
+
+    } catch (error) {
+        console.error('Error refunding payment:', error);
+        return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to refund payment', error instanceof Error ? error.message : String(error));
     }
 });
 
@@ -609,7 +756,7 @@ router.get('/payments/dashboard', async (req: Request, res: Response) => {
       supabaseAdmin
         .from('payments')
         .select(`
-          id, reservation_id, amount, currency, status, payment_date, created_at,
+          id, reservation_id, amount, currency, status, payment_method, payment_date, created_at,
           reservations!inner(customer_name, customer_phone)
         `)
         .eq('org_id', orgId)
@@ -621,7 +768,7 @@ router.get('/payments/dashboard', async (req: Request, res: Response) => {
       supabaseAdmin
         .from('payments')
         .select(`
-          id, reservation_id, amount, currency, status, payment_date, created_at,
+          id, reservation_id, amount, currency, status, payment_method, payment_date, created_at,
           reservations!inner(customer_name, customer_phone)
         `)
         .eq('org_id', orgId)
@@ -680,6 +827,7 @@ router.get('/payments/dashboard', async (req: Request, res: Response) => {
       amount: Number(p.amount),
       currency: p.currency || 'BAM',
       status: p.status,
+      paymentMethod: p.payment_method,
       paymentDate: p.payment_date,
       createdAt: p.created_at,
     });

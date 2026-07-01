@@ -20,12 +20,12 @@ export default function AuthLayout({
               <Link to="/" className="block mb-6">
                 <img
                   src="/images/brand/NMT analytics.png"
-                  alt="NMT Analytics"
+                  alt="Travline"
                   className="h-12 w-auto"
                 />
               </Link>
               <h2 className="mb-2 text-2xl font-bold text-white text-center">
-                NMT Analytics
+                Travline
               </h2>
               <p className="text-center text-gray-400 dark:text-white/60">
                 Pregled poslovanja i izvještaji na jednom mjestu.

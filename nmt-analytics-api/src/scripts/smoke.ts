@@ -5,7 +5,7 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3001';
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 
 async function runSmokeTest() {
-  console.log('--- NMT Analytics API Smoke Test ---');
+  console.log('--- Travline API Smoke Test ---');
   console.log(`Testing against: ${BASE_URL}`);
 
   let hasFailures = false;

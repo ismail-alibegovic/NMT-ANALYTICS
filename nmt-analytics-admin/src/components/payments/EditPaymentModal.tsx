@@ -27,13 +27,24 @@ export default function EditPaymentModal({
     const [amount, setAmount] = useState<string>(payment.amount.toString());
     const [status, setStatus] = useState<string>(payment.status);
     const [paymentDate, setPaymentDate] = useState<string>(payment.paymentDate || '');
+    const [paymentMethod, setPaymentMethod] = useState<string>(payment.paymentMethod || '');
 
     // Update form when payment changes
     useEffect(() => {
         setAmount(payment.amount.toString());
         setStatus(payment.status);
         setPaymentDate(payment.paymentDate || '');
+        setPaymentMethod(payment.paymentMethod || '');
     }, [payment]);
+
+    const paymentMethodOptions = [
+        { value: '', label: 'Bez promjene' },
+        { value: 'cash', label: 'Gotovina' },
+        { value: 'card', label: 'Kartica' },
+        { value: 'bank_transfer', label: 'Bankovni transfer' },
+        { value: 'credit', label: 'Kredit' },
+        { value: 'other', label: 'Ostalo' },
+    ];
 
     const statusOptions = [
         { value: 'succeeded', label: 'Uspješno' },
@@ -56,6 +67,7 @@ export default function EditPaymentModal({
             await updatePayment(payment.id, {
                 amount: amountNum,
                 status: status as any,
+                payment_method: paymentMethod || undefined,
                 payment_date: paymentDate || undefined,
             });
 
@@ -81,6 +93,7 @@ export default function EditPaymentModal({
             setAmount(payment.amount.toString());
             setStatus(payment.status);
             setPaymentDate(payment.paymentDate || '');
+            setPaymentMethod(payment.paymentMethod || '');
             onClose();
         }
     };
@@ -124,6 +137,22 @@ export default function EditPaymentModal({
                             defaultValue={status}
                             onChange={setStatus}
                         />
+                    </div>
+
+                    {/* Payment Method */}
+                    <div>
+                        <Label htmlFor="paymentMethod">Način plaćanja</Label>
+                        <select
+                            id="paymentMethod"
+                            value={paymentMethod}
+                            onChange={(e) => setPaymentMethod(e.target.value)}
+                            disabled={isSubmitting}
+                            className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-800"
+                        >
+                            {paymentMethodOptions.map(m => (
+                                <option key={m.value} value={m.value}>{m.label}</option>
+                            ))}
+                        </select>
                     </div>
 
                     {/* Payment Date */}

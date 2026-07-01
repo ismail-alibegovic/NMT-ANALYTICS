@@ -1,4 +1,4 @@
-# NMT Analytics — Project Index
+# Travline (formerly NMT Analytics) — Project Index
 
 ## Architecture
 nmt-analytics-api/    — Express + Supabase backend (TypeScript)

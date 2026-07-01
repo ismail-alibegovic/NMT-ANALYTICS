@@ -360,7 +360,7 @@ router.get('/import/:entity/template.csv', authenticateToken, requireOrgContext,
       { step: '1', desc: 'Popunite podatke u sheet-u "Podaci".' },
       { step: '2', desc: 'Obavezno popunite sva polja označena sa * (obavezno).' },
       { step: '3', desc: 'Ne mijenjajte nazive kolona u prvom redu.' },
-      { step: '4', desc: 'Sačuvajte fajl i uvezite ga u NMT Analytics sistem.' },
+      { step: '4', desc: 'Sačuvajte fajl i uvezite ga u Travline sistem.' },
     ]);
     instrSheet.getRow(1).font = { bold: true, size: 12, color: { argb: 'FF1D4ED8' } };
     instrSheet.getColumn(1).font = { bold: true };

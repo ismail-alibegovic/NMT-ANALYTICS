@@ -22,10 +22,10 @@ const Integrations = () => {
 
     const { userContext } = useApp();
     const [copiedWidget, setCopiedWidget] = useState(false);
-    const orgId = userContext?.orgId || '';
+    const orgId = userContext?.org?.id || '';
     const widgetUrl = `/api/public/${orgId}/widget`;
     const embedCode = orgId
-      ? `<!-- NMT Booking Widget -->\n<iframe src="${widgetUrl}" width="100%" height="600" frameborder="0" style="border:none;max-width:400px;margin:0 auto;display:block;"></iframe>`
+      ? `<!-- Travline Booking Widget -->\n<iframe src="${widgetUrl}" width="100%" height="600" frameborder="0" style="border:none;max-width:400px;margin:0 auto;display:block;"></iframe>`
       : '';
 
     const copyToClipboard = async (text: string) => {
@@ -72,7 +72,7 @@ const Integrations = () => {
 
     return (
         <>
-            <PageMeta title="Integrations | NMT Analytics" description="Manage system integrations and AI tools" />
+            <PageMeta title="Integrations | Travline" description="Manage system integrations and AI tools" />
 
             <PageToolbar
                 title="Integracije i AI Alati"

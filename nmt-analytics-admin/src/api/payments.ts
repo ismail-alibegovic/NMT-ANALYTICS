@@ -10,6 +10,7 @@ export interface Payment {
     amount: number;
     currency: string;
     status: 'pending' | 'succeeded' | 'failed' | 'refunded' | 'cancelled';
+    paymentMethod?: string | null;
     paymentDate: string | null;
     createdAt: string;
     reservation?: {
@@ -45,6 +46,7 @@ export interface CreatePaymentInput {
     amount: number;
     currency?: string;
     status?: 'pending' | 'succeeded' | 'failed' | 'refunded' | 'cancelled';
+    payment_method?: string;
     payment_date?: string; // YYYY-MM-DD
 }
 
@@ -58,6 +60,7 @@ export interface CreatePaymentResponse {
         amount: number;
         currency: string;
         status: 'pending' | 'succeeded' | 'failed' | 'refunded' | 'cancelled';
+        paymentMethod?: string | null;
         paymentDate: string | null;
         createdAt: string;
     };
@@ -159,6 +162,16 @@ export async function voidPayment(id: string): Promise<void> {
     await post(`/payments/${id}/void`, {});
 }
 
+/**
+ * Refund a succeeded payment
+ * @param id Payment ID
+ * @param reason Optional reason for the refund
+ */
+export async function refundPayment(id: string, reason?: string): Promise<CreatePaymentResponse> {
+    const { data } = await post<CreatePaymentResponse>(`/payments/${id}/refund`, { reason });
+    return data;
+}
+
 // ============================================================================
 // PAYMENT DASHBOARD TYPES & API
 // ============================================================================
@@ -185,6 +198,7 @@ export interface PaymentDashboardPayment {
     amount: number;
     currency: string;
     status: string;
+    paymentMethod?: string;
     paymentDate: string;
     createdAt: string;
 }

@@ -9,7 +9,7 @@ import { useToast } from '../../context/ToastContext';
 interface FormField {
   name: string;
   label: string;
-  type: 'text' | 'email' | 'tel' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox';
+  type: 'text' | 'email' | 'tel' | 'number' | 'date' | 'datetime-local' | 'textarea' | 'select' | 'checkbox';
   placeholder?: string;
   required?: boolean;
   options?: { value: string; label: string }[];
