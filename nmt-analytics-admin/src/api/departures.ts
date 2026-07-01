@@ -27,6 +27,7 @@ export interface CreateDepartureData {
   returnAt: string;
   capacity: number;
   status?: 'active' | 'cancelled' | 'completed';
+  booked?: number;
 }
 
 export interface UpdateDepartureData {
@@ -34,6 +35,7 @@ export interface UpdateDepartureData {
   departAt?: string;
   returnAt?: string;
   capacity?: number;
+  booked?: number;
   status?: 'active' | 'cancelled' | 'completed';
 }
 
