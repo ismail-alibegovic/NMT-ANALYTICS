@@ -141,6 +141,7 @@ export default function Departures() {
           returnAt: data.returnAt,
           capacity: Number(data.capacity),
           status: data.status,
+          booked: Number(data.booked),
         });
       } else {
         await createDeparture({
@@ -149,6 +150,7 @@ export default function Departures() {
           returnAt: data.returnAt,
           capacity: Number(data.capacity),
           status: data.status || 'active',
+          booked: Number(data.booked),
         });
       }
       setModalOpen(false);
@@ -171,6 +173,7 @@ export default function Departures() {
     { name: 'departAt', label: 'Polazak', type: 'datetime-local' as const, required: true },
     { name: 'returnAt', label: 'Povratak', type: 'datetime-local' as const, required: true },
     { name: 'capacity', label: 'Kapacitet (broj mjesta)', type: 'number' as const, required: true },
+    { name: 'booked', label: 'Trenutno zauzeto', type: 'number' as const },
     {
       name: 'status',
       label: 'Status',
@@ -408,6 +411,7 @@ export default function Departures() {
           returnAt: editingDeparture.return_at?.slice(0, 16) || '',
           capacity: editingDeparture.capacity,
           status: editingDeparture.status,
+          booked: editingDeparture.booked,
         } : { status: 'active' }}
         submitButtonText={editingDeparture ? 'Sačuvaj' : 'Dodaj'}
         loading={submitting}

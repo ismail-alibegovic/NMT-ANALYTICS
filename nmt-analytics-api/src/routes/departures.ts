@@ -38,11 +38,11 @@ const getDeparturesQuerySchema = z.object({
 
 const createDepartureSchema = z.object({
   packageId: z.string().uuid('Invalid package ID'),
-  departAt: z.string().datetime('Invalid departure datetime'),
-  returnAt: z.string().datetime('Invalid return datetime'),
-  capacity: z.number().int().min(1, 'Capacity must be at least 1'),
+  departAt: z.string().min(1, 'Departure date is required'),
+  returnAt: z.string().min(1, 'Return date is required'),
+  capacity: z.coerce.number().int().min(1, 'Capacity must be at least 1'),
   status: z.enum(['active', 'cancelled', 'completed']).default('active'),
-  // Allow upsert by natural key (package_id, depart_at)
+  booked: z.coerce.number().int().min(0).default(0),
   upsert: z.boolean().default(false),
 }).refine((data) => new Date(data.returnAt) > new Date(data.departAt), {
   message: 'Return date must be after departure date',
@@ -51,21 +51,36 @@ const createDepartureSchema = z.object({
 
 const putDepartureSchema = z.object({
   packageId: z.string().uuid('Invalid package ID'),
-  departAt: z.string().datetime('Invalid departure datetime'),
-  returnAt: z.string().datetime('Invalid return datetime'),
-  capacity: z.number().int().min(1, 'Capacity must be at least 1'),
+  departAt: z.string().min(1, 'Departure date is required'),
+  returnAt: z.string().min(1, 'Return date is required'),
+  capacity: z.coerce.number().int().min(1, "Capacity must be at least 1"),
   status: z.enum(['active', 'cancelled', 'completed']).default('active'),
-}).refine((data) => new Date(data.returnAt) > new Date(data.departAt), {
+  booked: z.coerce.number().int().min(0).optional(),
+}).transform((data) => ({
+  ...data,
+  departAt: data.departAt.includes('Z') ? data.departAt : data.departAt.endsWith(':00') ? data.departAt + 'Z' : data.departAt + ':00Z',
+  returnAt: data.returnAt.includes('Z') ? data.returnAt : data.returnAt.endsWith(':00') ? data.returnAt + 'Z' : data.returnAt + ':00Z',
+})).refine((data) => new Date(data.returnAt) > new Date(data.departAt), {
   message: 'Return date must be after departure date',
   path: ['returnAt'],
 });
 
 const updateDepartureSchema = z.object({
   packageId: z.string().uuid('Invalid package ID').optional(),
-  departAt: z.string().datetime('Invalid departure datetime').optional(),
-  returnAt: z.string().datetime('Invalid return datetime').optional(),
-  capacity: z.number().int().min(1, 'Capacity must be at least 1').optional(),
+  departAt: z.string().min(1).optional(),
+  returnAt: z.string().min(1).optional(),
+  capacity: z.coerce.number().int().min(1, "Capacity must be at least 1").optional(),
   status: z.enum(['active', 'cancelled', 'completed']).optional(),
+  booked: z.coerce.number().int().min(0).optional(),
+}).transform((data) => {
+  const result: any = { ...data };
+  if (data.departAt) {
+    result.departAt = data.departAt.includes('Z') ? data.departAt : data.departAt.endsWith(':00') ? data.departAt + 'Z' : data.departAt + ':00Z';
+  }
+  if (data.returnAt) {
+    result.returnAt = data.returnAt.includes('Z') ? data.returnAt : data.returnAt.endsWith(':00') ? data.returnAt + 'Z' : data.returnAt + ':00Z';
+  }
+  return result;
 }).refine((data) => {
   if (data.departAt && data.returnAt) {
     return new Date(data.returnAt) > new Date(data.departAt);
@@ -121,7 +136,21 @@ router.get('/departures', authenticateToken, requireOrgContext, async (req, res,
 
     // Add search filter if provided
     if (search) {
-      query = query.or(`packages.name.ilike.%${search}%`);
+      // Search by package name — need a subquery since Supabase join filters don't support .or() on joined tables
+      const { data: matchingPackages } = await supabaseAdmin
+        .from('packages')
+        .select('id')
+        .eq('org_id', orgId)
+        .ilike('name', `%${search}%`)
+        .limit(100);
+
+      const pkgIds = (matchingPackages || []).map(p => p.id);
+      if (pkgIds.length > 0) {
+        query = query.in('package_id', pkgIds);
+      } else {
+        // No matching packages — force empty result
+        query = query.eq('package_id', '00000000-0000-0000-0000-000000000000');
+      }
     }
 
     const { data: departures, error, count } = await query;
@@ -149,7 +178,7 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
       return;
     }
 
-    const { packageId, departAt, returnAt, capacity, status, upsert } = validationResult.data;
+    const { packageId, departAt, returnAt, capacity, booked, status, upsert } = validationResult.data;
     const orgId = req.orgId!;
 
     const { data: packageData, error: packageError } = await supabaseAdmin
@@ -172,6 +201,7 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
         depart_at: departAt,
         return_at: returnAt,
         capacity: capacity,
+        booked: booked,
         status: status,
       }, {
         onConflict: upsert ? 'org_id,package_id,depart_at' : undefined,
@@ -213,7 +243,7 @@ router.put('/departures/:id', authenticateToken, requireOrgContext, auditDepartu
       return;
     }
 
-    const { packageId, departAt, returnAt, capacity, status } = validationResult.data;
+    const { packageId, departAt, returnAt, capacity, status, booked } = validationResult.data;
     const orgId = req.orgId!;
 
     const { data: packageData, error: packageError } = await supabaseAdmin
@@ -236,6 +266,7 @@ router.put('/departures/:id', authenticateToken, requireOrgContext, auditDepartu
         return_at: returnAt,
         capacity: capacity,
         status: status,
+        ...(booked !== undefined ? { booked } : {}),
       })
       .eq('id', id)
       .eq('org_id', orgId)
@@ -279,7 +310,7 @@ router.patch('/departures/:id', authenticateToken, requireOrgContext, auditDepar
       return;
     }
 
-    const { packageId, departAt, returnAt, capacity, status } = validationResult.data;
+    const { packageId, departAt, returnAt, capacity, status, booked } = validationResult.data;
     const orgId = req.orgId!;
 
     if (packageId) {
@@ -302,6 +333,7 @@ router.patch('/departures/:id', authenticateToken, requireOrgContext, auditDepar
     if (returnAt !== undefined) updateData.return_at = returnAt;
     if (capacity !== undefined) updateData.capacity = capacity;
     if (status !== undefined) updateData.status = status;
+    if (booked !== undefined) updateData.booked = booked;
 
     const { data: departure, error } = await supabaseAdmin
       .from('departures')
