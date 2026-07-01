@@ -1,3 +1,4 @@
+import { useT } from "../../lib/i18n/context";
 import React from "react";
 import GridShape from "../../components/common/GridShape";
 import { Link } from "react-router";
@@ -8,6 +9,7 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const { t } = useT();
   return (
     <div className="relative p-6 bg-white z-1 dark:bg-gray-900 sm:p-0">
       <div className="relative flex flex-col justify-center w-full h-screen lg:flex-row dark:bg-gray-900 sm:p-0">
@@ -25,10 +27,10 @@ export default function AuthLayout({
                 />
               </Link>
               <h2 className="mb-2 text-2xl font-bold text-white text-center">
-                Travline
+                {t.app.name}
               </h2>
               <p className="text-center text-gray-400 dark:text-white/60">
-                Pregled poslovanja i izvještaji na jednom mjestu.
+                {t.app.tagline}
               </p>
             </div>
           </div>

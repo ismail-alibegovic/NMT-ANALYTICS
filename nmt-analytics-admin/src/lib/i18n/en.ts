@@ -15,7 +15,7 @@ export const en = {
     back: 'Back', next: 'Next', previous: 'Previous', page: 'Page', of: 'of',
     total: 'Total', all: 'All', yes: 'Yes', no: 'No', close: 'Close',
     download: 'Download', upload: 'Upload', submit: 'Submit', success: 'Success',
-    error: 'Error', saving: 'Saving...', deleting: 'Deleting...', sending: 'Sending...',
+    error: 'Error', isRequired: 'is required', saving: 'Saving...', deleting: 'Deleting...', sending: 'Sending...',
   },
   dashboard: {
     title: 'Dashboard Overview', description: 'Track your business performance and metrics',
@@ -137,6 +137,8 @@ export const en = {
     hasAccount: 'Already have an account?', signInTitle: 'Welcome back',
     signInSubtitle: 'Sign in to your account', signInButton: 'Sign In',
     signingIn: 'Signing in...',
+    keepLoggedIn: 'Keep me logged in',
+    devLogin: 'Dev Login (Bypass Auth)',
   },
   integrations: {
     title: 'Integrations', description: 'Manage connected services',
