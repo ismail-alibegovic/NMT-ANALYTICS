@@ -25,6 +25,12 @@ const ITEMS_PER_PAGE = 10;
 
 type ViewMode = "table" | "calendar";
 
+const STATUS_LABELS: Record<string, string> = {
+  active: "Aktivan",
+  cancelled: "Otkazan",
+  completed: "Završen",
+};
+
 export default function Departures() {
   const { error: showError, success: showSuccess } = useToast();
   const [departures, setDepartures] = useState<Departure[]>([]);
@@ -42,6 +48,7 @@ export default function Departures() {
   const [packageId, setPackageId] = useState<string>("");
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
@@ -65,6 +72,7 @@ export default function Departures() {
         packageId: packageId || undefined,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
+        status: statusFilter || undefined,
         search: searchQuery || undefined,
       };
 
@@ -78,7 +86,7 @@ export default function Departures() {
     } finally {
       setLoading(false);
     }
-  }, [packageId, dateFrom, dateTo, searchQuery, showError, viewMode]);
+  }, [packageId, dateFrom, dateTo, statusFilter, searchQuery, showError, viewMode]);
 
   useEffect(() => {
     fetchPackages();
@@ -128,6 +136,18 @@ export default function Departures() {
       fetchDepartures(currentPage);
     } catch {
       showError('Brisanje polaska nije uspjelo');
+    }
+  };
+
+  const handleQuickBooked = async (dep: Departure, delta: number) => {
+    const newBooked = Math.max(0, Math.min(dep.booked + delta, dep.capacity));
+    if (newBooked === dep.booked) return;
+    try {
+      await updateDeparture(dep.id, { booked: newBooked });
+      showSuccess(`Zauzetost ažurirana: ${dep.booked} → ${newBooked}`);
+      fetchDepartures(currentPage);
+    } catch {
+      showError('Greška pri ažuriranju zauzetosti');
     }
   };
 
@@ -191,54 +211,77 @@ export default function Departures() {
       key: 'packageName',
       header: 'Paket',
       render: (_, departure) => (
-        <div>
-          <div className="font-medium">{departure.packageName}</div>
-          <div className="text-gray-500 text-xs">{departure.destination}</div>
+        <div className="min-w-[160px]">
+          <div className="font-medium text-gray-900 dark:text-white">{departure.packageName}</div>
+          <div className="text-gray-500 dark:text-gray-400 text-xs">{departure.destination}</div>
         </div>
       )
     },
     {
       key: 'depart_at',
       header: 'Polazak',
-      render: (val) => formatDate(val as string)
+      render: (val) => (
+        <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+          {formatDate(val as string)}
+        </span>
+      )
     },
     {
       key: 'return_at',
       header: 'Povratak',
-      render: (val) => formatDate(val as string)
+      render: (val) => (
+        <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+          {formatDate(val as string)}
+        </span>
+      )
     },
     {
       key: 'capacity',
-      header: 'Kapacitet (Zauzeto/Ukupno)',
+      header: 'Popunjenost',
       render: (_, departure) => {
         const capacityInfo = getDepartureStatus(departure.booked, departure.capacity);
         const occupancy = departure.capacity > 0
           ? Math.min(Math.max(departure.booked / departure.capacity, 0), 1)
           : 0;
+        const barColor = occupancy >= 0.8
+          ? 'bg-red-500'
+          : occupancy >= 0.5
+            ? 'bg-amber-500'
+            : 'bg-emerald-500';
         return (
-          <div className="flex flex-col gap-1 w-48">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-medium">
+          <div className="w-full min-w-[200px]">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-sm font-semibold text-gray-900 dark:text-white">
                 {departure.booked} / {departure.capacity}
               </span>
-              <Badge
-                size="sm"
-                color={capacityInfo.level as any}
-                variant="light"
-              >
-                {capacityInfo.status}
+              <Badge size="sm" color={capacityInfo.level as any} variant="light">
+                {capacityInfo.status === 'FULL' ? 'PUN' :
+                 capacityInfo.status === 'ALMOST FULL' ? 'SKORO PUN' :
+                 capacityInfo.status === 'FILLING' ? 'POPUNJAVA SE' : 'DOSTUPAN'}
               </Badge>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
               <div
-                className={`h-2 rounded-full transition-all duration-300 ${occupancy >= 0.8
-                  ? 'bg-red-500'
-                  : occupancy >= 0.5
-                    ? 'bg-yellow-500'
-                    : 'bg-green-500'
-                  }`}
+                className={`h-2.5 rounded-full transition-all duration-500 ${barColor}`}
                 style={{ width: `${occupancy * 100}%` }}
-              ></div>
+              />
+            </div>
+            <div className="flex items-center gap-1 mt-1.5">
+              <button
+                onClick={() => handleQuickBooked(departure, -1)}
+                disabled={departure.booked <= 0}
+                className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold"
+                title="Smanji zauzetost"
+              >−</button>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400 mx-1">
+                {Math.round(occupancy * 100)}%
+              </span>
+              <button
+                onClick={() => handleQuickBooked(departure, +1)}
+                disabled={departure.booked >= departure.capacity}
+                className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold"
+                title="Povećaj zauzetost"
+              >+</button>
             </div>
           </div>
         );
@@ -248,24 +291,20 @@ export default function Departures() {
       key: 'status',
       header: 'Status',
       render: (val) => (
-        <Badge
-          size="sm"
-          color={getStatusBadgeColor(val as string)}
-          variant="light"
-        >
-          {val as string}
+        <Badge size="sm" color={getStatusBadgeColor(val as string)} variant="light">
+          {STATUS_LABELS[val as string] || (val as string)}
         </Badge>
       )
     },
     {
       key: 'actions',
-      header: 'Akcije',
+      header: '',
       render: (_, dep) => (
-        <div className="flex gap-2 justify-end">
-          <Button size="sm" variant="outline" onClick={() => handleEdit(dep)} className="px-2 py-1 text-xs">
+        <div className="flex gap-1.5 justify-end">
+          <Button size="sm" variant="outline" onClick={() => handleEdit(dep)} className="px-2.5 py-1 text-xs">
             Uredi
           </Button>
-          <Button size="sm" variant="outline" onClick={() => handleDelete(dep)} className="px-2 py-1 text-xs text-red-600 hover:text-red-700">
+          <Button size="sm" variant="outline" onClick={() => handleDelete(dep)} className="px-2.5 py-1 text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
             Obriši
           </Button>
         </div>
@@ -275,10 +314,10 @@ export default function Departures() {
 
   return (
     <>
-      <PageMeta title="Departures | Travline" description="Manage departures and capacities" />
+      <PageMeta title="Polasci | Travline" description="Upravljanje polascima i kapacitetima" />
       <PageToolbar
         title="Polasci"
-        description="Upravljanje polascima i kapacitetima"
+        description="Upravljanje polascima, kapacitetima i terminima"
         searchValue={searchQuery}
         onSearchChange={(query) => setSearchQuery(query)}
         searchPlaceholder="Traži polaske..."
@@ -295,25 +334,27 @@ export default function Departures() {
         }
       />
 
-      {/* View Toggle */}
-      <div className="mb-6 flex items-center justify-between">
+      {/* View Toggle + Filters Row */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           <button
             onClick={() => handleViewChange("table")}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${viewMode === "table"
-              ? "bg-brand-500 text-white"
-              : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-              }`}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
+              viewMode === "table"
+                ? "bg-brand-500 text-white"
+                : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+            }`}
           >
             <TableIcon className="w-4 h-4" />
             Tabela
           </button>
           <button
             onClick={() => handleViewChange("calendar")}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${viewMode === "calendar"
-              ? "bg-brand-500 text-white"
-              : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-              }`}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
+              viewMode === "calendar"
+                ? "bg-brand-500 text-white"
+                : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+            }`}
           >
             <CalenderIcon className="w-4 h-4" />
             Kalendar
@@ -324,7 +365,7 @@ export default function Departures() {
       {viewMode === "table" && (
         <>
           {/* Filters */}
-          <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 bg-white dark:bg-white/[0.03] p-4 rounded-xl border border-gray-200 dark:border-white/[0.05]">
+          <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-white dark:bg-white/[0.03] p-4 rounded-xl border border-gray-200 dark:border-white/[0.05]">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paket</label>
               <select
@@ -339,7 +380,20 @@ export default function Departures() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Od datuma</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/[0.1] dark:bg-gray-900 dark:text-white"
+              >
+                <option value="">Svi statusi</option>
+                <option value="active">Aktivan</option>
+                <option value="completed">Završen</option>
+                <option value="cancelled">Otkazan</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Od</label>
               <input
                 type="date"
                 value={dateFrom}
@@ -348,7 +402,7 @@ export default function Departures() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Do datuma</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Do</label>
               <input
                 type="date"
                 value={dateTo}
@@ -360,13 +414,13 @@ export default function Departures() {
 
           {loading ? (
             <div className="flex items-center justify-center p-20">
-              <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : departures.length === 0 ? (
             <EmptyState
               title="Nema polazaka"
               description="Nije pronađen nijedan polazak za odabrane filtere."
-              action={(packageId || dateFrom || dateTo) ? { label: "Očisti filtere", onClick: () => { setPackageId(""); setDateFrom(""); setDateTo(""); } } : undefined}
+              action={(packageId || dateFrom || dateTo || statusFilter) ? { label: "Očisti filtere", onClick: () => { setPackageId(""); setDateFrom(""); setDateTo(""); setStatusFilter(""); } } : undefined}
             />
           ) : (
             <>
