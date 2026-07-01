@@ -5,11 +5,13 @@ import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
+import { useT } from "../lib/i18n/context";
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+  const { setLang, lang } = useT();
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -21,6 +23,10 @@ const AppHeader: React.FC = () => {
 
   const toggleApplicationMenu = () => {
     setApplicationMenuOpen(!isApplicationMenuOpen);
+  };
+
+  const toggleLanguage = () => {
+    setLang(lang === 'en' ? 'bs' : 'en');
   };
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -158,6 +164,7 @@ const AppHeader: React.FC = () => {
             {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}
+            <button onClick={toggleLanguage}>BS/EN</button>
             <NotificationDropdown />
             {/* <!-- Notification Menu Area --> */}
           </div>
