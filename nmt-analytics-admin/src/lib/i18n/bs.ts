@@ -17,7 +17,7 @@ export const bs: Translations = {
     back: 'Nazad', next: 'Sljedeće', previous: 'Prethodno', page: 'Stranica', of: 'od',
     total: 'Ukupno', all: 'Sve', yes: 'Da', no: 'Ne', close: 'Zatvori',
     download: 'Preuzmi', upload: 'Pošalji', submit: 'Pošalji', success: 'Uspjeh',
-    error: 'Greška', saving: 'Spremanje...', deleting: 'Brisanje...', sending: 'Slanje...',
+    error: 'Greška', saving: 'Spremanje...', deleting: 'Brisanje...', sending: 'Slanje...', isRequired: 'je obavezno',
   },
   dashboard: {
     title: 'Kontrolna tabla', description: 'Pregled poslovanja vaše agencije',
@@ -139,6 +139,8 @@ export const bs: Translations = {
     hasAccount: 'Već imate nalog?', signInTitle: 'Dobrodošli nazad',
     signInSubtitle: 'Prijavite se na vaš nalog', signInButton: 'Prijavi se',
     signingIn: 'Prijavljivanje...',
+    keepLoggedIn: 'Zapamti me',
+    devLogin: 'Dev Prijava (Zaobilaženje autentifikacije)',
   },
   integrations: {
     title: 'Integracije', description: 'Upravljanje povezanim servisima',
