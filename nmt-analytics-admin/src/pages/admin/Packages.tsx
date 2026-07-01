@@ -1,3 +1,4 @@
+import { useT } from "../../lib/i18n/context";
 import { useState, useEffect } from 'react';
 import PageMeta from '../../components/common/PageMeta';
 import { DataTable, Column, Pagination } from '../../components/ui/DataTable';
@@ -27,6 +28,7 @@ export default function Packages() {
   const { success: showSuccess, error: showError } = useToast();
   const { user, loading: authLoading } = useApp();
   const { getParam, setParams } = useQueryParams();
+const { t } = useT();
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -203,7 +205,7 @@ export default function Packages() {
 
   return (
     <>
-      <PageMeta title="Packages | Travline" description="Manage travel packages and destinations" />
+      <PageMeta title={t.packages.title + " | Travline"} description={t.packages.description} />
       <PageToolbar
         title="Packages"
         description="Manage travel packages and destinations"
@@ -239,7 +241,7 @@ export default function Packages() {
         </div>
       ) : error ? (
         <div className="p-6">
-          <EmptyState title="Failed to load packages" description={error} action={{ label: "Try Again", onClick: () => fetchPackages(currentPage, searchTerm) }} />
+          <EmptyState title={t.packages.title} description={error} action={{ label: "Try Again", onClick: () => fetchPackages(currentPage, searchTerm) }} />
         </div>
       ) : packages.length === 0 ? (
         <EmptyState title="No packages found" description={searchTerm ? "Try searching for something else" : "Get started by adding your first package"} action={!searchTerm ? { label: "Add Package", onClick: handleCreate } : undefined} />
