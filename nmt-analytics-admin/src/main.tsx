@@ -26,6 +26,7 @@ import { ThemeProvider } from "./context/ThemeContext.tsx";
 import { AppProvider } from "./context/AppContext.tsx";
 import { ToastProvider } from "./context/ToastContext.tsx";
 import ErrorBoundary from "./components/common/ErrorBoundary.tsx";
+import { I18nProvider } from './lib/i18n/context';
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -34,7 +35,9 @@ createRoot(document.getElementById("root")!).render(
         <ToastProvider>
           <AppProvider>
             <AppWrapper>
-              <App />
+              <I18nProvider>
+                <App />
+              </I18nProvider>
             </AppWrapper>
           </AppProvider>
         </ToastProvider>

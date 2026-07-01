@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { hasAccess, UserRole } from "../types/roles";
+import { useT } from "../lib/i18n/context";
 
 // Assume these icons are imported from an icon library
 import {
@@ -28,79 +29,12 @@ type NavItem = {
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
-const allNavItems: NavItem[] = [
-  {
-    icon: <GridIcon />,
-    name: "Dashboard",
-    path: "/",
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "Customers",
-    path: "/customers",
-    module: "customers",
-  },
-  {
-    icon: <ShootingStarIcon />,
-    name: "Packages",
-    path: "/packages",
-    module: "packages",
-  },
-  {
-    icon: <CalenderIcon />,
-    name: "Reservations",
-    path: "/reservations",
-    module: "reservations",
-  },
-  {
-    icon: <TimeIcon />,
-    name: "Departures",
-    path: "/departures",
-    module: "departures",
-  },
-  {
-    icon: <DollarLineIcon />,
-    name: "Payments",
-    path: "/payments",
-    module: "payments",
-    minRole: "manager",
-  },
-  {
-    icon: <PieChartIcon />,
-    name: "Reports",
-    path: "/reports",
-    module: "analytics",
-    minRole: "manager",
-  },
-  {
-    icon: <PlugInIcon />,
-    name: "Integrations",
-    path: "/integrations",
-    module: "integrations",
-    minRole: "manager",
-  },
-];
-
-const adminItems: NavItem[] = [
-  {
-    icon: <LockIcon />,
-    name: "Audit Logs",
-    path: "/admin/audit-logs",
-    minRole: "director",
-  },
-  {
-    icon: <FileIcon />,
-    name: "Documents",
-    path: "/admin/documents",
-    minRole: "manager",
-  }
-];
-
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const { userContext } = useApp();
   const location = useLocation();
   const role = userContext?.role;
+  const { t } = useT();
 
   const canSeeItem = (nav: NavItem) => {
     if (nav.minRole && !hasAccess(nav.minRole, role)) return false;
@@ -109,6 +43,74 @@ const AppSidebar: React.FC = () => {
     if (import.meta.env.DEV && (!userContext?.modules || userContext.modules.length === 0)) return true;
     return false;
   };
+
+  const allNavItems: NavItem[] = [
+    {
+      icon: <GridIcon />,
+      name: t.nav.dashboard,
+      path: "/",
+    },
+    {
+      icon: <UserCircleIcon />,
+      name: t.nav.customers,
+      path: "/customers",
+      module: "customers",
+    },
+    {
+      icon: <ShootingStarIcon />,
+      name: t.nav.packages,
+      path: "/packages",
+      module: "packages",
+    },
+    {
+      icon: <CalenderIcon />,
+      name: t.nav.reservations,
+      path: "/reservations",
+      module: "reservations",
+    },
+    {
+      icon: <TimeIcon />,
+      name: t.nav.departures,
+      path: "/departures",
+      module: "departures",
+    },
+    {
+      icon: <DollarLineIcon />,
+      name: t.nav.payments,
+      path: "/payments",
+      module: "payments",
+      minRole: "manager",
+    },
+    {
+      icon: <PieChartIcon />,
+      name: t.nav.reports,
+      path: "/reports",
+      module: "analytics",
+      minRole: "manager",
+    },
+    {
+      icon: <PlugInIcon />,
+      name: t.nav.integrations,
+      path: "/integrations",
+      module: "integrations",
+      minRole: "manager",
+    },
+  ];
+
+  const adminItems: NavItem[] = [
+    {
+      icon: <LockIcon />,
+      name: t.nav.auditLogs,
+      path: "/admin/audit-logs",
+      minRole: "director",
+    },
+    {
+      icon: <FileIcon />,
+      name: t.nav.documents,
+      path: "/admin/documents",
+      minRole: "manager",
+    },
+  ];
 
   const navItems = allNavItems.filter(canSeeItem);
   const visibleAdminItems = adminItems.filter(canSeeItem);
@@ -332,11 +334,7 @@ const AppSidebar: React.FC = () => {
                   : "justify-start"
                   }`}
               >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Menu"
-                ) : (
-                  <HorizontaLDots className="size-6" />
-                )}
+                {isExpanded || isHovered || isMobileOpen ? t.nav.menu : <HorizontaLDots className="size-6" />}
               </h2>
               {renderMenuItems(navItems, "main")}
             </div>
@@ -348,11 +346,7 @@ const AppSidebar: React.FC = () => {
                   : "justify-start"
                   }`}
               >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "System"
-                ) : (
-                  <HorizontaLDots />
-                )}
+                {isExpanded || isHovered || isMobileOpen ? t.nav.system : <HorizontaLDots />}
               </h2>
               {renderMenuItems(visibleAdminItems, "admin")}
             </div>
