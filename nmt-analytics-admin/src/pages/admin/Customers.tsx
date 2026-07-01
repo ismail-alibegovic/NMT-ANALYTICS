@@ -13,6 +13,7 @@ import { useToast } from '../../context/ToastContext';
 import { useApp } from '../../context/AppContext';
 import { useQueryParams } from '../../hooks/useQueryParams';
 import { useDataInvalidation } from '../../hooks/useDataInvalidation';
+import { useT } from '../../lib/i18n/context';
 import {
   getCustomers,
   createCustomer,
@@ -41,6 +42,7 @@ export default function Customers() {
   const [submitting, setSubmitting] = useState(false);
   const [packages, setPackages] = useState<Package[]>([]);
   const [packageFilter, setPackageFilter] = useState<string>('');
+  const t = useT();
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
