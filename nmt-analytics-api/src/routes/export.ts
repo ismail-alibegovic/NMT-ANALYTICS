@@ -13,7 +13,7 @@ const router = Router();
  * Exports all organization data as CSV files in a ZIP archive.
  * Includes: customers, packages, departures, reservations, transactions
  *
- * Response: application/zip with filename "nmt-export-YYYY-MM-DD.zip"
+ * Response: application/zip with filename "travline-export-YYYY-MM-DD.zip"
  */
 router.get('/export/all.zip', authenticateToken, requireOrgContext, async (req, res: Response) => {
   try {

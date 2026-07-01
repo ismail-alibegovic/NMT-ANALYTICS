@@ -85,7 +85,7 @@ const AppHeader: React.FC = () => {
 
           <Link to="/" className="flex items-center gap-2 lg:hidden">
             <img
-              src="/images/brand/NMT analytics.png"
+              src="/images/brand/Travline.png"
               alt="Travline"
               className="h-7 w-auto rounded-md object-contain"
             />

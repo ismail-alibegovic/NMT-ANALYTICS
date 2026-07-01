@@ -31,7 +31,7 @@ function randomDate(start = new Date(2026, 0, 1), end = new Date(2026, 11, 31)) 
 function randomChoice<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 
 async function main() {
-  console.log('🚀 Reseeding NMT Analytics org with 2026 dates...\n');
+  console.log('🚀 Reseeding Travline org with 2026 dates...\n');
 
   // 1. DELETE existing data (order matters for FK)
   console.log('🗑️  Deleting existing data...');

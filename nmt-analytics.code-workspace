@@ -1,10 +1,10 @@
 {
 	"folders": [
 		{
-			"path": "nmt-analytics-api"
+			"path": "travline-api"
 		},
 		{
-			"path": "nmt-analytics-admin"
+			"path": "travline-admin"
 		}
 	]
 }

@@ -27,7 +27,7 @@ function pick<T>(a: T[]): T { return a[Math.floor(Math.random() * a.length)]; }
 function randDate() { return new Date(2026, 0, 1 + Math.floor(Math.random() * 364), rand(8, 20), rand(0, 59)); }
 
 async function main() {
-  console.log('🚀 Reseeding NMT Analytics org with 2026 dates...\n');
+  console.log('🚀 Reseeding Travline org with 2026 dates...\n');
 
   // 1. DELETE
   console.log('🗑️  Deleting old data...');
