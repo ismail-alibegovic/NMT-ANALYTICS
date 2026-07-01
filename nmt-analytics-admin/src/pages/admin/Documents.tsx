@@ -245,7 +245,7 @@ export default function Documents() {
 
     return (
         <>
-            <PageMeta title="Documents | NMT Analytics" description="Manage and store important files and documents" />
+            <PageMeta title="Documents | Travline" description="Manage and store important files and documents" />
 
             <input
                 type="file"

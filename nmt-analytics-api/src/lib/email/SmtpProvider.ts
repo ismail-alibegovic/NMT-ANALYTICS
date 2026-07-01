@@ -52,7 +52,7 @@ export class SmtpEmailProvider implements EmailProvider {
     }
 
     const transporter = this.getTransporter();
-    const fromName = this.config.fromName || 'NMT Analytics';
+    const fromName = this.config.fromName || 'Travline';
     const fromEmail = this.config.fromEmail || this.config.user;
 
     await transporter.sendMail({

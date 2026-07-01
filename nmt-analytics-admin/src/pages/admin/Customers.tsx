@@ -237,7 +237,7 @@ export default function Customers() {
 
   return (
     <>
-      <PageMeta title="Customers | NMT Analytics" description="Manage your customer database" />
+      <PageMeta title="Customers | Travline" description="Manage your customer database" />
       <PageToolbar
         title="Customers"
         description="Manage your customer database"

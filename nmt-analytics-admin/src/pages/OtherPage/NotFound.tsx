@@ -6,7 +6,7 @@ export default function NotFound() {
   return (
     <>
       <PageMeta
-        title="404 Not Found | NMT Analytics"
+        title="404 Not Found | Travline"
         description="Page not found"
       />
       <div className="relative flex flex-col items-center justify-center min-h-screen p-6 overflow-hidden z-1">
@@ -36,7 +36,7 @@ export default function NotFound() {
         </div>
         {/* <!-- Footer --> */}
         <p className="absolute text-sm text-center text-gray-500 -translate-x-1/2 bottom-6 left-1/2 dark:text-gray-400">
-          &copy; {new Date().getFullYear()} - NMT Analytics
+          &copy; {new Date().getFullYear()} - Travline
         </p>
       </div>
     </>

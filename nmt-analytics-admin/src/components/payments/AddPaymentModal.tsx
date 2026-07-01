@@ -64,6 +64,7 @@ export default function AddPaymentModal({
                 amount: amountNum,
                 currency,
                 status: status as any,
+                payment_method: paymentMethod || undefined,
                 payment_date: paymentDate || undefined,
             };
 

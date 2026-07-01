@@ -26,6 +26,7 @@ function transformDeparture(departure: any) {
 }
 
 const getDeparturesQuerySchema = z.object({
+  search: z.string().optional(),
   ...paginationQuerySchema,
   ...dateRangeQuerySchema,
   packageId: z.string().uuid('Invalid package ID').optional(),
@@ -85,7 +86,7 @@ router.get('/departures', authenticateToken, requireOrgContext, async (req, res,
       return apiError(res, 400, "VALIDATION_ERROR", "Validation error");
     }
 
-    const { from, to, packageId, page, limit, offset, orderBy, orderDir } = validationResult.data;
+    const { from, to, search, packageId, page, limit, offset, orderBy, orderDir } = validationResult.data;
     const orgId = req.orgId!;
 
     // Build query
@@ -116,6 +117,11 @@ router.get('/departures', authenticateToken, requireOrgContext, async (req, res,
     // Add package filter if provided
     if (packageId) {
       query = query.eq('package_id', packageId);
+    }
+
+    // Add search filter if provided
+    if (search) {
+      query = query.or(`packages.name.ilike.%${search}%`);
     }
 
     const { data: departures, error, count } = await query;

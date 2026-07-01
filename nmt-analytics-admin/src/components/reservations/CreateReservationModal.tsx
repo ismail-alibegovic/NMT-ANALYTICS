@@ -251,7 +251,7 @@ export default function CreateReservationModal({
             <Label>Broj osoba</Label>
             <Input
               type="number"
-              min={1}
+              min="1"
               value={String(partySize)}
               onChange={(e) => setPartySize(Math.max(1, parseInt(e.target.value) || 1))}
             />
@@ -260,7 +260,7 @@ export default function CreateReservationModal({
             <Label>Ukupan iznos (BAM)</Label>
             <Input
               type="number"
-              min={0}
+              min="0"
               placeholder="0.00"
               value={totalAmount}
               onChange={(e) => setTotalAmount(e.target.value)}

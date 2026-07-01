@@ -114,7 +114,7 @@ export default function Home() {
 
   return (
     <>
-      <PageMeta title="Dashboard | NMT Analytics" description="NMT Analytics Dashboard Overview" />
+      <PageMeta title="Dashboard | Travline" description="Travline Dashboard Overview" />
 
       <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>

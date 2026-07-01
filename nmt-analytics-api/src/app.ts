@@ -35,7 +35,7 @@ function isAllowedOrigin(origin: string): boolean {
 if (config.NODE_ENV !== 'production') {
   app.get('/', (req, res) => {
     res.json({
-      name: 'NMT Analytics API',
+      name: 'Travline API',
       status: 'ok',
       health: '/api/health'
     });

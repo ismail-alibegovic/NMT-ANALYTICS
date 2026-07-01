@@ -6,8 +6,8 @@ export default function SignUp() {
   return (
     <>
       <PageMeta
-        title="Sign Up | NMT Analytics"
-        description="Sign up for NMT Analytics"
+        title="Sign Up | Travline"
+        description="Sign up for Travline"
       />
       <AuthLayout>
         <SignUpForm />

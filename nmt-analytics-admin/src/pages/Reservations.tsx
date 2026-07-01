@@ -12,7 +12,6 @@ import { useQueryParams } from "../hooks/useQueryParams";
 import { useDataInvalidation } from "../hooks/useDataInvalidation";
 import { useApp } from "../context/AppContext";
 import EmptyState from "../components/ui/EmptyState";
-import { FormModal } from "../components/ui/FormModal";
 import CreateReservationModal from "../components/reservations/CreateReservationModal";
 import EditReservationModal from "../components/reservations/EditReservationModal";
 import { formatCurrency, normalizeMoney } from "../utils/business";
@@ -21,16 +20,11 @@ import {
   downloadVoucher,
   downloadInvoice,
   batchUpdateStatus,
-  createReservation,
-  updateReservation,
   deleteReservation,
   Reservation,
   ReservationListResponse,
   ReservationFilters
 } from "../api/reservations";
-import { getCustomers, Customer } from "../api/customers";
-import { getPackages, Package } from "../api/packages";
-import { getDepartures, Departure } from "../api/departures";
 import { hasAccess } from "../types/roles";
 
 const ITEMS_PER_PAGE = 10;
@@ -51,6 +45,7 @@ export default function Reservations() {
   const [loading, setLoading] = useState(true);
   const [batchLoading, setBatchLoading] = useState(false);
   const [assignedOnly, setAssignedOnly] = useState<boolean>(getParam('my', '') === 'true');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -62,7 +57,7 @@ export default function Reservations() {
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
-  const fetchReservations = async (page = 1, status = '', from = '', to = '', myOnly = false) => {
+  const fetchReservations = async (page = 1, status = '', from = '', to = '', myOnly = false, search = '') => {
     setLoading(true);
     try {
       const filters: ReservationFilters = {
@@ -73,6 +68,7 @@ export default function Reservations() {
       if (from) filters.dateFrom = from;
       if (to) filters.dateTo = to;
       if (myOnly) filters.assignedOnly = true;
+      if (search) filters.search = search;
 
       const response: ReservationListResponse = await getReservations(filters);
       setReservations(response.data);
@@ -98,7 +94,7 @@ export default function Reservations() {
       setDateFrom(from);
       setDateTo(to);
 
-      fetchReservations(page, status, from, to, assignedOnly);
+      fetchReservations(page, status, from, to, assignedOnly, searchQuery);
     } else if (!authLoading) {
       setLoading(false);
     }
@@ -123,7 +119,7 @@ export default function Reservations() {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    fetchReservations(page, statusFilter, dateFrom, dateTo, assignedOnly);
+    fetchReservations(page, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
   };
 
   const handleDownloadVoucher = async (reservationId: string) => {
@@ -176,18 +172,18 @@ export default function Reservations() {
     try {
       await deleteReservation(reservation.id);
       showSuccess("Rezervacija obrisana");
-      fetchReservations(currentPage, statusFilter, dateFrom, dateTo);
+      fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
     } catch (err: any) {
       showError(err?.message || "Greška pri brisanju rezervacije");
     }
   };
 
   const handleEditSuccess = () => {
-    fetchReservations(currentPage, statusFilter, dateFrom, dateTo);
+    fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
   };
 
   const handlePaymentCreated = () => {
-    fetchReservations(currentPage, statusFilter, dateFrom, dateTo);
+    fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
   };
 
   const toggleSelect = (id: string) => {
@@ -218,7 +214,7 @@ export default function Reservations() {
         showSuccess(`${result.summary.succeeded} reservations updated to ${status}`);
       }
       setSelectedIds(new Set());
-      fetchReservations(currentPage, statusFilter, dateFrom, dateTo);
+      fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
     } catch (err) {
       showError('Batch update failed');
     } finally {
@@ -425,14 +421,18 @@ export default function Reservations() {
 
   return (
     <>
-      <PageMeta title="Reservations | NMT Analytics" description="Manage reservations and payments" />
+      <PageMeta title="Reservations | Travline" description="Manage reservations and payments" />
 
       <PageToolbar
         title="Rezervacije"
         description="Upravljanje rezervacijama i plaćanjima"
-        searchValue=""
-        onSearchChange={() => { }}
-        searchPlaceholder="Traži rezervacije..."
+        searchValue={searchQuery}
+        onSearchChange={(val: string) => {
+          setSearchQuery(val);
+          setCurrentPage(1);
+          fetchReservations(1, statusFilter, dateFrom, dateTo, assignedOnly, val);
+        }}
+        searchPlaceholder="Traži klijenta ili telefon..."
         actions={
           <div className="flex gap-2">
             <Button
@@ -510,6 +510,7 @@ export default function Reservations() {
               setDateFrom("");
               setDateTo("");
               setAssignedOnly(false);
+              setSearchQuery("");
               setCurrentPage(1);
             }}
           >
@@ -625,7 +626,7 @@ export default function Reservations() {
             setIsEditOpen(false);
             setEditingReservation(null);
           }}
-          reservation={editingReservation}
+          reservationId={editingReservation.id}
           onSuccess={handleEditSuccess}
         />
       )}

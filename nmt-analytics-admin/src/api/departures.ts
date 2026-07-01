@@ -39,6 +39,7 @@ export interface UpdateDepartureData {
 
 export interface DepartureFilters {
   packageId?: string;
+  search?: string;
   dateFrom?: string;
   dateTo?: string;
   status?: string;
@@ -58,6 +59,9 @@ export async function getDepartures(filters: DepartureFilters = {}): Promise<Dep
   const params: Record<string, any> = {};
   if (filters.packageId) {
     params.packageId = filters.packageId;
+  }
+  if (filters.search) {
+    params.search = filters.search;
   }
   if (filters.dateFrom) {
     params.dateFrom = filters.dateFrom;

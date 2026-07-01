@@ -163,7 +163,7 @@ export default function AuditLogs() {
 
   return (
     <>
-      <PageMeta title="Audit Logs | NMT Analytics" description="System activity logs" />
+      <PageMeta title="Audit Logs | Travline" description="System activity logs" />
 
       <div className="p-6">
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

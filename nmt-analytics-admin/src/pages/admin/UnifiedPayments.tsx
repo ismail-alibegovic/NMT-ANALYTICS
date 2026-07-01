@@ -217,12 +217,14 @@ export default function UnifiedPayments() {
     )},
     { key: "status", header: "Status", render: (v) => statusBadge(v as string) },
     { key: "paymentDate", header: "Datum", render: (v) => formatDate(v as string) },
+    { key: "paymentMethod", header: "Način", render: (v) => v ? (v as string).replace(/_/g, " ") : "-" },
     { key: "createdAt", header: "Kreirano", render: (v) => formatDate(v as string) },
   ];
 
   const paymentListColumns: Column<Payment>[] = [
     { key: "id", header: "ID", render: (v) => <span className="text-xs font-mono">{(v as string).substring(0, 8)}</span> },
     { key: "amount", header: "Iznos", render: (v, r) => formatCurrency(v as number, r.currency) },
+    { key: "payment_method", header: "Način", render: (v) => v ? (v as string).replace(/_/g, " ") : "-" },
     { key: "status", header: "Status", render: (v) => statusBadge(v as string) },
     { key: "paymentDate", header: "Datum", render: (v) => formatDate(v as string) },
     { key: "reservation", header: "Rezervacija", render: (v) => v ? (v as any).customerName || "-" : "-" },
@@ -257,7 +259,7 @@ export default function UnifiedPayments() {
 
   return (
     <>
-      <PageMeta title="Payments | NMT Analytics" description="Unified payment management" />
+      <PageMeta title="Payments | Travline" description="Unified payment management" />
 
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Payments</h1>

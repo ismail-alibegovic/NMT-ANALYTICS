@@ -57,6 +57,7 @@ export interface ReservationFilters {
   assignedOnly?: boolean;
   customerId?: string;
   departureId?: string;
+  search?: string;
   status?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -79,6 +80,9 @@ export async function getReservations(filters: ReservationFilters = {}): Promise
   }
   if (filters.departureId) {
     params.departureId = filters.departureId;
+  }
+  if (filters.search) {
+    params.search = filters.search;
   }
   if (filters.status) {
     params.status = filters.status;

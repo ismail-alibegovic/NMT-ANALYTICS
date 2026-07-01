@@ -312,12 +312,12 @@ const AppSidebar: React.FC = () => {
         <Link to="/" className="flex items-center gap-3">
           <img
             src="/images/brand/NMT analytics.png"
-            alt="NMT Analytics"
+            alt="Travline"
             className="h-7 w-auto rounded-lg object-contain shrink-0"
           />
           {(isExpanded || isHovered || isMobileOpen) && (
             <span className="text-xl font-bold text-gray-900 dark:text-white truncate">
-              NMT Analytics
+              Travline
             </span>
           )}
         </Link>

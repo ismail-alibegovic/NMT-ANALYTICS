@@ -1,4 +1,5 @@
 import { supabaseAdmin } from './supabase';
+import { EmailService } from './email/EmailService';
 
 export type NotificationType = 
   | 'new_reservation'
@@ -89,13 +90,21 @@ export async function notifyPaymentOverdue(
   orgId: string,
   customerName: string,
   amount: number,
-  reservationId: string
+  reservationId: string,
+  customerEmail?: string
 ) {
-  return createNotification({
+  const notification = await createNotification({
     orgId,
     type: 'payment_overdue',
     title: 'Zakašnjela uplata',
     body: `${customerName} duguje ${amount} BAM`,
     data: { reservationId, customerName, amount },
   });
+
+  if (customerEmail) {
+    EmailService.sendPaymentOverdueReminder(customerEmail, customerName, amount, reservationId)
+      .catch((err: any) => console.warn('Failed to send overdue email:', err));
+  }
+
+  return notification;
 }
