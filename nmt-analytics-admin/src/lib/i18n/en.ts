@@ -30,6 +30,7 @@ export const en = {
     noDataDesc: 'No transactions within the selected date range.',
     createPackage: 'Create Package', viewReservations: 'View Reservations',
     createReservation: 'Create Reservation',
+    yourBookings: 'Your Bookings', bookingsOverTime: 'Bookings Over Time', exportData: 'Export Data', unknownPackage: 'Unknown Package',
   },
   departures: {
     title: 'Departures', description: 'Manage departures and capacities',
@@ -139,6 +140,15 @@ export const en = {
     signingIn: 'Signing in...',
     keepLoggedIn: 'Keep me logged in',
     devLogin: 'Dev Login (Bypass Auth)',
+    signUpTitle: 'Create your account',
+    signUpSubtitle: 'Join the platform to manage bookings and analytics',
+    firstName: 'First Name', lastName: 'Last Name',
+    enterFirstName: 'Enter your first name', enterLastName: 'Enter your last name',
+    enterEmail: 'Enter your email', enterPassword: 'Enter your password',
+    termsPrefix: 'By creating an account you agree to our',
+    termsLink: 'Terms and Conditions', privacyLink: 'Privacy Policy',
+    termsMiddle: 'and our',
+    signUpButton: 'Create account',
   },
   integrations: {
     title: 'Integrations', description: 'Manage connected services',

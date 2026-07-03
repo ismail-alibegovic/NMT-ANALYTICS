@@ -1,0 +1,23 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="14" fill="#161950"/>
+  <!-- airplane silhouette: top-down view pointing up -->
+  <path d="M32 11
+           C 33.4 11 34.3 12 34.4 13.4 L 34.4 26
+           L 52 41
+           L 52 44.5
+           L 34.4 38.4
+           L 34.4 48
+           L 40 53
+           L 40 55
+           L 32 53.2
+           L 24 55
+           L 24 53
+           L 29.6 48
+           L 29.6 38.4
+           L 12 44.5
+           L 12 41
+           L 29.6 26
+           L 29.6 13.4
+           C 29.7 12 30.6 11 32 11 Z"
+        fill="#ffffff"/>
+</svg>

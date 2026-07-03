@@ -21,9 +21,9 @@ export default function AuthLayout({
             <div className="flex flex-col items-center max-w-sm">
               <Link to="/" className="block mb-6">
                 <img
-                  src="/images/brand/Travline.png"
+                  src="/images/brand/travline-icon.svg"
                   alt="Travline"
-                  className="h-12 w-auto"
+                  className="h-16 w-16 rounded-2xl object-contain"
                 />
               </Link>
               <h2 className="mb-2 text-2xl font-bold text-white text-center">
