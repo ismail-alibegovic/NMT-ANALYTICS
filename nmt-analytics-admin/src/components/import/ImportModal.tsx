@@ -113,12 +113,12 @@ export default function ImportModal({ entity, isOpen, onClose, onSuccess }: Impo
 
                 <div className="p-6 space-y-6">
                     {/* Template Download */}
-                    <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-brand-50 dark:bg-brand-500/15 rounded-lg">
                         <div>
-                            <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                            <p className="text-sm font-medium text-brand-900 dark:text-brand-200">
                                 Need a template?
                             </p>
-                            <p className="text-xs text-blue-700 dark:text-blue-300">
+                            <p className="text-xs text-brand-700 dark:text-brand-300">
                                 Download a sample CSV with the correct column format
                             </p>
                         </div>
@@ -188,8 +188,8 @@ export default function ImportModal({ entity, isOpen, onClose, onSuccess }: Impo
 
                     {/* Error */}
                     {error && (
-                        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                            <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+                        <div className="p-4 bg-error-50 dark:bg-error-500/15 border border-error-200 dark:border-error-800 rounded-lg">
+                            <p className="text-sm text-error-800 dark:text-error-200">{error}</p>
                         </div>
                     )}
 
@@ -197,21 +197,21 @@ export default function ImportModal({ entity, isOpen, onClose, onSuccess }: Impo
                     {result && (
                         <div className="space-y-4">
                             <div className="grid grid-cols-3 gap-4">
-                                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                                    <p className="text-sm text-blue-600 dark:text-blue-400">Total Rows</p>
-                                    <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                                <div className="p-4 bg-brand-50 dark:bg-brand-500/15 rounded-lg">
+                                    <p className="text-sm text-brand-600 dark:text-brand-400">Total Rows</p>
+                                    <p className="text-2xl font-bold text-brand-900 dark:text-brand-100">
                                         {result.total}
                                     </p>
                                 </div>
-                                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                                    <p className="text-sm text-green-600 dark:text-green-400">Imported</p>
-                                    <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+                                <div className="p-4 bg-success-50 dark:bg-success-500/15 rounded-lg">
+                                    <p className="text-sm text-success-600 dark:text-success-400">Imported</p>
+                                    <p className="text-2xl font-bold text-success-900 dark:text-success-100">
                                         {result.importedCount}
                                     </p>
                                 </div>
-                                <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                                    <p className="text-sm text-red-600 dark:text-red-400">Failed</p>
-                                    <p className="text-2xl font-bold text-red-900 dark:text-red-100">
+                                <div className="p-4 bg-error-50 dark:bg-error-500/15 rounded-lg">
+                                    <p className="text-sm text-error-600 dark:text-error-400">Failed</p>
+                                    <p className="text-2xl font-bold text-error-900 dark:text-error-100">
                                         {result.invalidCount}
                                     </p>
                                 </div>
@@ -228,7 +228,7 @@ export default function ImportModal({ entity, isOpen, onClose, onSuccess }: Impo
                                                 key={idx}
                                                 className="p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
                                             >
-                                                <p className="text-sm font-medium text-red-600 dark:text-red-400">
+                                                <p className="text-sm font-medium text-error-600 dark:text-error-400">
                                                     Row {err.row}
                                                 </p>
                                                 <p className="text-xs text-gray-600 dark:text-gray-400">
