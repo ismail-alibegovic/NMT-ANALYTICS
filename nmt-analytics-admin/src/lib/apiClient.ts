@@ -261,6 +261,11 @@ export async function get<T = any>(url: string, config?: any): Promise<{ data: T
     const response = await api.get<T>(url, config);
     return { data: response.data };
   } catch (error) {
+    // Don't wrap blob responses — let them pass through as-is
+    const axiosConfig = (error as any)?.config;
+    if (axiosConfig?.responseType === 'blob') {
+      throw error;
+    }
     throw normalizeError(error);
   }
 }

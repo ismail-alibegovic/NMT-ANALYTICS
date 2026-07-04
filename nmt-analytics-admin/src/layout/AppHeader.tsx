@@ -164,7 +164,13 @@ const AppHeader: React.FC = () => {
             {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}
-            <button onClick={toggleLanguage}>BS/EN</button>
+            <button
+  onClick={toggleLanguage}
+  className="relative flex items-center justify-center h-11 w-11 rounded-full border border-gray-200 bg-white text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
+  title={lang === "en" ? "Switch to Bosnian" : "Switch to English"}
+>
+  {lang === "en" ? "BS" : "EN"}
+</button>
             <NotificationDropdown />
             {/* <!-- Notification Menu Area --> */}
           </div>

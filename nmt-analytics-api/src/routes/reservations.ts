@@ -512,7 +512,6 @@ router.get('/reservations/:id/voucher.pdf', authenticateToken, requireOrgContext
       .from('reservations')
       .select(`
         *,
-        assigned_to,
         customers (id, full_name, phone, email),
         departures (
           id,
@@ -520,7 +519,7 @@ router.get('/reservations/:id/voucher.pdf', authenticateToken, requireOrgContext
           return_at,
           packages (id, name, destination)
         ),
-        organizations (id, name, slug, tax_id, bank_account, invoice_footer)
+        organizations (id, name, slug, email, phone, address, currency)
       `)
       .eq('id', id)
       .eq('org_id', orgId)
@@ -563,7 +562,6 @@ router.get('/reservations/:id/invoice.pdf', authenticateToken, requireOrgContext
       .from('reservations')
       .select(`
         *,
-        assigned_to,
         customers (id, full_name, phone, email),
         departures (
           id,
@@ -571,7 +569,7 @@ router.get('/reservations/:id/invoice.pdf', authenticateToken, requireOrgContext
           return_at,
           packages (id, name, destination)
         ),
-        organizations (id, name, slug, email, phone, address, currency, tax_id, bank_account, invoice_footer)
+        organizations (id, name, slug, email, phone, address, currency)
       `)
       .eq('id', id)
       .eq('org_id', orgId)
@@ -605,7 +603,6 @@ router.post('/reservations/:id/send-email', authenticateToken, requireOrgContext
       .from('reservations')
       .select(`
         *,
-        assigned_to,
         customers (id, full_name, phone, email),
         departures (
           id,
@@ -613,7 +610,7 @@ router.post('/reservations/:id/send-email', authenticateToken, requireOrgContext
           return_at,
           packages (id, name, destination)
         ),
-        organizations (id, name, slug, tax_id, bank_account, invoice_footer)
+        organizations (id, name, slug, email, phone, address, currency)
       `)
       .eq('id', id)
       .eq('org_id', orgId)

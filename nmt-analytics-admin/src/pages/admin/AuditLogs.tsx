@@ -59,6 +59,7 @@ export default function AuditLogs() {
   const [actionFilter, setActionFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [search, setSearch] = useState("");
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
@@ -73,8 +74,15 @@ export default function AuditLogs() {
         from: dateFrom || undefined,
         to: dateTo || undefined,
       });
-      setLogs(response.data);
-      setTotalItems(response.total);
+      // Client-side search filter over returned logs
+      const filtered = search.trim()
+        ? response.data.filter(l =>
+            (l.profiles?.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
+            (l.profiles?.email || "").toLowerCase().includes(search.toLowerCase()) ||
+            l.entity_id.substring(0, 8).toLowerCase().includes(search.toLowerCase()))
+        : response.data;
+      setLogs(filtered);
+      setTotalItems(search.trim() ? filtered.length : response.total);
       setCurrentPage(page);
     } catch (err: any) {
       console.error('Failed to fetch audit logs:', err);
@@ -82,7 +90,7 @@ export default function AuditLogs() {
     } finally {
       setLoading(false);
     }
-  }, [entityFilter, actionFilter, dateFrom, dateTo, showError]);
+  }, [entityFilter, actionFilter, dateFrom, dateTo, search, showError]);
 
   useEffect(() => {
     fetchLogs(1);
@@ -200,7 +208,20 @@ export default function AuditLogs() {
         </div>
 
         {/* Filters */}
-        <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4 bg-white dark:bg-white/[0.03] p-4 rounded-xl border border-gray-200 dark:border-white/[0.05]">
+        <div className="mb-6 space-y-4">
+          <div className="relative max-w-sm">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by user, email, or log ID..."
+              value={search}
+              onChange={e => { setSearch(e.target.value); fetchLogs(currentPage); }}
+              className="w-full rounded-lg border border-gray-300 bg-white pl-10 pr-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/[0.1] dark:bg-gray-900 dark:text-white"
+            />
+          </div>
+        <div className="bg-white dark:bg-white/[0.03] p-4 rounded-xl border border-gray-200 dark:border-white/[0.05] grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <label className={labelClass}>Entity Type</label>
             <select value={entityFilter} onChange={e => setEntityFilter(e.target.value)} className={selectClass}>
@@ -227,6 +248,7 @@ export default function AuditLogs() {
             <label className={labelClass}>To</label>
             <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={inputClass} />
           </div>
+        </div>
         </div>
 
         {loading && logs.length === 0 ? (

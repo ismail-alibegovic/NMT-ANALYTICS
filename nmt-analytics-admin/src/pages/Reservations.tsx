@@ -135,7 +135,14 @@ export default function Reservations() {
       document.body.removeChild(a);
     } catch (err: any) {
       console.error('Failed to download voucher:', err);
-      showError('Failed to download voucher');
+      const status = (err as any)?.status ?? (err as any)?.response?.status;
+      if (status === 403) {
+        showError('Nemate dozvolu za preuzimanje vouchera');
+      } else if (status === 404) {
+        showError('Voucher nije pronađen');
+      } else {
+        showError(`Greška pri preuzimanju vouchera: ${err.message || 'nepoznata greška'}`);
+      }
     }
   };
 
@@ -152,7 +159,14 @@ export default function Reservations() {
       document.body.removeChild(a);
     } catch (err: any) {
       console.error('Failed to download invoice:', err);
-      showError('Failed to download invoice');
+      const status = (err as any)?.status ?? (err as any)?.response?.status;
+      if (status === 403) {
+        showError('Nemate dozvolu (manager+) za preuzimanje fakture');
+      } else if (status === 404) {
+        showError('Faktura nije pronađena');
+      } else {
+        showError(`Greška pri preuzimanju fakture: ${err.message || 'nepoznata greška'}`);
+      }
     }
   };
 

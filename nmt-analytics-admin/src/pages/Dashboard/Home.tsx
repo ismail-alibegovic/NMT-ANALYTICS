@@ -12,8 +12,10 @@ import { ArrowDownIcon, ArrowUpIcon, BoxIconLine, DollarLineIcon, CalenderIcon, 
 import { useToast } from "../../context/ToastContext";
 import { hasAccess } from "../../types/roles";
 import { useApp } from "../../context/AppContext";
+import { useTranslation } from "../../lib/i18n/context";
 
 export default function Home() {
+  const t = useTranslation();
   const toast = useToast();
   const navigate = useNavigate();
   const { userContext } = useApp();
@@ -45,7 +47,7 @@ export default function Home() {
       setBookingsSeries(Array.isArray(book) ? book : []);
     } catch (err: any) {
       console.error("Dashboard fetch error:", err);
-      toast.error("Failed to load dashboard data. Please try again.");
+      toast.error(t.common.error);
 
       // Safe fallback on error
       setOverview(null);
@@ -56,7 +58,7 @@ export default function Home() {
       setLoading(false);
       setChartLoading(false);
     }
-  }, [toast]);
+  }, [toast, t]);
 
   useEffect(() => {
     if (currentRange) {
@@ -114,12 +116,12 @@ export default function Home() {
 
   return (
     <>
-      <PageMeta title="Dashboard | Travline" description="Travline Dashboard Overview" />
+      <PageMeta title={`${t.dashboard.title} | Travline`} description={t.dashboard.description} />
 
       <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white/90 font-outfit">Dashboard Overview</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track your business performance and metrics</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white/90 font-outfit">{t.dashboard.title}</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t.dashboard.description}</p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -132,7 +134,7 @@ export default function Home() {
               onClick={downloadAllData}
             >
               <DownloadIcon className="w-4 h-4 mr-2" />
-              Export Data
+              {t.dashboard.exportData}
             </Button>
           )}
         </div>
@@ -141,7 +143,7 @@ export default function Home() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 md:gap-6 mb-8">
         {isManagerPlus && (
           <MetricCard
-            title="Total Revenue"
+            title={t.dashboard.totalRevenue}
             value={dashboardStats?.revenue ?? overview?.totalRevenue ?? 0}
             change={overview?.revenueChangePct}
             icon={DollarLineIcon}
@@ -149,27 +151,27 @@ export default function Home() {
           />
         )}
         <MetricCard
-          title="Total Bookings"
+          title={t.dashboard.totalBookings}
           value={dashboardStats?.bookings_count ?? overview?.totalBookings ?? 0}
           change={overview?.bookingsChangePct}
           icon={BoxIconLine}
         />
         <MetricCard
-          title="Total Customers"
+          title={t.dashboard.totalCustomers}
           value={overview?.totalCustomers ?? 0}
           change={overview?.customersChangePct}
           icon={GroupIcon}
         />
         {isManagerPlus && (
           <MetricCard
-            title="Avg Booking"
+            title={t.dashboard.avgBooking}
             value={dashboardStats?.average_booking_value ?? 0}
             icon={ShootingStarIcon}
             prefix="$"
           />
         )}
         <MetricCard
-          title="Cancel Rate"
+          title={t.dashboard.cancelRate}
           value={overview?.cancellationRate ?? 0}
           icon={ArrowDownIcon}
           suffix="%"
@@ -179,8 +181,8 @@ export default function Home() {
       <div className="grid grid-cols-1 gap-6 mb-8">
         {isManagerPlus && (
           <AnalyticsChart
-            title="Revenue Trend"
-            subtitle="Revenue generated over time"
+            title={t.dashboard.revenueTrend}
+            subtitle={t.dashboard.revenueGenerated}
             data={chartRevenueData}
             prefix="$"
             loading={chartLoading}
@@ -188,8 +190,8 @@ export default function Home() {
           />
         )}
         <AnalyticsChart
-          title={isManagerPlus ? "Bookings Trend" : "Your Bookings"}
-          subtitle={isManagerPlus ? "Number of reservations over time" : "Reservations overview"}
+          title={isManagerPlus ? t.dashboard.bookingsTrend : t.dashboard.yourBookings}
+          subtitle={isManagerPlus ? t.dashboard.bookingsOverTime : t.dashboard.reservationsOverview}
           data={bookingsSeries}
           color="#10B981"
           loading={chartLoading}
@@ -199,17 +201,17 @@ export default function Home() {
 
       {!loading && dashboardStats?.top_packages && Array.isArray(dashboardStats.top_packages) && dashboardStats.top_packages.length > 0 && (
         <div className="mb-8">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Top Packages</h3>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t.dashboard.topPackages}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {dashboardStats.top_packages.map((pkg, idx) => (
               <div key={idx} className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
                 <div className="flex justify-between items-start mb-4">
-                  <h4 className="font-semibold text-gray-900 dark:text-white">{pkg?.name || 'Unknown Package'}</h4>
-                  <Badge color="info">{pkg?.bookings || 0} bookings</Badge>
+                  <h4 className="font-semibold text-gray-900 dark:text-white">{pkg?.name || t.dashboard.unknownPackage}</h4>
+                  <Badge color="info">{pkg?.bookings || 0} {t.dashboard.bookings}</Badge>
                 </div>
                 <div className="flex items-baseline gap-1">
                   <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">${(pkg?.revenue || 0).toLocaleString()}</span>
-                  <span className="text-xs text-gray-500">revenue</span>
+                  <span className="text-xs text-gray-500">{t.dashboard.revenue}</span>
                 </div>
               </div>
             ))}
@@ -224,27 +226,27 @@ export default function Home() {
               <CalenderIcon className="text-gray-400 size-8" />
             </div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-              {isAgentViewer ? "No Recent Bookings" : "No Data Found for this Period"}
+              {isAgentViewer ? t.dashboard.noBookings : t.dashboard.noData}
             </h3>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 px-4">
               {isAgentViewer
-                ? "You don't have any reservations yet. Start by creating a new reservation for a customer."
-                : "We couldn't find any transactions or reservations within the selected date range. Try adjusting your filters or create new data."
+                ? t.dashboard.noBookingsDesc
+                : t.dashboard.noDataDesc
               }
             </p>
             <div className="mt-8 flex items-center justify-center gap-4">
               {isManagerPlus ? (
                 <>
                   <Button onClick={() => window.location.href = '/packages'}>
-                    Create Package
+                    {t.dashboard.createPackage}
                   </Button>
                   <Button variant="outline" onClick={() => window.location.href = '/reservations'}>
-                    View Reservations
+                    {t.dashboard.viewReservations}
                   </Button>
                 </>
               ) : (
                 <Button onClick={() => window.location.href = '/reservations'}>
-                  Create Reservation
+                  {t.dashboard.createReservation}
                 </Button>
               )}
             </div>
