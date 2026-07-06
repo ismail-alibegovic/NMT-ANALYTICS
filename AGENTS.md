@@ -203,21 +203,22 @@ Implementation:
 
 Deployed live on https://travline-sprypine.zocomputer.io (verified both hub and a section).
 
-### Nova Prodaja Wizard + Package Variants (2026-07-06)
+### Nova Prodaja Wizard (DONE 2026-07-06)
 
-Frontend (admin):
-- `components/reservations/NewSaleWizard.tsx` — 5-step wizard replacing the old single-form modal:  Aranžman (package) → Termin (departure) → Varijante (tier/accommodation) → Klijent (customer + party size) → Pregled (review + confirm). Triggered by the "+ Nova rezervacija" button on Reservations page.
-- `components/packages/PackageEditorModal.tsx` — rich modal for defining packages with inline **Varijante** (tier Standard/Premium/Deluxe × accommodation Hotel/Student/Apartment × price × capacity) + **Prijevoz** (none/bus/flight + capacity). Replaces the flat FormModal on Packages page.
-- Departures form now includes a "Prijevoz" select (none/bus/flight).
-- Sidebar acquired an `activeScope` (sales/operations/finance/admin) — sidebar panel only renders the matching group's items; homepage (`/` and `/home`) hides the sidebar entirely.
+5-step reservation creation flow replacing `CreateReservationModal`. Triggered by the
+"+ Nova rezervacija" button on `/reservations`. File: `admin/src/components/reservations/NewSaleWizard.tsx`.
 
-Backend (api):
-- `routes/packages.ts` create/update/patch schemas extended with `transportType`, `transportType`, `transport_capacity`, `variants` (JSON array). Insert/update handlers persist them.
-- `routes/departures.ts` create/update/patch schemas extended with `transportType`; wired into insert/update bodies (mapped to `transport_type`).
-- `routes/reservations.ts` POST now accepts `customerEmail`, `assignedTo`, `options` (JSON object), `notes`, `hotelName`, `roomType`, `checkIn`, `checkOut`, `tourGuide`, `excursionIds`. New customer upsert path (when `upsert:true` and no `customerId`) creates the customer first, then the reservation. Optimistic atomic capacity reservation via new `reserve_capacity_atomic` RPC when `status='confirmed'`.
+Steps: Aranžman (package card picker) → Termin (departure card picker, capacity badge, transport type) → Varijante (optional package variants grid + Prijevoz dropdown + Tip smještaja dropdown) → Klijent (existing-customer search + new-customer fields + party size + total + notes) → Pregled (review summary → "Potvrdi prodaju").
 
-DB migrations (NOT YET APPLIED to Supabase — see `APPLY_MIGRATIONS_036_037.sql`):
-- `036_package_options_and_transport.sql` — adds `transport_type` to `departures` (with CHECK), `variants`/`transport_type`/`transport_capacity` to `packages`, `hotel_id`/`room_type`/`option_key` to `package_services`, `package_option_id`/`transport_type`/`excursion_ids` to `reservations`. Backfills departure transport_type from existing package_services transport rows.
-- `037_reservation_options.sql` — adds `options JSONB` + `notes TEXT` to `reservations`, plus the `reserve_capacity_atomic(p_departure_id, p_org_id, p_party_size)` SECURITY DEFINER function used by POST /reservations.
+Backend support (migrations 036 + 037, applied live):
+- `packages.transport_type`, `transport_capacity`, `variants` (jsonb array)
+- `departures.transport_type` ('bus'|'flight'|'none')
+- `package_services.hotel_id`, `room_type`, `option_key`
+- `reservations.options` (jsonb), `notes`, `package_option_id`, `transport_type`, `excursion_ids`
+- `reserve_capacity_atomic(departure_id, org_id, party_size)` RPC — oversell-safe, used by POST /reservations when status='confirmed'
 
-**To apply migrations**: open Supabase Dashboard → SQL Editor for project hacutwknfgufrqlgdiia → paste contents of `/home/workspace/Travline/APPLY_MIGRATIONS_036_037.sql` → Run. Until then, package editor save with variants may 400 on the new columns; the wizard's plain fields still work.
+Schema Migration files: `supabase/sql/036_package_options_and_transport.sql`, `supabase/sql/037_reservation_options.sql` (also in `supabase/migrations/20260706010000_*` / `20260706020000_*`).
+
+Backend dev-mode note: when `DEV_BYPASS_AUTH=true` and `req.user.id` is the stub `00000000-...-000000` UUID, `POST /api/reservations` writes `assigned_to = NULL` (since the stub is not in `auth.users`). In production with a real JWT, `assigned_to` falls back to `req.user.id` as before. Do not let `assigned_to` be the stub UUID — it fails the FK to `users`.
+
+Verified end-to-end on https://travline-sprypine.zocomputer.io — full wizard renders, creates reservation with options/notes/hotel_name preserved.
