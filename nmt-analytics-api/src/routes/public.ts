@@ -271,3 +271,56 @@ router.post('/public/reserve', async (req: Request, res: Response) => {
 });
 
 export default router;
+
+/** POST /api/public/hotel-bookings - public hotel room booking */
+const hotelBookingSchema = z.object({
+  orgId: z.string().uuid(),
+  hotelId: z.string().uuid(),
+  roomType: z.string().min(1),
+  checkIn: z.string().min(1),
+  checkOut: z.string().min(1),
+  guestName: z.string().min(1),
+  guestPhone: z.string().min(1),
+});
+
+router.post('/public/hotel-bookings', async (req: Request, res: Response) => {
+  try {
+    const input = hotelBookingSchema.parse(req.body);
+
+    // Check room availability
+    const { data: room, error: roomErr } = await supabaseAdmin
+      .from('hotel_rooms')
+      .select('id, available, total')
+      .eq('hotel_id', input.hotelId)
+      .eq('room_type', input.roomType)
+      .single();
+
+    if (roomErr || !room) {
+      return apiError(res, 404, 'ROOM_NOT_FOUND', 'Soba nije pronađena.');
+    }
+    if (room.available < 1) {
+      return apiError(res, 400, 'NO_AVAILABILITY', 'Nema slobodnih soba za odabrani period.');
+    }
+
+    // Decrement availability
+    const { error: updateErr } = await supabaseAdmin
+      .from('hotel_rooms')
+      .update({ available: room.available - 1 })
+      .eq('id', room.id);
+
+    if (updateErr) {
+      return apiError(res, 500, 'DB_ERROR', 'Greška pri rezervaciji sobe.');
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'Booking request received',
+      roomType: input.roomType,
+    });
+  } catch (err: any) {
+    if (err instanceof z.ZodError) {
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Molimo popunite sva obavezna polja.');
+    }
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Interna greška.');
+  }
+});

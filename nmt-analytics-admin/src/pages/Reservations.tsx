@@ -12,7 +12,7 @@ import { useQueryParams } from "../hooks/useQueryParams";
 import { useDataInvalidation } from "../hooks/useDataInvalidation";
 import { useApp } from "../context/AppContext";
 import EmptyState from "../components/ui/EmptyState";
-import CreateReservationModal from "../components/reservations/CreateReservationModal";
+import NewSaleWizard from "../components/reservations/NewSaleWizard";
 import EditReservationModal from "../components/reservations/EditReservationModal";
 import { formatCurrency, normalizeMoney } from "../utils/business";
 import {
@@ -645,11 +645,11 @@ export default function Reservations() {
         />
       )}
 
-      <CreateReservationModal
+      <NewSaleWizard
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        onSuccess={() => {
-          fetchReservations(currentPage, statusFilter, dateFrom, dateTo);
+        onCreated={() => {
+          fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly);
         }}
       />
     </>

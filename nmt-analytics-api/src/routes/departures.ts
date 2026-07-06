@@ -44,6 +44,7 @@ const createDepartureSchema = z.object({
   status: z.enum(['active', 'cancelled', 'completed']).default('active'),
   booked: z.coerce.number().int().min(0).default(0),
   upsert: z.boolean().default(false),
+  transportType: z.enum(['bus', 'flight', 'none']).default('none'),
 }).refine((data) => new Date(data.returnAt) > new Date(data.departAt), {
   message: 'Return date must be after departure date',
   path: ['returnAt'],
@@ -56,6 +57,7 @@ const putDepartureSchema = z.object({
   capacity: z.coerce.number().int().min(1, "Capacity must be at least 1"),
   status: z.enum(['active', 'cancelled', 'completed']).default('active'),
   booked: z.coerce.number().int().min(0).optional(),
+  transportType: z.enum(['bus', 'flight', 'none']).optional(),
 }).transform((data) => ({
   ...data,
   departAt: data.departAt.includes('Z') ? data.departAt : data.departAt.endsWith(':00') ? data.departAt + 'Z' : data.departAt + ':00Z',
@@ -72,6 +74,7 @@ const updateDepartureSchema = z.object({
   capacity: z.coerce.number().int().min(1, "Capacity must be at least 1").optional(),
   status: z.enum(['active', 'cancelled', 'completed']).optional(),
   booked: z.coerce.number().int().min(0).optional(),
+  transportType: z.enum(['bus', 'flight', 'none']).optional(),
 }).transform((data) => {
   const result: any = { ...data };
   if (data.departAt) {
@@ -178,7 +181,7 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
       return;
     }
 
-    const { packageId, departAt, returnAt, capacity, booked, status, upsert } = validationResult.data;
+    const { packageId, departAt, returnAt, capacity, booked, status, upsert, transportType } = validationResult.data;
     const orgId = req.orgId!;
 
     const { data: packageData, error: packageError } = await supabaseAdmin
@@ -203,6 +206,7 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
         capacity: capacity,
         booked: booked,
         status: status,
+        transport_type: transportType || 'none',
       }, {
         onConflict: upsert ? 'org_id,package_id,depart_at' : undefined,
         ignoreDuplicates: !upsert
@@ -243,7 +247,7 @@ router.put('/departures/:id', authenticateToken, requireOrgContext, auditDepartu
       return;
     }
 
-    const { packageId, departAt, returnAt, capacity, status, booked } = validationResult.data;
+    const { packageId, departAt, returnAt, capacity, status, booked, transportType } = validationResult.data;
     const orgId = req.orgId!;
 
     const { data: packageData, error: packageError } = await supabaseAdmin
@@ -266,6 +270,7 @@ router.put('/departures/:id', authenticateToken, requireOrgContext, auditDepartu
         return_at: returnAt,
         capacity: capacity,
         status: status,
+        transport_type: transportType || undefined,
         ...(booked !== undefined ? { booked } : {}),
       })
       .eq('id', id)
@@ -310,7 +315,7 @@ router.patch('/departures/:id', authenticateToken, requireOrgContext, auditDepar
       return;
     }
 
-    const { packageId, departAt, returnAt, capacity, status, booked } = validationResult.data;
+    const { packageId, departAt, returnAt, capacity, status, booked, transportType } = validationResult.data;
     const orgId = req.orgId!;
 
     if (packageId) {
@@ -334,6 +339,7 @@ router.patch('/departures/:id', authenticateToken, requireOrgContext, auditDepar
     if (capacity !== undefined) updateData.capacity = capacity;
     if (status !== undefined) updateData.status = status;
     if (booked !== undefined) updateData.booked = booked;
+    if (transportType !== undefined) updateData.transport_type = transportType;
 
     const { data: departure, error } = await supabaseAdmin
       .from('departures')
@@ -430,6 +436,305 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
     res.json(transformDeparture(departure));
   } catch (error) {
     console.error('Error in GET /departures/:id:', error);
+    apiError(res, 500, "INTERNAL_ERROR", "Internal server error");
+  }
+});
+
+/**
+ * GET /api/departures/:id/passengers
+ * Returns the full passenger manifest for a departure: every guest (reservations + their excursion_passengers),
+ * with hotel room assignment, tour guide, seat number, payment status, customer info, source agent.
+ */
+router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, async (req, res: Response) => {
+  try {
+    const { id } = req.params;
+    const orgId = req.orgId!;
+
+    // Verify departure exists + belongs to org
+    const { data: departure, error: depErr } = await supabaseAdmin
+      .from('departures')
+      .select('id, depart_at, return_at, capacity, booked, package_id, packages(id, name, destination, currency)')
+      .eq('id', id)
+      .eq('org_id', orgId)
+      .single();
+
+    if (depErr || !departure) {
+      apiError(res, 404, "NOT_FOUND", "Departure not found");
+      return;
+    }
+
+    // 1) Reservations on this departure with customer (verified FK only — no customer_email col exists)
+    const { data: reservationsRaw, error: resErr } = await supabaseAdmin
+      .from('reservations')
+      .select(`
+        id, customer_id, customer_name, customer_phone,
+        party_size, total_amount, currency, status, source, reservation_at,
+        hotel_name, room_type, check_in, check_out, tour_guide,
+        assigned_to,
+        customers!reservations_customer_id_fkey(id, full_name, phone, email)
+      `)
+      .eq('departure_id', id)
+      .eq('org_id', orgId)
+      .order('reservation_at', { ascending: true });
+
+    if (resErr) {
+      console.error('Error fetching reservations:', resErr);
+      apiError(res, 502, "DB_ERROR", "Failed to load reservations");
+      return;
+    }
+    const reservations = (reservationsRaw || []) as any[];
+    const custRow = (r: any) => Array.isArray(r.customers) ? (r.customers[0] || null) : (r.customers || r.customers);
+    const pkg = (departure as any).packages;
+
+    // 2) Agent names: fetch profiles for all assigned_to UUIDs in one shot (assigned_to is a plain UUID, no FK hint)
+    const agentUuids = Array.from(new Set((reservations || []).map((r: any) => r.assigned_to).filter(Boolean))) as string[];
+    const agentNameByUuid: Record<string, string> = {};
+    if (agentUuids.length > 0) {
+      const { data: agentRows, error: agErr } = await supabaseAdmin
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', agentUuids);
+      if (!agErr && agentRows) {
+        for (const a of agentRows) agentNameByUuid[a.id] = a.full_name;
+      }
+    }
+    const agentRow = (r: any) => r.assigned_to ? (agentNameByUuid[r.assigned_to] || null) : null;
+
+    // 1b) Resolve assigned agents' names in a separate query (assigned_to is a plain UUID, not a PostgREST FK target)
+    const agentIds = Array.from(new Set((reservations || [])
+      .map((r: any) => r.assigned_to)
+      .filter((x: any): x is string => typeof x === 'string' && x.length > 0)));
+    let agentNameById: Record<string, string> = {};
+    if (agentIds.length > 0) {
+      const { data: agentRows, error: agentErr } = await supabaseAdmin
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', agentIds);
+      if (agentErr) console.error('Agent fetch (non-fatal):', agentErr);
+      if (agentRows) for (const a of agentRows) agentNameById[a.id] = a.full_name;
+    }
+    const agentRow2 = (r: any) => (r.assigned_to && agentNameById[r.assigned_to]) || null;
+
+    // 2) Per-passenger rows (excursion_passengers) for those reservations, with seat + paid + debt
+    const reservationIds = (reservations || []).map((r: any) => r.id);
+    let passengers: any[] = [];
+    if (reservationIds.length > 0) {
+      const { data: passRows, error: passErr } = await supabaseAdmin
+        .from('excursion_passengers')
+        .select('id, reservation_id, full_name, seat_number, paid_amount, debt_amount, phone, email, notes')
+        .in('reservation_id', reservationIds)
+        .order('seat_number', { ascending: true, nullsFirst: false });
+      if (passErr) console.error('Passengers fetch (non-fatal):', passErr);
+      if (passRows) passengers = passRows;
+    }
+
+    // 3) Hotel allocations for this departure — rooms assigned from the hotel_rooms matrix
+    const { data: allocations, error: allocErr } = await supabaseAdmin
+      .from('hotel_allocations')
+      .select(`
+        id, hotel_id, room_type, check_in, check_out,
+        hotels(id, name)
+      `)
+      .eq('departure_id', id)
+      .eq('org_id', orgId);
+    if (allocErr) console.error('Allocations fetch (non-fatal):', allocErr);
+
+    // 4) Payments received against these reservations
+    let payments: any[] = [];
+    if (reservationIds.length > 0) {
+      const { data: payRows, error: payErr } = await supabaseAdmin
+        .from('payments')
+        .select('id, reservation_id, amount, payment_date, status, currency, payment_method, refunded_at, refund_reason')
+        .in('reservation_id', reservationIds)
+        .order('payment_date', { ascending: false });
+      if (payErr) console.error('Payments fetch (non-fatal):', payErr);
+      if (payRows) payments = payRows;
+    }
+
+    // Compose manifest: one row per passenger if excursion_passengers exist, else one row per reservation (party_size)
+    const manifest: any[] = [];
+    const passByRes = (passengers || []).reduce<Record<string, any[]>>((acc, p) => {
+      (acc[p.reservation_id] ||= []).push(p);
+      return acc;
+    }, {});
+
+    for (const r of (reservations || [])) {
+      const cust = custRow(r);
+      const agent = agentRow(r);
+      const rows = passByRes[r.id] || [];
+      const paymentsForRes = (payments || []).filter((p: any) => p.reservation_id === r.id);
+      const totalPaid = paymentsForRes.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+
+      if (rows.length > 0) {
+        for (const p of rows) {
+          manifest.push({
+            passengerId: p.id,
+            reservationId: r.id,
+            fullName: p.full_name || r.customer_name,
+            phone: p.phone || r.customer_phone || cust?.phone,
+            email: p.email || cust?.email,
+            seat: p.seat_number,
+            paid: Number(p.paid_amount || 0),
+            debt: Number(p.debt_amount || 0),
+            customerLinked: !!cust,
+            customerId: cust?.id,
+            hotelName: r.hotel_name,
+            roomType: r.room_type,
+            checkIn: r.check_in,
+            checkOut: r.check_out,
+            tourGuide: r.tour_guide,
+            agent,
+            reservationStatus: r.status,
+            source: r.source,
+            partySize: r.party_size,
+            reservationTotal: Number(r.total_amount || 0),
+            currency: r.currency || pkg?.currency || 'EUR',
+            payments: paymentsForRes,
+            notes: p.notes,
+          });
+        }
+      } else {
+        // No per-passenger breakdown — emit reservation row, party_size tells us how many guests it represents
+        manifest.push({
+          passengerId: null,
+          reservationId: r.id,
+          fullName: r.customer_name,
+          phone: r.customer_phone || cust?.phone,
+          email: cust?.email,
+          seat: null,
+          paid: totalPaid,
+          debt: Number(r.total_amount || 0) - totalPaid,
+          customerLinked: !!cust,
+          customerId: cust?.id,
+          hotelName: r.hotel_name,
+          roomType: r.room_type,
+          checkIn: r.check_in,
+          checkOut: r.check_out,
+          tourGuide: r.tour_guide,
+          agent,
+          reservationStatus: r.status,
+          source: r.source,
+          partySize: r.party_size,
+          reservationTotal: Number(r.total_amount || 0),
+          currency: r.currency || pkg?.currency || 'EUR',
+          payments: paymentsForRes,
+          notes: null,
+        });
+      }
+    }
+
+    // Summary stats
+    const totalGuests = manifest.reduce((s, m) => s + (m.partySize || 1), 0);
+    const totalBooked = (reservations || []).reduce((s, r) => s + r.party_size, 0);
+    const confirmedGuests = manifest
+      .filter(m => m.reservationStatus === 'confirmed')
+      .reduce((s, m) => s + (m.partySize || 1), 0);
+    const totalPaidAmount = manifest.reduce((s, m) => s + m.paid, 0);
+    const totalDebtAmount = manifest.reduce((s, m) => s + m.debt, 0);
+    const guides = Array.from(new Set(manifest.map(m => m.tourGuide).filter(Boolean)));
+    const hotelsOnTrip = Array.from(new Set(manifest.map(m => m.hotelName).filter(Boolean)));
+
+    res.json({
+      departure: {
+        id: departure.id,
+        departAt: departure.depart_at,
+        returnAt: departure.return_at,
+        capacity: departure.capacity,
+        booked: departure.booked,
+        package: pkg,
+      },
+      summary: {
+        totalReservations: (reservations || []).length,
+        totalGuests,
+        confirmedGuests,
+        bookedVsCapacity: `${totalBooked}/${departure.capacity}`,
+        fillRate: departure.capacity > 0 ? Math.round((totalBooked / departure.capacity) * 100) : 0,
+        totalPaid: totalPaidAmount,
+        totalDebt: totalDebtAmount,
+        currency: pkg?.currency || 'EUR',
+        guides,
+        hotels: hotelsOnTrip,
+        allocations: allocations || [],
+      },
+      manifest,
+    });
+  } catch (error) {
+    console.error('Error in GET /departures/:id/passengers:', error);
+    apiError(res, 500, "INTERNAL_ERROR", "Internal server error");
+  }
+});
+
+/**
+ * GET /api/departures/:id/groups
+ * Aggregates the passenger manifest into natural groups: by hotel (accommodation groups)
+ * and by source agent (sales-channel groups). Used by the Departure detail page "Groups" tab.
+ */
+router.get('/departures/:id/groups', authenticateToken, requireOrgContext, async (req, res: Response) => {
+  try {
+    const { id } = req.params;
+    const orgId = req.orgId!;
+
+    // Reuse the passengers query logic by fetching reservations directly (only verified FKs)
+    const { data: reservationsRaw, error: resErr } = await supabaseAdmin
+      .from('reservations')
+      .select(`id, customer_name, customer_phone, party_size,
+              total_amount, currency, status, source, hotel_name, room_type,
+              check_in, check_out, tour_guide, assigned_to`)
+      .eq('departure_id', id)
+      .eq('org_id', orgId)
+      .order('hotel_name', { ascending: true, nullsFirst: false });
+
+    if (resErr) {
+      apiError(res, 502, "DB_ERROR", "Failed to load reservations");
+      return;
+    }
+    const reservations = (reservationsRaw || []) as any[];
+
+    // Resolve agent names separately (assigned_to is a plain UUID)
+    const agentIds2 = Array.from(new Set((reservations || [])
+      .map((r: any) => r.assigned_to)
+      .filter((x: any): x is string => typeof x === 'string' && x.length > 0)));
+    let agentMap: Record<string, string> = {};
+    if (agentIds2.length > 0) {
+      const { data: agentRows, error: agentErr } = await supabaseAdmin
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', agentIds2);
+      if (agentErr) console.error('Agent fetch (non-fatal):', agentErr);
+      if (agentRows) for (const a of agentRows) agentMap[a.id] = a.full_name;
+    }
+    const agentRow = (r: any) => (r.assigned_to && agentMap[r.assigned_to]) || r.source || '(nepoznat agent)';
+
+    // Group by hotel
+    const hotelGroups: Record<string, any> = {};
+    // Group by sales agent (assigned_to / source)
+    const agentGroups: Record<string, any> = {};
+
+    for (const r of reservations) {
+      const hotelKey = (r.hotel_name && r.hotel_name.trim()) ? r.hotel_name.trim() : '(bez hotela)';
+      const agentKey = agentRow(r);
+      const pax = (r.party_size || 1);
+      if (!hotelGroups[hotelKey]) hotelGroups[hotelKey] = { key: hotelKey, label: hotelKey, count: 0, passengers: [], roomType: r.room_type, checkIn: r.check_in, checkOut: r.check_out };
+      hotelGroups[hotelKey].count += pax;
+      hotelGroups[hotelKey].passengers.push({ name: r.customer_name, phone: r.customer_phone, partySize: pax, roomType: r.room_type });
+
+      if (!agentGroups[agentKey]) agentGroups[agentKey] = { key: agentKey, label: agentKey, count: 0, passengers: [], hotels: new Set() };
+      agentGroups[agentKey].count += pax;
+      agentGroups[agentKey].passengers.push({ name: r.customer_name, phone: r.customer_phone, partySize: pax, hotel: r.hotel_name });
+      if (r.hotel_name) agentGroups[agentKey].hotels.add(r.hotel_name);
+    }
+
+    // Convert Sets to arrays for serialization
+    Object.values(agentGroups).forEach((g: any) => { g.hotels = Array.from(g.hotels); });
+
+    res.json({
+      byHotel: Object.values(hotelGroups),
+      byAgent: Object.values(agentGroups),
+      hotels: Object.values(hotelGroups),
+      agents: Object.values(agentGroups),
+    });
+  } catch (error) {
+    console.error('Error in GET /departures/:id/groups:', error);
     apiError(res, 500, "INTERNAL_ERROR", "Internal server error");
   }
 });

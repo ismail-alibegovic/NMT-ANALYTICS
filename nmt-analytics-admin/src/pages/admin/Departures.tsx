@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import PageToolbar from "../../components/ui/PageToolbar";
 import { DataTable, Column, Pagination } from "../../components/ui/DataTable";
@@ -32,6 +33,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function Departures() {
+  const navigate = useNavigate();
   const { error: showError, success: showSuccess } = useToast();
   const [departures, setDepartures] = useState<Departure[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -162,6 +164,7 @@ export default function Departures() {
           capacity: Number(data.capacity),
           status: data.status,
           booked: Number(data.booked),
+          transportType: data.transport_type || 'none',
         });
       } else {
         await createDeparture({
@@ -171,6 +174,7 @@ export default function Departures() {
           capacity: Number(data.capacity),
           status: data.status || 'active',
           booked: Number(data.booked),
+          transportType: data.transport_type || 'none',
         });
       }
       setModalOpen(false);
@@ -204,6 +208,16 @@ export default function Departures() {
         { value: 'completed', label: 'Završen' },
       ],
     },
+    {
+      name: 'transport_type',
+      label: 'Prijevoz',
+      type: 'select' as const,
+      options: [
+        { value: 'none', label: 'Bez prijevoza' },
+        { value: 'bus', label: 'Autobus' },
+        { value: 'flight', label: 'Avion' },
+      ],
+    },
   ];
 
   const columns: Column<Departure>[] = [
@@ -212,7 +226,14 @@ export default function Departures() {
       header: 'Paket',
       render: (_, departure) => (
         <div className="min-w-[160px]">
-          <div className="font-medium text-gray-900 dark:text-white">{departure.packageName}</div>
+          <button
+            type="button"
+            onClick={() => navigate(`/departures/${departure.id}`)}
+            className="text-left font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 hover:underline"
+            title="Otvori detalje polaska"
+          >
+            {departure.packageName}
+          </button>
           <div className="text-gray-500 dark:text-gray-400 text-xs">{departure.destination}</div>
         </div>
       )

@@ -17,6 +17,7 @@ import {
   PlugInIcon,
   LockIcon,
   FileIcon,
+  HomeIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { useApp } from "../context/AppContext";
@@ -30,11 +31,14 @@ type NavItem = {
 };
 
 const AppSidebar: React.FC = () => {
-  const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+  const { isExpanded, isMobileOpen, isHovered, setIsHovered, activeScope } = useSidebar();
   const { userContext } = useApp();
   const location = useLocation();
   const role = userContext?.role;
   const { t } = useT();
+
+  // Homepage / no-scope → no sidebar at all.
+  if (activeScope === null) return null;
 
   const canSeeItem = (nav: NavItem) => {
     if (nav.minRole && !hasAccess(nav.minRole, role)) return false;
@@ -44,41 +48,113 @@ const AppSidebar: React.FC = () => {
     return false;
   };
 
-  const allNavItems: NavItem[] = [
+  const salesItems: NavItem[] = [
+    {
+      icon: <HomeIcon />,
+      name: t.nav.hub,
+      path: "/home",
+      minRole: "viewer",
+    },
     {
       icon: <GridIcon />,
       name: t.nav.dashboard,
-      path: "/",
+      path: "/dashboard",
+      minRole: "viewer",
     },
     {
       icon: <UserCircleIcon />,
       name: t.nav.customers,
       path: "/customers",
       module: "customers",
+      minRole: "viewer",
     },
     {
       icon: <ShootingStarIcon />,
       name: t.nav.packages,
       path: "/packages",
       module: "packages",
+      minRole: "agent",
     },
     {
       icon: <CalenderIcon />,
       name: t.nav.reservations,
       path: "/reservations",
       module: "reservations",
+      minRole: "viewer",
     },
     {
       icon: <TimeIcon />,
       name: t.nav.departures,
       path: "/departures",
       module: "departures",
+      minRole: "agent",
+    },
+  ];
+
+  const operationsItems: NavItem[] = [
+    {
+      icon: <HomeIcon />,
+      name: t.nav.hub,
+      path: "/home",
+      minRole: "viewer",
+    },
+    {
+      icon: <CalenderIcon />,
+      name: t.nav.calendar,
+      path: "/operations/calendar",
+      minRole: "viewer",
+    },
+    {
+      icon: <FileIcon />,
+      name: t.nav.contracts,
+      path: "/operations/contracts",
+      minRole: "viewer",
+    },
+    {
+      icon: <DollarLineIcon />,
+      name: t.nav.receipts,
+      minRole: "manager",
+      path: "/operations/receipts",
+    },
+    {
+      icon: <UserCircleIcon />,
+      name: t.nav.subAgents,
+      minRole: "manager",
+      path: "/operations/subagents",
+    },
+    {
+      icon: <ShootingStarIcon />,
+      name: t.nav.excursions,
+      minRole: "manager",
+      path: "/operations/excursions",
+    },
+    {
+      icon: <GridIcon />,
+      name: t.nav.hotels,
+      minRole: "manager",
+      path: "/operations/hotels",
+    },
+  ];
+
+  const financeItems: NavItem[] = [
+    {
+      icon: <HomeIcon />,
+      name: t.nav.hub,
+      path: "/home",
+      minRole: "viewer",
     },
     {
       icon: <DollarLineIcon />,
       name: t.nav.payments,
       path: "/payments",
       module: "payments",
+      minRole: "manager",
+    },
+    {
+      icon: <FileIcon />,
+      name: t.nav.fakturisanje,
+      path: "/reservations",
+      module: "reservations",
       minRole: "manager",
     },
     {
@@ -99,6 +175,12 @@ const AppSidebar: React.FC = () => {
 
   const adminItems: NavItem[] = [
     {
+      icon: <HomeIcon />,
+      name: t.nav.hub,
+      path: "/home",
+      minRole: "viewer",
+    },
+    {
       icon: <LockIcon />,
       name: t.nav.auditLogs,
       path: "/admin/audit-logs",
@@ -112,19 +194,28 @@ const AppSidebar: React.FC = () => {
     },
   ];
 
-  const navItems = allNavItems.filter(canSeeItem);
-  const visibleAdminItems = adminItems.filter(canSeeItem);
+  // Pick the section that matches the active scope.
+  const sectionLabel =
+    activeScope === "sales" ? t.nav.prodaja
+    : activeScope === "operations" ? t.nav.operations
+    : activeScope === "finance" ? t.nav.finansije
+    : t.nav.system;
+
+  const sectionItems =
+    activeScope === "sales" ? salesItems
+    : activeScope === "operations" ? operationsItems
+    : activeScope === "finance" ? financeItems
+    : adminItems;
+
+  const visibleItems = sectionItems.filter(canSeeItem);
 
   const [openSubmenu, setOpenSubmenu] = useState<{
-    type: "main" | "admin";
+    type: "section";
     index: number;
   } | null>(null);
-  const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
-    {}
-  );
+  const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>({});
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // const isActive = (path: string) => location.pathname === path;
   const isActive = useCallback(
     (path: string) => location.pathname === path,
     [location.pathname]
@@ -132,74 +223,48 @@ const AppSidebar: React.FC = () => {
 
   useEffect(() => {
     let submenuMatched = false;
-    ["main", "admin"].forEach((menuType) => {
-      const items = menuType === "main" ? navItems : visibleAdminItems;
-      items.forEach((nav, index) => {
-        if (nav.subItems) {
-          nav.subItems.forEach((subItem) => {
-            if (isActive(subItem.path)) {
-              setOpenSubmenu({
-                type: menuType as "main" | "admin",
-                index,
-              });
-              submenuMatched = true;
-            }
-          });
-        }
-      });
+    visibleItems.forEach((nav, index) => {
+      if (nav.subItems) {
+        nav.subItems.forEach((subItem) => {
+          if (isActive(subItem.path)) {
+            setOpenSubmenu({ type: "section", index });
+            submenuMatched = true;
+          }
+        });
+      }
     });
-
-    if (!submenuMatched) {
-      setOpenSubmenu(null);
-    }
-  }, [location, isActive, navItems, visibleAdminItems]);
+    if (!submenuMatched) setOpenSubmenu(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location, isActive]);
 
   useEffect(() => {
     if (openSubmenu !== null) {
-      const key = `${openSubmenu.type}-${openSubmenu.index}`;
+      const key = `section-${openSubmenu.index}`;
       if (subMenuRefs.current[key]) {
-        setSubMenuHeight((prevHeights) => ({
-          ...prevHeights,
+        setSubMenuHeight((prev) => ({
+          ...prev,
           [key]: subMenuRefs.current[key]?.scrollHeight || 0,
         }));
       }
     }
   }, [openSubmenu]);
 
-  const handleSubmenuToggle = (index: number, menuType: "main" | "admin") => {
-    setOpenSubmenu((prevOpenSubmenu) => {
-      if (
-        prevOpenSubmenu &&
-        prevOpenSubmenu.type === menuType &&
-        prevOpenSubmenu.index === index
-      ) {
-        return null;
-      }
-      return { type: menuType, index };
-    });
+  const handleSubmenuToggle = (index: number) => {
+    setOpenSubmenu((prev) =>
+      prev && prev.index === index ? null : { type: "section", index }
+    );
   };
 
-  const renderMenuItems = (items: NavItem[], menuType: "main" | "admin") => (
+  const renderMenuItems = (items: NavItem[]) => (
     <ul className="flex flex-col gap-4">
       {items.map((nav, index) => (
         <li key={nav.name}>
           {nav.subItems ? (
             <button
-              onClick={() => handleSubmenuToggle(index, menuType)}
-              className={`menu-item group ${openSubmenu?.type === menuType && openSubmenu?.index === index
-                ? "menu-item-active"
-                : "menu-item-inactive"
-                } cursor-pointer ${!isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "lg:justify-start"
-                }`}
+              onClick={() => handleSubmenuToggle(index)}
+              className={`menu-item group ${openSubmenu?.index === index ? "menu-item-active" : "menu-item-inactive"} cursor-pointer ${!isExpanded && !isHovered ? "lg:justify-center" : "lg:justify-start"}`}
             >
-              <span
-                className={`menu-item-icon-size  ${openSubmenu?.type === menuType && openSubmenu?.index === index
-                  ? "menu-item-icon-active"
-                  : "menu-item-icon-inactive"
-                  }`}
-              >
+              <span className={`menu-item-icon-size ${openSubmenu?.index === index ? "menu-item-icon-active" : "menu-item-icon-inactive"}`}>
                 {nav.icon}
               </span>
               {(isExpanded || isHovered || isMobileOpen) && (
@@ -207,11 +272,7 @@ const AppSidebar: React.FC = () => {
               )}
               {(isExpanded || isHovered || isMobileOpen) && (
                 <ChevronDownIcon
-                  className={`ml-auto w-5 h-5 transition-transform duration-200 ${openSubmenu?.type === menuType &&
-                    openSubmenu?.index === index
-                    ? "rotate-180 text-brand-500"
-                    : ""
-                    }`}
+                  className={`ml-auto w-5 h-5 transition-transform duration-200 ${openSubmenu?.index === index ? "rotate-180 text-brand-500" : ""}`}
                 />
               )}
             </button>
@@ -219,15 +280,9 @@ const AppSidebar: React.FC = () => {
             nav.path && (
               <Link
                 to={nav.path}
-                className={`menu-item group ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
-                  }`}
+                className={`menu-item group ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"}`}
               >
-                <span
-                  className={`menu-item-icon-size ${isActive(nav.path)
-                    ? "menu-item-icon-active"
-                    : "menu-item-icon-inactive"
-                    }`}
-                >
+                <span className={`menu-item-icon-size ${isActive(nav.path) ? "menu-item-icon-active" : "menu-item-icon-inactive"}`}>
                   {nav.icon}
                 </span>
                 {(isExpanded || isHovered || isMobileOpen) && (
@@ -238,15 +293,10 @@ const AppSidebar: React.FC = () => {
           )}
           {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
             <div
-              ref={(el) => {
-                subMenuRefs.current[`${menuType}-${index}`] = el;
-              }}
+              ref={(el) => { subMenuRefs.current[`section-${index}`] = el; }}
               className="overflow-hidden transition-all duration-300"
               style={{
-                height:
-                  openSubmenu?.type === menuType && openSubmenu?.index === index
-                    ? `${subMenuHeight[`${menuType}-${index}`]}px`
-                    : "0px",
+                height: openSubmenu?.index === index ? `${subMenuHeight[`section-${index}`]}px` : "0px",
               }}
             >
               <ul className="mt-2 space-y-1 ml-9">
@@ -254,30 +304,17 @@ const AppSidebar: React.FC = () => {
                   <li key={subItem.name}>
                     <Link
                       to={subItem.path}
-                      className={`menu-dropdown-item ${isActive(subItem.path)
-                        ? "menu-dropdown-item-active"
-                        : "menu-dropdown-item-inactive"
-                        }`}
+                      className={`menu-dropdown-item ${isActive(subItem.path) ? "menu-dropdown-item-active" : "menu-dropdown-item-inactive"}`}
                     >
                       {subItem.name}
                       <span className="flex items-center gap-1 ml-auto">
                         {subItem.new && (
-                          <span
-                            className={`ml-auto ${isActive(subItem.path)
-                              ? "menu-dropdown-badge-active"
-                              : "menu-dropdown-badge-inactive"
-                              } menu-dropdown-badge`}
-                          >
+                          <span className={`ml-auto ${isActive(subItem.path) ? "menu-dropdown-badge-active" : "menu-dropdown-badge-inactive"} menu-dropdown-badge`}>
                             new
                           </span>
                         )}
                         {subItem.pro && (
-                          <span
-                            className={`ml-auto ${isActive(subItem.path)
-                              ? "menu-dropdown-badge-active"
-                              : "menu-dropdown-badge-inactive"
-                              } menu-dropdown-badge`}
-                          >
+                          <span className={`ml-auto ${isActive(subItem.path) ? "menu-dropdown-badge-active" : "menu-dropdown-badge-inactive"} menu-dropdown-badge`}>
                             pro
                           </span>
                         )}
@@ -296,21 +333,13 @@ const AppSidebar: React.FC = () => {
   return (
     <aside
       className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
-        ${isExpanded || isMobileOpen
-          ? "w-[290px]"
-          : isHovered
-            ? "w-[290px]"
-            : "w-[90px]"
-        }
+        ${isExpanded || isMobileOpen ? "w-[290px]" : isHovered ? "w-[290px]" : "w-[90px]"}
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0`}
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div
-        className={`py-8 flex flex-col gap-2 ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start px-2"
-          }`}
-      >
+      <div className={`py-8 flex flex-col gap-2 ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start px-2"}`}>
         <Link to="/" className="flex items-center gap-3">
           <img
             src="/images/brand/travline-icon.svg"
@@ -324,33 +353,18 @@ const AppSidebar: React.FC = () => {
           )}
         </Link>
       </div>
+
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
         <nav className="mb-6">
           <div className="flex flex-col gap-4">
             <div>
               <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "justify-start"
-                  }`}
+                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"}`}
               >
-                {isExpanded || isHovered || isMobileOpen ? t.nav.menu : <HorizontaLDots className="size-6" />}
+                {isExpanded || isHovered || isMobileOpen ? sectionLabel : <HorizontaLDots className="size-6" />}
               </h2>
-              {renderMenuItems(navItems, "main")}
+              {renderMenuItems(visibleItems)}
             </div>
-            {visibleAdminItems.length > 0 && (
-            <div className="">
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "justify-start"
-                  }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? t.nav.system : <HorizontaLDots />}
-              </h2>
-              {renderMenuItems(visibleAdminItems, "admin")}
-            </div>
-            )}
           </div>
         </nav>
       </div>

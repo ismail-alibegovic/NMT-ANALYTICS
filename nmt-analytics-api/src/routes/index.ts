@@ -22,6 +22,16 @@ import notificationsRoutes from './notifications';
 import emailSettingsRoutes from './emailSettings';
 import paylinksRoutes from './paylinks';
 import publicRoutes from './public';
+// Phase A — TuristAgent adoption
+import contractRoutes from './contracts';
+import receiptRoutes from './receipts';
+import calendarRoutes from './calendar';
+import installmentRoutes from './installments';
+import subAgentRoutes from './subagents';
+import excursionRoutes from './excursions';
+import hotelRoutes from './hotels';
+import packageServicesRoutes from './packageServices';
+import eturistaRoutes from './eturista';
 
 const router = Router();
 
@@ -46,6 +56,19 @@ router.use('/', notificationsRoutes);
 router.use('/settings/email', emailSettingsRoutes);
 router.use('/paylinks', paylinksRoutes);
 router.use('/settings', settingsRoutes);
+
+// Phase A — TuristAgent adoption (routes are defined with full /contracts prefix)
+
+// Phase B — TuristAgent adoption
+router.use('/', subAgentRoutes);
+router.use('/', excursionRoutes);
+router.use('/', hotelRoutes);
+router.use('/', packageServicesRoutes);
+router.use('/', contractRoutes);
+router.use('/', receiptRoutes);
+router.use('/', calendarRoutes);
+router.use('/', installmentRoutes);
+router.use('/', eturistaRoutes);
 
 // Mount routes that rely on parent prefix
 router.use('/admin', adminRoutes);

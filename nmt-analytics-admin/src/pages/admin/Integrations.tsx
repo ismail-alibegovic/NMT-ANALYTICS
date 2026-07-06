@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import PageMeta from '../../components/common/PageMeta';
 import PageToolbar from '../../components/ui/PageToolbar';
 import IntegrationCard from '../../components/integrations/IntegrationCard';
@@ -7,6 +7,7 @@ import Button from '../../components/ui/button/Button';
 import { useToast } from '../../context/ToastContext';
 import { analyzeRevenueDrop, RevenueAnalysisResponse } from '../../api/ai';
 import { formatCurrency } from '../../utils/business';
+import { submitETurista, getETuristaHistory } from '../../api/eturista';
 import { useApp } from '../../context/AppContext';
 
 const Integrations = () => {
@@ -21,7 +22,9 @@ const Integrations = () => {
     const [analysisData, setAnalysisData] = useState<RevenueAnalysisResponse | null>(null);
 
     const { userContext } = useApp();
-    const [copiedWidget, setCopiedWidget] = useState(false);
+    const [isETuristaSubmitting, setETuristaSubmitting] = useState(false);
+  const [eTuristaHistory, setETuristaHistory] = useState<any[]>([]);
+  const [copiedWidget, setCopiedWidget] = useState(false);
     const orgId = userContext?.org?.id || '';
     const widgetUrl = `/api/public/${orgId}/widget`;
     const embedCode = orgId
@@ -32,6 +35,31 @@ const Integrations = () => {
       try { await navigator.clipboard.writeText(text); setCopiedWidget(true); setTimeout(() => setCopiedWidget(false), 2000); }
       catch { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); setCopiedWidget(true); setTimeout(() => setCopiedWidget(false), 2000); }
     };
+    const handleETuristaSubmit = async () => {
+      setETuristaSubmitting(true);
+      try {
+        await submitETurista("");
+        success("eTurista prijava uspješno poslana");
+        const history = await getETuristaHistory();
+        setETuristaHistory(history);
+      } catch (err: any) {
+        toastError(err.message || "Slanje nije uspjelo");
+      } finally {
+        setETuristaSubmitting(false);
+      }
+    };
+
+    const handleRefreshETuristaHistory = async () => {
+      try {
+        const history = await getETuristaHistory();
+        setETuristaHistory(history);
+      } catch (err: any) {
+        toastError(err.message || "Učitavanje nije uspjelo");
+      }
+    };
+
+    useEffect(() => { handleRefreshETuristaHistory(); }, []);
+
 
     // Mock state for integration status
     const [integrationStatuses, setIntegrationStatuses] = useState<Record<string, 'connected' | 'not_configured'>>({
@@ -123,6 +151,17 @@ const Integrations = () => {
                     />
                 </div>
             </div>
+                    <IntegrationCard
+                        title="CIS / eTurista"
+                        description="Sistem za automatsku prijavu gostiju u CIS/eTurista sistem. Generiše XML/JSON payload iz rezervacija i šalje na vladin endpoint."
+                        status="not_configured"
+                        onConfigure={() => handleConfigure("CIS / eTurista")}
+                        icon={
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        }
+                    />
 
             {/* Revenue Copilot Section */}
             <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.05] rounded-xl p-6">
@@ -319,6 +358,52 @@ const Integrations = () => {
               )}
             </div>
 
+            {/* CIS / eTurista */}
+            <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.05] rounded-xl p-6 mt-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 rounded-lg">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">CIS / eTurista</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Automatska prijava gostiju u vladin sistem</p>
+                </div>
+              </div>
+              <div className="mb-4">
+                <Button
+                  variant="primary"
+                  onClick={() => handleETuristaSubmit()}
+                  disabled={isETuristaSubmitting}
+                >
+                  {isETuristaSubmitting ? "Šaljem..." : "Pošalji nove goste u eTurista"}
+                </Button>
+              </div>
+              {eTuristaHistory.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">Historija slanja</h3>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b dark:border-gray-700">
+                        <th className="text-left py-2 px-2 font-medium text-gray-500">Datum</th>
+                        <th className="text-left py-2 px-2 font-medium text-gray-500">Broj gostiju</th>
+                        <th className="text-left py-2 px-2 font-medium text-gray-500">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {eTuristaHistory.map((h: any) => (
+                        <tr key={h.id} className="border-b dark:border-gray-800">
+                          <td className="py-2 px-2">{new Date(h.submittedAt).toLocaleDateString("bs-BA")}</td>
+                          <td className="py-2 px-2">{h.guestCount}</td>
+                          <td className="py-2 px-2">{h.responseStatus === "success" ? "✅ Poslano" : "❌ Greška"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
             <ConfigureIntegrationModal
                 isOpen={isConfigModalOpen}
                 onClose={() => setIsConfigModalOpen(false)}

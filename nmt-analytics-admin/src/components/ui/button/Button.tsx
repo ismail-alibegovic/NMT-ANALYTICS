@@ -8,8 +8,9 @@ interface ButtonProps {
   endIcon?: ReactNode; // Icon after the text
   onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void; // Click handler
   disabled?: boolean; // Disabled state
-  className?: string; // Disabled state
+  className?: string;
   type?: "button" | "submit" | "reset";
+  title?: string; // Native HTML tooltip
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -21,7 +22,8 @@ const Button: React.FC<ButtonProps> = ({
   onClick,
   className = "",
   disabled = false,
-  type = "button", // Defaulting to button to avoid accidental submits outside forms, but we will override for SignIn
+  type = "button",
+  title,
 }) => {
   // Size Classes
   const sizeClasses = {
@@ -40,6 +42,7 @@ const Button: React.FC<ButtonProps> = ({
   return (
     <button
       type={type}
+      title={title}
       className={`inline-flex items-center justify-center gap-2 rounded-lg transition ${className} ${sizeClasses[size]
         } ${variantClasses[variant]} ${disabled ? "cursor-not-allowed opacity-50" : ""
         }`}

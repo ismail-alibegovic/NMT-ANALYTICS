@@ -14,6 +14,7 @@ import { EmailService } from '../lib/email/EmailService';
 import PDFDocument from 'pdfkit';
 import { notifyNewReservation } from '../lib/notificationService';
 import { requireMinimumRole } from '../middleware/requireRole';
+import { config } from '../config';
 
 const router = Router();
 
@@ -42,8 +43,19 @@ const createReservationSchema = z.object({
   totalAmount: z.number().min(0, 'Total amount must be non-negative').optional(),
   currency: z.string().default('BAM'),
   source: z.enum(['web', 'phone', 'agent', 'walk-in', 'other']).optional(),
-  // Allow upsert by natural key (departure_id, customer_phone, reservation_at)
+  customerEmail: z.string().email().optional().nullable(),
+  assignedTo: z.string().uuid('Invalid assignedTo id').optional().nullable(),
   upsert: z.boolean().default(false),
+  // --- Nova Prodaja wizard selections ---
+  // Optional pre-tax price, breakdown, and structured selections come straight from the wizard
+  options: z.record(z.string(), z.any()).optional(),
+  notes: z.string().optional().nullable(),
+  // Voucher-friendly mirror fields (persisted on the reservation so the downloadable voucher PDF renders them)
+  hotelName: z.string().optional().nullable(),
+  roomType: z.string().optional().nullable(),
+  checkIn: z.string().optional().nullable(),
+  checkOut: z.string().optional().nullable(),
+  tourGuide: z.string().optional().nullable(),
 });
 
 const updateReservationSchema = z.object({
@@ -207,10 +219,10 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       return apiError(res, 400, "VALIDATION_ERROR", "Invalid request body", validationResult.error.issues);
     }
 
-    const { departureId, status, partySize, customerId, upsert, ...rest } = validationResult.data;
+    const { departureId, status, partySize, customerId, upsert, options, notes, hotelName, roomType, checkIn, checkOut, tourGuide, customerEmail, assignedTo, ...rest } = validationResult.data;
     const orgId = req.orgId!;
+    let capacityRv: any = null;
 
-    // 1. Validate customer if provided
     if (customerId) {
       const { data: customer } = await supabaseAdmin
         .from('customers')
@@ -223,26 +235,102 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       }
     }
 
-    // 2. Call the atomic RPC function
-    const { data: reservation, error } = await supabaseAdmin
-      .rpc('create_reservation_atomic', {
-        p_org_id: orgId,
-        p_departure_id: departureId || null,
-        p_customer_data: { ...rest, customerId },
-        p_party_size: partySize,
-        p_status: status,
-        p_assigned_to: req.user!.id
-      });
+    let reservation: any;
+    if (departureId) {
+      // Atomic optimistic capacity update — single SQL statement
+      // guaranteed-no-oversell even bypassing the RPC.
+      // Decrement-only path will be rinsed when status changes; here we
+      // increment when confirmed, leave booked alone when pending.
+      capacityRv = status === 'confirmed'
+        ? await supabaseAdmin.rpc('reserve_capacity_atomic', {
+            p_departure_id: departureId,
+            p_org_id: orgId,
+            p_party_size: partySize,
+          })
+        : null;
 
-    if (error) {
-      if (error.message === 'CAPACITY_FULL') {
-        return apiError(res, 400, "CAPACITY_FULL", "Departure capacity is full");
+      if (capacityRv && capacityRv.error) {
+        const msg = capacityRv.error.message || '';
+        if (msg.includes('CAPACITY_FULL')) {
+          return apiError(res, 400, "CAPACITY_FULL", "Departure capacity is full");
+        }
+        if (msg.includes('DEPARTURE_NOT_FOUND')) {
+          return apiError(res, 404, "DEPARTURE_NOT_FOUND", "Departure not found");
+        }
+        return handleSupabaseError(res, capacityRv.error, "Failed to reserve capacity");
       }
-      if (error.message === 'DEPARTURE_NOT_FOUND') {
-        return apiError(res, 404, "DEPARTURE_NOT_FOUND", "Departure not found");
-      }
-      return handleSupabaseError(res, error, "Failed to create reservation");
     }
+
+    // Upsert path: create or link customer when no explicit customerId provided
+    let resolvedCustomerId = customerId || null;
+    if (upsert && !customerId && rest.customerName) {
+      const { data: existing } = await supabaseAdmin
+        .from('customers')
+        .select('id')
+        .eq('org_id', orgId)
+        .or(`phone.eq.${(rest.customerPhone || '').trim()}`)
+        .limit(1);
+      if (existing && existing.length > 0) {
+        resolvedCustomerId = existing[0].id;
+      } else {
+        const { data: newCust, error: custErr } = await supabaseAdmin
+          .from('customers')
+          .insert({
+            org_id: orgId,
+            full_name: rest.customerName,
+            phone: rest.customerPhone || null,
+            email: customerEmail || null,
+            status: 'active',
+          })
+          .select('id')
+          .single();
+        if (custErr) {
+          return handleSupabaseError(res, custErr, "Failed to upsert customer");
+        }
+        resolvedCustomerId = newCust?.id || null;
+      }
+    }
+
+    // Build the insert payload directly (we already handled capacity above)
+    const insertPayload: any = {
+      org_id: orgId,
+      departure_id: departureId || null,
+      customer_id: resolvedCustomerId || null,
+      customer_name: rest.customerName,
+      customer_phone: rest.customerPhone,
+      party_size: partySize,
+      reservation_at: rest.reservationAt,
+      status,
+      total_amount: rest.totalAmount ?? 0,
+      currency: rest.currency || 'BAM',
+      source: rest.source || 'agent',
+      assigned_to: assignedTo || (config.DEV_BYPASS_AUTH && req.user!.id === '00000000-0000-0000-0000-000000000000' ? null : req.user!.id),
+      options: options || {},
+      notes: notes || null,
+      hotel_name: hotelName || null,
+      room_type: roomType || null,
+      check_in: checkIn || null,
+      check_out: checkOut || null,
+      tour_guide: tourGuide || null,
+    };
+
+    const { data: created, error: insertError } = await supabaseAdmin
+      .from('reservations')
+      .insert(insertPayload)
+      .select('id, total_amount, currency, customer_name, customer_phone, party_size, options, notes')
+      .single();
+
+    if (insertError) {
+      // Rollback capacity we may have just added
+      if (departureId && status === 'confirmed') {
+        await supabaseAdmin
+          .from('departures')
+          .update({ booked: Math.max(0, (capacityRv?.data?.booked_after ?? partySize) - partySize) })
+          .eq('id', departureId);
+      }
+      return handleSupabaseError(res, insertError, "Failed to create reservation");
+    }
+    reservation = created;
 
     try {
       const createdReservation = Array.isArray(reservation) ? reservation[0] : reservation;

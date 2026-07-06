@@ -18,8 +18,10 @@ interface PageToolbarProps {
   title: string;
   description?: string;
   searchPlaceholder?: string;
-  searchValue: string;
-  onSearchChange: (value: string) => void;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  /** Hide the search input entirely (for pages that don't filter client-side). */
+  hideSearch?: boolean;
   filters?: Filter[];
   createButton?: {
     label: string;
@@ -33,13 +35,15 @@ export function PageToolbar({
   title,
   description,
   searchPlaceholder = "Search...",
-  searchValue,
+  searchValue = "",
   onSearchChange,
+  hideSearch = false,
   filters = [],
   createButton,
   actions,
   className = ''
 }: PageToolbarProps) {
+  const showSearchRow = filters.length > 0 || (!hideSearch && !!onSearchChange);
   return (
     <div className={`mb-6 ${className}`}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -59,7 +63,9 @@ export function PageToolbar({
         </div>
       </div>
 
+      {showSearchRow && (
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
+        {!hideSearch && onSearchChange && (
         <div className="flex-1 max-w-md">
           <Input
             type="text"
@@ -68,6 +74,7 @@ export function PageToolbar({
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </div>
+        )}
 
         {filters.length > 0 && (
           <div className="flex gap-2 flex-wrap">
@@ -90,6 +97,7 @@ export function PageToolbar({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

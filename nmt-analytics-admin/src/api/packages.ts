@@ -17,6 +17,18 @@ export interface Package {
   // Aliases for compatibility
   base_price?: number;
   is_active?: boolean;
+  // --- Nova Prodaja wizard support (migration 036) ---
+  transport_type?: 'bus' | 'flight' | 'none';
+  transport_capacity?: number | null;
+  variants?: PackageVariant[];
+}
+
+export interface PackageVariant {
+  id: string;
+  name: string;             // e.g. "Deluxe", "Standard", "Premium"
+  accommodation?: string;   // e.g. "Hotel 5* — Half board"
+  price_delta?: number;     // amount added to base price
+  currency?: string;
 }
 
 export interface PackageListResponse {

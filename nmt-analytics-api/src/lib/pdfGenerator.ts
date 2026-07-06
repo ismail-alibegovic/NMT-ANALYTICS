@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import { registerUnicodeFonts } from './pdfFonts';
 
 interface InvoiceStyle {
   primaryColor: string;
@@ -23,6 +24,7 @@ export async function generateVoucherPDF(reservation: any, orgSettings?: Partial
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      registerUnicodeFonts(doc);
       const buffers: Buffer[] = [];
       doc.on('data', buffers.push.bind(buffers));
       doc.on('end', () => resolve(Buffer.concat(buffers)));
@@ -36,48 +38,71 @@ export async function generateVoucherPDF(reservation: any, orgSettings?: Partial
       const style = { ...defaultStyle, ...orgSettings };
 
       doc.rect(0, 0, 595.28, 120).fill(style.primaryColor);
-      doc.fillColor('#FFFFFF').fontSize(28).font('Helvetica-Bold')
+      doc.fillColor('#FFFFFF').fontSize(28).font('DejaVu-Bold')
         .text('VOUCHER', 50, 30, { align: 'left' });
-      doc.fontSize(12).font('Helvetica')
+      doc.fontSize(12).font('DejaVu')
         .text(org.name || 'Travel Agency', 50, 70);
       doc.fontSize(9).text(`Voucher No: ${String(id).substring(0, 8).toUpperCase()}`, 50, 90);
 
       doc.fillColor(style.secondaryColor);
       doc.moveDown(10);
 
-      doc.fontSize(16).font('Helvetica-Bold').fillColor(style.primaryColor)
+      doc.fontSize(16).font('DejaVu-Bold').fillColor(style.primaryColor)
         .text('Customer Information', 50, doc.y);
       doc.moveDown(0.5);
-      doc.fontSize(11).font('Helvetica').fillColor(style.secondaryColor);
+      doc.fontSize(11).font('DejaVu').fillColor(style.secondaryColor);
       doc.text(`Name: ${customer?.full_name || reservation.customer_name}`);
       doc.text(`Phone: ${customer?.phone || reservation.customer_phone || 'N/A'}`);
       if (customer?.email) doc.text(`Email: ${customer.email}`);
       doc.moveDown(1);
 
       if (pkg?.name) {
-        doc.fontSize(16).font('Helvetica-Bold').fillColor(style.primaryColor)
+        doc.fontSize(16).font('DejaVu-Bold').fillColor(style.primaryColor)
           .text('Package Details');
         doc.moveDown(0.5);
-        doc.fontSize(11).font('Helvetica').fillColor(style.secondaryColor);
+        doc.fontSize(11).font('DejaVu').fillColor(style.secondaryColor);
         doc.text(`Package: ${pkg.name}`);
         if (pkg.destination) doc.text(`Destination: ${pkg.destination}`);
         doc.moveDown(1);
       }
 
       if (departure?.depart_at) {
-        doc.fontSize(16).font('Helvetica-Bold').fillColor(style.primaryColor)
+        doc.fontSize(16).font('DejaVu-Bold').fillColor(style.primaryColor)
           .text('Travel Dates');
         doc.moveDown(0.5);
-        doc.fontSize(11).font('Helvetica').fillColor(style.secondaryColor);
+        doc.fontSize(11).font('DejaVu').fillColor(style.secondaryColor);
         doc.text(`Departure: ${new Date(departure.depart_at).toLocaleDateString('bs-BA')}`);
         doc.text(`Return: ${new Date(departure.return_at).toLocaleDateString('bs-BA')}`);
         doc.moveDown(1);
       }
 
-      doc.fontSize(16).font('Helvetica-Bold').fillColor(style.primaryColor)
+      // Accommodation (optional, from migration 027)
+      if (reservation.hotel_name) {
+        doc.fontSize(16).font('DejaVu-Bold').fillColor(style.primaryColor)
+          .text('Accommodation');
+        doc.moveDown(0.5);
+        doc.fontSize(11).font('DejaVu').fillColor(style.secondaryColor);
+        doc.text(`Hotel: ${reservation.hotel_name}`);
+        if (reservation.room_type) doc.text(`Room Type: ${reservation.room_type}`);
+        if (reservation.check_in) doc.text(`Check-in: ${new Date(reservation.check_in).toLocaleDateString('bs-BA')}`);
+        if (reservation.check_out) doc.text(`Check-out: ${new Date(reservation.check_out).toLocaleDateString('bs-BA')}`);
+        doc.moveDown(1);
+      }
+
+      // Tour Guide (optional, from migration 027)
+      if (reservation.tour_guide) {
+        doc.fontSize(16).font('DejaVu-Bold').fillColor(style.primaryColor)
+          .text('Tour Guide');
+        doc.moveDown(0.5);
+        doc.fontSize(11).font('DejaVu').fillColor(style.secondaryColor);
+        doc.text(`Guide: ${reservation.tour_guide}`);
+        doc.moveDown(1);
+      }
+
+      doc.fontSize(16).font('DejaVu-Bold').fillColor(style.primaryColor)
         .text('Reservation Details');
       doc.moveDown(0.5);
-      doc.fontSize(11).font('Helvetica').fillColor(style.secondaryColor);
+      doc.fontSize(11).font('DejaVu').fillColor(style.secondaryColor);
       doc.text(`Party Size: ${reservation.party_size || 1}`);
       doc.text(`Total Amount: ${reservation.total_amount || 0} ${reservation.currency || 'BAM'}`);
       doc.text(`Status: ${(reservation.status || '').toUpperCase()}`);
@@ -105,6 +130,7 @@ export async function generateInvoicePDF(reservation: any, orgSettings?: Partial
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      registerUnicodeFonts(doc);
       const buffers: Buffer[] = [];
       doc.on('data', buffers.push.bind(buffers));
       doc.on('end', () => resolve(Buffer.concat(buffers)));
@@ -127,16 +153,16 @@ export async function generateInvoicePDF(reservation: any, orgSettings?: Partial
       // === HEADER ===
       doc.rect(0, 0, 595.28, 160).fill(style.primaryColor);
 
-      doc.fillColor('#FFFFFF').fontSize(32).font('Helvetica-Bold')
+      doc.fillColor('#FFFFFF').fontSize(32).font('DejaVu-Bold')
         .text('INVOICE', 50, 35, { align: 'right' });
-      doc.fontSize(10).font('Helvetica')
+      doc.fontSize(10).font('DejaVu')
         .text(`Invoice No: ${invoiceNo}`, 50, 80, { align: 'right' });
       doc.text(`Issue Date: ${issueDate}`, 50, 96, { align: 'right' });
       doc.text(`Due Date: ${dueDate}`, 50, 112, { align: 'right' });
 
-      doc.fillColor('#FFFFFF').fontSize(18).font('Helvetica-Bold')
+      doc.fillColor('#FFFFFF').fontSize(18).font('DejaVu-Bold')
         .text(org.name || 'Travel Agency', 50, 35);
-      doc.fontSize(9).font('Helvetica').fillColor('#E0E7FF');
+      doc.fontSize(9).font('DejaVu').fillColor('#E0E7FF');
       if (org.address) doc.text(org.address, 50, 65);
       if (org.email) doc.text(org.email, 50, 78);
       if (org.phone) doc.text(org.phone, 50, 91);
@@ -147,10 +173,10 @@ export async function generateInvoicePDF(reservation: any, orgSettings?: Partial
       const mainStart = 190;
 
       // === BILL TO ===
-      doc.fontSize(12).font('Helvetica-Bold').fillColor(style.primaryColor)
+      doc.fontSize(12).font('DejaVu-Bold').fillColor(style.primaryColor)
         .text('Bill To', 50, mainStart);
       doc.moveDown(0.3);
-      doc.fontSize(10).font('Helvetica').fillColor(style.secondaryColor);
+      doc.fontSize(10).font('DejaVu').fillColor(style.secondaryColor);
       doc.text(customer.full_name || reservation.customer_name || 'Customer');
       doc.text(customer.phone || reservation.customer_phone || 'N/A');
       if (customer.email) doc.text(customer.email);
@@ -167,7 +193,7 @@ export async function generateInvoicePDF(reservation: any, orgSettings?: Partial
       const col4 = 470;
 
       doc.rect(leftMargin, tableY - 5, rightMargin - leftMargin, 22).fill(style.primaryColor);
-      doc.fillColor('#FFFFFF').fontSize(9).font('Helvetica-Bold');
+      doc.fillColor('#FFFFFF').fontSize(9).font('DejaVu-Bold');
       doc.text('Description', col1 + 5, tableY + 2);
       doc.text('Qty', col2, tableY + 2, { width: 40, align: 'right' });
       doc.text('Unit Price', col3, tableY + 2, { width: 60, align: 'right' });
@@ -181,7 +207,7 @@ export async function generateInvoicePDF(reservation: any, orgSettings?: Partial
         ? `${pkg.name}${pkg.destination ? ` — ${pkg.destination}` : ''}`
         : `Reservation ${String(reservation.id || '').substring(0, 8).toUpperCase()}`;
 
-      doc.fontSize(10).font('Helvetica');
+      doc.fontSize(10).font('DejaVu');
       doc.text(description, col1, rowY, { width: 230 });
       if (departure?.depart_at) {
         doc.fontSize(8).fillColor('#6B7280')
@@ -197,12 +223,12 @@ export async function generateInvoicePDF(reservation: any, orgSettings?: Partial
 
       // === TOTALS ===
       const totalsY = rowY + 62;
-      doc.font('Helvetica').fontSize(10);
+      doc.font('DejaVu').fontSize(10);
       doc.text('Subtotal', 380, totalsY, { width: 80, align: 'right' });
       doc.text(`${total.toFixed(2)} ${currency}`, 460, totalsY, { width: 80, align: 'right' });
       doc.text('Paid', 380, totalsY + 20, { width: 80, align: 'right' });
       doc.text(`${paid.toFixed(2)} ${currency}`, 460, totalsY + 20, { width: 80, align: 'right' });
-      doc.font('Helvetica-Bold');
+      doc.font('DejaVu-Bold');
       doc.text('Balance Due', 380, totalsY + 44, { width: 80, align: 'right' });
       doc.fillColor(balance > 0 ? '#DC2626' : '#059669');
       doc.text(`${balance.toFixed(2)} ${currency}`, 460, totalsY + 44, { width: 80, align: 'right' });
@@ -210,10 +236,10 @@ export async function generateInvoicePDF(reservation: any, orgSettings?: Partial
       // === PAYMENT INFO ===
       doc.fillColor(style.secondaryColor);
       doc.moveDown(5);
-      doc.fontSize(12).font('Helvetica-Bold').fillColor(style.primaryColor)
+      doc.fontSize(12).font('DejaVu-Bold').fillColor(style.primaryColor)
         .text('Payment Information', 50, doc.y);
       doc.moveDown(0.3);
-      doc.fontSize(10).font('Helvetica').fillColor(style.secondaryColor);
+      doc.fontSize(10).font('DejaVu').fillColor(style.secondaryColor);
       doc.text(`Status: ${(reservation.payment_status || 'unpaid').replace(/_/g, ' ').toUpperCase()}`);
       doc.text(`Payment Terms: Due within 15 days`);
       if (org.tax_id) doc.text(`Porezni ID: ${org.tax_id}`);

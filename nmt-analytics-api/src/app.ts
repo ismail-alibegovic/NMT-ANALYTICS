@@ -8,12 +8,25 @@ import { config } from './config';
 import apiRouter from './routes/index';
 
 const app = express();
-app.set('trust proxy', 1);
+app.set('trust proxy', 1);const adminDistPath = path.resolve(process.cwd(), '../nmt-analytics-admin/dist');
+
+// Serve static assets BEFORE helmet/cors so JS/CSS/other asset requests
+// are never subject to CORS preflight or thrown CORS errors. Static asset
+// files have hashed names and no auth sensitivity.
+app.use('/assets', express.static(path.join(adminDistPath, 'assets'), {
+  immutable: true,
+  maxAge: '1y',
+  fallthrough: true,
+}));
+
+app.use(express.static(adminDistPath, { fallthrough: true }));
 
 // Security headers
 app.use(helmet({
   contentSecurityPolicy: false, // Disabled to allow SPA with inline styles/scripts
   crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: false,
 }));
 
 function isAllowedOrigin(origin: string): boolean {
@@ -32,34 +45,35 @@ function isAllowedOrigin(origin: string): boolean {
 }
 
 // Root route
-if (config.NODE_ENV !== 'production') {
-  app.get('/', (req, res) => {
+app.get('/', (req, res) => {
+  if (req.accepts('html')) {
+    res.sendFile(path.join(adminDistPath, 'index.html'));
+  } else {
     res.json({
       name: 'Travline API',
       status: 'ok',
       health: '/api/health'
     });
-  });
-}
+  }
+});
 
 // Middleware
 app.use(requestId);
 app.use(requestLogging);
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (same-origin requests, mobile apps, curl, health checks)
+    // Treat CORS denial as a soft denial (no headers) instead of throwing —
+    // throwing here falls through to the global error handler, which
+    // responds with application/json and 500. That breaks same-origin
+    // static files when some subresource fetches send an Origin header.
     if (!origin) return callback(null, true);
-
-    if (isAllowedOrigin(origin)) {
-      return callback(null, true);
-    }
-
-    return callback(new Error('Not allowed by CORS'));
+    if (isAllowedOrigin(origin)) return callback(null, true);
+    return callback(null, false);
   },
   credentials: true,
   allowedHeaders: ['Authorization', 'Content-Type', 'X-Request-ID'],
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+  optionsSuccessStatus: 200
 }));
 app.use(express.json());
 
@@ -85,15 +99,17 @@ app.use(['/api/customers', '/api/metrics', '/api/analytics'], (req, res, next) =
 // Routes
 app.use('/api', apiRouter);
 
-if (config.NODE_ENV === 'production') {
-  const adminDistPath = path.resolve(process.cwd(), '../nmt-analytics-admin/dist');
-  app.use(express.static(adminDistPath));
-  app.use((req, res, next) => {
-    if (req.path.startsWith('/api')) return next();
-    if (req.method !== 'GET') return next();
-    res.sendFile(path.join(adminDistPath, 'index.html'));
-  });
-}
+// SPA fallback — any non-API, non-asset GET returns the React app so client
+// routes (/operations/*, /customers/:id, /auth/*, …) keep working on hard refresh
+// and direct navigation. Mounted after /api so API 404s still return JSON.
+app.use((req, res, next) => {
+  if (req.method !== 'GET') return next();
+  const p = req.path;
+  if (p.startsWith('/assets/') || p.startsWith('/api/') || p.startsWith('/images/') || /\.[a-zA-Z0-9]+$/.test(p)) {
+    return next(); // asset / api / file-with-extension → fall through to static (404 if missing)
+  }
+  res.sendFile(path.join(adminDistPath, 'index.html'));
+});
 
 // 404 handler
 app.use((req, res) => {

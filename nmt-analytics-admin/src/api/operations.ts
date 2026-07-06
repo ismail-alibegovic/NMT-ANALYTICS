@@ -1,0 +1,248 @@
+import { get, post, patch, del } from './client';
+
+// ─── Sub-agents ───────────────────────────────────────────────
+export interface SubAgent {
+  id: string;
+  orgId: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  commissionRate: number;
+  isActive: boolean;
+  createdAt: string;
+  sales?: any[];
+}
+
+export async function getSubAgents(): Promise<SubAgent[]> {
+  const { data } = await get<{ data: SubAgent[] }>('/subagents');
+  return data.data || [];
+}
+
+export async function createSubAgent(payload: { name: string; phone?: string; email?: string; commissionRate?: number }): Promise<SubAgent> {
+  const { data } = await post<SubAgent>('/subagents', payload);
+  return data;
+}
+
+export async function updateSubAgent(id: string, payload: Partial<SubAgent>): Promise<SubAgent> {
+  const { data } = await patch<SubAgent>(`/subagents/${id}`, payload);
+  return data;
+}
+
+export async function deleteSubAgent(id: string): Promise<void> {
+  await del(`/subagents/${id}`);
+}
+
+export async function generateSubAgentSale(subAgentId: string, body: Record<string, unknown>): Promise<Blob> {
+  const api = (await import('../lib/apiClient')).default;
+  const res = await api.post(`/subagents/${subAgentId}/generate-sale`, body, { responseType: 'blob' });
+  return res.data as Blob;
+}
+
+// ─── Excursions ───────────────────────────────────────────────
+export interface ExcursionPassenger {
+  id: string;
+  reservationId: string;
+  fullName: string;
+  phone: string | null;
+  idDocument: string | null;
+  seatNumber: number;
+  paidAmount: number;
+  totalAmount: number;
+  debtAmount: number;
+  notes: string | null;
+  createdAt: string;
+}
+
+export async function getExcursionPassengers(reservationId?: string): Promise<ExcursionPassenger[]> {
+  const { data } = await get<{ data: ExcursionPassenger[] }>('/excursions', {
+    params: reservationId ? { reservationId } : {},
+  });
+  return data.data || [];
+}
+
+export async function createExcursionPassenger(payload: {
+  reservationId: string;
+  fullName: string;
+  phone?: string;
+  idDocument?: string;
+  seatNumber?: number;
+  paidAmount?: number;
+  notes?: string;
+}): Promise<ExcursionPassenger> {
+  const { data } = await post<ExcursionPassenger>('/excursions', payload);
+  return data;
+}
+
+export async function deleteExcursionPassenger(id: string): Promise<void> {
+  await del(`/excursions/${id}`);
+}
+
+export async function downloadBusListPDF(reservationId: string): Promise<Blob> {
+  const api = (await import('../lib/apiClient')).default;
+  const res = await api.get(`/excursions/${reservationId}/bus-list`, { responseType: 'blob' });
+  return res.data as Blob;
+}
+
+export async function downloadRumingListPDF(departureId: string): Promise<Blob> {
+  const api = (await import('../lib/apiClient')).default;
+  const res = await api.get(`/excursions/${departureId}/ruming-list`, { responseType: 'blob' });
+  return res.data as Blob;
+}
+
+// ─── Hotels ───────────────────────────────────────────────────
+export interface Hotel {
+  id: string;
+  orgId: string;
+  name: string;
+  destination: string;
+  address: string | null;
+  contact: string | null;
+  totalRooms: number;
+  createdAt: string;
+  rooms?: HotelRoom[];
+  allocations?: HotelAllocation[];
+}
+
+export interface HotelRoom {
+  id: string;
+  hotelId: string;
+  roomType: string;
+  capacity: number;
+  basePrice: number;
+  currency: string;
+  available: number;
+  total: number;
+}
+
+export interface HotelAllocation {
+  id: string;
+  departureId: string;
+  hotelId: string;
+  roomType: string;
+  roomsReserved: number;
+  checkIn: string;
+  checkOut: string;
+  pricePerNight: number;
+}
+
+export async function getHotels(): Promise<Hotel[]> {
+  const { data } = await get<{ data: Hotel[] }>('/hotels');
+  return data.data || [];
+}
+
+export async function createHotel(payload: {
+  name: string;
+  destination: string;
+  address?: string;
+  contact?: string;
+  totalRooms?: number;
+}): Promise<Hotel> {
+  const { data } = await post<Hotel>('/hotels', payload);
+  return data;
+}
+
+export async function updateHotel(id: string, payload: Partial<Hotel>): Promise<Hotel> {
+  const { data } = await patch<Hotel>(`/hotels/${id}`, payload);
+  return data;
+}
+
+export async function deleteHotel(id: string): Promise<void> {
+  await del(`/hotels/${id}`);
+}
+
+export async function getHotelRooms(hotelId: string): Promise<HotelRoom[]> {
+  const { data } = await get<{ data: HotelRoom[] }>(`/hotels/${hotelId}/rooms`);
+  return data.data || [];
+}
+
+export async function createHotelRoom(hotelId: string, payload: {
+  roomType: string;
+  capacity: number;
+  basePrice: number;
+  currency?: string;
+}): Promise<HotelRoom> {
+  const { data } = await post<HotelRoom>(`/hotels/${hotelId}/rooms`, payload);
+  return data;
+}
+
+export async function updateHotelRoom(roomId: string, payload: Partial<HotelRoom>): Promise<HotelRoom> {
+  const { data } = await patch<HotelRoom>(`/hotel-rooms/${roomId}`, payload);
+  return data;
+}
+
+export async function deleteHotelRoom(roomId: string): Promise<void> {
+  await del(`/hotel-rooms/${roomId}`);
+}
+
+export async function createHotelAllocation(departureId: string, payload: {
+  hotelId: string;
+  roomType: string;
+  roomsReserved: number;
+  checkIn: string;
+  checkOut: string;
+  pricePerNight: number;
+}): Promise<HotelAllocation> {
+  const { data } = await post<HotelAllocation>(`/departures/${departureId}/allocations`, payload);
+  return data;
+}
+
+// ─── Package Services ─────────────────────────────────────────
+export interface PackageService {
+  id: string;
+  packageId: string;
+  serviceType: 'hotel' | 'transport' | 'tour' | 'insurance' | 'extra';
+  providerName: string;
+  providerContact: string | null;
+  unitPrice: number;
+  currency: string;
+  quantity: number;
+  totalPrice: number;
+  description: string | null;
+  isOptional: boolean;
+  createdAt: string;
+}
+
+export async function getPackageServices(packageId: string): Promise<PackageService[]> {
+  const { data } = await get<{ data: PackageService[] }>(`/package-services/${packageId}`);
+  return data.data || [];
+}
+
+export async function createPackageService(packageId: string, payload: {
+  serviceType: string;
+  providerName: string;
+  unitPrice: number;
+  quantity?: number;
+  description?: string;
+  isOptional?: boolean;
+}): Promise<PackageService> {
+  const { data } = await post<PackageService>(`/package-services/${packageId}/services`, payload);
+  return data;
+}
+
+export async function updatePackageService(serviceId: string, payload: Partial<PackageService>): Promise<PackageService> {
+  const { data } = await patch<PackageService>(`/package-services/${serviceId}`, payload);
+  return data;
+}
+
+export async function deletePackageService(serviceId: string): Promise<void> {
+  await del(`/package-services/${serviceId}`);
+}
+// ─── eTurista ──────────────────────────────────────────────
+export interface ETuristaSubmission {
+  id: string;
+  submissionDate: string;
+  departureId: string;
+  guestCount: number;
+  responseStatus: string;
+  createdAt: string;
+}
+
+export async function submitETurista(): Promise<{ message: string; id: string }> {
+  const { data } = await post<{ message: string; id: string }>('/integrations/eturista/submit', {});
+  return data;
+}
+
+export async function getETuristaHistory(): Promise<ETuristaSubmission[]> {
+  const { data } = await get<{ data: ETuristaSubmission[] }>('/integrations/eturista/history');
+  return data.data || [];
+}

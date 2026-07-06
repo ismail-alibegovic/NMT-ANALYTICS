@@ -147,7 +147,7 @@ export default function Home() {
             value={dashboardStats?.revenue ?? overview?.totalRevenue ?? 0}
             change={overview?.revenueChangePct}
             icon={DollarLineIcon}
-            prefix="$"
+            prefix="KM "
           />
         )}
         <MetricCard
@@ -167,7 +167,7 @@ export default function Home() {
             title={t.dashboard.avgBooking}
             value={dashboardStats?.average_booking_value ?? 0}
             icon={ShootingStarIcon}
-            prefix="$"
+            prefix="KM "
           />
         )}
         <MetricCard
@@ -184,7 +184,7 @@ export default function Home() {
             title={t.dashboard.revenueTrend}
             subtitle={t.dashboard.revenueGenerated}
             data={chartRevenueData}
-            prefix="$"
+            prefix="KM "
             loading={chartLoading}
             onPointClick={(date) => navigate(`/reports?from=${date}&to=${date}`)}
           />
@@ -210,7 +210,7 @@ export default function Home() {
                   <Badge color="info">{pkg?.bookings || 0} {t.dashboard.bookings}</Badge>
                 </div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">${(pkg?.revenue || 0).toLocaleString()}</span>
+                  <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{(pkg?.revenue || 0).toLocaleString('bs-BA')} KM</span>
                   <span className="text-xs text-gray-500">{t.dashboard.revenue}</span>
                 </div>
               </div>
@@ -237,15 +237,15 @@ export default function Home() {
             <div className="mt-8 flex items-center justify-center gap-4">
               {isManagerPlus ? (
                 <>
-                  <Button onClick={() => window.location.href = '/packages'}>
+                  <Button onClick={() => navigate('/packages')}>
                     {t.dashboard.createPackage}
                   </Button>
-                  <Button variant="outline" onClick={() => window.location.href = '/reservations'}>
+                  <Button variant="outline" onClick={() => navigate('/reservations')}>
                     {t.dashboard.viewReservations}
                   </Button>
                 </>
               ) : (
-                <Button onClick={() => window.location.href = '/reservations'}>
+                <Button onClick={() => navigate('/reservations')}>
                   {t.dashboard.createReservation}
                 </Button>
               )}

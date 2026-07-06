@@ -32,6 +32,20 @@ const createPackageSchema = z.object({
   maxParticipants: z.number().int().positive().optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
+  // Transport (ukomponovano: how the group travels — plane vs. bus)
+  transportType: z.enum(['flight', 'bus', 'train', 'ship', 'mixed', 'none']).optional().nullable(),
+  transportCapacity: z.number().int().min(0).optional().nullable(),
+  // Package variants: tier (delux/standard/premium), hotel category, price modifiers —
+  // structured JSON; backend persists verbatim. when migration 036 not applied, camelCase
+  // keys here are stored on the freshly-added jsonb columns (created by the migration).
+  variants: z.array(z.object({
+    name: z.string(),
+    tier: z.enum(['delux', 'standard', 'premium', 'custom']).optional().nullable(),
+    hotelName: z.string().optional().nullable(),
+    roomType: z.string().optional().nullable(),
+    priceModifier: z.number().optional().nullable(),
+    currency: z.string().optional().nullable(),
+  })).optional().nullable(),
 });
 
 const updatePackageSchema = z.object({
@@ -45,6 +59,16 @@ const updatePackageSchema = z.object({
   maxParticipants: z.number().int().positive().optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
+  transportType: z.enum(['flight', 'bus', 'train', 'ship', 'mixed', 'none']).optional().nullable(),
+  transportCapacity: z.number().int().min(0).optional().nullable(),
+  variants: z.array(z.object({
+    name: z.string(),
+    tier: z.enum(['delux', 'standard', 'premium', 'custom']).optional().nullable(),
+    hotelName: z.string().optional().nullable(),
+    roomType: z.string().optional().nullable(),
+    priceModifier: z.number().optional().nullable(),
+    currency: z.string().optional().nullable(),
+  })).optional().nullable(),
 });
 
 /**
@@ -122,6 +146,9 @@ router.post('/packages', authenticateToken, requireOrgContext, auditPackageCreat
         max_participants: validated.maxParticipants,
         start_date: validated.startDate,
         end_date: validated.endDate,
+        transport_type: validated.transportType ?? null,
+        transport_capacity: validated.transportCapacity ?? null,
+        variants: validated.variants ?? null,
       })
       .select()
       .single();
@@ -164,6 +191,9 @@ router.put('/packages/:id', authenticateToken, requireOrgContext, auditPackageUp
         max_participants: validated.maxParticipants,
         start_date: validated.startDate,
         end_date: validated.endDate,
+        transport_type: validated.transportType,
+        transport_capacity: validated.transportCapacity,
+        variants: validated.variants,
       })
       .eq('id', id)
       .eq('org_id', orgId)
@@ -205,6 +235,9 @@ router.patch('/packages/:id', authenticateToken, requireOrgContext, auditPackage
     if (validated.maxParticipants !== undefined) updateData.max_participants = validated.maxParticipants;
     if (validated.startDate !== undefined) updateData.start_date = validated.startDate;
     if (validated.endDate !== undefined) updateData.end_date = validated.endDate;
+    if (validated.transportType !== undefined) updateData.transport_type = validated.transportType;
+    if (validated.transportCapacity !== undefined) updateData.transport_capacity = validated.transportCapacity;
+    if (validated.variants !== undefined) updateData.variants = validated.variants;
 
     const { data: packageData, error } = await supabaseAdmin
       .from('packages')

@@ -25,7 +25,16 @@ export type AuditEntity =
   | 'user'
   | 'organization'
   | 'integration'
-  | 'settings';
+  | 'settings'
+  | 'contract'
+  | 'receipt'
+  | 'sub_agent'
+  | 'excursion_passenger'
+  | 'package_service'
+  | 'hotel'
+  | 'eturista_submission'
+  | 'hotel_room'
+  | 'hotel_allocation';
 
 // Audit log entry
 interface AuditLogEntry {

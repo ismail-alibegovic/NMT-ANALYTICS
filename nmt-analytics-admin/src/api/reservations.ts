@@ -30,13 +30,25 @@ export interface CreateReservationData {
   customerName: string;
   customerPhone: string;
   partySize: number;
-  reservationAt: string;
+  /** ISO date string. Defaults to now if omitted on the backend. */
+  reservationAt?: string;
   departureId?: string;
   customerId?: string;
   totalAmount?: number;
   currency?: string;
   status?: 'pending' | 'confirmed' | 'cancelled';
   source?: 'phone' | 'agent' | 'walk-in' | 'web' | 'other';
+  // --- Nova Prodaja wizard selections (handled by backend, persisted to reservations.*) ---
+  options?: Record<string, any>;
+  notes?: string | null;
+  hotelName?: string | null;
+  roomType?: string | null;
+  checkIn?: string | null;
+  checkOut?: string | null;
+  tourGuide?: string | null;
+  excursionIds?: string[];
+  assignedTo?: string | null;
+  upsert?: boolean;
 }
 
 export interface UpdateReservationData {

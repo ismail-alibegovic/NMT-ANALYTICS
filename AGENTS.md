@@ -26,6 +26,60 @@ https://travline.zocomputer.io
 - Backend: full CRUD API + auto-generation on reservation create / payment received
 - Frontend: NotificationDropdown with unread badge, mark-as-read, live polling
 
+### TuristAgent Adoption — Phase A (DONE 2026-07-04)
+
+- Contracts (DB 028, /api/contracts, /operations/contracts) — auto-number UG-YYYY-XXXX, PDF, sign, retry-on-collision
+- Calendar (/api/calendar?month=YYYY-MM, /operations/calendar) — read-only departures view
+- Receipts (DB 029, /api/receipts, /operations/receipts) — FR-YYYY-XXXX, advance/final/refund, PDF, retry-on-collision
+- Voucher enhancement (DB 027) — hotel_name/room_type/check_in/check_out/tour_guide; voucher PDF renders them
+- Installments (DB 030, /api/reservations/:id/installments) — schedule + summary + overdue count
+
+Cross-cutting:
+- Unicode PDF fonts (DejaVu) shared lib at src/lib/pdfFonts.ts — fixes diacritics (ć č š ž đ) across all PDFs
+- New sidebar section "Operacije" with role-gating (agent/manager)
+- i18n bs/en updated (nav + operations blocks)
+- AuditEntity union extended: contract, receipt, subagent, excursion, hotel, eturista
+- All Phase B pages registered in App.tsx + sidebar with minRole manager
+
+PDF samples: Travline/_samples/
+
+### TuristAgent Adoption — Phase B (DONE 2026-07-05)
+
+- Hotels (DB 034, /api/hotels, /operations/hotels) — full CRUD with room types (single/double/triple/apartment), allocation matrix per departure, public rooms endpoint
+- Package Services (DB 033, /api/package-services) — multi-service line items (hotel/transport/tour/insurance/extra) for complex arrangements  
+- Sub-agents (DB 031, /api/subagents, /operations/subagents) — sub-agent network management with atomic "Generate Sale" (creates reservation + contract + receipt + PDF bundle)
+- Excursions (DB 032, /api/excursions, /operations/excursions) — per-passenger tracking, bulk import, bus list PDF, ruming list PDF, single passenger add/delete
+
+Cross-cutting:
+- Sidebar Phase B items (Sub-agents, Excursions, Hotels) under Operations, manager+ with role-based filtering
+- App.tsx lazy routes for /operations/subagents, /operations/excursions, /operations/hotels
+- Fixed bugs: excursions route missing POST/DELETE endpoints, missing org_id on excursion_passengers/hotel_rooms/hotel_allocations tables, broken import path in subagents.ts, list response bug in hotels.ts
+- Fix migrations: 032b_fix_excursion_org_id.sql, 034b_fix_hotel_org_id.sql (applied live to Supabase)
+
+### TuristAgent Adoption — Phase C (DONE 2026-07-05)
+
+- eTurista Integration (DB 035, /api/integrations/eturista) — auto-submits guest data to government CIS system; XML/JSON payload generation from reservations; configurable endpoint per org; submission history & status tracking
+- Public Booking Widget — already existed (embeddable HTML with package + departure selection + reservation form). Upgraded with hotel room booking endpoint POST /api/public/hotel-bookings (real-time availability via hotel_rooms.available)
+
+Cross-cutting:
+- eTurista card added to Integrations page (CIS / eTurista) with submission history table
+- Org_settings store: eturista_endpoint, eturista_credentials
+- AuditEntity union extended with eturista_submission
+
+### UI/UX Polish Pass (2026-07-05)
+
+- `PageToolbar` now supports `hideSearch` (optional searchValue/onSearchChange). Non-searching ops pages no longer render a dead search box.
+- SubAgents/Hotels/Excursions/Contracts/Receipts: removed duplicate `PageBreadCrumb` (was redundant with `PageToolbar`).
+- SubAgents: fixed `getSubAgents` API client (`return data || []` returned the list envelope object, so `length` was always undefined and the page showed DataTable's generic "No data found" instead of the proper EmptyState). Now unwraps `.data.data`. Added summary stat cards.
+- Excursions: reservation selector always visible (was hidden once selected). Added client-side search via `useMemo`, summary cards (passengers/paid/debt).
+- Contracts: added status filter dropdown (draft/signed/cancelled); wired to `?status=` API param.
+- Receipts: added type filter dropdown (advance/final/refund).
+- Calendar: legend strip (Slobodno / <50% slobodno / Popunjano), grouped nav control.
+- Hotels: room types count + first available badge shown inline in table.
+- Frontend consistency: Hotels/Excursions now use typed API clients (`getDepartures`/`getReservations`) instead of raw `fetch()`; Dashboard uses `useNavigate` instead of `window.location.href`; Dashboard currency switched from `$` to `KM` (consistent with `formatCurrency`).
+- i18n: added `hotels`, `subagents`, `excursions` keys to `en.ts`/`bs.ts`; Contracts/Receipts/Hotels/SubAgents/Excursions wired to i18n (`useT()`) — verified both BS and EN render correctly.
+- Backend: added Express SPA fallback middleware (Express 5 — `app.use` middleware form, not `'*'` glob) so all client routes work on hard refresh / direct navigation (was 404 before).
+
 ### Dashboard Role Gating
 - Agent/Viewer: only Bookings, Customers, Cancel Rate + bookings chart
 - Manager+: full financial (Revenue, Avg Booking, Revenue Trend chart)
@@ -75,6 +129,37 @@ https://travline.zocomputer.io
 - GET /api/export/all.zip — full org data export as ZIP
 - Frontend ImportModal with column mapping, preview, dry-run
 
+### Backend Hardening Pass (2026-07-05)
+
+- **eTurista SSRF guard** (`eturistaClient.ts`): `submitToEturista` now resolves the configured endpoint URL through `validateEturistaEndpoint()` — rejects non-http(s) schemes, userinfo (embedded creds), and hostnames that resolve to private/loopback ranges (RFC1918, RFC4193, 169.254/16 link-local, 127/8). Squelches the metadata-service / localhost exploit path. Public hostnames on standard ports are allowed; failures throw a descriptive error that bubbles up as the existing 502 response.
+- **Ruming-list route fix** (`excursions.ts`): route previously asserted `hotel_allocations.departure_id = :id` while the front-end (and bus-list) passes a reservation UUID — so ruming-list always returned empty. The handler now resolves `departure_id` from the reservation first (reservations → departures), then queries allocations by departure_id, returning a real PDF.
+
+### Sidebar Restructure (NEW 2026-07-06)
+
+Old flat sidebar (16 items in 3 sections "MENI/OPERACIJE/SISTEM") reorganized into 4 logical groups:
+- **PRODAJA** ( sales flow): Dashboard, Klijenti, Paketi, Rezervacije, Polasci
+- **OPERACIJE**: Kalendar, Ugovori, Računi, Subagenti, Ekskurzije, Hoteli
+- **FINANSIJE**: Plaćanja, Fakturisanje, Izvještaji, Integracije
+- **SISTEM**: Audit zapisi, Dokumenti
+
+### Departure Detail Page (NEW 2026-07-06)
+
+New route `/departures/:id` (file: `nmt-analytics-admin/src/pages/DepartureDetail.tsx`). Single-screen context for every departure:
+- 4 tabs: Pregled (overview + summary stats), Putnici (full manifest table), Grupe (groups by hotel/agent), Hoteli (rooms by hotel)
+- Backend endpoints:
+  - `GET /api/departures/:id` — base departure + package
+  - `GET /api/departures/:id/passengers` — full guest manifest (reservations + excursion_passengers + payments + customer + agent)
+  - `GET /api/departures/:id/groups` — aggregated groups (`{ byHotel, byHa`)
+
+### Schema Quirks Found (2026-07-06)
+
+When writing Supabase queries, use only columns that actually exist on the live DB:
+- `payments` columns: `id, reservation_id, amount, payment_date, created_at, org_id, currency, status, provider, payment_method, refund_reason, refunded_at, installment_number, due_date, remaining_after` — NO `type`, `method`, `occurred_at`, `note`
+- `reservations` columns: standard set + `hotel_name, room_type, check_in, check_out, tour_guide, assigned_to` — NO `customer_email` (use joined `customers.email`)
+- `hotels` columns: `id, name` — NO `stars` column
+- FK aliases: `customers!reservations_customer_id_fkey` works; `profiles:assigned_to!reservations_assigned_to_fkey` does NOT (assigned_to is a plain UUID with no FK constraint — fetch agent names separately)
+- PostgREST schema cache may be stale after migrations: `excursion_passengers` table exists on DB but PostgREST returned PGRST205 until cache reloaded (workaround: read by primary query only, no complex join with that relation)
+
 ## Security
 - Helmet security headers (CSP disabled for SPA)
 - CORS verified — allows zo.computer/zo.space origins
@@ -94,3 +179,45 @@ https://travline.zocomputer.io
 - AuthGuard: admin/src/components/auth/AuthGuard.tsx
 - Import routes: src/routes/import.ts
 - Export routes: src/routes/export.ts
+
+### Contextual Sidebar (NEW 2026-07-06)
+
+The sidebar is now hidden on the hub/homepage routes and only appears once
+the user enters a section. The visible sidebar items match the active
+section's group, not the full nav tree:
+- `/`, `/home`            → NO sidebar (clean hub view)
+- `/sales` + sales pages  → SALES group (Dashboard, Klijenti, Paketi, Rezervacije, Polasci)
+- `/operations*`          → OPERACIJE group (Kalendar, Ugovori, Računi, Subagenti, Ekskurzije, Hoteli)
+- `/payments`, `/reports`, `/integrations`, `/reservations` → FINANSIJE group
+- `/admin/*`              → SISTEM group (Audit zapisi, Dokumenti)
+
+Implementation:
+- `SidebarContext` exports `activeScope` + `setActiveScope` + `scopeFromPath(pathname)` that
+  maps a route to one of 'sales' | 'operations' | 'finance' | 'admin' | null.
+- `AppLayout` syncs `activeScope` from `useLocation()` and conditionally renders
+  `<AppSidebar/>` + `<Backdrop/>` (left margin reset to 0 on the hub).
+- `AppSidebar` early-returns null when `activeScope === null`, and otherwise only renders
+  the items belonging to the active scope (each scope gets its own `*Items` array; all
+  arrays include a 'Home' link back to `/home`).
+- `AppHeader` hamburger toggle is hidden on the hub (`activeScope === null`).
+
+Deployed live on https://travline-sprypine.zocomputer.io (verified both hub and a section).
+
+### Nova Prodaja Wizard + Package Variants (2026-07-06)
+
+Frontend (admin):
+- `components/reservations/NewSaleWizard.tsx` — 5-step wizard replacing the old single-form modal:  Aranžman (package) → Termin (departure) → Varijante (tier/accommodation) → Klijent (customer + party size) → Pregled (review + confirm). Triggered by the "+ Nova rezervacija" button on Reservations page.
+- `components/packages/PackageEditorModal.tsx` — rich modal for defining packages with inline **Varijante** (tier Standard/Premium/Deluxe × accommodation Hotel/Student/Apartment × price × capacity) + **Prijevoz** (none/bus/flight + capacity). Replaces the flat FormModal on Packages page.
+- Departures form now includes a "Prijevoz" select (none/bus/flight).
+- Sidebar acquired an `activeScope` (sales/operations/finance/admin) — sidebar panel only renders the matching group's items; homepage (`/` and `/home`) hides the sidebar entirely.
+
+Backend (api):
+- `routes/packages.ts` create/update/patch schemas extended with `transportType`, `transportType`, `transport_capacity`, `variants` (JSON array). Insert/update handlers persist them.
+- `routes/departures.ts` create/update/patch schemas extended with `transportType`; wired into insert/update bodies (mapped to `transport_type`).
+- `routes/reservations.ts` POST now accepts `customerEmail`, `assignedTo`, `options` (JSON object), `notes`, `hotelName`, `roomType`, `checkIn`, `checkOut`, `tourGuide`, `excursionIds`. New customer upsert path (when `upsert:true` and no `customerId`) creates the customer first, then the reservation. Optimistic atomic capacity reservation via new `reserve_capacity_atomic` RPC when `status='confirmed'`.
+
+DB migrations (NOT YET APPLIED to Supabase — see `APPLY_MIGRATIONS_036_037.sql`):
+- `036_package_options_and_transport.sql` — adds `transport_type` to `departures` (with CHECK), `variants`/`transport_type`/`transport_capacity` to `packages`, `hotel_id`/`room_type`/`option_key` to `package_services`, `package_option_id`/`transport_type`/`excursion_ids` to `reservations`. Backfills departure transport_type from existing package_services transport rows.
+- `037_reservation_options.sql` — adds `options JSONB` + `notes TEXT` to `reservations`, plus the `reserve_capacity_atomic(p_departure_id, p_org_id, p_party_size)` SECURITY DEFINER function used by POST /reservations.
+
+**To apply migrations**: open Supabase Dashboard → SQL Editor for project hacutwknfgufrqlgdiia → paste contents of `/home/workspace/Travline/APPLY_MIGRATIONS_036_037.sql` → Run. Until then, package editor save with variants may 400 on the new columns; the wizard's plain fields still work.

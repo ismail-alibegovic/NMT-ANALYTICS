@@ -19,6 +19,9 @@ export interface Departure {
     base_price: number;
     currency: string;
   };
+  // --- Nova Prodaja wizard support (migration 036) ---
+  transport_type?: 'bus' | 'flight' | 'none';
+  transport_capacity?: number | null;
 }
 
 export interface CreateDepartureData {
@@ -28,6 +31,7 @@ export interface CreateDepartureData {
   capacity: number;
   status?: 'active' | 'cancelled' | 'completed';
   booked?: number;
+  transportType?: 'bus' | 'flight' | 'none';
 }
 
 export interface UpdateDepartureData {
@@ -37,6 +41,7 @@ export interface UpdateDepartureData {
   capacity?: number;
   booked?: number;
   status?: 'active' | 'cancelled' | 'completed';
+  transportType?: 'bus' | 'flight' | 'none';
 }
 
 export interface DepartureFilters {
@@ -102,4 +107,80 @@ export async function updateDeparture(id: string, departureData: UpdateDeparture
 
 export async function deleteDeparture(id: string): Promise<void> {
   await del(`/departures/${id}`);
+}
+
+export interface DeparturePassenger {
+  passengerId?: string | null;
+  reservationId: string;
+  customerId?: string | null;
+  customerLinked?: boolean;
+  fullName: string;
+  phone?: string;
+  email?: string;
+  seat?: string | number | null;
+  hotelName?: string | null;
+  roomType?: string | null;
+  checkIn?: string | null;
+  checkOut?: string | null;
+  tourGuide?: string | null;
+  paid?: number;
+  debt?: number;
+  paidAmount?: number;
+  debtAmount?: number;
+  status?: 'confirmed' | 'pending' | 'cancelled';
+  reservationStatus?: 'confirmed' | 'pending' | 'cancelled';
+  source?: string;
+  agent?: string | null;
+  partySize?: number;
+  reservationTotal?: number;
+  currency?: string;
+  payments?: any[];
+  notes?: string | null;
+}
+
+export interface DepartureManifest {
+  departure?: {
+    id: string;
+    departAt?: string;
+    returnAt?: string;
+    capacity?: number;
+    booked?: number;
+    package?: {
+      id: string;
+      name: string;
+      destination?: string;
+      base_price?: number;
+      currency?: string;
+    };
+  };
+  summary: {
+    totalReservations?: number;
+    totalGuests?: number;
+    confirmedGuests?: number;
+    bookedVsCapacity?: string;
+    fillRate?: number;
+    totalPaid?: number;
+    totalDebt?: number;
+    currency?: string;
+    guides?: string[];
+    hotels?: any[];
+    allocations?: any[];
+  };
+  manifest: DeparturePassenger[];
+}
+
+export async function getDeparturePassengers(id: string): Promise<DepartureManifest> {
+  const { data } = await get<DepartureManifest>(`/departures/${id}/passengers`);
+  return data;
+}
+
+export interface DepartureGroup {
+  label: string;
+  count: number;
+  passengers: DeparturePassenger[];
+}
+
+export async function getDepartureGroups(id: string): Promise<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] }> {
+  const { data } = await get<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] }>(`/departures/${id}/groups`);
+  return data;
 }

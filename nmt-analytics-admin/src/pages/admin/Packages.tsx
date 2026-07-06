@@ -2,7 +2,7 @@ import { useT } from "../../lib/i18n/context";
 import { useState, useEffect } from 'react';
 import PageMeta from '../../components/common/PageMeta';
 import { DataTable, Column, Pagination } from '../../components/ui/DataTable';
-import { FormModal } from '../../components/ui/FormModal';
+import PackageEditorModal from '../../components/packages/PackageEditorModal';
 import ImportModal from '../../components/import/ImportModal';
 import PageToolbar from '../../components/ui/PageToolbar';
 import { FileIcon, BoxCubeIcon } from '../../icons';
@@ -15,8 +15,6 @@ import { useQueryParams } from '../../hooks/useQueryParams';
 import { useDataInvalidation } from '../../hooks/useDataInvalidation';
 import {
   getPackages,
-  createPackage,
-  updatePackage,
   deletePackage,
   Package,
   PackageListResponse
@@ -38,7 +36,6 @@ const { t } = useT();
   const [modalOpen, setModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
@@ -118,32 +115,6 @@ const { t } = useT();
     }
   };
 
-  const handleSubmit = async (data: any) => {
-    setSubmitting(true);
-    try {
-      const payload = {
-        ...data,
-        price: Number(data.price),
-        durationDays: data.durationDays ? Number(data.durationDays) : undefined,
-        maxParticipants: data.maxParticipants ? Number(data.maxParticipants) : undefined,
-      };
-
-      if (editingPackage) {
-        await updatePackage(editingPackage.id, payload);
-        showSuccess('Package updated successfully');
-      } else {
-        await createPackage(payload);
-        showSuccess('Package created successfully');
-      }
-      setModalOpen(false);
-      fetchPackages(currentPage, searchTerm);
-    } catch (err: any) {
-      showError(editingPackage ? 'Failed to update package' : 'Failed to create package');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const columns: Column<Package>[] = [
     {
       key: 'name',
@@ -186,19 +157,6 @@ const { t } = useT();
         </div>
       )
     },
-  ];
-
-  const formFields = [
-    { name: 'name', label: 'Package Name', type: 'text' as const, required: true },
-    { name: 'destination', label: 'Destination', type: 'text' as const, required: true },
-    { name: 'price', label: 'Price', type: 'number' as const, required: true },
-    { name: 'currency', label: 'Currency', type: 'text' as const, required: true },
-    { name: 'description', label: 'Description', type: 'textarea' as const },
-    { name: 'durationDays', label: 'Duration (days)', type: 'number' as const },
-    { name: 'maxParticipants', label: 'Max Participants', type: 'number' as const },
-    { name: 'startDate', label: 'Start Date', type: 'date' as const },
-    { name: 'endDate', label: 'End Date', type: 'date' as const },
-    { name: 'active', label: 'Active', type: 'checkbox' as const },
   ];
 
   if (!authLoading && !user) return <div className="p-6"><EmptyState title="Auth Required" description="Please sign in" /></div>;
@@ -260,18 +218,11 @@ const { t } = useT();
         </>
       )}
 
-      <FormModal
+      <PackageEditorModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editingPackage ? 'Edit Package' : 'Add Package'}
-        fields={formFields}
-        onSubmit={handleSubmit}
-        initialData={editingPackage ? {
-          ...editingPackage,
-          active: editingPackage.active
-        } : { currency: 'BAM', active: true }}
-        submitButtonText={editingPackage ? 'Update' : 'Create'}
-        loading={submitting}
+        onSaved={() => fetchPackages(currentPage, searchTerm)}
+        initial={editingPackage ?? undefined}
       />
     </>
   );
