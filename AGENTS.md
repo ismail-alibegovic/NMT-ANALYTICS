@@ -8,9 +8,11 @@ nmt-analytics-admin/  — React + Vite + Tailwind frontend
 https://travline.zocomputer.io
 
 ## Auth Credentials
-- director role: admin@nmt.ba / NmtAdmin2025!
-- director role: ismail@nmt.ba / NmtAdmin2025!
-- agent role:   agent@nmt.ba / NmtAgent2025!
+- director role: admin@nmt.ba (password in Zo Secrets: `TRAVLINE_DIRECTOR_PASS`)
+- director role: ismail@nmt.ba (password in Zo Secrets: `TRAVLINE_DIRECTOR_PASS`)
+- agent role:   agent@nmt.ba (password in Zo Secrets: `TRAVLINE_AGENT_PASS`)
+
+Plaintext passwords are intentionally NOT written here. Rotate via Supabase Auth + update the Zo Secret.
 
 ## Completed Features
 
@@ -173,12 +175,13 @@ When writing Supabase queries, use only columns that actually exist on the live 
 - Org: d9c9c298-9c09-4b0e-a91c-483758431d74 (NMT Analytics)
 
 ## Useful Paths
-- DB migrations: supabase/sql/
+- DB migrations (LIVE — sole source of truth): `nmt-analytics-api/supabase/migrations/` (Supabase CLI timestamp format). Never write to `supabase/sql/` or `docs/sql/` — those are archived in `docs/archive/legacy-sql/`.
 - Role types: src/types/roles.ts (both api + admin)
 - Notifications API: src/routes/notifications.ts
 - AuthGuard: admin/src/components/auth/AuthGuard.tsx
 - Import routes: src/routes/import.ts
 - Export routes: src/routes/export.ts
+- Financial truth docs (MUST READ before touching payments): `docs/archive/nmt-analytics-api/FINANCIAL_TRUTH_FIELDS.md`, `docs/archive/nmt-analytics-admin/PAYMENT_CORRECTION_FLOWS.md`
 
 ### Contextual Sidebar (NEW 2026-07-06)
 
@@ -222,3 +225,13 @@ Schema Migration files: `supabase/sql/036_package_options_and_transport.sql`, `s
 Backend dev-mode note: when `DEV_BYPASS_AUTH=true` and `req.user.id` is the stub `00000000-...-000000` UUID, `POST /api/reservations` writes `assigned_to = NULL` (since the stub is not in `auth.users`). In production with a real JWT, `assigned_to` falls back to `req.user.id` as before. Do not let `assigned_to` be the stub UUID — it fails the FK to `users`.
 
 Verified end-to-end on https://travline-sprypine.zocomputer.io — full wizard renders, creates reservation with options/notes/hotel_name preserved.
+
+### Faza 1 — Konsolidacija i čišćenje (DONE 2026-07-09)
+
+- **DB migrations consolidated:** 59 legacy SQL files (`supabase/sql/` + `docs/sql/`) archived to `docs/archive/legacy-sql/`. `nmt-analytics-api/supabase/migrations/` is now the sole source of truth (14 live migrations untouched).
+- **Dead code removed:** `nmt-analytics-api/src/routes/public.ts.bak` (tracked but orphaned), `nmt-analytics-admin/src/tests/reservationPayments.test.js` (duplicate of `.ts`), two root-level `reseed_2026*.ts` files (contained leaked Supabase service_role key — moved to `nmt-analytics-api/scripts/archive/`, gitignored via `.gitignore` `scripts/archive/` pattern).
+- **Package manager:** `bun.lock` files removed from both packages (npm is canonical per CI).
+- **Docs consolidated:** 75+ `.md` files archived to `docs/archive/` by package. Only `AGENTS.md` remains active.
+- **Template debris removed:** 6 unreferenced ecommerce components (`DemographicCard`, `EcommerceMetrics`, `MonthlySalesChart`, `MonthlyTarget`, `RecentOrders`, `StatisticsChart`) + 2 unused SVG icons (`task-icon.svg`, `chat.svg`) + their exports.
+- **Security (partial):** Plaintext demo passwords removed from `AGENTS.md` (now references Zo Secrets `TRAVLINE_DIRECTOR_PASS`/`TRAVLINE_AGENT_PASS`). `.gitignore` updated with `.env*.local` pattern in `nmt-analytics-api/`. Leaked service_role key removed from working tree (history scrub pending — `git filter-repo` or BFG, deferred until Supabase key rotation).
+- **Build verified:** `tsc --noEmit` passes for both `nmt-analytics-api` and `nmt-analytics-admin`. `vite build` passes.

@@ -1,5 +1,9 @@
 node_modules
 dist
 .env
-.DS_Store
+.env*.local
+DS_Store
 *.log
+
+# Archived seed scripts (contain old credentials — never commit)
+scripts/archive/

@@ -40,7 +40,6 @@ import { ReactComponent as TimeIcon } from "./time.svg?react";
 import { ReactComponent as CopyIcon } from "./copy.svg?react";
 import { ReactComponent as ChevronLeftIcon } from "./chevron-left.svg?react";
 import { ReactComponent as UserCircleIcon } from "./user-circle.svg?react";
-import { ReactComponent as TaskIcon } from "./task-icon.svg?react";
 import { ReactComponent as ListIcon } from "./list.svg?react";
 import { ReactComponent as TableIcon } from "./table.svg?react";
 import { ReactComponent as PageIcon } from "./page.svg?react";
@@ -50,9 +49,6 @@ import { ReactComponent as PlugInIcon } from "./plug-in.svg?react";
 import { ReactComponent as DocsIcon } from "./docs.svg?react";
 import { ReactComponent as MailIcon } from "./mail-line.svg?react";
 import { ReactComponent as HorizontaLDots } from "./horizontal-dots.svg?react";
-import { ReactComponent as ChatIcon } from "./chat.svg?react";
-import { ReactComponent as MoreDotIcon } from "./moredot.svg?react";
-import { ReactComponent as AlertHexaIcon } from "./alert-hexa.svg?react";
 import { ReactComponent as ErrorHexaIcon } from "./info-hexa.svg?react";
 import { ReactComponent as HomeIcon } from "./home.svg?react";
 
@@ -100,7 +96,6 @@ export {
   CopyIcon,
   ChevronLeftIcon,
   UserCircleIcon,
-  TaskIcon,
   ListIcon,
   TableIcon,
   PageIcon,
@@ -111,7 +106,6 @@ export {
   MailIcon,
   HorizontaLDots,
   ChevronUpIcon,
-  ChatIcon,
   AngleLeftIcon,
   AngleRightIcon,
 };
