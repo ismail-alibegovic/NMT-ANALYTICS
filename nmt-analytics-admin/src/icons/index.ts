@@ -50,6 +50,8 @@ import { ReactComponent as DocsIcon } from "./docs.svg?react";
 import { ReactComponent as MailIcon } from "./mail-line.svg?react";
 import { ReactComponent as HorizontaLDots } from "./horizontal-dots.svg?react";
 import { ReactComponent as ErrorHexaIcon } from "./info-hexa.svg?react";
+import { ReactComponent as AlertHexaIcon } from "./alert-hexa.svg?react";
+import { ReactComponent as MoreDotIcon } from "./moredot.svg?react";
 import { ReactComponent as HomeIcon } from "./home.svg?react";
 
 export {
