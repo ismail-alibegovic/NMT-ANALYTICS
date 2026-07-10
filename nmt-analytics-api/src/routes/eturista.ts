@@ -6,20 +6,35 @@ import { apiError } from '../lib/errors';
 import { z } from 'zod';
 import { auditLog } from '../middleware/auditLogger';
 import { requireMinimumRole } from '../middleware/requireRole';
-import {
-  getEturistaConfig,
-  buildGuestPayload,
-  submitToEturista,
-  saveSubmissionRecord,
-} from '../lib/eturistaClient';
+import { fiscalRegistry } from '../lib/fiscal';
+import type { SubmissionPayload } from '../lib/fiscal';
 
 const router = Router();
 
-const auditSubmission = auditLog('CREATE', 'eturista_submission', undefined, (req) => `departure:${(req.body as any)?.departureId}`);
+const auditSubmission = auditLog('CREATE', 'fiscal_submission', undefined, (req) => `departure:${(req.body as any)?.departureId}`);
 
 const submitSchema = z.object({
   departureId: z.string().uuid('Invalid departure ID'),
 });
+
+function maskEndpoint(url: string): string {
+  if (!url || url.length < 20) return url;
+  return url.slice(0, 15) + '****' + url.slice(-5);
+}
+
+/** Resolve the RS provider for an org, trying fiscal_market first then legacy. */
+async function resolveRsProvider(orgId: string) {
+  const providers = await fiscalRegistry.getForOrg(orgId);
+  let provider = providers.find(p => p.market === 'RS');
+  if (!provider) {
+    provider = fiscalRegistry.get('RS');
+    if (provider) {
+      const config = await provider.getConfig(orgId);
+      if (!config) return null;
+    }
+  }
+  return provider;
+}
 
 /**
  * POST /api/integrations/eturista/submit
@@ -40,45 +55,36 @@ router.post(
       const orgId = req.orgId!;
       const { departureId } = r.data;
 
-      // Load eTurista config
-      const config = await getEturistaConfig(orgId);
-      if (!config) {
-        return apiError(
-          res,
-          400,
-          'NOT_CONFIGURED',
-          'eTurista nije konfigurisan. Postavite endpoint i kredencijale u Postavkama organizacije.',
-        );
+      const provider = await resolveRsProvider(orgId);
+      if (!provider) {
+        return apiError(res, 400, 'NOT_CONFIGURED',
+          'eTurista nije konfigurisan. Postavite endpoint i kredencijale u Postavkama organizacije.');
       }
 
-      // Build guest payload from departure data
-      const payload = await buildGuestPayload(orgId, departureId);
+      const config = await provider.getConfig(orgId);
+      if (!config) {
+        return apiError(res, 400, 'NOT_CONFIGURED',
+          'eTurista nije konfigurisan. Postavite endpoint i kredencijale u Postavkama organizacije.');
+      }
+
+      const payload = await provider.buildGuestPayload(orgId, departureId);
       if (!payload) {
         return apiError(res, 404, 'NOT_FOUND', 'Polazak nije pronađen.');
       }
-
       if (payload.guests.length === 0) {
         return apiError(res, 400, 'NO_GUESTS', 'Nema gostiju za ovaj polazak.');
       }
 
-      // Build submission payload
-      const submissionPayload = {
+      const submissionPayload: SubmissionPayload = {
         accommodationUnit: payload.departure.packages?.name || 'Unknown',
         guests: payload.guests,
         submitDate: new Date().toISOString().slice(0, 10),
         agencyCode: orgId.slice(0, 8),
       };
 
-      // Submit to government endpoint
-      const result = await submitToEturista(config, submissionPayload);
-
-      // Save record regardless of result
-      await saveSubmissionRecord(
-        orgId,
-        departureId,
-        payload.guests.length,
-        submissionPayload,
-        result,
+      const result = await provider.submit(config, submissionPayload);
+      await provider.saveSubmissionRecord(
+        orgId, departureId, submissionPayload.guests.length, submissionPayload, result,
       );
 
       if (!result.success) {
@@ -103,7 +109,6 @@ router.post(
 
 /**
  * GET /api/integrations/eturista/history
- * View submission history for the organization.
  */
 router.get(
   '/integrations/eturista/history',
@@ -116,9 +121,10 @@ router.get(
       const offset = parseInt(req.query.offset as string) || 0;
 
       const { data, error, count } = await supabaseAdmin
-        .from('eturista_submissions')
+        .from('fiscal_submissions')
         .select('*, departures!inner(depart_at, packages!inner(name))', { count: 'exact' })
         .eq('org_id', orgId)
+        .eq('market', 'RS')
         .order('submitted_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
@@ -127,20 +133,15 @@ router.get(
       const transformed = (data || []).map((s: any) => ({
         id: s.id,
         departureId: s.departure_id,
-        submissionDate: s.submission_date,
+        submissionDate: s.submitted_at?.slice(0, 10) || '',
         guestCount: s.guest_count,
         responseStatus: s.response_status,
         submittedAt: s.submitted_at,
-        packageName: s.departures?.packages?.name || '—',
+        packageName: s.departures?.packages?.name || '\u2014',
         departureDate: s.departures?.depart_at || null,
       }));
 
-      return res.json({
-        data: transformed,
-        total: count || 0,
-        limit,
-        offset,
-      });
+      return res.json({ data: transformed, total: count || 0, limit, offset });
     } catch (err) {
       next(err);
     }
@@ -149,7 +150,6 @@ router.get(
 
 /**
  * GET /api/integrations/eturista/status
- * Check if eTurista is configured for this org.
  */
 router.get(
   '/integrations/eturista/status',
@@ -158,8 +158,8 @@ router.get(
   async (req, res) => {
     try {
       const orgId = req.orgId!;
-      const config = await getEturistaConfig(orgId);
-
+      const provider = await resolveRsProvider(orgId);
+      const config = provider ? await provider.getConfig(orgId) : null;
       return res.json({
         configured: config !== null,
         endpoint: config?.endpoint ? maskEndpoint(config.endpoint) : null,
@@ -169,10 +169,5 @@ router.get(
     }
   },
 );
-
-function maskEndpoint(url: string): string {
-  if (!url || url.length < 20) return url;
-  return url.slice(0, 15) + '****' + url.slice(-5);
-}
 
 export default router;

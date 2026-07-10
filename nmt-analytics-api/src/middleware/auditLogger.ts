@@ -33,6 +33,8 @@ export type AuditEntity =
   | 'package_service'
   | 'hotel'
   | 'eturista_submission'
+  | 'fiscal_submission'
+  | 'notification'
   | 'hotel_room'
   | 'hotel_allocation';
 
