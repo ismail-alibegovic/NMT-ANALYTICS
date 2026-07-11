@@ -29,7 +29,7 @@ export default function SignUpForm() {
       return;
     }
     if (!agree) {
-      setError(t.terms?.prefix || "Please accept the terms to continue.");
+      setError(t.auth.termsPrefix);
       return;
     }
     if (password.length < 6) {
@@ -46,9 +46,8 @@ export default function SignUpForm() {
         body: JSON.stringify({
           email,
           password,
-          firstName,
-          lastName,
-          orgName,
+          full_name: `${firstName} ${lastName}`,
+          org_name: orgName,
         }),
       });
 
@@ -60,7 +59,7 @@ export default function SignUpForm() {
       }
 
       navigate("/signin?registered=1");
-    } catch (err) {
+    } catch {
       setError(t.errors.generic);
     } finally {
       setLoading(false);
@@ -105,7 +104,6 @@ export default function SignUpForm() {
                     value={orgName}
                     onChange={(e) => setOrgName(e.target.value)}
                     placeholder={t.auth.enterOrgName}
-                    required
                   />
                 </div>
               </div>
@@ -120,7 +118,6 @@ export default function SignUpForm() {
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       placeholder={t.auth.enterFirstName}
-                      required
                     />
                   </div>
                 </div>
@@ -134,7 +131,6 @@ export default function SignUpForm() {
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       placeholder={t.auth.enterLastName}
-                      required
                     />
                   </div>
                 </div>
@@ -149,7 +145,6 @@ export default function SignUpForm() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={t.auth.enterEmail}
-                    required
                   />
                 </div>
               </div>
@@ -163,7 +158,6 @@ export default function SignUpForm() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t.auth.enterPassword}
-                    required
                   />
                   <button
                     type="button"
@@ -181,7 +175,7 @@ export default function SignUpForm() {
               <div className="flex items-start gap-3">
                 <Checkbox
                   checked={agree}
-                  onChange={(e) => setAgree(e.target.checked)}
+                  onChange={(checked: boolean) => setAgree(checked)}
                 />
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {t.auth.termsPrefix}{" "}
