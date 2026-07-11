@@ -22,6 +22,7 @@ import notificationsRoutes from './notifications';
 import emailSettingsRoutes from './emailSettings';
 import paylinksRoutes from './paylinks';
 import publicRoutes from './public';
+import signupRoutes from './signup';
 // Phase A — TuristAgent adoption
 import contractRoutes from './contracts';
 import receiptRoutes from './receipts';
@@ -36,6 +37,7 @@ import eturistaRoutes from './eturista';
 const router = Router();
 
 router.use('/', publicRoutes);
+router.use('/', signupRoutes);
 
 // Mount routes that include their own prefixes
 router.use('/', healthRoutes);

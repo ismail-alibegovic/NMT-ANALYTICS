@@ -1,6 +1,6 @@
 import { useT } from "../../lib/i18n/context";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
@@ -17,6 +17,8 @@ export default function SignInForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const justRegistered = searchParams.get("registered") === "1";
 
   const handleDevLogin = async () => {
     if (!import.meta.env.DEV) {
@@ -74,6 +76,11 @@ export default function SignInForm() {
             </p>
           </div>
           <div>
+            {justRegistered && (
+              <div className="mb-4 p-3 bg-success-50 border border-success-200 text-success-700 rounded-lg dark:bg-success-900/30 dark:border-success-800 dark:text-success-400">
+                Account created successfully. You can now sign in.
+              </div>
+            )}
             {error && (
               <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
                 {error}
