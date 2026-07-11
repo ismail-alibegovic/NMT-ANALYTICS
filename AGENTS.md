@@ -319,3 +319,25 @@ Migration `file 20260710010000_fiscal_compliance_layer.sql` (applied live):
 - Backward-compat view eturista_submissions_view
 
 Routes updated: `file nmt-analytics-api/src/routes/eturista.ts` — uses registry with legacy fallback
+
+## Improvement Plan Progress (2026-07-11)
+
+### Phase 0 — Security (DONE 2026-07-11)
+
+- **Git history scrubbed:** Leaked Supabase `service_role` JWT key removed from ALL git history via `git filter-repo` (was in `reseed_2026.ts` / `reseed_2026_v2.ts` → now `REDACTED_SUPABASE_SERVICE_ROLE_KEY`). Force-pushed to origin.
+- **Key rotation:** Supabase service_role key must be rotated in dashboard (see `docs/TRAVLINE_IMPROVEMENT_PLAN.md` Phase 0). Until rotated, the old key is still valid even though it's no longer in git.
+- `.env.example` files contain only placeholders, no real keys.
+- Auth credentials in `AGENTS.md` reference Zo Secrets, not plaintext.
+
+### Phase 1 — Consolidation & Self-Service Signup (PARTIALLY DONE 2026-07-11)
+
+Previously completed (2026-07-09): DB migration consolidation, dead code removal, template debris removal, docs archive.
+
+New (2026-07-11):
+
+- **DB migration `20260711010000_self_service_signup.sql`:** `handle_new_user()` trigger on `auth.users` → auto-creates `organizations` row, `profiles` row (role='director'), default `org_modules`, and `org_branding` row. Slug auto-generated from org name.
+- **`org_branding` table:** logo_url, brand_color, brand_color_secondary, custom_pdf_header, custom_pdf_footer — used by PDF generation routes.
+- **API `POST /auth/signup`:** Validates org name, email, password → creates org → Supabase auth.signUp → trigger seeds everything. Returns session on success.
+- **Frontend `SignUpForm.tsx`:** Wired to API with org name field, loading state, error handling, redirect to `/signin?registered=1` on success.
+- **SignInForm:** Shows success banner when `?registered=1` param present.
+- **i18n:** New keys `orgName`, `enterOrgName`, `signingUp` added to en.ts + bs.ts.
