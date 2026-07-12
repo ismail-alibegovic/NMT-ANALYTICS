@@ -25,16 +25,20 @@ const Integrations = lazy(() => import("./pages/admin/Integrations"));
 const Settings = lazy(() => import("./pages/admin/Settings"));
 const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
 const Documents = lazy(() => import("./pages/admin/Documents"));
+const PdfTemplateEditor = lazy(() => import("./pages/admin/PdfTemplateEditor"));
 // Phase A — TuristAgent adoption
 const CalendarPage = lazy(() => import("./pages/operations/Calendar"));
 const ContractsPage = lazy(() => import("./pages/operations/Contracts"));
 const ReceiptsPage = lazy(() => import("./pages/operations/Receipts"));
 // Phase B — TuristAgent adoption
 const SubAgentsPage = lazy(() => import("./pages/operations/SubAgents"));
+const CommissionRulesPage = lazy(() => import("./pages/operations/CommissionRules"));
 const ExcursionsPage = lazy(() => import("./pages/operations/Excursions"));
 const HotelsPage = lazy(() => import("./pages/operations/Hotels"));
 const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/OtherPage/NotFound"));
+const PublicSignWaiver = lazy(() => import("./pages/PublicSignWaiver"));
+const PublicSubAgentPortal = lazy(() => import("./pages/PublicSubAgentPortal"));
 
 const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<PageSkeleton />}>
@@ -48,6 +52,8 @@ export default function App() {
       <Routes>
         <Route path="/auth/signin" element={<SuspenseWrapper><SignIn /></SuspenseWrapper>} />
         <Route path="/auth/signup" element={<SuspenseWrapper><SignUp /></SuspenseWrapper>} />
+        <Route path="/waiver/:token" element={<SuspenseWrapper><PublicSignWaiver /></SuspenseWrapper>} />
+        <Route path="/portal/subagent/:token" element={<SuspenseWrapper><PublicSubAgentPortal /></SuspenseWrapper>} />
 
         <Route element={<AuthGuard><AppLayout /></AuthGuard>}>
           <Route path="/" element={<SuspenseWrapper><HomeHub /></SuspenseWrapper>} />
@@ -66,6 +72,7 @@ export default function App() {
           <Route path="/reports" element={<SuspenseWrapper><Reports /></SuspenseWrapper>} />
           <Route path="/integrations" element={<SuspenseWrapper><Integrations /></SuspenseWrapper>} />
           <Route path="/settings" element={<SuspenseWrapper><Settings /></SuspenseWrapper>} />
+          <Route path="/settings/pdf-templates" element={<SuspenseWrapper><PdfTemplateEditor /></SuspenseWrapper>} />
           <Route path="/admin/audit-logs" element={<SuspenseWrapper><AuditLogs /></SuspenseWrapper>} />
           <Route path="/admin/documents" element={<SuspenseWrapper><Documents /></SuspenseWrapper>} />
           {/* Phase A — Operations */}
@@ -74,6 +81,7 @@ export default function App() {
           <Route path="/operations/receipts" element={<SuspenseWrapper><ReceiptsPage /></SuspenseWrapper>} />
           {/* Phase B — Operations */}
           <Route path="/operations/subagents" element={<SuspenseWrapper><SubAgentsPage /></SuspenseWrapper>} />
+          <Route path="/operations/commission-rules" element={<SuspenseWrapper><CommissionRulesPage /></SuspenseWrapper>} />
           <Route path="/operations/excursions" element={<SuspenseWrapper><ExcursionsPage /></SuspenseWrapper>} />
           <Route path="/operations/hotels" element={<SuspenseWrapper><HotelsPage /></SuspenseWrapper>} />
           <Route path="/profile" element={<SuspenseWrapper><Profile /></SuspenseWrapper>} />

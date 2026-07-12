@@ -32,6 +32,7 @@ const createSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email().optional(),
   commissionRate: z.number().min(0).max(100).default(0),
+  partnerType: z.enum(['bronze', 'silver', 'gold', 'platinum']).default('bronze'),
 });
 
 const updateSchema = z.object({
@@ -39,6 +40,7 @@ const updateSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email().optional(),
   commissionRate: z.number().min(0).max(100).optional(),
+  partnerType: z.enum(['bronze', 'silver', 'gold', 'platinum']).optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -50,6 +52,9 @@ function transformSubAgent(s: any) {
     phone: s.phone,
     email: s.email,
     commissionRate: Number(s.commission_rate || 0),
+    partnerType: s.partner_type || 'bronze',
+    portalTokenExpiresAt: s.portal_token_expires_at || null,
+    portalLastSeenAt: s.portal_last_seen_at || null,
     isActive: s.is_active,
     createdAt: s.created_at,
     sales: s.sales,
@@ -90,6 +95,7 @@ router.post('/subagents', authenticateToken, requireOrgContext, requireMinimumRo
         phone: r.data.phone,
         email: r.data.email,
         commission_rate: r.data.commissionRate,
+        partner_type: r.data.partnerType,
         is_active: true,
       })
       .select()
@@ -117,6 +123,7 @@ router.patch('/subagents/:id', authenticateToken, requireOrgContext, requireMini
     if (r.data.phone !== undefined) updates.phone = r.data.phone;
     if (r.data.email !== undefined) updates.email = r.data.email;
     if (r.data.commissionRate !== undefined) updates.commission_rate = r.data.commissionRate;
+    if (r.data.partnerType !== undefined) updates.partner_type = r.data.partnerType;
     if (r.data.isActive !== undefined) updates.is_active = r.data.isActive;
 
     const { data: updated, error: updateErr } = await supabaseAdmin
@@ -154,6 +161,33 @@ router.post('/subagents/:id/generate-sale', authenticateToken, requireOrgContext
       .single();
     if (agentErr || !agent) return apiError(res, 404, 'NOT_FOUND', 'Sub-agent not found');
 
+    // Apply partner-type commission rule (overrides default rate if rule exists)
+    const baseAmount = Number(body.totalAmount || 0);
+    let effectiveCommissionPct = Number(agent.commission_rate || 0);
+    let appliedRuleId: string | null = null;
+    let markupAmount = 0;
+    let finalAmount = baseAmount;
+
+    if (agent.partner_type) {
+      const { data: rule } = await supabaseAdmin
+        .from('commission_rules')
+        .select('id, commission_pct, markup_pct')
+        .eq('org_id', orgId)
+        .eq('partner_type', agent.partner_type)
+        .is('service_type', null)
+        .eq('is_active', true)
+        .order('priority', { ascending: true })
+        .limit(1)
+        .single();
+
+      if (rule) {
+        effectiveCommissionPct = Number(rule.commission_pct ?? effectiveCommissionPct);
+        markupAmount = (baseAmount * Number(rule.markup_pct || 0)) / 100;
+        finalAmount = baseAmount + markupAmount;
+        appliedRuleId = rule.id;
+      }
+    }
+
     // Create reservation via API call pattern (reuse existing logic)
     const reservationResp = await fetch('http://localhost:3001/api/reservations', {
       method: 'POST',
@@ -177,8 +211,9 @@ router.post('/subagents/:id/generate-sale', authenticateToken, requireOrgContext
         departure_id: body.departureId || null,
         source: 'subagent',
         status: 'pending',
-        total_amount: body.totalAmount || 0,
+        total_amount: finalAmount,
         currency: body.currency || 'BAM',
+        notes: appliedRuleId ? `Commission rule applied: ${appliedRuleId} | rate=${effectiveCommissionPct}% | markup=${markupAmount}` : undefined,
       })
       .select()
       .single();
@@ -251,7 +286,7 @@ router.post('/subagents/:id/generate-sale', authenticateToken, requireOrgContext
         org_id: orgId,
         sub_agent_id: id,
         reservation_id: reservation.id,
-        commission_amount: ((body.totalAmount || 0) * (agent.commission_rate || 0)) / 100,
+        commission_amount: (baseAmount * effectiveCommissionPct) / 100,
         documents_generated: { najava: true, ugovor: true, faktura: true },
       });
 

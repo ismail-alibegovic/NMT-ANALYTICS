@@ -33,11 +33,16 @@ import excursionRoutes from './excursions';
 import hotelRoutes from './hotels';
 import packageServicesRoutes from './packageServices';
 import eturistaRoutes from './eturista';
+import onboardingRoutes from './onboarding';
+import waiverRoutes from './waivers';
+import commissionRulesRoutes from './commissionRules';
+import subAgentPortalRoutes from './subAgentPortal';
 
 const router = Router();
 
 router.use('/', publicRoutes);
 router.use('/', signupRoutes);
+router.use('/', subAgentPortalRoutes);
 
 // Mount routes that include their own prefixes
 router.use('/', healthRoutes);
@@ -71,6 +76,9 @@ router.use('/', receiptRoutes);
 router.use('/', calendarRoutes);
 router.use('/', installmentRoutes);
 router.use('/', eturistaRoutes);
+router.use('/onboarding', onboardingRoutes);
+router.use('/', waiverRoutes);
+router.use('/', commissionRulesRoutes);
 
 // Mount routes that rely on parent prefix
 router.use('/admin', adminRoutes);

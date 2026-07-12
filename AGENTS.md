@@ -267,45 +267,6 @@ Verified end-to-end on https://travline-sprypine.zocomputer.io — full wizard r
 
 Abstract fiscal compliance provider interface at `nmt-analytics-api/src/lib/fiscal/`:
 
-- `file types.ts` — `FiscalProvider` interface, `FiscalMarket` type (`RS`|`HR`|`BA`), shared types
-- `file registry.ts` — `FiscalRegistry` class with provider registration + `getForOrg(orgId)` (reads org_settings.fiscal_market)
-- `file index.ts` — re-exports `fiscalRegistry`
-- `file eturista-provider.ts` — RS adapter (refactored from `file eturistaClient.ts`, reads key-value org_settings, SSRF guard preserved)
-- `file fiskalizacija-hr-provider.ts` — HR adapter stub (ready for HR Fiskalizacija 2.0 implementation)
-
-Migration `file supabase/migrations/20260710010000_fiscal_compliance_layer.sql` (applied live):
-
-- `org_settings.fiscal_market` (text\[\]) + `hr_fiscal_endpoint`/`hr_fiscal_cert` columns
-- `fiscal_submissions` table (unified `org_id`+`market`-scoped submission log with RLS)
-- Backward-compat view `eturista_submissions_view` for old eturista_submissions references
-
-Routes updated: `file nmt-analytics-api/src/routes/eturista.ts` — uses registry with legacy fallback, writes to `fiscal_submissions`
-Entry
-
-echo "Done"
-
-### Fiscal Compliance Layer (DONE 2026-07-10)
-
-Abstract fiscal compliance provider interface at :
-
-- —  interface,  type (RS|HR|BA), shared types
-- —  class with provider registration +  (reads org_settings.fiscal_market)
-- — re-exports
-- — RS adapter (refactored from , reads key-value org_settings, SSRF guard preserved)
-- — HR adapter stub (ready for HR Fiskalizacija 2.0 implementation)
-
-Migration  (applied live):
-
-- (text\[\]) + / columns
-- table (unified org_id+market-scoped submission log with RLS)
-- Backward-compat view  for old eturista_submissions references
-
-Routes updated:  — uses registry with legacy fallback, writes to
-
-### Fiscal Compliance Layer (DONE 2026-07-10)
-
-Abstract fiscal compliance provider interface at `nmt-analytics-api/src/lib/fiscal/`:
-
 - `file types.ts` — FiscalProvider interface, FiscalMarket type (RS|HR|BA), shared types
 - `file registry.ts` — FiscalRegistry class with provider registration + getForOrg(orgId)
 - `file index.ts` — re-exports fiscalRegistry
@@ -341,3 +302,138 @@ New (2026-07-11):
 - **Frontend `SignUpForm.tsx`:** Wired to API with org name field, loading state, error handling, redirect to `/signin?registered=1` on success.
 - **SignInForm:** Shows success banner when `?registered=1` param present.
 - **i18n:** New keys `orgName`, `enterOrgName`, `signingUp` added to en.ts + bs.ts.
+
+### Sprint 1 — UX Simplification (DONE 2026-07-11)
+
+**1. Global Command Palette (⌘K / Ctrl+K)**
+
+- New `file nmt-analytics-admin/src/components/common/GlobalSearch.tsx` — modal-overlay search palette that queries customers, reservations, packages, departures, and contracts in parallel (debounced 300ms, ≤20 results).
+- Grouped results with type icons, keyboard nav (↑↓ to move, ↵ to open, ESC to close), click-to-navigate.
+- Wired into `AppHeader` — the decorative search box is now a click-to-open trigger; ⌘K / Ctrl+K shortcut opens the palette globally.
+- No backend changes needed — reuses existing `search` params on `GET /customers`, `GET /reservations`, `GET /packages`, `GET /departures`, `GET /contracts`.
+
+**2. Inline Quick-Status on Reservations**
+
+- Reservation table rows now show inline confirm (✓) and cancel (✕) buttons next to the status badge — no need to open the edit modal just to change status.
+- Added `updateReservationStatus` import to `Reservations.tsx`.
+- Toast feedback on success/error.
+
+**Build:** `tsc --noEmit` passes. `vite build` verified.
+
+### Sprint 2 — NewSaleWizard Simplification (DONE 2026-07-11)
+
+**5-step wizard collapsed to 3 steps:**
+
+1. **Aranžman + Termin** — package cards and departure selection combined on one screen (package grid on left, departures appear on right when package selected).
+2. **Detalji** — variants, transport, accommodation, and customer fields merged into one scrollable form. Variant/transport section auto-hides if package has no variants; toggle "prikaži napredne opcije" reveals them.
+3. **Pregled** — review summary + confirm (unchanged from original step 5).
+- **Express auto-select:** when a package has exactly 1 active departure and 0 variants, departure is auto-selected and user lands directly on step 2.
+- **Removed:** "Odaberi varijantu" and "Prevoz" as separate steps — folded into step 2 as optional collapsed sections.
+- Files: `file nmt-analytics-admin/src/components/reservations/NewSaleWizard.tsx` (519 → 530 lines, full rewrite of step logic).
+- Build: `tsc -b` + `vite build` pass. Deployed to https://travline-sprypine.zocomputer.io.
+
+### Sprint 3 — Sidebar Cleanup: All Groups Visible, No Context-Switching (DONE 2026-07-11)
+
+**Problem:** Sidebar only showed items for the active scope (Sales/Operations/Finance/System). Switching scopes required going back to the hub — extra clicks and lost context.
+
+**Changes:**
+
+- **`SidebarContext.tsx`:** New `Scope` type adds `"all"`. `scopeFromPath` now returns `"all"` for hub pages (`/`, `/home`) so the sidebar is visible there too; returns `null` only for auth pages. The sidebar now shows on every in-app page.
+- **`AppSidebar.tsx` (full rewrite):** Instead of rendering only the active scope's items, the sidebar now renders **all four groups simultaneously** with section headers: Sales, Operations, Finance, System. Each group shows its items flat (no nested submenu accordion needed for most — items are 3-5 per group, manageable without nesting). The active scope's group gets visually emphasized (highlighted header) so the user knows where they are.
+- **Files:** `file nmt-analytics-admin/src/context/SidebarContext.tsx`, `file nmt-analytics-admin/src/layout/AppSidebar.tsx`.
+- **Build:** `tsc -b` + `vite build` pass. Deployed to https://travline-sprypine.zocomputer.io.
+
+### Org Branding Wiring + Settings UI (DONE 2026-07-11)
+
+**Problem:** All 4 PDF generator call sites (`generateVoucherPDF`, `generateInvoicePDF`, `generateContractPDF`, `generateReceiptPDF`) fell back to hardcoded `defaultStyle` (blue `#1D4ED8`) because:
+- `org_branding` table existed (migration `20260711010000_self_service_signup.sql`) but no code read from it
+- Voucher + contract routes tried `organizations.branding` — a column that doesn't exist (branding lives in separate `org_branding` table)
+- Invoice, receipt, and send-email-voucher routes never fetched branding at all
+- `receipts.ts` had a stale `console.log("[RECEIPT PDF DEBUG]...")` left in
+
+**Fix:**
+
+- **New helper:** `file nmt-analytics-api/src/lib/orgBranding.ts` — `getOrgBranding(orgId)` fetches the `org_branding` row and maps `primary_color → primaryColor`, `accent_color → secondaryColor`, `logo_url → logoUrl`, `display_name → footerText` (returns `{}` if no row — generators fall back to defaults gracefully).
+- **All 4 PDF routes patched** to call `getOrgBranding(orgId)` and pass result to the generator:
+  - `file nmt-analytics-api/src/routes/reservations.ts` — voucher (×2: direct + send-email), invoice
+  - `file nmt-analytics-api/src/routes/contracts.ts` — contract
+  - `file nmt-analytics-api/src/routes/receipts.ts` — receipt (debug log removed)
+- **GET /settings/branding** (`file nmt-analytics-api/src/routes/settings.ts`) — fixed to read from `org_branding` table (was reading `organizations` columns that don't exist). Returns defaults (`#1D4ED8` / `#0EA5E9`) if no row exists (PGRST116).
+- **PATCH /settings/branding** (new) — Zod-validated upsert (display_name, logo_url, primary_color /^#[0-9A-Fa-f]{6}$/, accent_color). Audit-logged via `logAuditEntry({ action: 'UPDATE', entity: 'org_branding' })`. Director-only (router-level `requireMinimumRole('director')` already applies).
+- **Frontend Branding section** added to `file nmt-analytics-admin/src/pages/admin/Settings.tsx` — display_name input, logo_url input, native color pickers + hex inputs for primary/accent, **live PDF header preview** (banner matching the actual PDF generator style), dedicated save button. Fetches `GET /settings/branding`, saves via `PATCH /settings/branding`.
+- **i18n:** 9 keys added (`brandingTitle`, `brandingDesc`, `brandingDisplayName`, `brandingLogoUrl`, `brandingPrimaryColor`, `brandingAccentColor`, `brandingPrimaryPreview`, `brandingAccentPreview`, `brandingPreviewNote`) in both `en.ts` and `bs.ts`.
+- **Build:** `tsc --noEmit` (api) + `tsc -b` (admin) + `vite build` all pass. Service restarted — new `Settings-BBXhN9gi.js` chunk (19.51 kB) confirmed in production build.
+
+**Improvement plan status:** "Org branding tabela" deliverable (Phase 2) now fully complete — DB table + backend wiring + management UI all in place.
+
+---
+
+### Sprint 2026-07-11 — Bus Seat Map + Passenger PATCH + Bus/Ruming List Branding
+
+**Date:** 2026-07-11
+
+**Bus visual seat map** (Phase 1 feature #1 in improvement plan):
+- New component: `file nmt-analytics-admin/src/components/operations/SeatMap.tsx` (346 lines) — visual 2-2 bus layout with driver row, aisle, header showing occupied/free counts, and a passenger-side assignment flow ("Dodijeli sjedište" button → click free seat → PATCH). Flight layout is a numeric grid fallback (1A..3F) when `transport_type` is not 'bus'.
+- Self-contained: imports `updateExcursionPassenger` from `file nmt-analytics-admin/src/api/operations.ts`, manages its own loading state, and invokes `onSeatChanged(passengerId, seatNum)` so the parent can refresh the manifest.
+- Passenger list comes from the existing GET /departures/:id/passengers endpoint (manifest already returns `passengerId` = `excursion_passengers.id`, plus `seat: p.seat_number`).
+
+**Backend PATCH endpoint** (new):
+- `PATCH /api/excursions/:id` in `file nmt-analytics-api/src/routes/excursions.ts` — validates `fullName`, `phone`, `idDocument`, `seatNumber` (int ≥1), `paidAmount` (≥0), `notes` with Zod, updates only provided fields, `.eq('org_id', orgId)` for tenant isolation, returns the row via `transformPassenger(data)` after `.select().single()`. Audit logged.
+- Also wired `getOrgBranding()` into the bus-list (line 189) and ruming-list (line 226) PDF route handlers — both were previously hardcoded to `{ primaryColor: '#1D4ED8', secondaryColor: '#111827' }` and `{ primaryColor: '#1D4ED8' }`.
+
+**Onboarding /status fix** in `file nmt-analytics-api/src/routes/onboarding.ts`:
+- Was querying `organizations` for `logo_url, primary_color, secondary_color` (columns don't exist — they live in `org_branding`). Fixed: organizations select now only fetches `id, name, currency`, and a separate `org_branding` query supplies `logo_url + primary_color + accent_color`. Logo/branding checklist items now correctly read actual branding state.
+
+**Frontend integration** in `file nmt-analytics-admin/src/pages/DepartureDetail.tsx`:
+- Imported `SeatMap` and renders it in the passengers tab when `departure.transport_type === 'bus' && departure.capacity > 0 && passengers.length > 0`. `editable` is true; `onSeatChanged` calls `getDeparturePassengers(id)` to refetch the manifest so the UI reflects the new seat assignment immediately.
+- Fixed a pre-existing broken import: `../components/ui/emptyState/EmptyState` (wrong case + subdir) → `../components/ui/EmptyState`.
+- Added `updateExcursionPassenger` to `file nmt-analytics-admin/src/api/operations.ts` (PATCH wrapper around `/excursions/:id`).
+
+**Build:** `tsc --noEmit` (api) + `tsc -b` (admin) + `vite build` all pass. `DepartureDetail-CE0IzfYb.js` chunk contains "Dodijeli sjedište" — confirmed in production bundle. API dist contains `patch` endpoint + `getOrgBranding`/`rumingBranding` references. Service restarted.
+
+---
+
+### Sprint 2026-07-12 — Partner Type Business Rules (markup/commission by partner type)
+
+**Date:** 2026-07-12
+
+**Feature #4 from the improvement plan §5.3 — automatic markup/commission by partner type (business rules on `subagents`/`package_services`).**
+
+**DB migration** `file nmt-analytics-api/supabase/migrations/20260712010000_partner_type_business_rules.sql` (applied live):
+- `sub_agents.partner_type` — TEXT `CHECK IN ('bronze','silver','gold','platinum')` default `'bronze'`
+- `sub_agents.markup_pct` — NUMERIC(5,2) default 0, optional extra % markup applied by the organization
+- `package_services.markup_pct` — NUMERIC(5,2) per-line-item margin (0 = no markup)
+- `commission_rules` table — per-org rules keyed by `partner_type` (+ optional `service_type` scope: `hotel|transport|tour|insurance|extra|NULL`), with `commission_pct`, `markup_pct`, `is_active`, `priority`. RLS-protected, unique index on `(org_id, partner_type, service_type) WHERE is_active = TRUE`. `updated_at` trigger via `trg_commission_rules_touch_updated_at()` (table-local to avoid colliding with the existing per-table trigger pattern).
+- `AuditEntity` union in `file nmt-analytics-api/src/middleware/auditLogger.ts` extended with `'commission_rule'`.
+
+**Resolution order** at sale-generation time (most specific wins):
+1. commission_rule with matching `partner_type` AND `service_type`
+2. commission_rule with matching `partner_type` AND `service_type IS NULL` (global fallback for that tier)
+3. `sub_agents.commission_rate` (existing flat rate — last resort)
+
+**Backend** (`file nmt-analytics-api/src/routes/commissionRules.ts`):
+- `GET /api/commission-rules` — paginated list with `partnerType`/`serviceType`/`isActive` filters
+- `GET /api/commission-rules/preview?partnerType=&bookingAmount=&serviceType=` — computes effective commission + markup + finalAmount for a scenario (most-specific-match wins). Director-only via router-level `requireMinimumRole('director')`.
+- `POST /api/commission-rules` — Zod-validated insert (separate `createSchema` with sensible defaults: `markupPct=0`, `isActive=true`, `priority=0`).
+- `PATCH /api/commission-rules/:id` — truly-partial update (`updateSchema = ruleSchema.partial()`, no defaults so omitted fields aren't overwritten with 0/false). Fetches by `id + org_id` for tenant isolation.
+- `DELETE /api/commission-rules/:id` — soft-removal via hard delete (org-scoped).
+- All write routes gate on `requireMinimumRole('director')` and audit-log via `auditLog('CREATE'/'UPDATE', 'commission_rule', ...)`.
+
+**Sub-agent generate-sale integration** (`file nmt-analytics-api/src/routes/subagents.ts`):
+- `createSchema`/`updateSchema` now accept `partnerType: z.enum(['bronze','silver','gold','platinum'])`, persisted to `sub_agents.partner_type`.
+- `POST /api/subagents/:id/generate-sale` — applies the partner-type commission rule before creating the reservation: looks up the most specific rule (filtered by `service_type IS NULL` for now — no per-service-type resolution at sale-time yet), overrides `effectiveCommissionPct` and computes `markupAmount`/`finalAmount` from the rule's `commission_pct` and `markup_pct`. Writes the effective commission (not the flat rate) to `sub_agent_sales.commission_amount`, the markup-inclusive total to `reservations.total_amount`, and records the applied rule ID + breakdown in `reservations.notes`.
+- `transformSubAgent()` now emits `partnerType` for the frontend.
+
+**Frontend** (`file nmt-analytics-admin/src/pages/operations/CommissionRules.tsx`):
+- New operations page at `/operations/commission-rules` — DataTable of rules (Partner Type badge, Service scope, Commission %, Markup %, Priority, Active/Inactive toggle, Edit/Delete actions), create/edit modal with partner-type + service-type selectors + commission/markup inputs + priority + active checkbox, and a live preview panel (partner type + service + booking amount → matched rule + commission + final amount).
+- Integrated into `App.tsx` lazy routes, `AppSidebar.tsx` operations group (director-only), `Hub/OperationsScope.tsx` operations tiles.
+- `SubAgents.tsx` — partner-type dropdown added to the create modal, `partnerType` column in the table (bronze/silver/gold/platinum with colored Badge by tier), form state resets on submit.
+- API client extended in `file nmt-analytics-admin/src/api/operations.ts` with `CommissionRule` interface + `getCommissionRules`/`createCommissionRule`/`updateCommissionRule`/`deleteCommissionRule`/`previewCommission` functions. Sub-agent `SubAgent` interface + `createSubAgent` payload extended with `partnerType`.
+- i18n: `commissionRules` nav label + `operations.commissionRules` block (title, description, partnerTypes + ruleTypes maps) added to both `file en.ts` and `file bs.ts`.
+
+**PostgREST schema cache reload** (unrelated Quirk):
+- After the migration landed, PostgREST's schema cache was stale on the live instance — `NOTIFY pgrst, 'reload schema'` via raw SQL produced no reload. Resolution: created `public.pgrst_reload_schema()` SQL function that calls `pg_notify('pgrst', 'reload schema')` and invoked it through the Supabase Management API `/v1/projects/{ref}/database/query` endpoint. The PostgREST cache refreshed within ~5 seconds and the new `commission_rules` table became REST-queryable.
+
+**Build:** `tsc --noEmit` (api) + `tsc -b` (admin) + `vite build` all pass. `CommissionRules-BqYAQxcM.js` chunk confirmed in production bundle. API dist contains `commissionRules` route + `partner_type`/`commission_pct`/`markup_pct` column references. Service restarted. End-to-end verified against live DB: created gold/hotel (8% commission, 12% markup), bronze (3%, 5%), platinum (12%) rules; preview returns correct effective commission and finalAmount per partner type + service scope; PATCH with partial body preserves omitted fields (no longer zeroes `markup_pct`).
+
+**Improvement plan status:** Feature #4 (high-value/simple, §5.3) now fully complete — DB schema + backend rule engine + sale-time integration + admin management UI + live preview. Items #1 (bus seat map), #2 (waivers), #4 (markup/commission rules) all done. #3 (sub-agent self-serve portal) and #6 (client-facing "my trip" micro-portal) remain as the next high-value work per §10 ordering.

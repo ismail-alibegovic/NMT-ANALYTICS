@@ -13,6 +13,7 @@ import {
 } from '../utils/pagination';
 import { requireMinimumRole } from '../middleware/requireRole';
 import { generateBusListPDF, generateRumingListPDF } from '../lib/excursionGenerator';
+import { getOrgBranding } from '../lib/orgBranding';
 
 const router = Router();
 
@@ -171,11 +172,54 @@ router.delete('/excursions/:id', authenticateToken, requireOrgContext, requireMi
   } catch (err) { console.error('Error in DELETE /excursions/:id:', err); apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err)); }
 });
 
+/** PATCH /api/excursions/:id — update passenger (seat assignment, paid, notes) */
+router.patch('/excursions/:id', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req, res: Response) => {
+  try {
+    const { id } = req.params;
+    const orgId = req.orgId!;
+
+    const schema = z.object({
+      seatNumber: z.number().int().positive().nullish(),
+      paidAmount: z.number().min(0).nullish(),
+      debtAmount: z.number().min(0).nullish(),
+      notes: z.string().max(500).nullish(),
+      fullName: z.string().min(1).max(200).nullish(),
+      phone: z.string().max(50).nullish(),
+      idDocument: z.string().max(100).nullish(),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', parsed.error.issues);
+
+    // Build update object — only include defined fields
+    const update: Record<string, any> = { updated_at: new Date().toISOString() };
+    if (parsed.data.seatNumber !== undefined) update.seat_number = parsed.data.seatNumber;
+    if (parsed.data.paidAmount !== undefined) update.paid_amount = parsed.data.paidAmount;
+    if (parsed.data.debtAmount !== undefined) update.debt_amount = parsed.data.debtAmount;
+    if (parsed.data.notes !== undefined) update.notes = parsed.data.notes;
+    if (parsed.data.fullName !== undefined) update.full_name = parsed.data.fullName;
+    if (parsed.data.phone !== undefined) update.phone = parsed.data.phone;
+    if (parsed.data.idDocument !== undefined) update.id_document = parsed.data.idDocument;
+
+    const { data, error } = await supabaseAdmin
+      .from('excursion_passengers')
+      .update(update)
+      .eq('id', id)
+      .eq('org_id', orgId)
+      .select()
+      .single();
+    if (error) return handleSupabaseError(res, error, 'Failed to update passenger');
+
+    return res.json(transformPassenger(data));
+  } catch (err) { console.error('Error in PATCH /excursions/:id:', err); apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err)); }
+});
+
 /** GET /api/excursions/:id/bus-list */
 router.get('/excursions/:id/bus-list', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
   try {
     const { id } = req.params;
     const orgId = req.orgId!;
+
     const { data, error } = await supabaseAdmin
       .from('excursion_passengers')
       .select('*')
@@ -184,7 +228,7 @@ router.get('/excursions/:id/bus-list', authenticateToken, requireOrgContext, req
       .order('seat_number', { ascending: true });
     if (error) return handleSupabaseError(res, error, 'Failed to fetch bus list');
 
-    const branding = { primaryColor: '#1D4ED8', secondaryColor: '#111827' };
+    const branding = await getOrgBranding(orgId);
     const pdfBuffer = await generateBusListPDF(data || [], branding);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="bus_list_${Date.now()}.pdf"`);
@@ -221,8 +265,8 @@ router.get('/excursions/:id/ruming-list', authenticateToken, requireOrgContext, 
       .eq('org_id', orgId);
     if (error) return handleSupabaseError(res, error, 'Failed to fetch ruming list');
 
-    const branding = { primaryColor: '#1D4ED8', secondaryColor: '#111827' };
-    const pdfBuffer = await generateRumingListPDF(data || [], branding);
+    const rumingBranding = await getOrgBranding(orgId);
+    const pdfBuffer = await generateRumingListPDF(data || [], rumingBranding);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="ruming_list_${Date.now()}.pdf"`);
     res.send(pdfBuffer);

@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
-import PageMeta from '../../components/common/PageMeta';
-import api from '../../lib/apiClient';
-import { useT } from '../../lib/i18n/context';
+import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router";
+import PageMeta from "../../components/common/PageMeta";
+import { DocsIcon } from "../../icons";
+import api from "../../lib/apiClient";
+import { useT } from "../../lib/i18n/context";
 
 interface OrgSettings {
   name: string;
@@ -25,6 +27,13 @@ interface SmtpSettings {
   from_name: string;
 }
 
+interface BrandingSettings {
+  display_name: string;
+  logo_url: string;
+  primary_color: string;
+  accent_color: string;
+}
+
 export default function Settings() {
   const { t } = useT();
   const [loading, setLoading] = useState(true);
@@ -45,12 +54,18 @@ export default function Settings() {
   const [testing, setTesting] = useState(false);
   const smtpPasswordRef = useRef<HTMLInputElement>(null);
 
+  const [branding, setBranding] = useState<BrandingSettings>({
+    display_name: '', logo_url: '', primary_color: '#1D4ED8', accent_color: '#0EA5E9',
+  });
+  const [brandingSaving, setBrandingSaving] = useState(false);
+  const [brandingMessage, setBrandingMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   const showSmtpMessage = (text: string, type: 'success' | 'error') => {
     setSmtpMessage({ type, text });
     setTimeout(() => setSmtpMessage(null), 5000);
   };
 
-  useEffect(() => { fetchSettings(); fetchSmtpSettings(); }, []);
+  useEffect(() => { fetchSettings(); fetchSmtpSettings(); fetchBranding(); }, []);
 
   const fetchSettings = async () => {
     try {
@@ -72,6 +87,28 @@ export default function Settings() {
         pass: '', from_email: data.from_email || '', from_name: data.from_name || ''
       });
     } catch (error) { console.error('Failed to fetch SMTP settings:', error); }
+  };
+
+  const fetchBranding = async () => {
+    try {
+      const { data } = await api.get<BrandingSettings>('/settings/branding');
+      setBranding({
+        display_name: data.display_name || '',
+        logo_url: data.logo_url || '',
+        primary_color: data.primary_color || '#1D4ED8',
+        accent_color: data.accent_color || '#0EA5E9',
+      });
+    } catch (error) { console.error('Failed to fetch branding:', error); }
+  };
+
+  const handleSaveBranding = async () => {
+    setBrandingSaving(true); setBrandingMessage(null);
+    try {
+      await api.patch('/settings/branding', branding);
+      setBrandingMessage({ type: 'success', text: t.settings.saved });
+    } catch (error: any) {
+      setBrandingMessage({ type: 'error', text: error.message || t.settings.saveError });
+    } finally { setBrandingSaving(false); }
   };
 
   const handleSaveSmtp = async () => {
@@ -103,6 +140,18 @@ export default function Settings() {
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{t.settings.title}</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t.settings.description}</p>
+      </div>
+
+      {/* PDF Template Editor link */}
+      <div className="mb-6 flex items-center gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+        <DocsIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm font-medium text-blue-900 dark:text-blue-200">{t.settings.pdfTemplateEditor}</p>
+          <p className="text-xs text-blue-700 dark:text-blue-300">{t.settings.pdfTemplateEditorDesc}</p>
+        </div>
+        <Link to="/settings/pdf-templates" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap">
+          {t.settings.openEditor}
+        </Link>
       </div>
 
       {message && (
@@ -271,6 +320,85 @@ export default function Settings() {
                 rows={3} placeholder="Hvala Vam na povjerenju."
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
             </div>
+          </div>
+        </div>
+
+        {/* Branding Section */}
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">{t.settings.brandingTitle}</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t.settings.brandingDesc}</p>
+
+          {brandingMessage && (
+            <div className={`mb-4 p-3 rounded-lg text-sm ${brandingMessage.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400'}`}>
+              {brandingMessage.text}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.brandingDisplayName}</label>
+              <input type="text" value={branding.display_name} onChange={(e) => setBranding({ ...branding, display_name: e.target.value })}
+                placeholder={settings.name || 'Moja Agencija'}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.brandingLogoUrl}</label>
+              <input type="url" value={branding.logo_url} onChange={(e) => setBranding({ ...branding, logo_url: e.target.value })}
+                placeholder="https://example.com/logo.png"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.brandingPrimaryColor}</label>
+              <div className="flex items-center gap-3">
+                <input type="color" value={branding.primary_color} onChange={(e) => setBranding({ ...branding, primary_color: e.target.value })}
+                  className="h-10 w-14 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 cursor-pointer" />
+                <input type="text" value={branding.primary_color} onChange={(e) => setBranding({ ...branding, primary_color: e.target.value })}
+                  className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
+                <div className="h-10 px-4 rounded-lg flex items-center text-white text-sm font-medium" style={{ backgroundColor: branding.primary_color }}>
+                  {t.settings.brandingPrimaryPreview}
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.brandingAccentColor}</label>
+              <div className="flex items-center gap-3">
+                <input type="color" value={branding.accent_color} onChange={(e) => setBranding({ ...branding, accent_color: e.target.value })}
+                  className="h-10 w-14 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 cursor-pointer" />
+                <input type="text" value={branding.accent_color} onChange={(e) => setBranding({ ...branding, accent_color: e.target.value })}
+                  className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
+                <div className="h-10 px-4 rounded-lg flex items-center text-white text-sm font-medium" style={{ backgroundColor: branding.accent_color }}>
+                  {t.settings.brandingAccentPreview}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{t.settings.brandingPreviewNote}</p>
+            <div className="rounded-lg overflow-hidden">
+              <div className="px-6 py-4 flex items-center justify-between" style={{ backgroundColor: branding.primary_color }}>
+                <div>
+                  <span className="text-white text-lg font-bold tracking-wide">VOUCHER</span>
+                  <p className="text-white/80 text-xs mt-0.5">{branding.display_name || settings.name || 'Travel Agency'}</p>
+                </div>
+                {branding.logo_url && (
+                  <img src={branding.logo_url} alt="Logo" className="h-8 w-auto object-contain bg-white/10 rounded p-1" />
+                )}
+              </div>
+              <div className="px-6 py-3 flex items-center gap-2 bg-white dark:bg-gray-800">
+                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: branding.accent_color }} />
+                <span className="text-sm font-medium" style={{ color: branding.primary_color }}>{t.settings.brandingPrimaryPreview}</span>
+                <span className="text-sm text-gray-400">·</span>
+                <span className="text-sm" style={{ color: branding.accent_color }}>{t.settings.brandingAccentPreview}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <button onClick={handleSaveBranding} disabled={brandingSaving}
+              className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              {brandingSaving ? t.common.saving : t.settings.save}
+            </button>
           </div>
         </div>
 

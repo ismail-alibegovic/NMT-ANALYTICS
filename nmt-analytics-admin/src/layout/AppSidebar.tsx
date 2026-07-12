@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { hasAccess, UserRole } from "../types/roles";
 import { useT } from "../lib/i18n/context";
 
-// Assume these icons are imported from an icon library
 import {
   CalenderIcon,
   ChevronDownIcon,
@@ -17,10 +16,10 @@ import {
   PlugInIcon,
   LockIcon,
   FileIcon,
-  HomeIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { useApp } from "../context/AppContext";
+
 type NavItem = {
   name: string;
   icon: React.ReactNode;
@@ -30,6 +29,11 @@ type NavItem = {
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered, activeScope } = useSidebar();
   const { userContext } = useApp();
@@ -37,7 +41,7 @@ const AppSidebar: React.FC = () => {
   const role = userContext?.role;
   const { t } = useT();
 
-  // Homepage / no-scope → no sidebar at all.
+  // No sidebar when no scope at all (shouldn't happen with "all" fallback, but safe).
   if (activeScope === null) return null;
 
   const canSeeItem = (nav: NavItem) => {
@@ -48,206 +52,63 @@ const AppSidebar: React.FC = () => {
     return false;
   };
 
+  // ── Group definitions ──────────────────────────────────────────────
+  // Each group is a labeled section in the sidebar. We show ALL groups
+  // simultaneously so the user never has to go back to the hub just to
+  // switch context.
+
   const salesItems: NavItem[] = [
-    {
-      icon: <HomeIcon />,
-      name: t.nav.hub,
-      path: "/home",
-      minRole: "viewer",
-    },
-    {
-      icon: <GridIcon />,
-      name: t.nav.dashboard,
-      path: "/dashboard",
-      minRole: "viewer",
-    },
-    {
-      icon: <UserCircleIcon />,
-      name: t.nav.customers,
-      path: "/customers",
-      module: "customers",
-      minRole: "viewer",
-    },
-    {
-      icon: <ShootingStarIcon />,
-      name: t.nav.packages,
-      path: "/packages",
-      module: "packages",
-      minRole: "agent",
-    },
-    {
-      icon: <CalenderIcon />,
-      name: t.nav.reservations,
-      path: "/reservations",
-      module: "reservations",
-      minRole: "viewer",
-    },
-    {
-      icon: <TimeIcon />,
-      name: t.nav.departures,
-      path: "/departures",
-      module: "departures",
-      minRole: "agent",
-    },
+    { icon: <GridIcon />, name: t.nav.dashboard, path: "/dashboard", minRole: "viewer" },
+    { icon: <UserCircleIcon />, name: t.nav.customers, path: "/customers", module: "customers", minRole: "viewer" },
+    { icon: <ShootingStarIcon />, name: t.nav.packages, path: "/packages", module: "packages", minRole: "agent" },
+    { icon: <CalenderIcon />, name: t.nav.reservations, path: "/reservations", module: "reservations", minRole: "viewer" },
+    { icon: <TimeIcon />, name: t.nav.departures, path: "/departures", module: "departures", minRole: "agent" },
   ];
 
   const operationsItems: NavItem[] = [
-    {
-      icon: <HomeIcon />,
-      name: t.nav.hub,
-      path: "/home",
-      minRole: "viewer",
-    },
-    {
-      icon: <CalenderIcon />,
-      name: t.nav.calendar,
-      path: "/operations/calendar",
-      minRole: "viewer",
-    },
-    {
-      icon: <FileIcon />,
-      name: t.nav.contracts,
-      path: "/operations/contracts",
-      minRole: "viewer",
-    },
-    {
-      icon: <DollarLineIcon />,
-      name: t.nav.receipts,
-      minRole: "manager",
-      path: "/operations/receipts",
-    },
-    {
-      icon: <UserCircleIcon />,
-      name: t.nav.subAgents,
-      minRole: "manager",
-      path: "/operations/subagents",
-    },
-    {
-      icon: <ShootingStarIcon />,
-      name: t.nav.excursions,
-      minRole: "manager",
-      path: "/operations/excursions",
-    },
-    {
-      icon: <GridIcon />,
-      name: t.nav.hotels,
-      minRole: "manager",
-      path: "/operations/hotels",
-    },
+    { icon: <CalenderIcon />, name: t.nav.calendar, path: "/operations/calendar", minRole: "viewer" },
+    { icon: <FileIcon />, name: t.nav.contracts, path: "/operations/contracts", minRole: "viewer" },
+    { icon: <DollarLineIcon />, name: t.nav.receipts, path: "/operations/receipts", minRole: "manager" },
+    { icon: <UserCircleIcon />, name: t.nav.subAgents, path: "/operations/subagents", minRole: "manager" },
+    { icon: <GridIcon />, name: t.nav.commissionRules, path: "/operations/commission-rules", minRole: "director" },
+    { icon: <ShootingStarIcon />, name: t.nav.excursions, path: "/operations/excursions", minRole: "manager" },
+    { icon: <GridIcon />, name: t.nav.hotels, path: "/operations/hotels", minRole: "manager" },
   ];
 
   const financeItems: NavItem[] = [
-    {
-      icon: <HomeIcon />,
-      name: t.nav.hub,
-      path: "/home",
-      minRole: "viewer",
-    },
-    {
-      icon: <DollarLineIcon />,
-      name: t.nav.payments,
-      path: "/payments",
-      module: "payments",
-      minRole: "manager",
-    },
-    {
-      icon: <FileIcon />,
-      name: t.nav.fakturisanje,
-      path: "/reservations",
-      module: "reservations",
-      minRole: "manager",
-    },
-    {
-      icon: <PieChartIcon />,
-      name: t.nav.reports,
-      path: "/reports",
-      module: "analytics",
-      minRole: "manager",
-    },
-    {
-      icon: <PlugInIcon />,
-      name: t.nav.integrations,
-      path: "/integrations",
-      module: "integrations",
-      minRole: "manager",
-    },
+    { icon: <DollarLineIcon />, name: t.nav.payments, path: "/payments", module: "payments", minRole: "manager" },
+    { icon: <PieChartIcon />, name: t.nav.reports, path: "/reports", module: "analytics", minRole: "manager" },
+    { icon: <PlugInIcon />, name: t.nav.integrations, path: "/integrations", module: "integrations", minRole: "manager" },
   ];
 
   const adminItems: NavItem[] = [
-    {
-      icon: <HomeIcon />,
-      name: t.nav.hub,
-      path: "/home",
-      minRole: "viewer",
-    },
-    {
-      icon: <LockIcon />,
-      name: t.nav.auditLogs,
-      path: "/admin/audit-logs",
-      minRole: "director",
-    },
-    {
-      icon: <FileIcon />,
-      name: t.nav.documents,
-      path: "/admin/documents",
-      minRole: "manager",
-    },
+    { icon: <LockIcon />, name: t.nav.auditLogs, path: "/admin/audit-logs", minRole: "director" },
+    { icon: <FileIcon />, name: t.nav.documents, path: "/admin/documents", minRole: "manager" },
   ];
 
-  // Pick the section that matches the active scope.
-  const sectionLabel =
-    activeScope === "sales" ? t.nav.prodaja
-    : activeScope === "operations" ? t.nav.operations
-    : activeScope === "finance" ? t.nav.finansije
-    : t.nav.system;
+  const groups: NavGroup[] = [
+    { label: t.nav.prodaja, items: salesItems },
+    { label: t.nav.operations, items: operationsItems },
+    { label: t.nav.finansije, items: financeItems },
+    { label: t.nav.system, items: adminItems },
+  ];
 
-  const sectionItems =
-    activeScope === "sales" ? salesItems
-    : activeScope === "operations" ? operationsItems
-    : activeScope === "finance" ? financeItems
-    : adminItems;
+  const visibleGroups = groups
+    .map((g) => ({ ...g, items: g.items.filter(canSeeItem) }))
+    .filter((g) => g.items.length > 0);
 
-  const visibleItems = sectionItems.filter(canSeeItem);
-
+  // ── Submenu state (kept for future nested items) ────────────────────
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "section";
     index: number;
   } | null>(null);
-  const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>({});
+  const [subMenuHeight] = useState<Record<string, number>>({});
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const isActive = useCallback(
     (path: string) => location.pathname === path,
     [location.pathname]
   );
-
-  useEffect(() => {
-    let submenuMatched = false;
-    visibleItems.forEach((nav, index) => {
-      if (nav.subItems) {
-        nav.subItems.forEach((subItem) => {
-          if (isActive(subItem.path)) {
-            setOpenSubmenu({ type: "section", index });
-            submenuMatched = true;
-          }
-        });
-      }
-    });
-    if (!submenuMatched) setOpenSubmenu(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location, isActive]);
-
-  useEffect(() => {
-    if (openSubmenu !== null) {
-      const key = `section-${openSubmenu.index}`;
-      if (subMenuRefs.current[key]) {
-        setSubMenuHeight((prev) => ({
-          ...prev,
-          [key]: subMenuRefs.current[key]?.scrollHeight || 0,
-        }));
-      }
-    }
-  }, [openSubmenu]);
 
   const handleSubmenuToggle = (index: number) => {
     setOpenSubmenu((prev) =>
@@ -256,7 +117,7 @@ const AppSidebar: React.FC = () => {
   };
 
   const renderMenuItems = (items: NavItem[]) => (
-    <ul className="flex flex-col gap-4">
+    <ul className="flex flex-col gap-1">
       {items.map((nav, index) => (
         <li key={nav.name}>
           {nav.subItems ? (
@@ -339,6 +200,7 @@ const AppSidebar: React.FC = () => {
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Logo */}
       <div className={`py-8 flex flex-col gap-2 ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start px-2"}`}>
         <Link to="/" className="flex items-center gap-3">
           <img
@@ -354,18 +216,19 @@ const AppSidebar: React.FC = () => {
         </Link>
       </div>
 
+      {/* All nav groups */}
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
-        <nav className="mb-6">
-          <div className="flex flex-col gap-4">
-            <div>
+        <nav className="mb-6 flex flex-col gap-6">
+          {visibleGroups.map((group) => (
+            <div key={group.label}>
               <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"}`}
+                className={`mb-2 text-xs uppercase flex leading-[20px] text-gray-400 font-semibold tracking-wider ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"}`}
               >
-                {isExpanded || isHovered || isMobileOpen ? sectionLabel : <HorizontaLDots className="size-6" />}
+                {isExpanded || isHovered || isMobileOpen ? group.label : <HorizontaLDots className="size-6" />}
               </h2>
-              {renderMenuItems(visibleItems)}
+              {renderMenuItems(group.items)}
             </div>
-          </div>
+          ))}
         </nav>
       </div>
     </aside>

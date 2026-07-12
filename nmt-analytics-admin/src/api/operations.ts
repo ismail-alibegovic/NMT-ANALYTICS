@@ -8,6 +8,9 @@ export interface SubAgent {
   phone: string | null;
   email: string | null;
   commissionRate: number;
+  partnerType: 'bronze' | 'silver' | 'gold' | 'platinum';
+  portalTokenExpiresAt: string | null;
+  portalLastSeenAt: string | null;
   isActive: boolean;
   createdAt: string;
   sales?: any[];
@@ -18,7 +21,7 @@ export async function getSubAgents(): Promise<SubAgent[]> {
   return data.data || [];
 }
 
-export async function createSubAgent(payload: { name: string; phone?: string; email?: string; commissionRate?: number }): Promise<SubAgent> {
+export async function createSubAgent(payload: { name: string; phone?: string; email?: string; commissionRate?: number; partnerType?: string }): Promise<SubAgent> {
   const { data } = await post<SubAgent>('/subagents', payload);
   return data;
 }
@@ -36,6 +39,17 @@ export async function generateSubAgentSale(subAgentId: string, body: Record<stri
   const api = (await import('../lib/apiClient')).default;
   const res = await api.post(`/subagents/${subAgentId}/generate-sale`, body, { responseType: 'blob' });
   return res.data as Blob;
+}
+
+// ─── Sub-agent portal tokens ─────────────────────────────────
+export async function issueSubAgentPortalToken(id: string, ttlDays = 90): Promise<{ token: string; portalUrl: string; expiresAt: string; message: string }> {
+  const { data } = await post<{ token: string; portalUrl: string; expiresAt: string; message: string }>(`/subagents/${id}/portal-token`, { ttlDays });
+  return data;
+}
+
+export async function revokeSubAgentPortalToken(id: string): Promise<{ message: string }> {
+  const { data } = await post<{ message: string }>(`/subagents/${id}/portal-token/revoke`, {});
+  return data;
 }
 
 // ─── Excursions ───────────────────────────────────────────────
@@ -70,6 +84,18 @@ export async function createExcursionPassenger(payload: {
   notes?: string;
 }): Promise<ExcursionPassenger> {
   const { data } = await post<ExcursionPassenger>('/excursions', payload);
+  return data;
+}
+
+export async function updateExcursionPassenger(id: string, payload: {
+  fullName?: string;
+  phone?: string;
+  idDocument?: string;
+  seatNumber?: number;
+  paidAmount?: number;
+  notes?: string;
+}): Promise<ExcursionPassenger> {
+  const { data } = await patch<ExcursionPassenger>(`/excursions/${id}`, payload);
   return data;
 }
 
@@ -245,4 +271,54 @@ export async function submitETurista(): Promise<{ message: string; id: string }>
 export async function getETuristaHistory(): Promise<ETuristaSubmission[]> {
   const { data } = await get<{ data: ETuristaSubmission[] }>('/integrations/eturista/history');
   return data.data || [];
+}
+
+// ─── Commission Rules ────────────────────────────────────────
+export interface CommissionRule {
+  id: string;
+  partnerType: 'bronze' | 'silver' | 'gold' | 'platinum';
+  serviceType: string | null;
+  commissionPct: number;
+  markupPct: number;
+  isActive: boolean;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getCommissionRules(): Promise<CommissionRule[]> {
+  const { data } = await get<{ data: CommissionRule[] }>('/commission-rules');
+  return data.data || [];
+}
+
+export async function createCommissionRule(payload: {
+  partnerType: string;
+  serviceType: string | null;
+  commissionPct: number;
+  markupPct: number;
+  isActive: boolean;
+  priority: number;
+}): Promise<CommissionRule> {
+  const { data } = await post<CommissionRule>('/commission-rules', payload);
+  return data;
+}
+
+export async function updateCommissionRule(id: string, payload: Partial<CommissionRule>): Promise<CommissionRule> {
+  const { data } = await patch<CommissionRule>(`/commission-rules/${id}`, payload);
+  return data;
+}
+
+export async function deleteCommissionRule(id: string): Promise<void> {
+  await del(`/commission-rules/${id}`);
+}
+
+export async function previewCommission(
+  partnerType: string,
+  bookingAmount: number,
+  serviceType?: string,
+): Promise<{ matchedRule: CommissionRule | null; commissionAmount: number; finalAmount: number; breakdown: any }> {
+  const { data } = await get<any>('/commission-rules/preview', {
+    params: { partnerType, bookingAmount, serviceType },
+  });
+  return data.data || data;
 }

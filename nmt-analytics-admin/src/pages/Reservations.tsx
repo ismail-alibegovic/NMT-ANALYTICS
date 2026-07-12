@@ -20,6 +20,7 @@ import {
   downloadVoucher,
   downloadInvoice,
   batchUpdateStatus,
+  updateReservationStatus,
   deleteReservation,
   Reservation,
   ReservationListResponse,
@@ -350,23 +351,59 @@ export default function Reservations() {
     },
     {
       key: 'status',
-      header: 'Status rezervacije',
-      render: (val) => {
-        // Reservation status (pending, confirmed, cancelled, completed)
+      header: 'Status',
+      render: (val, res) => {
         const statusConfig: Record<string, { color: any; text: string }> = {
           'pending': { color: 'warning', text: 'Na čekanju' },
           'confirmed': { color: 'success', text: 'Potvrđeno' },
           'cancelled': { color: 'error', text: 'Otkazano' },
           'completed': { color: 'info', text: 'Završeno' },
         };
-
         const config = statusConfig[val] || { color: 'light', text: val };
-
         return (
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-1">
             <Badge size="sm" color={config.color} variant="light">
               {config.text}
             </Badge>
+            {res.status !== 'completed' && res.status !== 'cancelled' && (
+              <div className="flex gap-1">
+                {res.status !== 'confirmed' && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await updateReservationStatus(res.id, 'confirmed');
+                        showSuccess('Rezervacija potvrđena');
+                        fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
+                      } catch (e: any) {
+                        showError(e?.message || 'Greška');
+                      }
+                    }}
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-success-50 text-success-700 hover:bg-success-100 dark:bg-success-500/10 dark:text-success-300 whitespace-nowrap"
+                    title="Potvrdi"
+                  >
+                    ✓ Potvrdi
+                  </button>
+                )}
+                {(res.status as string) !== 'cancelled' && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Otkazati rezervaciju za ${res.customerName}?`)) return;
+                      try {
+                        await updateReservationStatus(res.id, 'cancelled');
+                        showSuccess('Rezervacija otkazana');
+                        fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
+                      } catch (e: any) {
+                        showError(e?.message || 'Greška');
+                      }
+                    }}
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-error-50 text-error-700 hover:bg-error-100 dark:bg-error-500/10 dark:text-error-300 whitespace-nowrap"
+                    title="Otkaži"
+                  >
+                    ✕ Otkaži
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         );
       }

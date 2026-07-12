@@ -266,18 +266,80 @@ router.get('/branding', async (req, res: Response) => {
 
   try {
     const { data, error } = await supabaseAdmin
-      .from('organizations')
-      .select('name, logo_url, primary_color, secondary_color')
-      .eq('id', orgId)
+      .from('org_branding')
+      .select('display_name, logo_url, primary_color, accent_color')
+      .eq('org_id', orgId)
       .single();
 
     if (error) {
+      // If no branding row exists yet, return defaults
+      if (error.code === 'PGRST116') {
+        return res.json({
+          display_name: null,
+          logo_url: null,
+          primary_color: '#1D4ED8',
+          accent_color: '#0EA5E9',
+        });
+      }
       return apiError(res, 500, "INTERNAL_ERROR", "Failed to fetch branding");
     }
 
     return res.json(data);
   } catch (err) {
     return apiError(res, 500, "INTERNAL_ERROR", "Internal server error");
+  }
+});
+
+// PATCH /settings/branding - Update org branding (logo, colors, display name)
+router.patch('/branding', auditSettingsUpdate, async (req: any, res: Response) => {
+  const orgId = req.orgId!;
+  const userId = (req.user as any)?.id || '00000000-0000-0000-0000-000000000000';
+  const body = req.body || {};
+
+  const schema = z.object({
+    display_name: z.string().max(200).nullish(),
+    logo_url: z.string().url().max(1024).nullish().or(z.literal('').transform(() => null)),
+    primary_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullish(),
+    accent_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullish(),
+  });
+
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    return apiError(res, 400, "INVALID_INPUT", "Invalid branding input", parsed.error.message);
+  }
+
+  const update = {
+    ...(parsed.data.display_name !== undefined ? { display_name: parsed.data.display_name } : {}),
+    ...(parsed.data.logo_url !== undefined ? { logo_url: parsed.data.logo_url } : {}),
+    ...(parsed.data.primary_color !== undefined ? { primary_color: parsed.data.primary_color } : {}),
+    ...(parsed.data.accent_color !== undefined ? { accent_color: parsed.data.accent_color } : {}),
+    updated_at: new Date().toISOString(),
+  };
+
+  try {
+    // Upsert — create row if not exists
+    const { data, error } = await supabaseAdmin
+      .from('org_branding')
+      .upsert({ org_id: orgId, ...update }, { onConflict: 'org_id' })
+      .select('display_name, logo_url, primary_color, accent_color')
+      .single();
+
+    if (error) {
+      return apiError(res, 500, "INTERNAL_ERROR", "Failed to update branding", error.message);
+    }
+
+    await logAuditEntry({
+      org_id: orgId,
+      user_id: userId,
+      action: 'UPDATE',
+      entity: 'org_branding' as any,
+      entity_id: orgId,
+      metadata: { newValues: update },
+    });
+
+    return res.json({ ...data, saved: true });
+  } catch (err: any) {
+    return apiError(res, 500, "INTERNAL_ERROR", "Internal server error", String(err));
   }
 });
 

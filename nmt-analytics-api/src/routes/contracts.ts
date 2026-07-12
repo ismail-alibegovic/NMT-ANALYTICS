@@ -13,6 +13,7 @@ import {
 } from '../utils/pagination';
 import { requireMinimumRole } from '../middleware/requireRole';
 import { generateContractPDF } from '../lib/contractGenerator';
+import { getOrgBranding } from '../lib/orgBranding';
 
 const router = Router();
 
@@ -444,7 +445,7 @@ router.get(
         return apiError(res, 404, 'NOT_FOUND', 'Contract not found');
       }
 
-      const branding = (contract.organizations as any)?.branding;
+      const branding = await getOrgBranding(orgId);
       const pdfBuffer = await generateContractPDF(contract, branding);
 
       res.setHeader('Content-Type', 'application/pdf');

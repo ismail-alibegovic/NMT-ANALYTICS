@@ -10,6 +10,7 @@ import { logAction } from '../lib/audit';
 import { formatListResponse, paginationQuerySchema, dateRangeQuerySchema, getPaginationParams, getDateRangeParams } from '../utils/pagination';
 import { calculateRemainingAmount, safeNumber } from '../utils/business';
 import { generateVoucherPDF, generateInvoicePDF } from '../lib/pdfGenerator';
+import { getOrgBranding } from '../lib/orgBranding';
 import { EmailService } from '../lib/email/EmailService';
 import PDFDocument from 'pdfkit';
 import { notifyNewReservation } from '../lib/notificationService';
@@ -617,15 +618,8 @@ router.get('/reservations/:id/voucher.pdf', authenticateToken, requireOrgContext
       return apiError(res, 404, "NOT_FOUND", "Reservation not found");
     }
 
-    // Fetch org settings for branding
-    const { data: orgSettings } = await supabaseAdmin
-      .from('organizations')
-      .select('branding')
-      .eq('id', orgId)
-      .single();
-
-    // Generate PDF using helper
-    const pdfBuffer = await generateVoucherPDF(reservation, orgSettings?.branding);
+    const branding = await getOrgBranding(orgId);
+    const pdfBuffer = await generateVoucherPDF(reservation, branding);
 
     // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
@@ -667,7 +661,8 @@ router.get('/reservations/:id/invoice.pdf', authenticateToken, requireOrgContext
       return apiError(res, 404, "NOT_FOUND", "Reservation not found");
     }
 
-    const pdfBuffer = await generateInvoicePDF(reservation);
+    const invoiceBranding = await getOrgBranding(orgId);
+    const pdfBuffer = await generateInvoicePDF(reservation, invoiceBranding);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="invoice_${id.substring(0, 8)}.pdf"`);
@@ -709,7 +704,8 @@ router.post('/reservations/:id/send-email', authenticateToken, requireOrgContext
     }
 
     // 2. Generate PDF Buffer
-    const pdfBuffer = await generateVoucherPDF(reservation);
+    const emailBranding = await getOrgBranding(orgId);
+    const pdfBuffer = await generateVoucherPDF(reservation, emailBranding);
 
     // 3. Send Email
     await EmailService.sendBookingConfirmation(reservation, pdfBuffer);

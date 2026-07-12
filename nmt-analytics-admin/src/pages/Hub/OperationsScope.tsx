@@ -54,6 +54,13 @@ export default function OperationsScope() {
       minRole: "manager",
     },
     {
+      href: "/operations/commission-rules",
+      icon: GridIcon,
+      title: t.nav.commissionRules,
+      description: t.operations.commissionRules.description,
+      minRole: "director",
+    },
+    {
       href: "/operations/excursions",
       icon: ShootingStarIcon,
       title: t.nav.excursions,

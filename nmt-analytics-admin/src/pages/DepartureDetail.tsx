@@ -5,6 +5,7 @@ import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
 import EmptyState from "../components/ui/EmptyState";
 import { DataTable, Column } from "../components/ui/DataTable";
+import SeatMap from "../components/operations/SeatMap";
 import { useToast } from "../context/ToastContext";
 import {
   getDeparture,
@@ -303,16 +304,34 @@ export default function DepartureDetail() {
 
         {/* PASSENGERS TAB */}
         {activeTab === "passengers" && (
-          <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
-            {passengers.length > 0 ? (
-              <DataTable data={normPax} columns={passengerCols} />
-            ) : (
-              <EmptyState
-                title="Nema putnika"
-                description="Za ovaj polazak još nisu dodijeljeni putnici. Rezervacije vezane za ovaj polazak automatski se pojavljuju ovdje."
-                action={{ label: "Idi na rezervacije", onClick: () => navigate("/reservations") }}
+          <div className="space-y-6">
+            {departure.transport_type === "bus" && departure.capacity > 0 && passengers.length > 0 && (
+              <SeatMap
+                passengers={normPax}
+                capacity={departure.capacity}
+                transportType="bus"
+                editable
+                onSeatChanged={async () => {
+                  try {
+                    const fresh = await getDeparturePassengers(id!);
+                    setManifest(fresh);
+                  } catch {
+                    showError("Greška pri ažuriranju putnika");
+                  }
+                }}
               />
             )}
+            <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
+              {passengers.length > 0 ? (
+                <DataTable data={normPax} columns={passengerCols} />
+              ) : (
+                <EmptyState
+                  title="Nema putnika"
+                  description="Za ovaj polazak još nisu dodijeljeni putnici. Rezervacije vezane za ovaj polazak automatski se pojavljuju ovdje."
+                  action={{ label: "Idi na rezervacije", onClick: () => navigate("/reservations") }}
+                />
+              )}
+            </div>
           </div>
         )}
 

@@ -13,6 +13,7 @@ import {
 } from '../utils/pagination';
 import { requireMinimumRole } from '../middleware/requireRole';
 import { generateReceiptPDF } from '../lib/receiptGenerator';
+import { getOrgBranding } from '../lib/orgBranding';
 
 const router = Router();
 
@@ -441,7 +442,8 @@ router.get(
         return apiError(res, 404, 'NOT_FOUND', 'Receipt not found');
       }
 
-      console.log("[RECEIPT PDF DEBUG]", JSON.stringify(receipt).slice(0, 1000)); const pdfBuffer = await generateReceiptPDF(receipt);
+      const receiptBranding = await getOrgBranding(orgId);
+      const pdfBuffer = await generateReceiptPDF(receipt, receiptBranding);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader(
         'Content-Disposition',

@@ -36,7 +36,12 @@ export type AuditEntity =
   | 'fiscal_submission'
   | 'notification'
   | 'hotel_room'
-  | 'hotel_allocation';
+  | 'hotel_allocation'
+  | 'onboarding'
+  | 'pdf_template'
+  | 'waiver_template'
+  | 'waiver_token'
+  | 'commission_rule';
 
 // Audit log entry
 interface AuditLogEntry {

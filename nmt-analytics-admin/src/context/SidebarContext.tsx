@@ -1,21 +1,19 @@
 import { createContext, useContext, useState, useEffect } from "react";
 
-export type Scope = "sales" | "operations" | "finance" | "admin" | null;
+export type Scope = "sales" | "operations" | "finance" | "admin" | "all" | null;
 
 // Derive which sidebar section a route belongs to.
-// Returns null for the homepage so the sidebar stays hidden there.
+// Returns null for the top-level hub (no sidebar — the hub IS the navigation).
+// Returns "all" for scope-hub routes so the sidebar shows every group.
 export function scopeFromPath(pathname: string): Scope {
   if (!pathname) return null;
-  // Homepage routes — no sidebar
-  if (pathname === "/" || pathname === "/home" || pathname === "/sales" || pathname === "/operations" || pathname === "/finance") {
-    // /sales, /operations, /finance are scope hubs — they show the sidebar too,
-    // but we keep scope = null on /sales itself so the user sees all groups there.
-    // Actually: per Ismail's spec, sidebar appears only once a section is clicked.
-    // The hub scope pages ARE the section landing — so set the scope there.
-    if (pathname === "/sales") return "sales";
-    if (pathname === "/operations") return "operations";
-    if (pathname === "/finance") return "finance";
+  // Top-level hub — no sidebar, the hub cards ARE the navigation
+  if (pathname === "/" || pathname === "/home") {
     return null;
+  }
+  // Scope hub routes — sidebar shows all groups
+  if (pathname === "/sales" || pathname === "/operations" || pathname === "/finance") {
+    return "all";
   }
   if (pathname.startsWith("/operations/")) return "operations";
   if (pathname.startsWith("/admin/")) return "admin";

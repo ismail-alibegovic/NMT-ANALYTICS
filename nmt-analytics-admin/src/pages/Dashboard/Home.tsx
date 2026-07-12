@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
+import OnboardingChecklist from "../../components/common/OnboardingChecklist";
 import { getRevenueSeries, getBookingsSeries, DataPoint } from "../../api/metrics";
 import { getAnalyticsOverview, AnalyticsOverview, getDashboardStats, DashboardStats } from "../../api/analytics";
 import { downloadAllData } from "../../api/export";
@@ -139,6 +140,8 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      <OnboardingChecklist />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 md:gap-6 mb-8">
         {isManagerPlus && (
