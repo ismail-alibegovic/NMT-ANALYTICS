@@ -34,6 +34,21 @@ interface BrandingSettings {
   accent_color: string;
 }
 
+interface PlanTierInfo {
+  key: string;
+  label: string;
+  modules: string[];
+}
+
+interface PlanResponse {
+  plan: string;
+  planLabel: string;
+  entitledModules: string[];
+  tiers: PlanTierInfo[];
+  migrationPending?: boolean;
+  migrationMessage?: string;
+}
+
 export default function Settings() {
   const { t } = useT();
   const [loading, setLoading] = useState(true);
@@ -60,12 +75,22 @@ export default function Settings() {
   const [brandingSaving, setBrandingSaving] = useState(false);
   const [brandingMessage, setBrandingMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const [planData, setPlanData] = useState<PlanResponse | null>(null);
+  const [planSaving, setPlanSaving] = useState(false);
+  const [planMessage, setPlanMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [planMigrationPending, setPlanMigrationPending] = useState(false);
+
+  const showPlanMessage = (text: string, type: 'success' | 'error') => {
+    setPlanMessage({ type, text });
+    setTimeout(() => setPlanMessage(null), 5000);
+  };
+
   const showSmtpMessage = (text: string, type: 'success' | 'error') => {
     setSmtpMessage({ type, text });
     setTimeout(() => setSmtpMessage(null), 5000);
   };
 
-  useEffect(() => { fetchSettings(); fetchSmtpSettings(); fetchBranding(); }, []);
+  useEffect(() => { fetchSettings(); fetchSmtpSettings(); fetchBranding(); fetchPlan(); }, []);
 
   const fetchSettings = async () => {
     try {
@@ -101,6 +126,16 @@ export default function Settings() {
     } catch (error) { console.error('Failed to fetch branding:', error); }
   };
 
+  const fetchPlan = async () => {
+    try {
+      const { data } = await api.get<PlanResponse>('/settings/plan');
+      setPlanData(data);
+      setPlanMigrationPending(!!data.migrationPending);
+    } catch (error: any) {
+      setPlanMessage({ type: 'error', text: error.message || 'Failed to load plan information' });
+    }
+  };
+
   const handleSaveBranding = async () => {
     setBrandingSaving(true); setBrandingMessage(null);
     try {
@@ -130,6 +165,20 @@ export default function Settings() {
     try { await api.patch('/settings', settings); setMessage({ type: 'success', text: t.settings.saved }); }
     catch (error: any) { setMessage({ type: 'error', text: error.message || t.settings.saveError }); }
     finally { setSaving(false); }
+  };
+
+  const handleSavePlan = async (newPlan: string) => {
+    if (!confirm(t.settings.planConfirmChange || 'Change plan tier?')) return;
+    setPlanSaving(true); setPlanMessage(null);
+    try {
+      const { data } = await api.patch<PlanResponse>('/settings/plan', { plan: newPlan });
+      setPlanData(data);
+      showPlanMessage(t.settings.planSaved || 'Plan updated', 'success');
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Failed to change plan';
+      showPlanMessage(msg, 'error');
+      if (error?.response?.data?.code === 'MIGRATION_PENDING') setPlanMigrationPending(true);
+    } finally { setPlanSaving(false); }
   };
 
   if (loading) return <div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
@@ -401,6 +450,78 @@ export default function Settings() {
             </button>
           </div>
         </div>
+
+        {/* Plan / Tier Section */}
+        {planData && (
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">{t.settings.planTitle || 'Plan & Modules'}</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t.settings.planDesc || 'Your subscription tier determines which modules are enabled.'}</p>
+
+            {planMigrationPending && (
+              <div className="mb-4 p-3 rounded-lg text-sm bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                <strong>{t.settings.planMigrationPending || 'Migration pending'}</strong>
+                <p className="mt-1">{t.settings.planMigrationPendingDesc || 'Run DB migration 20260715010000_plan_tier_module_gating.sql before changing plans.'}</p>
+              </div>
+            )}
+
+            {planMessage && (
+              <div className={`mb-4 p-3 rounded-lg text-sm ${planMessage.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400'}`}>
+                {planMessage.text}
+              </div>
+            )}
+
+            <div className="mb-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t.settings.planCurrent || 'Current tier'}</span>
+                  <p className="text-xl font-semibold text-gray-900 dark:text-white">{planData.planLabel || planData.plan}</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{t.settings.planEntitledModules || 'Modules enabled'}</span>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{planData.entitledModules.length} / {(t.common as any).modules || 13}</p>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {planData.entitledModules.map((m) => (
+                  <span key={m} className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">{m}</span>
+                ))}
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t.settings.planAvailableTiers || 'Available tiers'}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              {(planData.tiers || []).map((tier) => {
+                const isActive = tier.key === planData.plan;
+                return (
+                  <div key={tier.key} className={`p-4 rounded-lg border ${isActive ? 'border-primary bg-primary/5' : 'border-gray-200 dark:border-gray-700'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-gray-900 dark:text-white">{tier.label}</span>
+                      {isActive && <span className="text-xs px-2 py-0.5 rounded-full bg-primary text-white">Active</span>}
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                      {(t.settings as any).planTierDescriptions?.[tier.key] || `${tier.modules.length} modules`}
+                    </p>
+                    <div className="space-y-1 mb-3">
+                      {tier.modules.map((m) => (
+                        <div key={m} className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
+                          <span className={`h-1.5 w-1.5 rounded-full ${planData.entitledModules.includes(m) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                          {m}
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => handleSavePlan(tier.key)}
+                      disabled={isActive || planSaving || planMigrationPending}
+                      className="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isActive ? 'Current' : planSaving ? 'Saving…' : (t.settings.planUpgrade || 'Switch to')}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Save Button */}
         <div className="p-6 flex justify-end">

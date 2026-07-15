@@ -7,6 +7,7 @@ import { auditSettingsUpdate, logAuditEntry } from '../middleware/auditLogger';
 import { apiError } from "../lib/errors";
 
 import { requireMinimumRole } from '../middleware/requireRole';
+import { PLAN_TIERS, PLAN_MODULE_MAP, PLAN_LABELS, isPlanTier, type PlanTier, type ModuleKey } from '../lib/planModules';
 const router = Router();
 
 // All routes require auth and org context
@@ -340,6 +341,119 @@ router.patch('/branding', auditSettingsUpdate, async (req: any, res: Response) =
     return res.json({ ...data, saved: true });
   } catch (err: any) {
     return apiError(res, 500, "INTERNAL_ERROR", "Internal server error", String(err));
+  }
+});
+
+// ============================================================
+// Phase 2 — Plan / Tier module gating
+// ============================================================
+// Routes for reading and updating an organization's subscription plan.
+// The plan tier determines which modules the org is entitled to use;
+// requireModule() middleware enforces this on gated routes.
+//
+// Migration 20260715010000 adds the `plan` column to `organizations`.
+// Until then, all orgs default to 'trial' and PATCH attempts return 501.
+// GET /settings/plan — current plan + entitled modules list + entitlement matrix
+// Helpers for /plan routes
+function planModuleList(t: PlanTier): ModuleKey[] {
+  return Array.from(PLAN_MODULE_MAP[t]);
+}
+
+const planSchemaEnum = z.enum(['trial', 'starter', 'pro', 'enterprise'] as const);
+
+// GET /settings/plan — current plan tier + module entitlement matrix
+router.get('/plan', requireMinimumRole('director'), async (req, res: Response) => {
+  const orgId = req.orgId!;
+  try {
+    // Defensive: column may be absent until migration applied.
+    let plan: PlanTier = 'trial';
+    const { data: org, error } = await supabaseAdmin
+      .from('organizations')
+      .select('id, plan')
+      .eq('id', orgId)
+      .maybeSingle();
+
+    if (error && !/plan.*column|column.*plan|Could not find the 'plan'/i.test(error.message || '')) {
+      return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to fetch organization', error.message);
+    }
+    // Defensive: column may be absent until migration applied.
+    const rawPlan = (org as Record<string, unknown> | null)?.plan;
+    if (typeof rawPlan === 'string' && isPlanTier(rawPlan)) plan = rawPlan;
+
+    return res.json({
+      plan,
+      planLabel: PLAN_LABELS[plan],
+      entitledModules: planModuleList(plan),
+      tiers: PLAN_TIERS.map(t => ({
+        key: t,
+        label: PLAN_LABELS[t],
+        modules: planModuleList(t),
+      })),
+    });
+  } catch (err: any) {
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to fetch plan', String(err));
+  }
+});
+
+// PATCH /settings/plan — update plan tier (director-only; middleware already enforces)
+const planUpdateSchema = z.object({
+  plan: planSchemaEnum,
+});
+
+router.patch('/plan', async (req, res: Response) => {
+  const orgId = req.orgId!;
+  const userId = req.user?.id || 'unknown';
+  try {
+    const parsed = planUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid plan value', parsed.error.flatten());
+    }
+    const newPlan = parsed.data.plan;
+
+    // Try updating the `plan` column. If column doesn't exist yet
+    // (migration not applied), return 501 with a clear message.
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('organizations')
+      .update({ plan: newPlan } as Record<string, unknown>)
+      .eq('id', orgId)
+      .select('id, plan')
+      .maybeSingle();
+
+    if (updateError) {
+      const msg = updateError.message || '';
+      // PGRST / PostgREST error patterns when column missing:
+      //   "Could not find the 'plan' column"  (PostgREST schema cache miss)
+      //   "column \"plan\" of relation \"organizations\" does not exist" (DB)
+      const columnMissing = /plan.*column|column.*plan|Could not find the 'plan'/i.test(msg);
+      if (columnMissing) {
+        return apiError(
+          res,
+          501,
+          'MIGRATION_PENDING',
+          'The organizations.plan column does not exist yet. Apply migration 20260715010000 before changing plans.',
+          { migration: '20260715010000_plan_tier_module_gating.sql' }
+        );
+      }
+      return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to update plan', msg);
+    }
+
+    await logAuditEntry({
+      org_id: orgId,
+      user_id: userId,
+      action: 'UPDATE',
+      entity: 'organizations' as any,
+      entity_id: orgId,
+      metadata: { field: 'plan', newValue: newPlan },
+    });
+
+    return res.json({
+      plan: newPlan,
+      planLabel: PLAN_LABELS[newPlan],
+      entitledModules: planModuleList(newPlan),
+      saved: true,
+    });
+  } catch (err: any) {
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err));
   }
 });
 

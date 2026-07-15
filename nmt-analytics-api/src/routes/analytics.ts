@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
+import { requireModule } from '../middleware/requireModule';
 // We use a custom composed check or rely on getTenantScope after auth
 // But existing requireOrgContext is strict. For now we use authenticateToken and let getTenantScope handle the rest if we want flexibility,
 // OR we keep requireOrgContext and accept it enforces org_id.
@@ -109,7 +110,7 @@ async function calculateDashboardStats(orgId: string, dateFrom: Date, dateTo: Da
  * GET /api/analytics/overview
  * Returns analytics overview using standardized foundation and schema mapping.
  */
-router.get('/analytics/overview', authenticateToken, requireOrgContext, async (req, res: Response, next) => {
+router.get('/analytics/overview', authenticateToken, requireOrgContext, requireModule('analytics'), async (req, res: Response, next) => {
   try {
     const { from, to, granularity } = req.query;
 
@@ -211,7 +212,7 @@ router.get('/analytics/overview', authenticateToken, requireOrgContext, async (r
  * GET /api/analytics/trends
  * Returns time series data using standardized foundation.
  */
-router.get('/analytics/trends', authenticateToken, requireOrgContext, async (req, res: Response, next) => {
+router.get('/analytics/trends', authenticateToken, requireOrgContext, requireModule('analytics'), async (req, res: Response, next) => {
   try {
     const validationResult = AnalyticsQuerySchema.safeParse(req.query);
 
@@ -323,7 +324,7 @@ router.get('/analytics/trends', authenticateToken, requireOrgContext, async (req
  * GET /api/analytics/dashboard
  * Returns dashboard statistics calculated directly from application tables.
  */
-router.get('/analytics/dashboard', authenticateToken, requireOrgContext, async (req: Request, res: Response) => {
+router.get('/analytics/dashboard', authenticateToken, requireOrgContext, requireModule('analytics'), async (req: Request, res: Response) => {
   try {
     const { dateFrom, dateTo } = normalizeDashboardDateRange(req.query.from, req.query.to);
     const stats = await calculateDashboardStats(req.orgId!, dateFrom, dateTo);
