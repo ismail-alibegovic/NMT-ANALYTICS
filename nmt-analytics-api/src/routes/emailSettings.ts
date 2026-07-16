@@ -1,3 +1,4 @@
+import { auditLog } from '../middleware/auditLogger';
 import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
@@ -9,6 +10,10 @@ import { EmailService } from '../lib/email/EmailService';
 import { SmtpEmailProvider } from '../lib/email/SmtpProvider';
 
 const router = Router();
+
+// Audit wrappers for email_settings
+const auditEmailSettingsCreate = auditLog('UPDATE', 'email_settings', undefined, undefined);
+const auditEmailSettingsTest = auditLog('VIEW', 'email_settings', undefined, undefined);
 
 router.use(authenticateToken);
 router.use(requireOrgContext);
@@ -51,7 +56,7 @@ router.get('/', requireMinimumRole('director'), async (req: Request, res: Respon
 });
 
 // POST /settings/email/test - Send test email
-router.post('/test', requireMinimumRole('director'), async (req: Request, res: Response) => {
+router.post('/test', auditEmailSettingsTest, requireMinimumRole('director'), async (req: Request, res: Response) => {
   const { host, port, user, pass, fromEmail } = smtpConfigSchema.parse(req.body);
 
   try {

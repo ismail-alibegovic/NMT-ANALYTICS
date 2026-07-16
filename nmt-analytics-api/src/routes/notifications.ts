@@ -1,3 +1,4 @@
+import { auditLog } from '../middleware/auditLogger';
 import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
@@ -6,6 +7,11 @@ import { supabaseAdmin } from '../lib/supabase';
 import { z } from 'zod';
 
 const router = Router();
+
+// Audit wrappers for notification
+const auditNotificationCreate = auditLog('CREATE', 'notification', undefined, (req) => req.body?.title);
+const auditNotificationUpdate = auditLog('UPDATE', 'notification', undefined, (req) => req.params?.id);
+const auditNotificationDelete = auditLog('DELETE', 'notification', undefined, (req) => req.params?.id);
 
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

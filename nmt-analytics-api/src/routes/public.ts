@@ -1,3 +1,4 @@
+import { auditLog } from '../middleware/auditLogger';
 import { Router, Request, Response } from 'express';
 import { RequestHandler } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
@@ -7,6 +8,8 @@ import fs from "fs";
 import { apiError } from '../lib/errors';
 
 const router = Router();
+
+// Audit wrappers for public
 
 // Serve widget HTML
 router.get("/public/:orgId/widget", async (req: Request, res: Response) => {

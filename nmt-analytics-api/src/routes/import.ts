@@ -1,3 +1,4 @@
+import { auditLog } from '../middleware/auditLogger';
 import { Router, Response } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
@@ -9,6 +10,10 @@ import Papa from 'papaparse';
 import { apiError } from "../lib/errors";
 
 const router = Router();
+
+// Audit wrappers for import
+const auditImportCreate = auditLog('CREATE', 'import', undefined, (req) => req.body?.source);
+const auditImportCancelled = auditLog('CREATE', 'import', undefined, (req) => req.body?.source);
 
 // Configure multer for file uploads
 const upload = multer({
@@ -191,7 +196,7 @@ async function parseFileGeneric(file: Express.Multer.File): Promise<any[]> {
 /**
  * POST /api/import/:entity — Import data from uploaded CSV/XLSX
  */
-router.post('/import/:entity', authenticateToken, requireOrgContext, upload.single('file'), async (req, res: Response, next) => {
+router.post('/import/:entity', auditImportCreate, authenticateToken, requireOrgContext, upload.single('file'), async (req: any, res: Response, next) => {
   try {
     const { entity } = req.params;
     const config = ENTITY_CONFIG[entity];
@@ -302,7 +307,7 @@ router.post('/import/:entity', authenticateToken, requireOrgContext, upload.sing
 /**
  * POST /api/import/:entity/headers — Extract column headers from uploaded file
  */
-router.post('/import/:entity/headers', authenticateToken, requireOrgContext, upload.single('file'), async (req, res: Response, next) => {
+router.post('/import/:entity/headers', auditImportCancelled, authenticateToken, requireOrgContext, upload.single('file'), async (req: any, res: Response, next) => {
   try {
     if (!req.file) {
       return apiError(res, 400, "VALIDATION_ERROR", "No file uploaded");

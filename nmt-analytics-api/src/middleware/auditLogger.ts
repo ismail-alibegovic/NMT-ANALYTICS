@@ -41,7 +41,10 @@ export type AuditEntity =
   | 'pdf_template'
   | 'waiver_template'
   | 'waiver_token'
-  | 'commission_rule';
+  | 'commission_rule'
+  | 'import'
+  | 'email_settings'
+  | 'paylink';
 
 // Audit log entry
 interface AuditLogEntry {

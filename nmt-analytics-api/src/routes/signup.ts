@@ -1,3 +1,4 @@
+import { auditLog } from "../middleware/auditLogger";
 import { Router, Request, Response } from 'express';
 import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
 import { z } from 'zod';
@@ -12,6 +13,13 @@ const signupSchema = z.object({
   full_name: z.string().min(2, 'Ime i prezime je obavezno').max(100).optional(),
 });
 
+const auditOrganizationCreate = auditLog(
+  'CREATE',
+  'organization',
+  undefined,
+  (req) => req.body?.org_name
+);
+
 /**
  * POST /auth/signup
  *
@@ -21,7 +29,7 @@ const signupSchema = z.object({
  *   - profiles row (role = director)
  *   - default org_modules + org_branding
  */
-router.post('/auth/signup', async (req: Request, res: Response) => {
+router.post('/auth/signup', auditOrganizationCreate, async (req: Request, res: Response) => {
   try {
     const parsed = signupSchema.safeParse(req.body);
     if (!parsed.success) {

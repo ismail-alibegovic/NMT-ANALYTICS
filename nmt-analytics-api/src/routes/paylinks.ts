@@ -1,3 +1,4 @@
+import { auditLog } from '../middleware/auditLogger';
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { authenticateToken } from '../middleware/authenticateToken';
@@ -8,6 +9,9 @@ import { apiError } from '../lib/errors';
 import { z } from 'zod';
 
 const router = Router();
+
+// Audit wrappers for paylink
+const auditPaylinkCreate = auditLog('CREATE', 'paylink', undefined, (req) => req.body?.reference_id);
 router.use(authenticateToken);
 router.use(requireOrgContext);
 
@@ -18,7 +22,7 @@ const createLinkSchema = z.object({
 });
 
 // POST /paylinks — create a short payment link
-router.post('/', requireMinimumRole('agent'), async (req: Request, res: Response) => {
+router.post('/', auditPaylinkCreate, requireMinimumRole('agent'), async (req: Request, res: Response) => {
   try {
     const { reservationId, amount, expiresInDays } = createLinkSchema.parse(req.body);
     const orgId = req.orgId!;

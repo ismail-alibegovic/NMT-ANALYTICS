@@ -1,3 +1,4 @@
+import { auditLog } from "../middleware/auditLogger";
 import { Router, Response } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
@@ -8,6 +9,9 @@ import { formatListResponse, paginationQuerySchema, dateRangeQuerySchema, getPag
 import { apiError } from "../lib/errors";
 
 const router = Router();
+const auditTransactionCreate = auditLog('CREATE', 'transaction', undefined, (req) => `${req.body?.type || 'unknown'}/${req.body?.amount || '0'}`);
+const auditTransactionUpdate = auditLog('UPDATE', 'transaction', (req) => req.params.id);
+const auditTransactionDelete = auditLog('DELETE', 'transaction', (req) => req.params.id);
 
 const getTransactionsQuerySchema = z.object({
   ...paginationQuerySchema,
@@ -118,7 +122,7 @@ router.get('/transactions', authenticateToken, requireOrgContext, async (req, re
  * - Uses ctx.orgId (not from client)
  * - Returns created row
  */
-router.post('/transactions', authenticateToken, requireOrgContext, async (req, res: Response) => {
+router.post('/transactions', auditTransactionCreate, authenticateToken, requireOrgContext, async (req, res: Response) => {
   try {
     // Validate request body
     const validationResult = createTransactionSchema.safeParse(req.body);
@@ -179,7 +183,7 @@ router.post('/transactions', authenticateToken, requireOrgContext, async (req, r
 /**
  * PATCH /api/transactions/:id
  */
-router.patch('/transactions/:id', authenticateToken, requireOrgContext, async (req, res: Response) => {
+router.patch('/transactions/:id', auditTransactionUpdate, authenticateToken, requireOrgContext, async (req, res: Response) => {
   try {
     const { id } = req.params;
     const validationResult = updateTransactionSchema.safeParse(req.body);
@@ -224,7 +228,7 @@ router.patch('/transactions/:id', authenticateToken, requireOrgContext, async (r
 /**
  * DELETE /api/transactions/:id
  */
-router.delete('/transactions/:id', authenticateToken, requireOrgContext, async (req, res: Response) => {
+router.delete('/transactions/:id', auditTransactionDelete, authenticateToken, requireOrgContext, async (req, res: Response) => {
   try {
     const { id } = req.params;
 
