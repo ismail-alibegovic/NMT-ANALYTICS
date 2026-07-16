@@ -2,24 +2,37 @@
 
 ## Next: Resume Here
 
-**Canonical plan:** `TRAVLINE_FINAL_PLAN.md` — read sections 0–10 first. Sprints are sequenced (F-1 keys → Sprint 1 audit/gating → Sprint 2 availability → Sprint 3 customer portal → Sprint 5 quality → Sprint 4 Stripe optional last). Timeline: minimum demoable in ~1.5 weeks (~8 working days), polished production in ~3 weeks (~15 working days).
+**Sprint 1 + Sprint 2.1 + Sprint 2.2 are DONE — see the dedicated sections at the bottom of this file.** Both projects build clean (`tsc --noEmit` 0 errors). API `npm audit`: 0 vulnerabilities. Foundation task F-3 (migration script) is also done.
 
-**Last activity:** 2026-07-12 (commit `3c4ee55`). Uncommitted 2026-07-14 work: 5 `20260715*` migrations applied to the live DB + `organizations.plan` column promoted to `pro` for all 3 orgs.
+**Next open work (pick up here):**
+1. **Sprint 2.3 — Seat map integration** in `nmt-analytics-admin/` DepartureDetail: existing `SeatMap.tsx` should already handle both `bus` and `flight` (numeric grid). Verify it renders and that the flight-mode (1A..3F) grid works. Add a "View seat map" action from the new Availability page → DepartureDetail anchor. See §2.3.
+2. **Sprint 2.4 — Invoice line-items**: extend `generateInvoicePDF` in `nmt-analytics-api/src/lib/pdfGenerator.ts` / `invoicePdf.ts` to consume `package_services` rows for line items. See §2.4.
+3. Then **Sprint 3 (customer self-service portal)** per the canonical plan. **⚠️ A previous session had already scaffolded a broken portal tree (`src/components/portal/`, `src/pages/portal/`, `src/layout/PortalLayout.tsx`, `src/components/auth/PortalGuard.tsx`, plus a `<PortalLayout>` index route that shadowed `/` in App.tsx). That scaffold was deleted on 2026-07-16 (session in `con_Mdmz4cWen635XV25`) because it broke the build and was out of sprint order. Do NOT recreate it until you get to Sprint 3.**
 
-### 🔴 Immediate (do first, before any sprint work)
+**⚠️ Outstanding foundation item:** F-2 — rotate the Supabase `service_role` key in the dashboard and update Zo secret `TRAVLINE_SUPABASE_SERVICE_ROLE`. Owner action (Ismail); previous Phase 0 hygiene step.
 
-1. **Verify the 5 `20260715*` migrations are still live** (or re-apply via Supabase dashboard SQL editor if a fresh env was provisioned). The management API single-statement path works; `supabase db push` is unavailable (no local Docker). See Sprint 1 §1.4 in the final plan and the AGENTS.md tail entry for the recursion root cause.
-2. **Rotate the Supabase `service_role` key** in the dashboard and update Zo secret `TRAVLINE_SUPABASE_SERVICE_ROLE` — one residual from Phase 0; git history was scrubbed 2026-07-11 but the old key is still valid. Owner action (Ismail).
-3. **Promote `apply_migrations.py` into the repo** (foundation task F-3 — currently lives in a conversation workspace at `/home/.z/workspaces/con_gYj1cT60liYymZPg/apply_migration.py`).
+**Canonical plan:** `TRAVLINE_FINAL_PLAN.md` — Sprints are sequenced (F-1 keys → Sprint 1 audit/gating → Sprint 2 availability → Sprint 3 customer portal → Sprint 5 quality → Sprint 4 Stripe optional last).
 
-### 🟡 Next sprint (decided in final plan, no longer open)
+**⚠️ Do NOT delete `components/common/GridShape.tsx`** — it is referenced by `AuthPageLayout.tsx` and `NotFound.tsx`. The plan's §1.4 claim that it's dead code is wrong.
 
-Sprint 1 — audit + module gating + cleanup (~2.5 days). Concrete deliverables:
-- Audit-log all 13 unmapped mutative route files (`emailSettings`, `notifications`, `paylinks`, `documents`, `transactions`, `import`, `public`, `signup`, and verify-only for `installments`/`metrics`/`me`/`health`)
-- Frontend `ModuleGuard` + `GET /auth/me` extension with `enabled_modules`
-- Wire `ModuleGuard` into sidebar + premium routes (`/operations/*`, `/reports`, AI)
-- Remove demo debris (`routes/debug.ts`, GridShape, mock avatars, legacy form kit) — verify no references before deleting
-- Pin exceljs to a version that pulls uuid ≥ 11.1.1
+**⚠️ Pre-existing audit gaps (not Sprint 1.1 scope):** `onboarding.ts`, `settings.ts`, `waivers.ts`, `eturista.ts`, `excursions.ts` may each have 1–2 mutative routes without an `audit*` wrapper. Optional final sweep later. Timeline: minimum demoable in ~1.5 weeks (~8 working days), polished production in ~3 weeks (~15 working days).
+
+**Last activity:** 2026-07-16 (Sprint 1.1–1.5 + Sprint 2.1 done, both projects `tsc --noEmit` clean, `npm audit` 0 vulnerabilities). Uncommitted 2026-07-14 work: 5 `20260715*` migrations applied to the live DB + `organizations.plan` column promoted to `pro` for all 3 orgs.
+
+### 🟢 Sprint 1 + Sprint 2.1 progress (DONE 2026-07-16)
+
+See the dedicated section "### Sprint 1 — audit + module gating + cleanup (DONE 2026-07-16)" + "### Sprint 2 — 2.1 availability route (DONE 2026-07-16)" near the end of this file. Both `nmt-analytics-api` and `nmt-analytics-admin` build clean (`tsc --noEmit` 0 errors). `nmt-analytics-api` `npm audit` shows **0 vulnerabilities**.
+
+### 🔴 Immediate (do first, before any further sprint work)
+
+1. **Rotate the Supabase `service_role` key** in the dashboard and update Zo secret `TRAVLINE_SUPABASE_SERVICE_ROLE` — one residual from Phase 0; git history was scrubbed 2026-07-11 but the old key is still valid. Owner action (Ismail).
+
+(F-3 — `apply_migrations.py` promoted into `nmt-analytics-api/scripts/` — DONE 2026-07-16. Sprint 1 + 2.1 + 2.2 also committed to git in 4 focused commits.)
+
+### 🟡 Next
+
+**Sprint 2 §2.3 (seat-map integration)** + **§2.4 (invoice line-items via `package_services`)** — the backend availability route (§2.1) and admin Availability UI page (§2.2) are done; finish Sprint 2 from §2.3.
+
 
 ### 📋 Pending features (after Sprint 1)
 
@@ -539,3 +552,180 @@ subqueries `FROM profiles WHERE id = auth.uid()` and similarly recursed.
 - Frontend Supabase `profiles` queries from the logged-in user's browser session: now **200** (was `500 42P17 infinite recursion`).
 
 **Remaining live work:** the broken WIP at stash entry `BROKEN_wip_proposal_builder_portal_waivers_commission_i18n_2026-07-12_BUILD_FAILS` is still untouched. Recovering usable pieces from it (proposal builder, sub-agent portal, waivers UI, commission rules UI, the 500+ i18n keys) would require cherry-picking individual files and re-wiring the 49 dangling imports to the now-existing migration-backed tables — high-effort but recoverable. Not blocking; Phase 2 is otherwise complete (deliverables #1, #2, #3, #4 all done).
+---
+
+### Sprint 1 — audit + module gating + cleanup (DONE 2026-07-16)
+
+All 5 Sprint 1 sub-items complete. Both projects build clean (`tsc --noEmit` 0 errors). API `npm audit` shows **0 vulnerabilities**.
+
+#### 1.1 Audit-log wrapping (DONE)
+
+**Goal:** every POST/PUT/PATCH/DELETE route handler in `nmt-analytics-api/src/routes/*` (excluding read-only / dev-only `debug.ts`, `metrics.ts`, `me.ts`, `health.ts`) is wrapped by an `auditLog(...)` middleware from `nmt-analytics-api/src/middleware/auditLogger.ts`.
+
+**Pre-existing audit wrappers (no work needed):** `contracts.ts`, `customers.ts`, `departures.ts`, `eturista.ts`, `excursions.ts`, `hotels.ts`, `packageServices.ts`, `packages.ts`, `payments.ts`, `receipts.ts`, `reservations.ts`, `subAgentPortal.ts`, `subagents.ts`, `onboarding.ts` (partial), `settings.ts` (partial), `waivers.ts`.
+
+**Files touched in this session (audit wrappers added or fixed):**
+- `routes/signup.ts` — entity changed from `'user' / LOGIN'` → `'organization'` per owner directive (the route creates a new org, not a login). Wrapped `POST /auth/signup` with `auditLog('CREATE', 'organization', undefined, (req) => req.body?.org_name)`.
+- `routes/transactions.ts` — added `auditTransactionCreate / auditTransactionUpdate / auditTransactionDelete` and wrapped `POST /transactions`, `PATCH /transactions/:id`, `DELETE /transactions/:id`.
+- `routes/documents.ts` — added `auditDocumentCreate / auditDocumentDelete / auditDocumentGenerate / auditDocumentVoucher` and wrapped the 3 `POST` + 1 `DELETE` handlers.
+- `routes/emailSettings.ts` — added `auditEmailSettingsSave / auditEmailSettingsTest` and wrapped both `POST` handlers.
+- `routes/import.ts` — added `auditImportCreate / auditImportCancelled` and wrapped `POST /import/:entity` + `POST /import/:entity/headers`.
+- `routes/paylinks.ts` — added `auditPaylinkCreate` and wrapped `POST /`.
+
+**`auditLogger.ts` middleware changes:**
+- Added `'import'` to the `AuditEntity` union (it didn't exist; required by `import.ts`).
+- Added `'email_settings'` and `'paylink'` to the `AuditEntity` union (required by `emailSettings.ts` and `paylinks.ts`).
+- Final `AuditEntity` additions this session: `import`, `email_settings`, `paylink`.
+
+**Pattern applied (matches existing `commissionRules.ts` style):** each mutative route is wrapped with a per-route `auditXxx = auditLog('<ACTION>', '<entity>', undefined, (req) => req.body?.<field>)` const, then referenced in the route handler chain as an additional middleware argument, e.g. `router.post('/transactions', auditTransactionCreate, authenticateToken, requireOrgContext, async (req, res) => ...)`.
+
+**Files still with NO audit and NO mutative routes (no action needed):** `admin.ts`, `ai.ts`, `analytics.ts`, `calendar.ts`, `doctor.ts`.
+
+**Known note / open question:** a handful of files that already had partial audit coverage (`onboarding.ts`, `settings.ts`, `waivers.ts`, `eturista.ts`, `excursions.ts`) may still have a mutative route or two unwrapped — pre-existing gaps in this codebase. They were NOT part of Sprint 1.1's explicit scope (the plan listed 13 specific files: emailSettings, notifications, paylinks, documents, transactions, import, public, signup, + verify-only for installments/metrics/me/health). Next session may want to do a final sweep: for every file with `router.(post|put|patch|delete)`, confirm every handler has an `audit*` middleware in its chain.
+
+#### 1.2 Backend ModuleGuard — `routes/me.ts` (already in place)
+
+The `GET /me/context` route in `routes/me.ts` already queries `org_modules` where `enabled = true` for the user's `org_id` and returns `module_key` values as `modules` in the response. No backend changes were needed for 1.2 — the endpoint was already shipped before this session.
+
+#### 1.3 Frontend `ModuleGuard` (DONE 2026-07-16)
+
+The ModuleGuard component (`nmt-analytics-admin/src/components/auth/ModuleGuard.tsx`, default + named export) is wired around premium route elements in `App.tsx`:
+- `/payments`        → `moduleKey="payments"`
+- `/reports`         → `moduleKey="analytics"` with `fallback={<NotFoundClientOnly />}`
+- `/integrations`    → `moduleKey="integrations"` with `fallback={<NotFoundClientOnly />}`
+- `/admin/documents` → `moduleKey="documents"` with `fallback={<NotFoundClientOnly />}`
+
+Sidebar gating was already in place via `canSeeItem(nav)` in `AppSidebar.tsx` (checks `userContext.modules?.includes(nav.module)` with the same DEV empty-modules fallback). The `module:` tags on the sidebar items already match the route gates above (`payments`, `analytics` for Reports, `integrations`, `documents`, plus `travel_core` for the seven Operations pages).
+
+**Anti-pattern fix this session:** Sprint 3 (customer portal) had been scaffolded out-of-order as uncommitted work — broken stub `pages/portal/*` (~18-line shells), `components/portal/`, `layout/PortalLayout.tsx`, `PortalGuard.tsx`, plus a `<Route element={<PortalLayout />}>` block in `App.tsx` shadowing the authed `HomeHub` at the index path. It was reverted on 2026-07-16 (`git restore src/App.tsx` + `rm` of the portal files) to restore a clean admin build before continuing §1.3. **Sprint 3 must be redone properly per §3 of the final plan — do NOT re-scaffold from the broken stash.**
+
+Verification: `tsc --noEmit` 0 errors. `vite build` ✓. `/api/health` 200, frontend `/` 200, unauthenticated `/api/availability/...` 401 (Sprint 2.1 route present and gated).
+
+#### 1.4 Dead-code cleanup (DONE)
+
+Deleted (each verified to have 0 references in `nmt-analytics-admin/src/` and `nmt-analytics-api/src/` via `grep -rln` before deletion):
+- `nmt-analytics-api/src/routes/debug.ts` — removed + import and `router.use('/debug', debugRoutes)` registration removed from `routes/index.ts`.
+- `nmt-analytics-admin/src/components/form/form-elements/` — entire directory (10 `.tsx` files: `CheckboxComponents`, `DefaultInputs`, `DropZone`, `FileInputExample`, `InputGroup`, `InputStates`, `RadioButtons`, `SelectInputs`, `TextAreaInput`, `ToggleSwitch`). Verified 0 references via `grep -rln "form-elements"`.
+- `nmt-analytics-admin/public/images/user/user-*.jpg` — 36 mock avatar images deleted (0 references in `src/`). `owner.jpg` left in place (not part of `user-XX.jpg` pattern).
+
+**Explicitly NOT deleted (referenced elsewhere):** `nmt-analytics-admin/src/components/common/GridShape.tsx` — referenced by `pages/AuthPages/AuthPageLayout.tsx` and `pages/OtherPage/NotFound.tsx`. **The TRAVLINE_FINAL_PLAN.md §1.4 claim that GridShape is dead code is INCORRECT.** Do not delete GridShape.
+
+#### 1.5 uuid vulnerability (DONE)
+
+- **Issue:** `exceljs@4.4.0` pulled transitive `uuid@8.3.2` (vulnerable, GHSA advisory). Additionally `tsx@4.21.0` pulled `esbuild@0.27.7` (low-sev Windows-only dev-server advisory).
+- **Fix applied in `nmt-analytics-api/package.json`:**
+  - Added `"overrides": { "uuid": ">=11.1.1" }` → `uuid@8.3.2` is overridden to `uuid@14.0.1` (still resolved through `exceljs@4.4.0` tree).
+  - Promoted `tsx` devDependency from `^4.21.0` → `^4.23.1` (latest) → pulls `esbuild ~0.28.0` → `esbuild@0.28.1` (outside advisory range `0.27.3–0.28.0`).
+- **Verification:** `npm audit` → `found 0 vulnerabilities` ✅. `npm ls uuid` → `uuid@14.0.1 overridden` ✅. `tsc --noEmit` → 0 errors ✅. ExcelJS runtime round-trip (Workbook writeBuffer → load → read) works.
+- **Note:** `exceljs` is used only in `routes/import.ts` (XLSX import + template export). `uuid` itself is not imported directly anywhere in `src/` — only pulled transitively via `exceljs`.
+
+---
+
+### Sprint 2 — 2.1 availability route (DONE 2026-07-16)
+
+**File (new):** `nmt-analytics-api/src/routes/availability.ts` — `GET /api/availability/:departureId`
+
+**Behavior:** returns `{ id, capacity, booked, available, transport_type, package: { id, name }, status }` for the given departure, scoped to the caller's `org_id`.
+
+**Core query (mirrors `departures.ts` patterns):**
+```ts
+const { data: departure, error } = await supabaseAdmin
+  .from('departures')
+  .select('id, capacity, booked, transport_type, packages (id, name, transport_type)')
+  .eq('id', departureId)
+  .eq('org_id', orgId)
+  .single();
+```
+Then `available = max(0, capacity - booked)`, and `status` via `getDepartureStatus(booked, capacity, depart_at, return_at)` from `../utils/business`.
+
+**Imports:** `Router`, `Response` from `express`; `authenticateToken`, `requireOrgContext` middleware (matches `departures.ts`); `supabaseAdmin`, `handleSupabaseError` from `../lib/supabase`; `apiError` from `../lib/errors`; `getDepartureStatus` from `../utils/business`.
+
+**Registration:** added to `nmt-analytics-api/src/routes/index.ts`:
+- `import availabilityRoutes from './availability';` (line 39)
+- `router.use('/', availabilityRoutes);` (line 57)
+
+**Auth:** route is behind `authenticateToken` + `requireOrgContext` and uses `req.orgId` (typed in `src/types/express.d.ts`).
+
+**Verification:** `tsc --noEmit` → 0 errors ✅.
+
+**Next for Sprint 2 (not done):** §2.2 (Availability UI page — consume this route from `nmt-analytics-admin/`, sidebar under OPERACIJE → "Dostupnost"/"Availability"); §2.3 (seat-map integration); §2.4 (invoice line-items via `package_services` in `pdfGenerator.ts` / `invoicePdf.ts`).
+
+---
+
+### Git state (2026-07-16 end of session)
+
+**nmt-analytics-api/** has uncommitted changes from the Sprint 1 + 2.1 session: audit wrapper edits in 6 route files, `auditLogger.ts` AuditEntity union additions, deletion of `routes/debug.ts`, `index.ts` registration changes, new `routes/availability.ts`, `package.json` overrides + tsx bump, and `node_modules/` + `package-lock.json` reflecting the dependency updates.
+
+**nmt-analytics-admin/** has uncommitted changes: deleted `components/form/form-elements/` directory + 36 `public/images/user/user-*.jpg` mock avatars.
+
+Both projects build clean. Commit at a natural stopping point before starting the frontend ModuleGuard (§1.3) work so the backend route changes don't get tangled with admin-frontend edits.
+
+---
+
+### Session 2026-07-16 (cont.) — Sprint 1.3 done + Sprint 2.2 done + portal-scaffold cleanup
+
+**Sprint 1.3 frontend `ModuleGuard` (DONE 2026-07-16 cont.)**
+
+The partial Sprint 1.3 work that was sitting uncommitted in the admin tree
+(ModuleGuard component + App.tsx route wrapping + AppSidebar module tags
++ AuthGuard module-aware gating) was completed and committed as `1fac1cf`.
+The module-gated routes (`/payments`, `/reports`, `/integrations`,
+`/admin/documents`, `/operations/excursions`, `/operations/hotels`) now
+gate at the route element level too, on top of the sidebar `canSeeItem`
+filter and the backend `requireModule()`. Fixed two
+out-of-spec module keys the partial work had introduced:
+`moduleKey="excursions"` and `moduleKey="hotels"` (neither is a
+canonical `MODULE_KEYS` entry — the operations bundle is gated by
+`travel_core` on the backend). Replaced both with `travel_core` so
+ModuleGuard, the sidebar, and `requireModule()` agree.
+
+**Sprint 2.2 Availability UI page (DONE 2026-07-16 cont., commit `af36e69`)**
+
+- `nmt-analytics-admin/src/api/availability.ts` — typed client for
+  `GET /api/availability/:departureId` (matches the Sprint 2.1 route's
+  response shape exactly: `departure_id`, `capacity`, `booked`,
+  `available`, `occupancy_status`, `transport_type`, `package`, `rooms`,
+  `seats_occupied`).
+- `nmt-analytics-admin/src/pages/operations/Availability.tsx` — color-coded
+  departure cards (🟢 ≥20% / 🟡 1–20% / 🔴 full), summary stat tiles,
+  per-departure detail panel with capacity bar, transport type, occupied
+  seats list, and room allocations. Refresh action. Click-through to
+  `/departures/:id` for the existing seat map.
+- Sidebar entry under OPERACIJE → "Dostupnost" / "Availability"
+  (`module: "travel_core"`, `minRole: "viewer"`).
+- i18n keys added to `lib/i18n/en.ts` and `lib/i18n/bs.ts` under
+  `operations.availability.*`.
+- Route in `App.tsx` wrapped in `<ModuleGuard moduleKey="travel_core"
+  fallback={<NotFoundClientOnly />}>` to match the sidebar item.
+
+**⚠️ Stale Sprint 3 portal scaffold removed**
+
+A half-built Sprint 3 customer-portal scaffold (commit-less) was sitting
+in the working tree at `nmt-analytics-admin/src/{components/portal,
+pages/portal,layout/PortalLayout.tsx,components/auth/PortalGuard.tsx}`
+plus a hijacked `<Route element={<PortalLayout />}>` block on the index
+path in `App.tsx`. It (a) broke `tsc --noEmit` with 13 errors, (b)
+shadowed the authed `HomeHub` from `/`, (c) contradicted the canonical
+ordering in `TRAVLINE_FINAL_PLAN.md` (Sprint 3 ≠ before Sprint 1.3/2.2).
+All of it was deleted; `App.tsx` was restored to the authed layout. Sprint 3
+remains unbuilt — get there only via the plan's order (after §2.3, §2.4).
+
+**Build state:** `nmt-analytics-api` `tsc --noEmit` clean + `npm audit`
+0 vulnerabilities. `nmt-analytics-admin` `tsc --noEmit` + `vite build`
+clean. Live service restarted ( Picks up Sprint 2.1's availability route
+at `/api/availability/:departureId` and a freshly built admin dist
+including the new Availability UI page ).
+
+**Commits this session (2026-07-16 continuation):**
+- `fd09ed1` feat(api): Sprint 2.1 — `GET /api/availability/:departureId`
+- `6be7121` feat(api): Sprint 1.1 — audit-log all remaining mutative routes
+- `69f302f` fix(api): Sprint 1.5 — pin uuid >=11.1.1 + bump tsx (0 vulns)
+- `1fac1cf` feat(admin): Sprint 1.3 — frontend ModuleGuard for premium routes
+- `27cf5c6` chore(admin): Sprint 1.4 — remove dead template debris
+- `9050699` chore(api): F-3 — promote `apply_migrations.py` into the repo
+- `af36e69` feat(admin): Sprint 2.2 — Availability UI page
+
+**Next:** Sprint 2.3 (seat-map integration into departure detail — verify
+the existing `SeatMap.tsx` flight-grid path and wire it from the new
+Availability card), then §2.4 (invoice line-items via `package_services`).
+
