@@ -2,12 +2,14 @@
 
 ## Next: Resume Here
 
-**Sprint 1 + Sprint 2.1 + Sprint 2.2 are DONE — see the dedicated sections at the bottom of this file.** Both projects build clean (`tsc --noEmit` 0 errors). API `npm audit`: 0 vulnerabilities. Foundation task F-3 (migration script) is also done.
+**Sprint 1 (audit + module gating + cleanup) + Sprint 2 (availability route + Availability page + seat-map wiring + invoice line-items) are ALL DONE — see the dedicated sections at the bottom of this file.** Both projects build clean (`tsc --noEmit` 0 errors). API `npm audit`: 0 vulnerabilities. Foundation task F-3 (migration script) is also done.
 
 **Next open work (pick up here):**
-1. **Sprint 2.3 — Seat map integration** in `nmt-analytics-admin/` DepartureDetail: existing `SeatMap.tsx` should already handle both `bus` and `flight` (numeric grid). Verify it renders and that the flight-mode (1A..3F) grid works. Add a "View seat map" action from the new Availability page → DepartureDetail anchor. See §2.3.
-2. **Sprint 2.4 — Invoice line-items**: extend `generateInvoicePDF` in `nmt-analytics-api/src/lib/pdfGenerator.ts` / `invoicePdf.ts` to consume `package_services` rows for line items. See §2.4.
-3. Then **Sprint 3 (customer self-service portal)** per the canonical plan. **⚠️ A previous session had already scaffolded a broken portal tree (`src/components/portal/`, `src/pages/portal/`, `src/layout/PortalLayout.tsx`, `src/components/auth/PortalGuard.tsx`, plus a `<PortalLayout>` index route that shadowed `/` in App.tsx). That scaffold was deleted on 2026-07-16 (session in `con_Mdmz4cWen635XV25`) because it broke the build and was out of sprint order. Do NOT recreate it until you get to Sprint 3.**
+1. **Sprint 3 — Customer self-service portal** — the customer-facing portal per the canonical plan. **⚠️ A previous session had already scaffolded a broken portal tree (`src/components/portal/`, `src/pages/portal/`, `src/layout/PortalLayout.tsx`, `src/components/auth/PortalGuard.tsx`, plus a `<PortalLayout>` index route that shadowed `/` in App.tsx). That scaffold was deleted on 2026-07-16 (session in `con_Mdmz4cWen635XV25`) because it broke the build and was out of sprint order. Now that Sprint 2 is fully complete it's the right time to do this from a clean design — see `TRAVLINE_FINAL_PLAN.md` §3 for scope. Do NOT resurrect the old portal scaffold; start from a clean layout.**
+
+Earlier-sprint technical notes (kept for context; status DONE):
+- Sprint 2.3 done: `SeatMap` already supports `bus` (2+aisle+2 grid) + `flight` (3+aisle+3 numeric, A-F rows) + `none` (clean fallback). The DepartureDetail passengers tab now renders `SeatMap` for `bus` AND `flight` (was bus-only); the Availability "View seat map" button deep-links to `/departures/:id?tab=passengers` so it lands on the seat map directly.
+- Sprint 2.4 done: `generateInvoicePDF()` in `nmt-analytics-api/src/lib/pdfGenerator.ts` now renders `package_services` rows as proper table line items (service type, provider name, qty, unit price, amount, `(optional)` badge) instead of a single hardcoded row. The invoice.pdf route at `nmt-analytics-api/src/routes/reservations.ts` fetches the package_services scoped to the org and passes them to the generator as `reservation.package_services`. Subtotals are correct; legacy fallback (single row from `party_size × total`) kicks in when no service rows exist.
 
 **⚠️ Outstanding foundation item:** F-2 — rotate the Supabase `service_role` key in the dashboard and update Zo secret `TRAVLINE_SUPABASE_SERVICE_ROLE`. Owner action (Ismail); previous Phase 0 hygiene step.
 
@@ -17,11 +19,11 @@
 
 **⚠️ Pre-existing audit gaps (not Sprint 1.1 scope):** `onboarding.ts`, `settings.ts`, `waivers.ts`, `eturista.ts`, `excursions.ts` may each have 1–2 mutative routes without an `audit*` wrapper. Optional final sweep later. Timeline: minimum demoable in ~1.5 weeks (~8 working days), polished production in ~3 weeks (~15 working days).
 
-**Last activity:** 2026-07-16 (Sprint 1.1–1.5 + Sprint 2.1 done, both projects `tsc --noEmit` clean, `npm audit` 0 vulnerabilities). Uncommitted 2026-07-14 work: 5 `20260715*` migrations applied to the live DB + `organizations.plan` column promoted to `pro` for all 3 orgs.
+**Last activity:** 2026-07-16 (Sprints 1.1–1.5, 2.1, 2.2, 2.3, 2.4 done — full Sprints 1 + 2 complete. Both projects `tsc --noEmit` clean, `npm audit` 0 vulnerabilities. Live service on https://travline-sprypine.zocomputer.io health-checked + restarted). Uncommitted 2026-07-14 work: 5 `20260715*` migrations applied to the live DB + `organizations.plan` column promoted to `pro` for all 3 orgs.
 
 ### 🟢 Sprint 1 + Sprint 2.1 progress (DONE 2026-07-16)
 
-See the dedicated section "### Sprint 1 — audit + module gating + cleanup (DONE 2026-07-16)" + "### Sprint 2 — 2.1 availability route (DONE 2026-07-16)" near the end of this file. Both `nmt-analytics-api` and `nmt-analytics-admin` build clean (`tsc --noEmit` 0 errors). `nmt-analytics-api` `npm audit` shows **0 vulnerabilities**.
+See the dedicated sections near the end of this file (Sprint 1 — audit/gating/cleanup; Sprint 2.1 — availability route; Sprint 2.2 — Availability UI page; Sprint 2.3 — seat-map wiring + deep-link anchor; Sprint 2.4 — invoice package_services line-items). Both `nmt-analytics-api` and `nmt-analytics-admin` build clean (`tsc --noEmit` 0 errors). `nmt-analytics-api` `npm audit` shows **0 vulnerabilities**.
 
 ### 🔴 Immediate (do first, before any further sprint work)
 
@@ -31,7 +33,7 @@ See the dedicated section "### Sprint 1 — audit + module gating + cleanup (DON
 
 ### 🟡 Next
 
-**Sprint 2 §2.3 (seat-map integration)** + **§2.4 (invoice line-items via `package_services`)** — the backend availability route (§2.1) and admin Availability UI page (§2.2) are done; finish Sprint 2 from §2.3.
+**Sprint 3 (customer self-service portal)** — Sprint 1 (audit + gating + cleanup) and Sprint 2 (availability route + Availability UI page + seat-map wiring + invoice line-items) are all done; pick up from Sprint 3 in `TRAVLINE_FINAL_PLAN.md` §3.
 
 
 ### 📋 Pending features (after Sprint 1)
@@ -648,17 +650,61 @@ Then `available = max(0, capacity - booked)`, and `status` via `getDepartureStat
 
 **Verification:** `tsc --noEmit` → 0 errors ✅.
 
-**Next for Sprint 2 (not done):** §2.2 (Availability UI page — consume this route from `nmt-analytics-admin/`, sidebar under OPERACIJE → "Dostupnost"/"Availability"); §2.3 (seat-map integration); §2.4 (invoice line-items via `package_services` in `pdfGenerator.ts` / `invoicePdf.ts`).
+**Sprint 2 status:** §2.2 (Availability UI page), §2.3 (seat-map wiring + deep-link anchor), §2.4 (invoice `package_services` line-items) are all DONE — see their dedicated sections below. Sprint 2 is complete; Sprint 3 (customer self-service portal) is next.
+
+---
+
+### Sprint 2 — §2.2 Availability UI page (DONE 2026-07-16 cont.)
+
+**Files (new/changed):** `nmt-analytics-admin/src/api/availability.ts`, `nmt-analytics-admin/src/pages/operations/Availability.tsx`, `nmt-analytics-admin/src/App.tsx`, `nmt-analytics-admin/src/layout/AppSidebar.tsx`, `nmt-analytics-admin/src/lib/i18n/en.ts` + `bs.ts`.
+
+**Backend consumed:** `GET /api/availability/:departureId` from §2.1.
+
+**UI:** A standalone `/operations/availability` page under OPERACIJE in the sidebar (label "Dostupnost"/"Availability"), gated by `module: "travel_core"` + `minRole: "viewer"`. Page fetches `/departures` plus per-row `/availability/:id`, color-codes each departure card by occupancy band (green ≥20% available, amber 1–20%, red full), shows summary totals, supports refresh + package/status filters. Each card has a "View seat map" button that deep-links to `/departures/:id?tab=passengers` so it lands directly on the seat map.
+
+**Verification:** `tsc --noEmit` 0 errors ✅. Page renders (verified via local agent-browser preview). Committed at `af36e69`.
+
+---
+
+### Sprint 2 — §2.3 Seat-map wiring + deep-link anchor (DONE 2026-07-16 cont.)
+
+**File:** `nmt-analytics-admin/src/pages/DepartureDetail.tsx`.
+
+**Change:** The passengers tab previously rendered `<SeatMap>` only when `transport_type === "bus"`. Now it also renders for `transport_type === "flight"` (passing `transportType={departure.transport_type as "bus" | "flight"}`). The `SeatMap.tsx` component already supported both layouts: bus = 2+aisle+2 grid with VOZAČ header + ZADNJI RED footer; flight = 3+aisle+3 numeric grid with row letters A-F and "Prednji dio aviona ↑" header; `none` = "Nema transporta za ovaj polazak." fallback.
+
+**Deep-link anchor:** Added `useSearchParams` import; on mount if `?tab=` is one of `overview|passengers|groups|hotels`, that tab opens by default. The Availability page's seat-map button now navigates to `/departures/:id?tab=passengers` so the user lands directly on the seat map without an extra click.
+
+**Verification:** `tsc --noEmit` 0 errors ✅. Committed (Sprint 2.3 + 2.4 together).
+
+---
+
+### Sprint 2 — §2.4 Invoice `package_services` line-items (DONE 2026-07-16 cont.)
+
+**Files:** `nmt-analytics-api/src/lib/pdfGenerator.ts` (generator), `nmt-analytics-api/src/routes/reservations.ts` (route).
+
+**Behavior:** The invoice PDF generator previously hardcoded a single description row (package name × party_size × total). Now it renders every `package_services` row attached to the reservation's package as a proper table line item: `service_type` (Hotel/Transport/Tour/Insurance/Extra) + `provider_name` + `description` in the description column, `quantity`, `unit_price`, and `amount` (currency-suffixed), and an `(optional)` sub-line for `is_optional = true` services. Subtotals sum all line amounts; Paid + Balance Due are computed from `paid_amount`/`total_amount` as before. If the package has zero `package_services` rows (legacy package), the generator falls back to the old single-row behavior so existing data isn't broken.
+
+**Route:** `GET /api/reservations/:id/invoice.pdf` now also fetches `package_services` scoped to `(package_id, org_id)` after the reservation SELECT and attaches them as `reservation.package_services` before calling `generateInvoicePDF()`.
+
+**Verification:** Local render test produced a 23 KB PDF with 4 line items (Hotel 4* ×2=500, Bus transport ×2=200, Single-room supplement ×1=75 optional, Travel insurance ×2=75; subtotal 850, paid 400, balance 450) — line items + subtotals + optional badge all render correctly. `tsc --noEmit` 0 errors ✅. Live API restarted (svc_c4blbSMPftU); pdf route verified healthy.
 
 ---
 
 ### Git state (2026-07-16 end of session)
 
-**nmt-analytics-api/** has uncommitted changes from the Sprint 1 + 2.1 session: audit wrapper edits in 6 route files, `auditLogger.ts` AuditEntity union additions, deletion of `routes/debug.ts`, `index.ts` registration changes, new `routes/availability.ts`, `package.json` overrides + tsx bump, and `node_modules/` + `package-lock.json` reflecting the dependency updates.
+**All sprint commits landed cleanly on top of `9860f4b` (Travline: final plan...).** Commit history (newest first):
 
-**nmt-analytics-admin/** has uncommitted changes: deleted `components/form/form-elements/` directory + 36 `public/images/user/user-*.jpg` mock avatars.
+- `9a5c560` docs: AGENTS.md — record Sprint 1.3 + 2.2 done + portal-scaffold removal
+- `af36e69` feat(admin): Sprint 2.2 — Availability UI page
+- `9050699` chore(api): F-3 — promote apply_migrations.py into the repo
+- `27cf5c6` chore(admin): Sprint 1.4 — remove dead template debris
+- `1fac1cf` feat(admin): Sprint 1.3 — frontend ModuleGuard for premium routes
+- `69f302f` fix(api): Sprint 1.5 — pin uuid >=11.1.1 + bump tsx (0 vulnerabilities
+- `6be7121` feat(api): Sprint 1.1 — audit-log all remaining mutative routes
+- `fd09ed1` feat(api): Sprint 2.1 — GET /api/availability/:departureId
+- (Sprint 2.3 + 2.4 committed in a focused pair of commits after `9a5c560`)
 
-Both projects build clean. Commit at a natural stopping point before starting the frontend ModuleGuard (§1.3) work so the backend route changes don't get tangled with admin-frontend edits.
+Both projects build clean: `tsc --noEmit` 0 errors, `vite build` succeeds, `npm audit` 0 vulnerabilities. Live service `svc_c4blbSMPftU` (https://travline-sprypine.zocomputer.io) restarted post-Sprint-2.4; `/api/health` returns 200, invoice.pdf route correctly gated by auth (401 unauth).
 
 ---
 
@@ -729,3 +775,69 @@ including the new Availability UI page ).
 the existing `SeatMap.tsx` flight-grid path and wire it from the new
 Availability card), then §2.4 (invoice line-items via `package_services`).
 
+
+---
+
+### Sprint 2.3 — seat-map flight wiring + deep-link anchor (DONE 2026-07-16)
+
+**File:** `nmt-analytics-admin/src/pages/DepartureDetail.tsx`
+
+The existing `SeatMap.tsx` (`src/components/operations/`) already supported
+both layouts:
+- `bus` → driver row + 2+aisle+2 grid per row, capacity-driven, with back-row label.
+- `flight` → 3+aisle+3 numeric grid labeled `A`, `B`, `C`… via `String.fromCharCode(64 + row)`.
+- `none` → "Nema transporta za ovaj polazak." fallback.
+
+**Gap fixed:** DepartureDetail's passengers tab previously gated the seat
+map render on `transport_type === "bus"` only, so `flight` arrivals never
+showed a seat map. Changed the condition to render for both `bus` AND
+`flight`, passing the actual `transport_type` through to `SeatMap` so the
+flight grid (1A..3F format) renders for flights.
+
+**Deep-link from Availability page:** added `useSearchParams` to
+DepartureDetail so `?tab=passengers|groups|hotels|overview` honors the
+query param (anchoring to the seat-map view directly). The Availability
+page's per-departure "View seat map" / "Pregled sjedišta" button now
+navigates to `/departures/:id?tab=passengers` instead of bare
+`/departures/:id`, so a user clicking through from the availability grid
+lands on the seat map tab directly.
+
+`tsc --noEmit` 0 errors; `vite build` clean. Verified SeatMap passenger
+count and assign/clear flows unchanged for bus mode.
+
+### Sprint 2.4 — invoice package_services line-items (DONE 2026-07-16)
+
+**Files:**
+- `nmt-analytics-api/src/routes/reservations.ts` — `GET /reservations/:id/invoice.pdf` now fetches `package_services` for the reservation's package and attaches them as `reservation.package_services`.
+- `nmt-analytics-api/src/lib/pdfGenerator.ts` — `generateInvoicePDF()` now renders `reservation.package_services` as proper table rows instead of a single hardcoded row.
+
+**Behavior:**
+
+The invoice.pdf route resolves `package_id` from
+`departure.package_id || departure.packages.id || reservation.package_id`,
+then queries `package_services` scoped to `org_id`, ordered by
+`service_type`. Each row maps to `{ serviceType, providerName, description,
+unitPrice, currency, quantity, totalPrice, isOptional }` and is passed to
+the generator.
+
+`generateInvoicePDF` line-items section now:
+- Renders each service row with description (provider name + service
+  description), Qty, Unit Price, Amount (currency-suffixed), and an
+  `(optional)` badge appended below the description when `isOptional`.
+- Auto-pages if total height exceeds the limit by ending the page and
+  starting a new one with a re-rendered compact header strip.
+- Sums the rendered rows for the subtotal.
+- Falls back to the legacy single-row render (party_size × total) with a
+  "(nema dodatnih usluga)" note when `package_services` is empty/missing,
+  preserving backward compatibility for packages without line items.
+- Totals (Subtotal / Paid / Balance Due) corrected to use the summed or
+  fallback total; balance is `max(0, total − paid)`.
+
+**Verification:** generated a sample PDF with 4 line items via a throwaway
+tsx script — extraction confirmed all 4 rows render with correct
+subtotals: Hotel 250×2=500, Transport 100×2=200, Extra 75×1=75 (marked
+optional), Insurance 37.50×2=75 → Subtotal 850 BAM, Paid 400, Balance Due
+450 BAM. Throwaway script removed; tsc clean.
+
+**No DB changes** — `package_services` table already exists (migration
+`20260704010000`). The route uses the existing org-scoped query only.
