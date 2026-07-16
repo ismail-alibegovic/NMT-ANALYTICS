@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useSearchParams } from "react-router";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
@@ -57,6 +57,14 @@ export default function DepartureDetail() {
   const [groups, setGroups] = useState<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [searchParams] = useSearchParams();
+  // Deep-link support: /departures/:id?tab=passengers opens straight to the seat map.
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t === "passengers" || t === "groups" || t === "hotels" || t === "overview") {
+      setActiveTab(t as Tab);
+    }
+  }, [searchParams]);
   const [groupBy, setGroupBy] = useState<"hotel" | "agent">("hotel");
 
   useEffect(() => {
@@ -305,11 +313,11 @@ export default function DepartureDetail() {
         {/* PASSENGERS TAB */}
         {activeTab === "passengers" && (
           <div className="space-y-6">
-            {departure.transport_type === "bus" && departure.capacity > 0 && passengers.length > 0 && (
+            {(departure.transport_type === "bus" || departure.transport_type === "flight") && departure.capacity > 0 && passengers.length > 0 && (
               <SeatMap
                 passengers={normPax}
                 capacity={departure.capacity}
-                transportType="bus"
+                transportType={departure.transport_type as "bus" | "flight"}
                 editable
                 onSeatChanged={async () => {
                   try {

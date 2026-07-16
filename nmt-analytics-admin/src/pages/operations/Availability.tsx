@@ -212,7 +212,7 @@ export default function Availability() {
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredRows.map((row) => (
-              <DepartureCard key={row.departure.id} row={row} tr={tr} onOpen={() => navigate(`/departures/${row.departure.id}`)} />
+              <DepartureCard key={row.departure.id} row={row} tr={tr} onOpen={() => navigate(`/departures/${row.departure.id}?tab=passengers`)} />
             ))}
           </div>
         )}
