@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router";
 import PageSkeleton from "./components/common/PageSkeleton";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import AuthGuard from "./components/auth/AuthGuard";
+import { ModuleGuard } from "./components/auth/ModuleGuard";
 import AppLayout from "./layout/AppLayout";
 import "./index.css";
 
@@ -40,6 +41,8 @@ const NotFound = lazy(() => import("./pages/OtherPage/NotFound"));
 const PublicSignWaiver = lazy(() => import("./pages/PublicSignWaiver"));
 const PublicSubAgentPortal = lazy(() => import("./pages/PublicSubAgentPortal"));
 
+const NotFoundClientOnly = () => <NotFound />;
+
 const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<PageSkeleton />}>
     <ErrorBoundary>{children}</ErrorBoundary>
@@ -68,13 +71,13 @@ export default function App() {
           <Route path="/reservations" element={<SuspenseWrapper><Reservations /></SuspenseWrapper>} />
           <Route path="/departures" element={<SuspenseWrapper><Departures /></SuspenseWrapper>} />
           <Route path="/departures/:id" element={<SuspenseWrapper><DepartureDetail /></SuspenseWrapper>} />
-          <Route path="/payments" element={<SuspenseWrapper><UnifiedPayments /></SuspenseWrapper>} />
-          <Route path="/reports" element={<SuspenseWrapper><Reports /></SuspenseWrapper>} />
-          <Route path="/integrations" element={<SuspenseWrapper><Integrations /></SuspenseWrapper>} />
+          <Route path="/payments" element={<SuspenseWrapper><ModuleGuard moduleKey="payments"><UnifiedPayments /></ModuleGuard></SuspenseWrapper>} />
+          <Route path="/reports" element={<SuspenseWrapper><ModuleGuard moduleKey="analytics" fallback={<NotFoundClientOnly />}><Reports /></ModuleGuard></SuspenseWrapper>} />
+          <Route path="/integrations" element={<SuspenseWrapper><ModuleGuard moduleKey="integrations" fallback={<NotFoundClientOnly />}><Integrations /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/settings" element={<SuspenseWrapper><Settings /></SuspenseWrapper>} />
           <Route path="/settings/pdf-templates" element={<SuspenseWrapper><PdfTemplateEditor /></SuspenseWrapper>} />
           <Route path="/admin/audit-logs" element={<SuspenseWrapper><AuditLogs /></SuspenseWrapper>} />
-          <Route path="/admin/documents" element={<SuspenseWrapper><Documents /></SuspenseWrapper>} />
+          <Route path="/admin/documents" element={<SuspenseWrapper><ModuleGuard moduleKey="documents" fallback={<NotFoundClientOnly />}><Documents /></ModuleGuard></SuspenseWrapper>} />
           {/* Phase A — Operations */}
           <Route path="/operations/calendar" element={<SuspenseWrapper><CalendarPage /></SuspenseWrapper>} />
           <Route path="/operations/contracts" element={<SuspenseWrapper><ContractsPage /></SuspenseWrapper>} />
@@ -82,8 +85,8 @@ export default function App() {
           {/* Phase B — Operations */}
           <Route path="/operations/subagents" element={<SuspenseWrapper><SubAgentsPage /></SuspenseWrapper>} />
           <Route path="/operations/commission-rules" element={<SuspenseWrapper><CommissionRulesPage /></SuspenseWrapper>} />
-          <Route path="/operations/excursions" element={<SuspenseWrapper><ExcursionsPage /></SuspenseWrapper>} />
-          <Route path="/operations/hotels" element={<SuspenseWrapper><HotelsPage /></SuspenseWrapper>} />
+          <Route path="/operations/excursions" element={<SuspenseWrapper><ModuleGuard moduleKey="excursions" fallback={<NotFoundClientOnly />}><ExcursionsPage /></ModuleGuard></SuspenseWrapper>} />
+          <Route path="/operations/hotels" element={<SuspenseWrapper><ModuleGuard moduleKey="hotels" fallback={<NotFoundClientOnly />}><HotelsPage /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/profile" element={<SuspenseWrapper><Profile /></SuspenseWrapper>} />
         </Route>
 

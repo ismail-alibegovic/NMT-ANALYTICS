@@ -66,13 +66,13 @@ const AppSidebar: React.FC = () => {
   ];
 
   const operationsItems: NavItem[] = [
-    { icon: <CalenderIcon />, name: t.nav.calendar, path: "/operations/calendar", minRole: "viewer" },
-    { icon: <FileIcon />, name: t.nav.contracts, path: "/operations/contracts", minRole: "viewer" },
-    { icon: <DollarLineIcon />, name: t.nav.receipts, path: "/operations/receipts", minRole: "manager" },
-    { icon: <UserCircleIcon />, name: t.nav.subAgents, path: "/operations/subagents", minRole: "manager" },
-    { icon: <GridIcon />, name: t.nav.commissionRules, path: "/operations/commission-rules", minRole: "director" },
-    { icon: <ShootingStarIcon />, name: t.nav.excursions, path: "/operations/excursions", minRole: "manager" },
-    { icon: <GridIcon />, name: t.nav.hotels, path: "/operations/hotels", minRole: "manager" },
+    { icon: <CalenderIcon />, name: t.nav.calendar, path: "/operations/calendar", module: "travel_core", minRole: "viewer" },
+    { icon: <FileIcon />, name: t.nav.contracts, path: "/operations/contracts", module: "travel_core", minRole: "viewer" },
+    { icon: <DollarLineIcon />, name: t.nav.receipts, path: "/operations/receipts", module: "travel_core", minRole: "manager" },
+    { icon: <UserCircleIcon />, name: t.nav.subAgents, path: "/operations/subagents", module: "travel_core", minRole: "manager" },
+    { icon: <GridIcon />, name: t.nav.commissionRules, path: "/operations/commission-rules", module: "travel_core", minRole: "director" },
+    { icon: <ShootingStarIcon />, name: t.nav.excursions, path: "/operations/excursions", module: "travel_core", minRole: "manager" },
+    { icon: <GridIcon />, name: t.nav.hotels, path: "/operations/hotels", module: "travel_core", minRole: "manager" },
   ];
 
   const financeItems: NavItem[] = [
@@ -83,7 +83,7 @@ const AppSidebar: React.FC = () => {
 
   const adminItems: NavItem[] = [
     { icon: <LockIcon />, name: t.nav.auditLogs, path: "/admin/audit-logs", minRole: "director" },
-    { icon: <FileIcon />, name: t.nav.documents, path: "/admin/documents", minRole: "manager" },
+    { icon: <FileIcon />, name: t.nav.documents, path: "/admin/documents", module: "documents", minRole: "manager" },
   ];
 
   const groups: NavGroup[] = [
