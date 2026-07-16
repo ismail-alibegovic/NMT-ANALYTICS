@@ -201,37 +201,78 @@ export async function generateInvoicePDF(reservation: any, orgSettings?: Partial
 
       doc.fillColor(style.secondaryColor);
 
-      // === TABLE ROW ===
-      const rowY = tableY + 35;
-      const description = pkg.name
-        ? `${pkg.name}${pkg.destination ? ` — ${pkg.destination}` : ''}`
-        : `Reservation ${String(reservation.id || '').substring(0, 8).toUpperCase()}`;
+      // === TABLE ROWS ===
+      // Sprint 2.4: render package_services line items when present, otherwise
+      // fall back to the legacy single-row summary.
+      const services: Array<{
+        description: string;
+        sub?: string;
+        qty: number;
+        unitPrice: number;
+        amount: number;
+      }> = Array.isArray(reservation.package_services) && reservation.package_services.length > 0
+        ? reservation.package_services.map((s: any) => {
+            const label = s.description
+              || [s.serviceType, s.providerName].filter(Boolean).map((p: string) => p.charAt(0).toUpperCase() + p.slice(1)).join(' — ')
+              || 'Service';
+            const unitPrice = Number(s.unitPrice || 0);
+            const qty = Number(s.quantity || 1);
+            const amount = Number(s.totalPrice || (unitPrice * qty));
+            const sub = s.isOptional ? '(optional)' : undefined;
+            return { description: label, sub, qty, unitPrice, amount };
+          })
+        : [{
+            description: pkg.name
+              ? `${pkg.name}${pkg.destination ? ` — ${pkg.destination}` : ''}`
+              : `Reservation ${String(reservation.id || '').substring(0, 8).toUpperCase()}`,
+            sub: departure?.depart_at
+              ? `Departure: ${new Date(departure.depart_at).toLocaleDateString('bs-BA')}`
+              : undefined,
+            qty: Number(reservation.party_size || 1),
+            unitPrice: Number(total),
+            amount: Number(total),
+          }];
 
-      doc.fontSize(10).font('DejaVu');
-      doc.text(description, col1, rowY, { width: 230 });
-      if (departure?.depart_at) {
-        doc.fontSize(8).fillColor('#6B7280')
-          .text(`Departure: ${new Date(departure.depart_at).toLocaleDateString('bs-BA')}`, col1, rowY + 14, { width: 230 });
-      }
-      doc.fontSize(10).fillColor(style.secondaryColor);
-      doc.text(String(reservation.party_size || 1), col2, rowY, { width: 40, align: 'right' });
-      doc.text(`${total.toFixed(2)}`, col3, rowY, { width: 60, align: 'right' });
-      doc.text(`${total.toFixed(2)} ${currency}`, col4, rowY, { width: 70, align: 'right' });
+      let rowY = tableY + 25;
+      const rowHeight = 24;
+      const servicesTotal = services.reduce((sum, r) => sum + (r.amount || 0), 0);
+      const useServicesTotal = Array.isArray(reservation.package_services) && reservation.package_services.length > 0
+        ? true
+        : false;
 
-      // line
-      doc.moveTo(leftMargin, rowY + 42).lineTo(rightMargin, rowY + 42).strokeColor('#E5E7EB').stroke();
+      services.forEach((row, idx) => {
+        const stripeY = rowY - 12;
+        if (idx % 2 === 1) {
+          doc.rect(leftMargin, stripeY, rightMargin - leftMargin, rowHeight).fill('#F9FAFB');
+        }
+        doc.fontSize(10).font('DejaVu').fillColor(style.secondaryColor);
+        doc.text(row.description, col1, rowY, { width: 240 });
+        if (row.sub) {
+          doc.fontSize(8).fillColor('#6B7280')
+            .text(row.sub, col1, rowY + 14, { width: 240 });
+        }
+        doc.fontSize(10).fillColor(style.secondaryColor);
+        doc.text(String(row.qty), col2, rowY, { width: 40, align: 'right' });
+        doc.text(`${row.unitPrice.toFixed(2)}`, col3, rowY, { width: 60, align: 'right' });
+        doc.text(`${row.amount.toFixed(2)} ${currency}`, col4, rowY, { width: 70, align: 'right' });
+
+        rowY += rowHeight;
+        doc.moveTo(leftMargin, rowY - 6).lineTo(rightMargin, rowY - 6).strokeColor('#E5E7EB').stroke();
+      });
 
       // === TOTALS ===
-      const totalsY = rowY + 62;
+      const sumTotal = useServicesTotal ? servicesTotal : total;
+      const sumBalance = Math.max(sumTotal - paid, 0);
+      const totalsY = rowY + 18;
       doc.font('DejaVu').fontSize(10);
       doc.text('Subtotal', 380, totalsY, { width: 80, align: 'right' });
-      doc.text(`${total.toFixed(2)} ${currency}`, 460, totalsY, { width: 80, align: 'right' });
+      doc.text(`${sumTotal.toFixed(2)} ${currency}`, 460, totalsY, { width: 80, align: 'right' });
       doc.text('Paid', 380, totalsY + 20, { width: 80, align: 'right' });
       doc.text(`${paid.toFixed(2)} ${currency}`, 460, totalsY + 20, { width: 80, align: 'right' });
       doc.font('DejaVu-Bold');
       doc.text('Balance Due', 380, totalsY + 44, { width: 80, align: 'right' });
-      doc.fillColor(balance > 0 ? '#DC2626' : '#059669');
-      doc.text(`${balance.toFixed(2)} ${currency}`, 460, totalsY + 44, { width: 80, align: 'right' });
+      doc.fillColor(sumBalance > 0 ? '#DC2626' : '#059669');
+      doc.text(`${sumBalance.toFixed(2)} ${currency}`, 460, totalsY + 44, { width: 80, align: 'right' });
 
       // === PAYMENT INFO ===
       doc.fillColor(style.secondaryColor);

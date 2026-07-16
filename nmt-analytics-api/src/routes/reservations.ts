@@ -661,6 +661,33 @@ router.get('/reservations/:id/invoice.pdf', authenticateToken, requireOrgContext
       return apiError(res, 404, "NOT_FOUND", "Reservation not found");
     }
 
+    // Sprint 2.4: fetch package_services line items for the reservation's package
+    const packageId = reservation?.departures?.package_id
+      || reservation?.departures?.packages?.id
+      || reservation?.package_id
+      || null;
+    let services: any[] = [];
+    if (packageId) {
+      const { data: svcRows, error: svcErr } = await supabaseAdmin
+        .from('package_services')
+        .select('id, service_type, provider_name, description, unit_price, currency, quantity, total_price, is_optional')
+        .eq('package_id', packageId)
+        .eq('org_id', orgId)
+        .order('service_type');
+      if (svcErr) console.error('[INVOICE.pdf] package_services fetch error:', svcErr.message);
+      services = (svcRows || []).map((r: any) => ({
+        serviceType: r.service_type,
+        providerName: r.provider_name,
+        description: r.description,
+        unitPrice: Number(r.unit_price || 0),
+        currency: r.currency || 'BAM',
+        quantity: Number(r.quantity || 1),
+        totalPrice: Number(r.total_price || 0),
+        isOptional: Boolean(r.is_optional),
+      }));
+    }
+    reservation.package_services = services;
+
     const invoiceBranding = await getOrgBranding(orgId);
     const pdfBuffer = await generateInvoicePDF(reservation, invoiceBranding);
 
