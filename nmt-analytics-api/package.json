@@ -15,6 +15,9 @@
   "author": "",
   "license": "ISC",
   "description": "",
+  "overrides": {
+    "uuid": ">=11.1.1"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.87.3",
     "@types/archiver": "^7.0.0",
@@ -43,7 +46,7 @@
     "@types/node": "^25.0.2",
     "@types/nodemailer": "^8.0.1",
     "ts-node-dev": "^2.0.0",
-    "tsx": "^4.21.0",
+    "tsx": "^4.23.1",
     "typescript": "^5.9.3"
   }
 }
