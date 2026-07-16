@@ -14,7 +14,6 @@ import importRoutes from './import';
 import exportRoutes from './export';
 import paymentsRoutes from './payments';
 import adminRoutes from './admin';
-import debugRoutes from './debug';
 import doctorRoutes from './doctor';
 import aiRoutes from './ai';
 import settingsRoutes from './settings';
@@ -37,6 +36,7 @@ import onboardingRoutes from './onboarding';
 import waiverRoutes from './waivers';
 import commissionRulesRoutes from './commissionRules';
 import subAgentPortalRoutes from './subAgentPortal';
+import availabilityRoutes from './availability';
 
 const router = Router();
 
@@ -54,6 +54,7 @@ router.use('/', transactionsRoutes);
 router.use('/', customersRoutes);
 router.use('/', packagesRoutes);
 router.use('/', departuresRoutes);
+router.use('/', availabilityRoutes);
 router.use('/', reportsRoutes);
 router.use('/', documentsRoutes);
 router.use('/', importRoutes);
@@ -82,7 +83,6 @@ router.use('/', commissionRulesRoutes);
 
 // Mount routes that rely on parent prefix
 router.use('/admin', adminRoutes);
-router.use('/debug', debugRoutes);
 router.use('/', aiRoutes);
 router.use('/', doctorRoutes);
 
