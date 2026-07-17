@@ -2,11 +2,12 @@
 
 ## Next: Resume Here
 
-**Sprint 1 + Sprint 2 + Sprint 3 are ALL DONE — see the dedicated sections at the bottom of this file.** Both projects build clean (`tsc --noEmit` 0 errors). API `npm audit`: 0 vulnerabilities. Foundation task F-3 (migration script) is also done.
+**Sprint 1 + Sprint 2 + Sprint 3 + Sprint 5 are ALL DONE — see the dedicated sections at the bottom of this file.** Both projects build clean (`tsc --noEmit` 0 errors). API `npm audit`: 0 vulnerabilities. Foundation task F-3 (migration script) is also done.
 
 **Next open work (pick up here):**
-1. **Sprint 5 — Quality** (`TRAVLINE_FINAL_PLAN.md` §5) — error states, empty states, loading skeletons polish, accessibility, e2e tests. Optional alternative: **Sprint 4 — Stripe** (§4, defer until first paying client).
-2. **F-2 — Rotate the Supabase `service_role` key** (owner action, see Immediate).
+1. **Sprint 4 — Stripe Billing** (`TRAVLINE_FINAL_PLAN.md` §4) — explicitly DEFERRED per Ismail's directive ("do not build yet, until first paying client"). Revisit when ≥1 tenant signs a paid contract. Until then, manual invoicing suffices.
+2. **F-2 — Rotate the Supabase `service_role` key** (owner action — Ismail did this on his end; verify by booting production and confirming API still serves 200 on `/api/health`).
+3. **Sentry activation** — Sprint 5 ships Sentinel-ready SDK but DSN is unset. Set `SENTRY_DSN` (API) and `VITE_SENTRY_DSN` (admin) in [Settings > Advanced](/?t=settings&s=advanced) when ready to capture silent failures per-tenant.
 
 Earlier-sprint technical notes (kept for context; status DONE):
 - Sprint 2.3 done: `SeatMap` already supports `bus` (2+aisle+2 grid) + `flight` (3+aisle+3 numeric, A-F rows) + `none` (clean fallback). The DepartureDetail passengers tab now renders `SeatMap` for `bus` AND `flight` (was bus-only); the Availability "View seat map" button deep-links to `/departures/:id?tab=passengers` so it lands on the seat map directly.
@@ -34,7 +35,7 @@ See the dedicated sections near the end of this file (Sprint 1 — audit/gating/
 
 ### 🟡 Next
 
-**Sprint 5 (Quality)** — Sprints 1, 2, 3 are all done. Pick up from Sprint 5 in `TRAVLINE_FINAL_PLAN.md` §5 (error/empty/loading_polish + a11y + e2e tests). Sprint 4 (Stripe, §4) is optional, defer until first paying client.
+**Sprint 5 (Quality)** — DONE. Sprints 1, 2, 3, 5 all done. See the dedicated `### 🟢 Sprint 5 — Quality & Cleanup (DONE 2026-07-18)` section below. Sprint 4 (Stripe, §4) is the only remaining major sprint and is DEFERRED per Ismail's directive until first paying client.
 
 
 ### 📋 Pending features (after Sprint 1)
@@ -845,7 +846,7 @@ optional), Insurance 37.50×2=75 → Subtotal 850 BAM, Paid 400, Balance Due
 
 ### 🟢 Sprint 3 — Customer Self-Service Portal (DONE 2026-07-18)
 
-Committed in `6b7205b` (portal scaffold + i18n) and `5db72a7` (notes). **Next open work: Sprint 5 — Quality (`TRAVLINE_FINAL_PLAN.md` §5)** or Sprint 4 — Stripe (§4, optional, defer until first paying client). F-2 (Supabase `service_role` rotation) still outstanding as owner action.
+Committed in `6b7205b` (portal scaffold + i18n) and `5db72a7` (notes). **Sprint 5 (Quality) is now done too** (commit `dcc68f0`). Next open work: **Sprint 4 — Stripe** (§4, DEFERRED per Ismail until first paying client) + **Sentry activation** (`SENTRY_DSN` / `VITE_SENTRY_DSN`) + **F-2** (Supabase `service_role` rotation, owner action).
 
 **What landed (per `TRAVLINE_SPRINT3_NOTES.md`):**
 - New branded, customer-facing surface at `/portal/*` mounted inside a single auth chain: `AuthGuard → PortalGuard → BrandingProvider → PortalLayout`. No doubled route mounting (the bug that broke the prior scaffold is gone — `PortalLayout` is a proper `<Outlet/>` layout route, not a leaf shadowing `/`).
@@ -856,3 +857,40 @@ Committed in `6b7205b` (portal scaffold + i18n) and `5db72a7` (notes). **Next op
 - No new backend routes; all data fetched through existing org-scoped `api/*` clients.
 
 **Build verified:** `tsc --noEmit` 0 errors. `vite build` passes (`PortalLayout-*.js` chunk, 9.95 kB / 3.02 kB gzip). Runtime check on `vite preview`: `/portal` bounces unauthenticated users to `/signin` via AuthGuard (correct).
+
+
+---
+
+### 🟢 Sprint 5 — Quality & Cleanup (DONE 2026-07-18)
+
+Per `TRAVLINE_FINAL_PLAN.md` §6. Committed in `dcc68f0`.
+
+**§5.1 Test setup** — Vitest landed in both packages:
+- `nmt-analytics-admin/vitest.config.ts` (jsdom + RTL setup) + `npm test` script
+- `nmt-analytics-api/vitest.config.ts` (node) + `npm test` script
+- Both `package.json`s now have `"test": "vitest run"`, `"test:watch": "vitest"`
+
+**§5.2 Critical path tests — 52 tests across both packages, all green:**
+- Admin (`nmt-analytics-admin/src/tests/`):
+  - `business.test.ts` (18) — `normalizeMoney` / `calculateOutstandingAmount` / `formatCurrency` / `formatDate` (bs-BA regex) / `getDepartureStatus` (0.5/0.8/1.0 thresholds) / `getPaymentStatusBadge` (paid / partial / unpaid, plus zero-amount fallback)
+  - `critical.test.tsx` (22) — financial invariants for the PortalDashboard KPIs, Reservations, Invoices
+- API (`nmt-analytics-api/src/tests/`):
+  - `atomicReservation.test.ts` (4) — mocks `supabaseAdmin.rpc('reserve_capacity_atomic')` and asserts the POST /api/reservations contract: happy path → 201, `CAPACITY_FULL` → 400, `DEPARTURE_NOT_FOUND` → 404, **concurrency: 20 parallel callers, exactly one wins, rest get 400** (the deadlocked-seat invariant)
+  - `installments.test.ts` (5) — derive installment schedule from payments table: reconcile `paid` + `outstanding` + `remaining_after`, `overdue` flag computation
+  - `pdfGeneration.test.ts` (3) — `generateContractPDF` diacritics (ć č š ž đ rendered, not tofu), `generateReceiptPDF` currency is BAM/KM never `$`, `generateInvoicePDF` applies org `primaryColor` to header banner. Verified via `pdf-parse@1.1.1` text extraction (legacy v1 kept over v2's class API).
+
+**§5.3 Sentry — wired but disabled (no DSN set):**
+- `nmt-analytics-api/src/middleware/sentry.ts` — `initSentry()` (no-op when `SENTRY_DSN` missing) + `sentryRequestHandler` + `sentryErrorHandler`, strips `Authorization`/`cookie` headers in `beforeSend`, attaches `org_id`/`user.id` per event. Wired into `src/app.ts` after helmet/cors, before the global JSON error handler.
+- `nmt-analytics-admin/src/lib/sentry.ts` — `initSentry()` for the browser (DSN via `VITE_SENTRY_DSN` at build time, no PII/replay). Called at the top of `src/main.tsx` before `createRoot`.
+- **Activation:** set `SENTRY_DSN` (API secrets) and `VITE_SENTRY_DSN` (admin `.env`) in [Settings > Advanced](/?t=settings&s=advanced) when ready.
+
+**§5.4 Dead code cleanup:**
+- DELETED `nmt-analytics-api/src/routes/doctor.ts` (super_admin-only dev diagnostic) + its import/mount in `routes/index.ts`. Production-safe — the route was already 404 in non-development environments.
+- `routes/debug.ts`: already gone (verified absent).
+- `bun.lock` / `bun.lockb`: already removed (verified absent).
+- `public/images/user/avatar-XX.jpg` templates: already gone (only `owner.jpg` remains, which is used by the admin avatar component).
+
+**Bugfix bundled with this sprint:** `business.ts::getPaymentStatusBadge` now returns `'Potpuno plaćeno'` (success) for zero-amount reservations instead of `'Neplaćeno'` — previously a comped upgrade or voided 0-invoice displayed as unpaid, which was misleading and surfaced in the new critical-path test.
+
+**No DB changes.** Tests are pure (mocked supabaseAdmin + real PDFKit pipeline). CI: `cd nmt-analytics-admin && npm test` and `cd nmt-analytics-api && npm test` both exit 0.
+
