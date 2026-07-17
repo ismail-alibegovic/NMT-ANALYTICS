@@ -5,6 +5,7 @@ import ErrorBoundary from "./components/common/ErrorBoundary";
 import AuthGuard from "./components/auth/AuthGuard";
 import { ModuleGuard } from "./components/auth/ModuleGuard";
 import AppLayout from "./layout/AppLayout";
+import PortalGuard from "./components/auth/PortalGuard";
 import "./index.css";
 
 const SignIn = lazy(() => import("./pages/AuthPages/SignIn"));
@@ -41,6 +42,14 @@ const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/OtherPage/NotFound"));
 const PublicSignWaiver = lazy(() => import("./pages/PublicSignWaiver"));
 const PublicSubAgentPortal = lazy(() => import("./pages/PublicSubAgentPortal"));
+// Sprint 3 — Customer self-service portal
+const PortalLayout = lazy(() => import("./layout/PortalLayout"));
+const PortalDashboard = lazy(() => import("./pages/portal/PortalDashboard"));
+const PortalPackages = lazy(() => import("./pages/portal/PortalPackages"));
+const PortalDepartures = lazy(() => import("./pages/portal/PortalDepartures"));
+const PortalReservations = lazy(() => import("./pages/portal/PortalReservations"));
+const PortalCustomers = lazy(() => import("./pages/portal/PortalCustomers"));
+const PortalSettings = lazy(() => import("./pages/portal/PortalSettings"));
 
 const NotFoundClientOnly = () => <NotFound />;
 
@@ -58,6 +67,16 @@ export default function App() {
         <Route path="/auth/signup" element={<SuspenseWrapper><SignUp /></SuspenseWrapper>} />
         <Route path="/waiver/:token" element={<SuspenseWrapper><PublicSignWaiver /></SuspenseWrapper>} />
         <Route path="/portal/subagent/:token" element={<SuspenseWrapper><PublicSubAgentPortal /></SuspenseWrapper>} />
+
+        {/* Sprint 3 — Customer self-service portal (own layout, no admin sidebar) */}
+        <Route element={<AuthGuard><PortalGuard><PortalLayout /></PortalGuard></AuthGuard>}>
+          <Route path="/portal" element={<SuspenseWrapper><PortalDashboard /></SuspenseWrapper>} />
+          <Route path="/portal/packages" element={<SuspenseWrapper><PortalPackages /></SuspenseWrapper>} />
+          <Route path="/portal/departures" element={<SuspenseWrapper><PortalDepartures /></SuspenseWrapper>} />
+          <Route path="/portal/reservations" element={<SuspenseWrapper><PortalReservations /></SuspenseWrapper>} />
+          <Route path="/portal/customers" element={<SuspenseWrapper><PortalCustomers /></SuspenseWrapper>} />
+          <Route path="/portal/settings" element={<SuspenseWrapper><PortalSettings /></SuspenseWrapper>} />
+        </Route>
 
         <Route element={<AuthGuard><AppLayout /></AuthGuard>}>
           <Route path="/" element={<SuspenseWrapper><HomeHub /></SuspenseWrapper>} />

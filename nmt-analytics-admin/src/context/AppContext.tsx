@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { getMeContext, UserContext } from '../api/me';
@@ -10,6 +10,7 @@ interface AppContextType {
   userContext: UserContext | null;
   loading: boolean;
   profileLoading: boolean;
+  signOut: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -279,6 +280,12 @@ export function AppProvider({ children }: AppProviderProps) {
     };
   }, []);
 
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    setUserContext(null);
+    setUser(null);
+  }, []);
+
   useEffect(() => {
     const handleApiAuthError = async (event: Event) => {
       const customEvent = event as CustomEvent;
@@ -299,6 +306,7 @@ export function AppProvider({ children }: AppProviderProps) {
     userContext,
     loading,
     profileLoading,
+    signOut,
   };
 
   return (

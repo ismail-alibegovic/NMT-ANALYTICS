@@ -1,5 +1,68 @@
 export const en = {
   app: { name: 'Travline', tagline: 'Travel Management Platform' },
+  portal: {
+    nav: {
+      dashboard: 'Dashboard', packages: 'Packages', departures: 'Departures',
+      reservations: 'Reservations', customers: 'Customers', settings: 'Settings',
+    },
+    layout: {
+      appTitle: 'Travline',
+      welcome: 'Welcome back',
+      orgVerifiedFor: 'Operator portal for',
+      signedInAs: 'Signed in as',
+      signOut: 'Sign out',
+      confirmSignOut: 'Sign out of the portal?',
+      backToStaffApp: 'Back to staff app',
+      brand: 'Brand',
+      poweredBy: 'Powered by Travline',
+      menu: 'Menu',
+    },
+    guard: {
+      loading: 'Setting up your portal…',
+      noOrg: 'Your account is not attached to an organization. Contact your operator.',
+      backHome: 'Back to home',
+      toSignIn: 'Sign in',
+    },
+    dashboard: {
+      title: 'Dashboard',
+      subtitle: 'Organization overview — bookings, departures, outstanding balance',
+      cards: {
+        revenue: 'Revenue', bookings: 'Bookings',
+        avgValue: 'Avg. booking value', outstanding: 'Outstanding balance',
+      },
+      recentReservations: 'Recent reservations',
+      upcomingDepartures: 'Upcoming departures',
+      empty: 'No activity yet',
+    },
+    packages: {
+      title: 'Packages', subtitle: 'Arrangements your agency sells',
+      new: 'New package', name: 'Name', price: 'Price',
+      noData: 'No packages yet', save: 'Save package',
+    },
+    departures: {
+      title: 'Departures', subtitle: 'Trip dates and capacity across all packages',
+      package: 'Package', date: 'Date', capacity: 'Capacity',
+      booked: 'Booked', noData: 'No departures scheduled',
+    },
+    reservations: {
+      title: 'Reservations', subtitle: 'Bookings across all customers',
+      customer: 'Customer', package: 'Package', status: 'Status',
+      total: 'Total', noData: 'No reservations yet',
+    },
+    customers: {
+      title: 'Customers', subtitle: 'People who booked through your agency',
+      name: 'Name', email: 'Email', phone: 'Phone', bookings: 'Bookings',
+      noData: 'No customers yet',
+    },
+    settings: {
+      title: 'Settings', subtitle: 'Branding and account',
+      brand: 'Branding', displayName: 'Display name', logoUrl: 'Logo URL',
+      primaryColor: 'Primary color', accentColor: 'Accent color',
+      save: 'Save branding', saved: 'Branding saved', saving: 'Saving…',
+      accountTitle: 'Account', accountSubtitle: 'Your signed-in identity',
+      name: 'Name', email: 'Email', role: 'Role',
+    },
+  },
   nav: {
     menu: 'Menu', system: 'System', dashboard: 'Dashboard',
     prodaja: 'Sales', finansije: 'Finance',

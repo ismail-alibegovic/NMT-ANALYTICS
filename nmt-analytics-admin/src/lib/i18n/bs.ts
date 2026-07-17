@@ -2,6 +2,69 @@ import type { Translations } from './en';
 
 export const bs: Translations = {
   app: { name: 'Travline', tagline: 'Platforma za upravljanje putovanjima' },
+  portal: {
+    nav: {
+      dashboard: 'Kontrolna tabla', packages: 'Paketi', departures: 'Polasci',
+      reservations: 'Rezervacije', customers: 'Klijenti', settings: 'Postavke',
+    },
+    layout: {
+      appTitle: 'Travline',
+      welcome: 'Dobrodošli nazad',
+      orgVerifiedFor: 'Operatorski portal za',
+      signedInAs: 'Prijavljeni ste kao',
+      signOut: 'Odjava',
+      confirmSignOut: 'Odjaviti se iz portala?',
+      backToStaffApp: 'Nazad u admin aplikaciju',
+      brand: 'Brend',
+      poweredBy: 'Pokreće Travline',
+      menu: 'Meni',
+    },
+    guard: {
+      loading: 'Pripremamo vaš portal…',
+      noOrg: 'Vaš nalog nije povezan sa organizacijom. Kontaktirajte vašeg operatera.',
+      backHome: 'Nazad na početnu',
+      toSignIn: 'Prijava',
+    },
+    dashboard: {
+      title: 'Kontrolna tabla',
+      subtitle: 'Pregled organizacije — rezervacije, polasci, otvoreni saldo',
+      cards: {
+        revenue: 'Prihod', bookings: 'Rezervacije',
+        avgValue: 'Prosj. vrijednost rezervacije', outstanding: 'Otvoreni saldo',
+      },
+      recentReservations: 'Nedavne rezervacije',
+      upcomingDepartures: 'Nadolazeći polasci',
+      empty: 'Još nema aktivnosti',
+    },
+    packages: {
+      title: 'Paketi', subtitle: 'Aranžmani koje vaša agencija prodaje',
+      new: 'Novi paket', name: 'Naziv', price: 'Cijena',
+      noData: 'Još nema paketa', save: 'Sačuvaj paket',
+    },
+    departures: {
+      title: 'Polasci', subtitle: 'Datumi polazaka i kapaciteti za sve pakete',
+      package: 'Paket', date: 'Datum', capacity: 'Kapacitet',
+      booked: 'Rezervisano', noData: 'Nema zakazanih polazaka',
+    },
+    reservations: {
+      title: 'Rezervacije', subtitle: 'Rezervacije svih klijenata',
+      customer: 'Klijent', package: 'Paket', status: 'Status',
+      total: 'Ukupno', noData: 'Još nema rezervacija',
+    },
+    customers: {
+      title: 'Klijenti', subtitle: 'Osobe koje su rezervisale preko vaše agencije',
+      name: 'Ime', email: 'Email', phone: 'Telefon', bookings: 'Rezervacije',
+      noData: 'Još nema klijenata',
+    },
+    settings: {
+      title: 'Postavke', subtitle: 'Brendiranje i nalog',
+      brand: 'Brendiranje', displayName: 'Prikazano ime', logoUrl: 'URL logo-a',
+      primaryColor: 'Primarna boja', accentColor: 'Akcentna boja',
+      save: 'Sačuvaj brendiranje', saved: 'Brendiranje sačuvano', saving: 'Čuvanje…',
+      accountTitle: 'Nalog', accountSubtitle: 'Vaš prijavljeni identitet',
+      name: 'Ime', email: 'Email', role: 'Rola',
+    },
+  },
   nav: {
     menu: 'Meni', system: 'Sistem', dashboard: 'Kontrolna tabla',
     prodaja: 'Prodaja', finansije: 'Finansije',
