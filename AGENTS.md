@@ -2,10 +2,11 @@
 
 ## Next: Resume Here
 
-**Sprint 1 (audit + module gating + cleanup) + Sprint 2 (availability route + Availability page + seat-map wiring + invoice line-items) are ALL DONE — see the dedicated sections at the bottom of this file.** Both projects build clean (`tsc --noEmit` 0 errors). API `npm audit`: 0 vulnerabilities. Foundation task F-3 (migration script) is also done.
+**Sprint 1 + Sprint 2 + Sprint 3 are ALL DONE — see the dedicated sections at the bottom of this file.** Both projects build clean (`tsc --noEmit` 0 errors). API `npm audit`: 0 vulnerabilities. Foundation task F-3 (migration script) is also done.
 
 **Next open work (pick up here):**
-1. **Sprint 3 — Customer self-service portal** — the customer-facing portal per the canonical plan. **⚠️ A previous session had already scaffolded a broken portal tree (`src/components/portal/`, `src/pages/portal/`, `src/layout/PortalLayout.tsx`, `src/components/auth/PortalGuard.tsx`, plus a `<PortalLayout>` index route that shadowed `/` in App.tsx). That scaffold was deleted on 2026-07-16 (session in `con_Mdmz4cWen635XV25`) because it broke the build and was out of sprint order. Now that Sprint 2 is fully complete it's the right time to do this from a clean design — see `TRAVLINE_FINAL_PLAN.md` §3 for scope. Do NOT resurrect the old portal scaffold; start from a clean layout.**
+1. **Sprint 5 — Quality** (`TRAVLINE_FINAL_PLAN.md` §5) — error states, empty states, loading skeletons polish, accessibility, e2e tests. Optional alternative: **Sprint 4 — Stripe** (§4, defer until first paying client).
+2. **F-2 — Rotate the Supabase `service_role` key** (owner action, see Immediate).
 
 Earlier-sprint technical notes (kept for context; status DONE):
 - Sprint 2.3 done: `SeatMap` already supports `bus` (2+aisle+2 grid) + `flight` (3+aisle+3 numeric, A-F rows) + `none` (clean fallback). The DepartureDetail passengers tab now renders `SeatMap` for `bus` AND `flight` (was bus-only); the Availability "View seat map" button deep-links to `/departures/:id?tab=passengers` so it lands on the seat map directly.
@@ -19,7 +20,7 @@ Earlier-sprint technical notes (kept for context; status DONE):
 
 **⚠️ Pre-existing audit gaps (not Sprint 1.1 scope):** `onboarding.ts`, `settings.ts`, `waivers.ts`, `eturista.ts`, `excursions.ts` may each have 1–2 mutative routes without an `audit*` wrapper. Optional final sweep later. Timeline: minimum demoable in ~1.5 weeks (~8 working days), polished production in ~3 weeks (~15 working days).
 
-**Last activity:** 2026-07-16 (Sprints 1.1–1.5, 2.1, 2.2, 2.3, 2.4 done — full Sprints 1 + 2 complete. Both projects `tsc --noEmit` clean, `npm audit` 0 vulnerabilities. Live service on https://travline-sprypine.zocomputer.io health-checked + restarted). Uncommitted 2026-07-14 work: 5 `20260715*` migrations applied to the live DB + `organizations.plan` column promoted to `pro` for all 3 orgs.
+**Last activity:** 2026-07-18 (Sprint 3 — Customer self-service portal committed in `6b7205b` + `5db72a7`. Full Sprints 1 + 2 + 3 complete. Both projects `tsc --noEmit` clean, `npm audit` 0 vulnerabilities. Live service on https://travline-sprypine.zocomputer.io health-checked + restarted). Uncommitted 2026-07-14 work: 5 `20260715*` migrations applied to the live DB + `organizations.plan` column promoted to `pro` for all 3 orgs.
 
 ### 🟢 Sprint 1 + Sprint 2.1 progress (DONE 2026-07-16)
 
@@ -33,7 +34,7 @@ See the dedicated sections near the end of this file (Sprint 1 — audit/gating/
 
 ### 🟡 Next
 
-**Sprint 3 (customer self-service portal)** — Sprint 1 (audit + gating + cleanup) and Sprint 2 (availability route + Availability UI page + seat-map wiring + invoice line-items) are all done; pick up from Sprint 3 in `TRAVLINE_FINAL_PLAN.md` §3.
+**Sprint 5 (Quality)** — Sprints 1, 2, 3 are all done. Pick up from Sprint 5 in `TRAVLINE_FINAL_PLAN.md` §5 (error/empty/loading_polish + a11y + e2e tests). Sprint 4 (Stripe, §4) is optional, defer until first paying client.
 
 
 ### 📋 Pending features (after Sprint 1)
@@ -841,3 +842,17 @@ optional), Insurance 37.50×2=75 → Subtotal 850 BAM, Paid 400, Balance Due
 
 **No DB changes** — `package_services` table already exists (migration
 `20260704010000`). The route uses the existing org-scoped query only.
+
+### 🟢 Sprint 3 — Customer Self-Service Portal (DONE 2026-07-18)
+
+Committed in `6b7205b` (portal scaffold + i18n) and `5db72a7` (notes). **Next open work: Sprint 5 — Quality (`TRAVLINE_FINAL_PLAN.md` §5)** or Sprint 4 — Stripe (§4, optional, defer until first paying client). F-2 (Supabase `service_role` rotation) still outstanding as owner action.
+
+**What landed (per `TRAVLINE_SPRINT3_NOTES.md`):**
+- New branded, customer-facing surface at `/portal/*` mounted inside a single auth chain: `AuthGuard → PortalGuard → BrandingProvider → PortalLayout`. No doubled route mounting (the bug that broke the prior scaffold is gone — `PortalLayout` is a proper `<Outlet/>` layout route, not a leaf shadowing `/`).
+- 6 read-only reflective pages: Dashboard (KPIs from reservations), Packages, Departures, Reservations, Customers, Settings (branding editor — Save gated to `director` role, matching `PATCH /settings/branding` backend).
+- Branding fetched at runtime from `/settings/branding` via the new `src/components/portal/BrandingProvider.tsx`; 403 for non-directors degrades gracefully to default navy `#1D4ED8` + sky `#0EA5E9` (consistent with the existing `getOrgBranding()` fallback in the API).
+- `signOut` added to `AppContext` provider + interface; consumed by `SignOutButton`.
+- BS/EN i18n keys added under a new `portal` namespace (nav + page-level strings).
+- No new backend routes; all data fetched through existing org-scoped `api/*` clients.
+
+**Build verified:** `tsc --noEmit` 0 errors. `vite build` passes (`PortalLayout-*.js` chunk, 9.95 kB / 3.02 kB gzip). Runtime check on `vite preview`: `/portal` bounces unauthenticated users to `/signin` via AuthGuard (correct).
