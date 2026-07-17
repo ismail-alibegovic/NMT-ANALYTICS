@@ -14,7 +14,6 @@ import importRoutes from './import';
 import exportRoutes from './export';
 import paymentsRoutes from './payments';
 import adminRoutes from './admin';
-import doctorRoutes from './doctor';
 import aiRoutes from './ai';
 import settingsRoutes from './settings';
 import notificationsRoutes from './notifications';
@@ -84,6 +83,5 @@ router.use('/', commissionRulesRoutes);
 // Mount routes that rely on parent prefix
 router.use('/admin', adminRoutes);
 router.use('/', aiRoutes);
-router.use('/', doctorRoutes);
 
 export default router;

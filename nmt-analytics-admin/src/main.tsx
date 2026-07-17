@@ -1,3 +1,6 @@
+import { initSentry } from './lib/sentry';
+initSentry();
+
 // Suppress browser extension errors in development
 if (import.meta.env.DEV) {
   const originalError = console.error;

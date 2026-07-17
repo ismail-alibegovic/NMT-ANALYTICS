@@ -6,6 +6,12 @@ import { requestId, requestLogging } from './middleware/logging';
 import { authRateLimit, strictRateLimit } from './middleware/rateLimit';
 import { config } from './config';
 import apiRouter from './routes/index';
+import { initSentry, sentryRequestContext, sentryErrorHandler } from './middleware/sentry';
+
+// Initialise Sentry as early as possible so we capture boot-time exceptions
+// and any error thrown during module evaluation under load. The init function
+// is a no-op when SENTRY_DSN is unset.
+initSentry();
 
 const app = express();
 app.set('trust proxy', 1);const adminDistPath = path.resolve(process.cwd(), '../nmt-analytics-admin/dist');
@@ -77,26 +83,26 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Sentry request scope — populates user/org tags on each /api request.
+// Mounted after json() + before /api route mounting; if the request
+// carries no auth context, the scope tags are simply not set.
+app.use('/api', sentryRequestContext);
+
 // Apply rate limiting to all /api routes
 app.use('/api', (req, res, next) => {
-  // Skip rate limiting for health check
   if (req.path === '/health') {
     return next();
   }
   return authRateLimit(req, res, next);
 });
 
-// Apply stricter rate limiting to auth-related routes
-// The me route is now at /api/me
 app.use('/api/me', strictRateLimit);
 
-// Logging middleware for specific API routes
 app.use(['/api/customers', '/api/metrics', '/api/analytics'], (req, res, next) => {
   console.log(`[API-${req.method}] ${req.path} - userId: ${req.user?.id || 'N/A'}, role: ${req.user?.role || 'N/A'}, orgId: ${req.orgId || 'N/A'}`);
   next();
 });
 
-// Routes
 app.use('/api', apiRouter);
 
 // SPA fallback — any non-API, non-asset GET returns the React app so client
@@ -106,12 +112,11 @@ app.use((req, res, next) => {
   if (req.method !== 'GET') return next();
   const p = req.path;
   if (p.startsWith('/assets/') || p.startsWith('/api/') || p.startsWith('/images/') || /\.[a-zA-Z0-9]+$/.test(p)) {
-    return next(); // asset / api / file-with-extension → fall through to static (404 if missing)
+    return next();
   }
   res.sendFile(path.join(adminDistPath, 'index.html'));
 });
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     message: 'Route not found',
@@ -129,6 +134,11 @@ const errorMessages: Record<string, string> = {
   NOT_FOUND: 'Not found',
   INTERNAL_ERROR: 'Internal server error',
 };
+
+// Sentry error capture — must be registered before the global JSON error
+// handler so failures are collected before they are turned into JSON 500s.
+app.use(sentryErrorHandler);
+
 
 // Global error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

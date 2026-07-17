@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useT } from '../../lib/i18n/context';
-import { useApp } from '../../context/AppContext';
-import { useBranding } from '../../components/portal/BrandingProvider';
 import { getReservations, type Reservation } from '../../api/reservations';
 import { getDepartures, type Departure } from '../../api/departures';
 import { formatCurrency, formatDate } from '../../utils/business';
@@ -16,8 +14,6 @@ const statusColor: Record<string, string> = {
 
 export default function PortalDashboard() {
   const { t } = useT();
-  const { userContext } = useApp();
-  const { branding } = useBranding();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [departures, setDepartures] = useState<Departure[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,7 +52,6 @@ export default function PortalDashboard() {
     .filter((r) => r.status !== 'cancelled')
     .reduce((sum, r) => sum + (r.balanceDue || 0), 0);
   const avg = bookings > 0 ? Math.round(revenue / bookings) : 0;
-  const orgName = branding?.display_name || userContext?.org?.name || t.portal.layout.appTitle;
 
   return (
     <div className="space-y-6">

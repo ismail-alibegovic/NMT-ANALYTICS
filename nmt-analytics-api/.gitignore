@@ -6,4 +6,4 @@ DS_Store
 *.log
 
 # Archived seed scripts (contain old credentials — never commit)
-scripts/archive/
+scripts/archive/test/data/

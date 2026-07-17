@@ -6,10 +6,11 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
     "test:smoke": "ts-node src/scripts/smoke.ts",
     "seed:demo": "ts-node src/scripts/seed_demo.ts",
-    "seed:dev": "tsx src/scripts/seed.ts"
+    "seed:dev": "tsx src/scripts/seed.ts",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +20,7 @@
     "uuid": ">=11.1.1"
   },
   "dependencies": {
+    "@sentry/node": "^10.66.0",
     "@supabase/supabase-js": "^2.87.3",
     "@types/archiver": "^7.0.0",
     "@types/papaparse": "^5.5.2",
@@ -45,8 +47,12 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^25.0.2",
     "@types/nodemailer": "^8.0.1",
+    "@types/supertest": "^7.2.1",
+    "pdf-parse": "^1.1.1",
+    "supertest": "^7.2.2",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.23.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   }
 }

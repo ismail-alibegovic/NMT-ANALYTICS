@@ -104,8 +104,14 @@ export function getPaymentStatusBadge(total: any, paid: any): PaymentStatusBadge
     const totalAmount = normalizeMoney(total);
     const paidAmount = normalizeMoney(paid);
 
+    // Zero-value reservation: trivially settled — must not read as "Neplaćeno".
+    // (catches complimentary upgrades, error-corrected 0 invoices, voided rows)
+    if (totalAmount === 0) {
+        return { text: 'Potpuno plaćeno', color: 'success' };
+    }
+
     // Fully paid (with small tolerance for floating point)
-    if (paidAmount >= totalAmount && totalAmount > 0) {
+    if (paidAmount >= totalAmount) {
         return { text: 'Potpuno plaćeno', color: 'success' };
     }
 
