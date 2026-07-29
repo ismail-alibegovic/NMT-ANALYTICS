@@ -79,7 +79,7 @@ export const en = {
     hub: 'Home',
   },
   hub: {
-    title: 'Welcome to Travline',
+    title: 'Travline',
     subtitle: 'Your work day at a glance',
     salesTitle: 'Sales',
     salesDesc: 'Reservations, packages, departures and clients',
@@ -110,6 +110,44 @@ export const en = {
     focusOutstanding: 'Outstanding balances',
     focusOutstandingDesc: 'Uninvoiced balances and remaining payments to track.',
     focusOutstandingCta: 'Review payments',
+    // Auto greetings (date-driven)
+    good_morning: 'Good morning',
+    good_afternoon: 'Good afternoon',
+    good_evening: 'Good evening',
+    good_night: 'Still awake',
+    // KPI labels
+    kpiReservations: 'Active reservations',
+    kpiReservationsHint: 'Confirmed in selected period',
+    kpiRevenue: 'Revenue',
+    kpiRevenueHint: 'Total reservation value',
+    kpiOutstanding: 'Open balance',
+    kpiOutstandingHint: 'Unpaid across reservations',
+    kpiCustomers: 'Customers',
+    kpiCustomersHint: 'Total registered customers',
+    kpiCancelRate: 'Cancel rate',
+    kpiCancelRateHint: 'Confirmed → cancelled ratio',
+    // Revenue sparkline panel
+    revenuePanel: 'Paid revenue',
+    revenuePanelHint: 'Last 14 days',
+    // Upcoming departures panel
+    recentDepartures: 'Upcoming departures',
+    viewAll: 'View all',
+    noDepartures: 'No departures scheduled in the next 30 days.',
+    untitledDeparture: 'Untitled departure',
+    noData: 'No data yet',
+    // Payment status panel
+    paymentsPanel: 'Payment status',
+    psPaid: 'Paid',
+    psPartial: 'Partially paid',
+    psUnpaid: 'Unpaid',
+    // Shortcuts row
+    shortcutsTitle: 'Shortcuts',
+    sReservations: 'Reservations',
+    sPackages: 'Packages',
+    sCalendar: 'Calendar',
+    sCustomers: 'Customers',
+    sReports: 'Reports',
+    sBranding: 'Branding',
   },
   common: {
     save: 'Save', cancel: 'Cancel', delete: 'Delete', edit: 'Edit',
