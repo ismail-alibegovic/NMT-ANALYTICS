@@ -104,53 +104,72 @@ export function FormModal({
     switch (field.type) {
       case 'select':
         return (
-          <div key={field.name} className="mb-4">
-            <Label htmlFor={field.name}>{field.label}</Label>
+          <div key={field.name}>
+            <Label htmlFor={field.name}>
+              {field.label}
+              {field.required && <span className="ml-0.5 text-error-500">*</span>}
+            </Label>
             <Select
               options={field.options || []}
               placeholder={field.placeholder}
               defaultValue={formData[field.name] || ''}
               onChange={(value) => handleInputChange(field.name, value)}
+              error={!!fieldError}
             />
-            {fieldError && <p className="mt-1 text-sm text-red-600">{fieldError}</p>}
+            {fieldError && <p className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
           </div>
         );
 
       case 'textarea':
         return (
-          <div key={field.name} className="mb-4">
-            <Label htmlFor={field.name}>{field.label}</Label>
+          <div key={field.name}>
+            <Label htmlFor={field.name}>
+              {field.label}
+              {field.required && <span className="ml-0.5 text-error-500">*</span>}
+            </Label>
             <textarea
               id={field.name}
               placeholder={field.placeholder}
               value={formData[field.name] || ''}
               onChange={(e) => handleInputChange(field.name, e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+              className={`w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs transition-colors placeholder:text-gray-400 focus:outline-hidden focus:ring-2 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${
+                fieldError
+                  ? 'border-error-500 focus:border-error-300 focus:ring-error-500/15 dark:border-error-500'
+                  : 'border-gray-300 focus:border-brand-400 focus:ring-brand-500/15 dark:border-gray-700 dark:focus:border-brand-500'
+              }`}
               rows={4}
             />
-            {fieldError && <p className="mt-1 text-sm text-red-600">{fieldError}</p>}
+            {fieldError && <p className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
           </div>
         );
 
       case 'checkbox':
         return (
-          <div key={field.name} className="mb-4 flex items-center gap-3">
-            <input
-              type="checkbox"
-              id={field.name}
-              checked={!!formData[field.name]}
-              onChange={(e) => handleInputChange(field.name, e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-900"
-            />
-            <Label htmlFor={field.name} className="mb-0">{field.label}</Label>
-            {fieldError && <p className="ml-2 text-sm text-red-600">{fieldError}</p>}
+          <div key={field.name}>
+            <label
+              htmlFor={field.name}
+              className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 transition-colors hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
+            >
+              <input
+                type="checkbox"
+                id={field.name}
+                checked={!!formData[field.name]}
+                onChange={(e) => handleInputChange(field.name, e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-600 dark:bg-gray-900"
+              />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{field.label}</span>
+            </label>
+            {fieldError && <p className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
           </div>
         );
 
       default:
         return (
-          <div key={field.name} className="mb-4">
-            <Label htmlFor={field.name}>{field.label}</Label>
+          <div key={field.name}>
+            <Label htmlFor={field.name}>
+              {field.label}
+              {field.required && <span className="ml-0.5 text-error-500">*</span>}
+            </Label>
             <Input
               type={field.type}
               id={field.name}
@@ -159,7 +178,7 @@ export function FormModal({
               onChange={(e) => handleInputChange(field.name, e.target.value)}
               error={!!fieldError}
             />
-            {fieldError && <p className="mt-1 text-sm text-red-600">{fieldError}</p>}
+            {fieldError && <p className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
           </div>
         );
     }
