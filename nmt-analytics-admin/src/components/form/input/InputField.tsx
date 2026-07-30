@@ -17,6 +17,7 @@ interface InputProps {
   error?: boolean;
   hint?: string;
   autoComplete?: string;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
 }
 
 const Input: FC<InputProps> = ({
@@ -35,6 +36,7 @@ const Input: FC<InputProps> = ({
   error = false,
   hint,
   autoComplete,
+  onBlur,
 }) => {
   let inputClasses = ` h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs transition-colors placeholder:text-gray-400 focus:outline-hidden focus:ring-2  dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${className}`;
 
@@ -57,6 +59,7 @@ const Input: FC<InputProps> = ({
         placeholder={placeholder}
         value={value}
         onChange={onChange}
+        onBlur={onBlur}
         min={min}
         max={max}
         step={step}

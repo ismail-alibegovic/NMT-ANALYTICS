@@ -5,6 +5,7 @@ import Input from '../form/input/InputField';
 import Label from '../form/Label';
 import Select from '../form/Select';
 import { useToast } from '../../context/ToastContext';
+import { useT } from '../../lib/i18n/context';
 
 interface FormField {
   name: string;
@@ -37,6 +38,7 @@ export function FormModal({
   loading = false,
 }: FormModalProps) {
   const { success, error } = useToast();
+  const { t } = useT();
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<Record<string, any>>(initialData);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -48,25 +50,32 @@ export function FormModal({
     }
   }, [isOpen, initialData]);
 
+  const validateField = (field: FormField, value: any): string => {
+    if (field.required && field.type !== 'checkbox' && !value) {
+      return `${field.label} je obavezno polje`;
+    }
+    if (field.type === 'email' && value) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) {
+        return 'Neispravna email adresa';
+      }
+    }
+    return '';
+  };
+
   const validateForm = () => {
     const errors: Record<string, string> = {};
-
     fields.forEach((field) => {
-      // For checkboxes,required probably doesn't make sense in many cases unless it's a "Must Agree" type
-      if (field.required && field.type !== 'checkbox' && !formData[field.name]) {
-        errors[field.name] = `${field.label} is required`;
-      }
-
-      if (field.type === 'email' && formData[field.name]) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(formData[field.name])) {
-          errors[field.name] = 'Invalid email address';
-        }
-      }
+      const err = validateField(field, formData[field.name]);
+      if (err) errors[field.name] = err;
     });
-
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
+  };
+
+  const handleBlur = (field: FormField) => {
+    const err = validateField(field, formData[field.name]);
+    setFormErrors((prev) => ({ ...prev, [field.name]: err }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,12 +88,12 @@ export function FormModal({
     setSubmitting(true);
     try {
       await onSubmit(formData);
-      success('Operation completed successfully');
+      success(t.common.success);
       onClose();
     } catch (err: any) {
       console.error('Form submission error:', err);
       // Let the parent component handle specific errors if needed, but show generic error here if not handled
-      error(err.message || 'An error occurred');
+      error(err.message || t.common.error);
     } finally {
       setSubmitting(false);
     }
@@ -131,8 +140,13 @@ export function FormModal({
               id={field.name}
               placeholder={field.placeholder}
               value={formData[field.name] || ''}
-              onChange={(e) => handleInputChange(field.name, e.target.value)}
-              className={`w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs transition-colors placeholder:text-gray-400 focus:outline-hidden focus:ring-2 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${
+              onChange={(e) => {
+                handleInputChange(field.name, e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = `${Math.min(e.target.scrollHeight, 240)}px`;
+              }}
+              onBlur={() => handleBlur(field)}
+              className={`min-h-[96px] w-full resize-none overflow-hidden rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs transition-colors placeholder:text-gray-400 focus:outline-hidden focus:ring-2 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${
                 fieldError
                   ? 'border-error-500 focus:border-error-300 focus:ring-error-500/15 dark:border-error-500'
                   : 'border-gray-300 focus:border-brand-400 focus:ring-brand-500/15 dark:border-gray-700 dark:focus:border-brand-500'
@@ -176,6 +190,7 @@ export function FormModal({
               placeholder={field.placeholder}
               value={formData[field.name] || ''}
               onChange={(e) => handleInputChange(field.name, e.target.value)}
+              onBlur={() => handleBlur(field)}
               error={!!fieldError}
             />
             {fieldError && <p className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
@@ -201,13 +216,23 @@ export function FormModal({
               onClick={onClose}
               disabled={submitting}
             >
-              Cancel
+              {t.common.cancel}
             </Button>
             <Button
               type="submit"
               disabled={submitting || loading}
             >
-              {submitting ? 'Saving...' : submitButtonText}
+              {submitting ? (
+                <span className="flex items-center gap-2">
+                  <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  {t.common.saving}
+                </span>
+              ) : (
+                submitButtonText
+              )}
             </Button>
           </div>
         </form>
