@@ -52,6 +52,7 @@ const Select: React.FC<SelectProps> = ({
       <select
         id={id}
         name={name}
+        data-select-styled
         disabled={disabled}
         className={`h-11 w-full appearance-none rounded-lg border bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs transition-colors focus:outline-hidden focus:ring-2 dark:bg-gray-900 ${stateClasses} ${
           selectedValue
