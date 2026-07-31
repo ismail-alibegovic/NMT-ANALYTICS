@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import PageMeta from "../../components/common/PageMeta";
+import PageShell from "../../components/common/PageShell";
 import { DataTable, Column } from "../../components/ui/DataTable";
 import Badge from "../../components/ui/badge/Badge";
 import EmptyState from "../../components/ui/EmptyState";
@@ -261,10 +262,10 @@ export default function UnifiedPayments() {
     <>
       <PageMeta title="Payments | Travline" description="Unified payment management" />
 
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Payments</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage all payment activity in one place</p>
-      </div>
+      <PageShell
+        title="Payments"
+        subtitle="Manage all payment activity in one place"
+      >
 
       {/* Metric Cards - Always visible */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:gap-6 mb-6">
@@ -447,6 +448,7 @@ export default function UnifiedPayments() {
           )}
         </div>
       )}
+      </PageShell>
     </>
   );
 }

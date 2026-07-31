@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
+import PageShell from "../../components/common/PageShell";
 import PageToolbar from "../../components/ui/PageToolbar";
 import Button from "../../components/ui/button/Button";
 import Badge from "../../components/ui/badge/Badge";
@@ -144,31 +145,33 @@ export default function Contracts() {
   return (
     <>
       <PageMeta title={`${t.operations.contracts.title} | Travline`} description={t.operations.contracts.description} />
-      <PageToolbar
+      <PageShell
         title={t.operations.contracts.title}
-        description={`${t.operations.contracts.description} · UG-YYYY-XXXX`}
-        searchPlaceholder={t.operations.contracts.search}
-        searchValue={search}
-        onSearchChange={handleSearch}
-        filters={[
-          {
-            key: "status",
-            label: "All statuses",
-            value: statusFilter,
-            onChange: (v) => handleStatusChange(v as "" | "draft" | "signed" | "cancelled"),
-            options: [
-              { value: "draft", label: "Draft" },
-              { value: "signed", label: "Signed" },
-              { value: "cancelled", label: "Cancelled" },
-            ],
-          },
-        ]}
+        subtitle={`${t.operations.contracts.description} · UG-YYYY-XXXX`}
         actions={
           <Button variant="primary" onClick={() => setIsModalOpen(true)} className="flex items-center gap-2">
             <PlusIcon className="w-4 h-4" /> {tr.add}
           </Button>
         }
-      />
+      >
+        <PageToolbar
+          searchPlaceholder={t.operations.contracts.search}
+          searchValue={search}
+          onSearchChange={handleSearch}
+          filters={[
+            {
+              key: "status",
+              label: "All statuses",
+              value: statusFilter,
+              onChange: (v) => handleStatusChange(v as "" | "draft" | "signed" | "cancelled"),
+              options: [
+                { value: "draft", label: "Draft" },
+                { value: "signed", label: "Signed" },
+                { value: "cancelled", label: "Cancelled" },
+              ],
+            },
+          ]}
+        />
 
       {loading ? (
         <div className="flex items-center justify-center p-20">
@@ -223,6 +226,7 @@ export default function Contracts() {
           </div>
         </div>
       </Modal>
+      </PageShell>
     </>
   );
 }

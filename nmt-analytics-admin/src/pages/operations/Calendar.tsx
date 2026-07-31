@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
-import PageToolbar from "../../components/ui/PageToolbar";
+import PageShell from "../../components/common/PageShell";
 import Button from "../../components/ui/button/Button";
 import EmptyState from "../../components/ui/EmptyState";
 import { useToast } from "../../context/ToastContext";
@@ -99,10 +99,9 @@ export default function Calendar() {
   return (
     <>
       <PageMeta title={tr.title} description={tr.description} />
-      <PageToolbar
+      <PageShell
         title={tr.title}
-        description={tr.description}
-        hideSearch
+        subtitle={tr.description}
         actions={
           <div className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 dark:border-gray-800 dark:bg-gray-900">
             <Button variant="outline" onClick={() => move(-1)} title={tr.today} className="!px-3 !py-1.5 !rounded-md border-0">‹</Button>
@@ -110,7 +109,8 @@ export default function Calendar() {
             <Button variant="outline" onClick={() => move(1)} title={tr.today} className="!px-3 !py-1.5 !rounded-md border-0">›</Button>
           </div>
         }
-      />
+      >
+
 
       {/* Legend */}
       <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
@@ -191,6 +191,7 @@ export default function Calendar() {
           </div>
         )}
       </div>
+      </PageShell>
     </>
   );
 }

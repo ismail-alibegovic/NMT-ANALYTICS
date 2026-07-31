@@ -164,23 +164,27 @@ const { t } = useT();
   return (
     <>
       <PageMeta title={t.packages.title + " | Travline"} description={t.packages.description} />
-      <PageToolbar
+      <PageShell
         title="Packages"
-        description="Manage travel packages and destinations"
+        subtitle="Manage travel packages and destinations"
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setImportModalOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <FileIcon className="w-4 h-4" />
+              Import CSV
+            </Button>
+            <Button onClick={handleCreate}>Add Package</Button>
+          </>
+        }
+      >
+      <PageToolbar
         searchPlaceholder="Search packages..."
         searchValue={searchTerm}
         onSearchChange={handleSearch}
-        createButton={{ label: "Add Package", onClick: handleCreate }}
-        actions={
-          <Button
-            variant="outline"
-            onClick={() => setImportModalOpen(true)}
-            className="flex items-center gap-2"
-          >
-            <FileIcon className="w-4 h-4" />
-            Import CSV
-          </Button>
-        }
       />
 
       <ImportModal
@@ -217,6 +221,8 @@ const { t } = useT();
           )}
         </>
       )}
+
+      </PageShell>
 
       <PackageEditorModal
         isOpen={modalOpen}

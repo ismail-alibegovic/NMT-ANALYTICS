@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import PageMeta from "../../components/common/PageMeta";
+import PageShell from "../../components/common/PageShell";
 import { DataTable, Column, Pagination } from "../../components/ui/DataTable";
 import Badge from "../../components/ui/badge/Badge";
 import Button from "../../components/ui/button/Button";
@@ -173,15 +174,11 @@ export default function AuditLogs() {
     <>
       <PageMeta title="Audit Logs | Travline" description="System activity logs" />
 
-      <div className="p-6">
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">System Activity</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Track all significant changes and actions in the system
-            </p>
-          </div>
-          <div className="flex gap-2">
+      <PageShell
+        title="System Activity"
+        subtitle="Track all significant changes and actions in the system"
+        actions={
+          <>
             <Button
               variant="outline"
               onClick={() => exportToCsv(logs)}
@@ -204,9 +201,9 @@ export default function AuditLogs() {
               </svg>
               Refresh
             </Button>
-          </div>
-        </div>
-
+          </>
+        }
+      >
         {/* Filters */}
         <div className="mb-6 space-y-4">
           <div className="relative max-w-sm">
@@ -269,7 +266,7 @@ export default function AuditLogs() {
             )}
           </>
         )}
-      </div>
+      </PageShell>
 
       <Modal isOpen={!!selectedLog} onClose={() => setSelectedLog(null)} className="max-w-3xl" title="Audit Log Details">
         <div className="p-6">

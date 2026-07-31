@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
-import PageToolbar from "../../components/ui/PageToolbar";
+import PageShell from "../../components/common/PageShell";
 import Button from "../../components/ui/button/Button";
 import Badge from "../../components/ui/badge/Badge";
 import { DataTable, Column } from "../../components/ui/DataTable";
@@ -191,14 +191,14 @@ export default function CommissionRules() {
   return (
     <>
       <PageMeta title="Pravila provizije | Travline" description="Automatska provizija i markup po tipu partnera" />
-      <PageToolbar
+      <PageShell
         title="Pravila provizije"
-        description="Automatska provizija i markup po tipu partnera — pravila se primjenjuju pri generisanju prodaje subagenta"
-        createButton={{ label: "+ Novo pravilo", onClick: openCreate }}
-      />
+        subtitle="Automatska provizija i markup po tipu partnera — pravila se primjenjuju pri generisanju prodaje subagenta"
+        actions={<Button variant="primary" onClick={openCreate}>+ Novo pravilo</Button>}
+      >
 
       {/* Live preview panel */}
-      <div className="mx-6 mb-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+      <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
         <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700">
           <span className="text-sm text-gray-600 dark:text-gray-400">Partner</span>
           <select
@@ -251,10 +251,10 @@ export default function CommissionRules() {
           action={{ label: "+ Novo pravilo", onClick: openCreate }}
         />
       ) : (
-        <div className="mx-6">
-          <DataTable data={rules} columns={columns} />
-        </div>
+        <DataTable data={rules} columns={columns} />
       )}
+
+      </PageShell>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} className="max-w-md">
         <div className="space-y-4 p-6">

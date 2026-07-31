@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import PageMeta from '../components/common/PageMeta';
+import PageShell from '../components/common/PageShell';
 import KPICard from '../components/analytics/KPICard';
 import RevenueChart from '../components/analytics/RevenueChart';
 import { DataTable, Column } from '../components/ui/DataTable';
@@ -204,11 +205,10 @@ export default function Reports() {
                 description="Finansijski izvještaji i analitika"
             />
 
-            <div className="w-full max-w-full">
-                <div className="mb-6">
-                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">Izvještaji</h1>
-                    <p className="text-gray-500 dark:text-gray-400">Finansijski pregled i analitika po paketima</p>
-                </div>
+            <PageShell
+                title="Izvještaji"
+                subtitle="Finansijski pregled i analitika po paketima"
+            >
 
                 {/* Date Range Controls */}
                 <div className="mb-6 flex flex-wrap gap-4 items-center">
@@ -390,7 +390,7 @@ export default function Reports() {
                         <DataTable data={packages} columns={packageColumns} />
                     )}
                 </div>
-            </div>
+            </PageShell>
         </>
     );
 }
