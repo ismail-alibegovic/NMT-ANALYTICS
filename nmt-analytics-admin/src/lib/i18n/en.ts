@@ -134,6 +134,9 @@ export const en = {
     viewAll: 'View all',
     noDepartures: 'No departures scheduled in the next 30 days.',
     untitledDeparture: 'Untitled departure',
+    trendVsPrev: 'vs previous 7 days',
+    quietPeriod: 'No payments in this period',
+    allSettled: 'No open balances',
     noData: 'No data yet',
     // Payment status panel
     paymentsPanel: 'Payment status',
