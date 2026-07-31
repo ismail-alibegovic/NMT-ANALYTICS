@@ -114,12 +114,12 @@ export default function Contracts() {
   };
 
   const columns: Column<Contract>[] = [
-    { key: "contractNumber", header: "No.", render: (v) => <span className="font-mono text-sm">{v as string}</span> },
-    { key: "travelerName", header: "Traveler", render: (v) => <span className="font-medium text-gray-900 dark:text-white">{v as string}</span> },
+    { key: "contractNumber", header: "No.", sortable: true, render: (v) => <span className="font-mono text-sm">{v as string}</span> },
+    { key: "travelerName", header: "Traveler", sortable: true, render: (v) => <span className="font-medium text-gray-900 dark:text-white">{v as string}</span> },
     { key: "packageDescription", header: "Package", render: (v) => <span className="text-gray-600 dark:text-gray-300">{(v as string) || "—"}</span> },
-    { key: "totalAmount", header: "Amount", render: (_v, c) => <span>{formatCurrency(c.totalAmount)}</span> },
-    { key: "contractDate", header: "Date", render: (v) => formatDate(v as string) },
-    { key: "status", header: "Status", render: (v) => statusBadge(v as string) },
+    { key: "totalAmount", header: "Amount", sortable: true, sortValue: (c) => Number(c.totalAmount || 0), render: (_v, c) => <span>{formatCurrency(c.totalAmount)}</span> },
+    { key: "contractDate", header: "Date", sortable: true, render: (v) => formatDate(v as string) },
+    { key: "status", header: "Status", sortable: true, render: (v) => statusBadge(v as string) },
     {
       key: "actions", header: "Actions",
       render: (_, c) => (
@@ -185,7 +185,7 @@ export default function Contracts() {
         />
       ) : (
         <>
-          <DataTable data={contracts} columns={columns} />
+          <DataTable data={contracts} columns={columns} rowKey={(c) => c.id} />
           {totalPages > 1 && (
             <Pagination
               currentPage={currentPage}

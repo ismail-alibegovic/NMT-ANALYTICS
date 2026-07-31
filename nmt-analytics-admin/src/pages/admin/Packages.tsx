@@ -1,6 +1,7 @@
 import { useT } from "../../lib/i18n/context";
 import { useState, useEffect } from 'react';
 import PageMeta from '../../components/common/PageMeta';
+import PageShell from '../../components/common/PageShell';
 import { DataTable, Column, Pagination } from '../../components/ui/DataTable';
 import PackageEditorModal from '../../components/packages/PackageEditorModal';
 import ImportModal from '../../components/import/ImportModal';
@@ -119,6 +120,8 @@ const { t } = useT();
     {
       key: 'name',
       header: 'Package',
+      sortable: true,
+      sortValue: (p) => p.name ?? '',
       render: (_, pkg) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
@@ -134,6 +137,8 @@ const { t } = useT();
     {
       key: 'price',
       header: 'Price',
+      sortable: true,
+      sortValue: (p) => Number(p.price || 0),
       render: (val, pkg) => (
         <span className="font-medium text-gray-900 dark:text-white">
           {pkg.currency} {Number(val || 0).toLocaleString()}
@@ -143,6 +148,7 @@ const { t } = useT();
     {
       key: 'active',
       header: 'Status',
+      sortable: true,
       render: (val) => (
         <Badge color={val ? 'success' : 'error'} variant="light" size="sm">
           {val ? 'Enabled' : 'Disabled'}
@@ -209,7 +215,7 @@ const { t } = useT();
         <EmptyState title="No packages found" description={searchTerm ? "Try searching for something else" : "Get started by adding your first package"} action={!searchTerm ? { label: "Add Package", onClick: handleCreate } : undefined} />
       ) : (
         <>
-          <DataTable data={packages} columns={columns} />
+          <DataTable data={packages} columns={columns} rowKey={(p) => p.id} />
           {totalPages > 1 && (
             <Pagination
               currentPage={currentPage}

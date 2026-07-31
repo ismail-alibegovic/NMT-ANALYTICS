@@ -181,6 +181,8 @@ export default function Customers() {
     {
       key: 'fullName',
       header: 'Customer',
+      sortable: true,
+      sortValue: (c) => c.full_name ?? '',
       render: (_, customer) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
@@ -195,10 +197,11 @@ export default function Customers() {
         </div>
       )
     },
-    { key: 'phone', header: 'Phone' },
+    { key: 'phone', header: 'Phone', sortable: true },
     {
       key: 'status',
       header: 'Status',
+      sortable: true,
       render: (val) => (
         <Badge color={getStatusColor(val as string)} variant="light" size="sm">
           {(val as string)?.charAt(0).toUpperCase() + (val as string)?.slice(1)}
@@ -208,7 +211,6 @@ export default function Customers() {
     {
       key: 'actions', header: 'Actions', render: (_, customer) => (
         <div className="flex gap-2 justify-end">
-          <Button size="sm" variant="outline" onClick={() => navigate(`/customers/${customer.id}`)} className="p-2">View</Button>
           <Button size="sm" variant="outline" onClick={() => handleEdit(customer)} className="p-2">Edit</Button>
           <Button size="sm" variant="outline" onClick={() => handleDelete(customer)} className="p-2 text-red-600 hover:text-red-700">Delete</Button>
         </div>
@@ -306,7 +308,12 @@ export default function Customers() {
         <EmptyState title="No customers found" description={searchTerm ? "Try searching for something else" : "Get started by adding your first customer"} action={!searchTerm ? { label: "Add Customer", onClick: handleCreate } : undefined} />
       ) : (
         <>
-          <DataTable data={customers} columns={columns} />
+          <DataTable
+            data={customers}
+            columns={columns}
+            rowKey={(c) => c.id}
+            onRowClick={(c) => navigate(`/customers/${c.id}`)}
+          />
           {totalPages > 1 && (
             <Pagination
               currentPage={currentPage}

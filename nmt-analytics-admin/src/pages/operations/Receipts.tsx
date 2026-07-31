@@ -109,12 +109,12 @@ export default function Receipts() {
   };
 
   const columns: Column<Receipt>[] = [
-    { key: "receiptNumber", header: "No.", render: (v) => <span className="font-mono text-sm">{v as string}</span> },
-    { key: "travelerName", header: "Client", render: (v) => <span className="font-medium text-gray-900 dark:text-white">{(v as string) || "—"}</span> },
-    { key: "receiptType", header: "Type", render: (v) => typeBadge(v as string) },
-    { key: "amount", header: "Amount", render: (_v, r) => <span>{formatCurrency(r.amount)}</span> },
+    { key: "receiptNumber", header: "No.", sortable: true, render: (v) => <span className="font-mono text-sm">{v as string}</span> },
+    { key: "travelerName", header: "Client", sortable: true, render: (v) => <span className="font-medium text-gray-900 dark:text-white">{(v as string) || "—"}</span> },
+    { key: "receiptType", header: "Type", sortable: true, render: (v) => typeBadge(v as string) },
+    { key: "amount", header: "Amount", sortable: true, sortValue: (r) => Number(r.amount || 0), render: (_v, r) => <span>{formatCurrency(r.amount)}</span> },
     { key: "paymentMethod", header: "Method", render: (v) => <span className="text-gray-600 capitalize dark:text-gray-300">{(v as string) || "—"}</span> },
-    { key: "issuedAt", header: "Issued", render: (v) => formatDate(v as string) },
+    { key: "issuedAt", header: "Issued", sortable: true, render: (v) => formatDate(v as string) },
     {
       key: "actions", header: "Actions",
       render: (_, r) => (
@@ -166,7 +166,7 @@ export default function Receipts() {
         />
       ) : (
         <>
-          <DataTable data={receipts} columns={columns} />
+          <DataTable data={receipts} columns={columns} rowKey={(r) => r.id} />
           {totalPages > 1 && <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={totalItems} itemsPerPage={ITEMS_PER_PAGE} onPageChange={handlePageChange} />}
         </>
       )}

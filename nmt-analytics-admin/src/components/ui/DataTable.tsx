@@ -1,4 +1,4 @@
-import { ReactNode, Component, ErrorInfo } from 'react';
+import { ReactNode, Component, ErrorInfo, useMemo, useState } from 'react';
 import {
   Table,
   TableHeader,
@@ -8,6 +8,7 @@ import {
 } from './table';
 import Button from './button/Button';
 import EmptyState from './EmptyState';
+import { ChevronDownIcon } from '../../icons';
 
 class TableErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   state = { hasError: false };
@@ -42,9 +43,18 @@ export interface Column<T> {
   key: keyof T | string;
   header: ReactNode;
   render?: (value: any, item: T) => ReactNode;
+  /** Marks the column head as a sort control. */
   sortable?: boolean;
+  /**
+   * Value used for comparison when this column sorts client-side. Defaults to
+   * `item[key]`, which is wrong for computed/rendered columns — supply this for
+   * those.
+   */
+  sortValue?: (item: T) => string | number | null | undefined;
   className?: string;
 }
+
+export type SortDir = 'asc' | 'desc';
 
 export interface DataTableProps<T> {
   data: T[];
@@ -52,6 +62,30 @@ export interface DataTableProps<T> {
   loading?: boolean;
   emptyMessage?: string;
   className?: string;
+  /**
+   * Controlled sort. Pass together with `onSortChange` when the server owns
+   * ordering; omit both to let the table sort its own page of rows.
+   */
+  sortKey?: string | null;
+  sortDir?: SortDir;
+  onSortChange?: (key: string, dir: SortDir) => void;
+  /**
+   * Makes rows clickable. Row-level buttons stay clickable — the handler is
+   * skipped when the click originates inside a button/link/input.
+   */
+  onRowClick?: (item: T) => void;
+  /** Stable row identity. Falls back to the array index. */
+  rowKey?: (item: T, index: number) => string;
+}
+
+const SORT_CHEVRON = 'ml-1 inline-block size-3 shrink-0 transition-transform';
+
+function compareValues(a: unknown, b: unknown): number {
+  if (a == null && b == null) return 0;
+  if (a == null) return -1;
+  if (b == null) return 1;
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
 }
 
 export interface PaginationProps {
@@ -68,7 +102,64 @@ export function DataTable<T extends Record<string, any>>({
   loading = false,
   emptyMessage = 'No data available',
   className = '',
+  sortKey,
+  sortDir,
+  onSortChange,
+  onRowClick,
+  rowKey,
 }: DataTableProps<T>) {
+  // Uncontrolled fallback: when the caller does not pass onSortChange, the
+  // table sorts the rows it was handed.
+  const [localSort, setLocalSort] = useState<{ key: string; dir: SortDir } | null>(null);
+  const controlled = typeof onSortChange === 'function';
+  const activeKey = controlled ? sortKey ?? null : localSort?.key ?? null;
+  const activeDir: SortDir = controlled ? sortDir ?? 'asc' : localSort?.dir ?? 'asc';
+
+  const handleSort = (key: string) => {
+    const nextDir: SortDir = activeKey === key && activeDir === 'asc' ? 'desc' : 'asc';
+    if (controlled) {
+      onSortChange!(key, nextDir);
+    } else {
+      setLocalSort({ key, dir: nextDir });
+    }
+  };
+
+  const rows = useMemo(() => {
+    if (controlled || !localSort) return data;
+    const col = columns.find((c) => String(c.key) === localSort.key);
+    if (!col) return data;
+    const read = col.sortValue ?? ((item: T) => item[col.key as keyof T] as any);
+    const sorted = [...data].sort((a, b) => compareValues(read(a), read(b)));
+    return localSort.dir === 'desc' ? sorted.reverse() : sorted;
+  }, [data, columns, controlled, localSort]);
+
+  const renderHead = (column: Column<T>) => {
+    if (!column.sortable) return column.header;
+    const key = String(column.key);
+    const active = activeKey === key;
+    return (
+      <button
+        type="button"
+        onClick={() => handleSort(key)}
+        aria-sort={active ? (activeDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+        className={`group inline-flex items-center font-medium transition-colors ${
+          active ? 'text-brand-500' : 'hover:text-gray-700 dark:hover:text-gray-200'
+        }`}
+      >
+        {column.header}
+        <ChevronDownIcon
+          className={`${SORT_CHEVRON} ${
+            active
+              ? activeDir === 'asc'
+                ? 'rotate-180 opacity-100'
+                : 'opacity-100'
+              : 'opacity-0 group-hover:opacity-40'
+          }`}
+        />
+      </button>
+    );
+  };
+
   if (loading) {
     return (
       <div className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] ${className}`}>
@@ -131,14 +222,25 @@ export function DataTable<T extends Record<string, any>>({
                     isHeader
                     className={`px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 ${column.className || ''}`}
                   >
-                    {column.header}
+                    {renderHead(column)}
                   </TableCell>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-              {data.map((item, index) => (
-                <TableRow key={index}>
+              {rows.map((item, index) => (
+                <TableRow
+                  key={rowKey ? rowKey(item, index) : index}
+                  onClick={onRowClick ? (event) => {
+                    // Let row-level controls win — only bare cell clicks open the row.
+                    const target = event.target as HTMLElement;
+                    if (target.closest('button, a, input, select, textarea, [role="button"]')) return;
+                    onRowClick(item);
+                  } : undefined}
+                  className={onRowClick
+                    ? 'cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]'
+                    : undefined}
+                >
                   {columns.map((column) => (
                     <TableCell
                       key={String(column.key)}

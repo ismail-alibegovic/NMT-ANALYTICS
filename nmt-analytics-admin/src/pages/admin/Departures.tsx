@@ -225,6 +225,8 @@ export default function Departures() {
     {
       key: 'packageName',
       header: 'Paket',
+      sortable: true,
+      sortValue: (d) => d.packageName ?? '',
       render: (_, departure) => (
         <div className="min-w-[160px]">
           <button
@@ -242,6 +244,8 @@ export default function Departures() {
     {
       key: 'depart_at',
       header: 'Polazak',
+      sortable: true,
+      sortValue: (d) => d.depart_at ?? '',
       render: (val) => (
         <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
           {formatDate(val as string)}
@@ -251,6 +255,8 @@ export default function Departures() {
     {
       key: 'return_at',
       header: 'Povratak',
+      sortable: true,
+      sortValue: (d) => d.return_at ?? '',
       render: (val) => (
         <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
           {formatDate(val as string)}
@@ -260,6 +266,8 @@ export default function Departures() {
     {
       key: 'capacity',
       header: 'Popunjenost',
+      sortable: true,
+      sortValue: (d) => (d.capacity > 0 ? d.booked / d.capacity : 0),
       render: (_, departure) => {
         const capacityInfo = getDepartureStatus(departure.booked, departure.capacity);
         const occupancy = departure.capacity > 0
@@ -450,7 +458,12 @@ export default function Departures() {
             />
           ) : (
             <>
-              <DataTable data={departures} columns={columns} />
+              <DataTable
+                data={departures}
+                columns={columns}
+                rowKey={(d) => d.id}
+                onRowClick={(d) => navigate(`/departures/${d.id}`)}
+              />
               {totalPages > 1 && (
                 <Pagination
                   currentPage={currentPage}

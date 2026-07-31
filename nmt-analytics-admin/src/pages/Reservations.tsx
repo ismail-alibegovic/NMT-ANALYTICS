@@ -262,6 +262,8 @@ export default function Reservations() {
     {
       key: 'customerName',
       header: 'Klijent',
+      sortable: true,
+      sortValue: (r) => r.customerName ?? '',
       render: (_, res) => (
         <div>
           <div className="font-medium truncate" title={res.customerName}>
@@ -276,6 +278,8 @@ export default function Reservations() {
     {
       key: 'packageName',
       header: 'Paket',
+      sortable: true,
+      sortValue: (r) => r.packageName ?? '',
       render: (val) => (
         <div className="truncate" title={val || '-'}>
           {val || '-'}
@@ -285,6 +289,8 @@ export default function Reservations() {
     {
       key: 'totalAmount',
       header: 'Ukupno',
+      sortable: true,
+      sortValue: (r) => normalizeMoney(r.totalAmount),
       render: (val) => (
         <div className="text-right whitespace-nowrap">
           {formatCurrency(normalizeMoney(val))}
@@ -294,6 +300,8 @@ export default function Reservations() {
     {
       key: 'paidAmount',
       header: 'Plaćeno',
+      sortable: true,
+      sortValue: (r) => normalizeMoney(r.paidAmount),
       render: (val) => (
         <div className="text-right text-success-600 dark:text-success-500 font-medium whitespace-nowrap">
           {formatCurrency(normalizeMoney(val))}
@@ -303,6 +311,8 @@ export default function Reservations() {
     {
       key: 'balanceDue',
       header: 'Saldo',
+      sortable: true,
+      sortValue: (r) => normalizeMoney(r.balanceDue),
       render: (val) => {
         // Use backend-calculated balanceDue (can be negative for overpayment)
         const balance = normalizeMoney(val);
@@ -328,6 +338,7 @@ export default function Reservations() {
     {
       key: 'paymentStatus',
       header: 'Status plaćanja',
+      sortable: true,
       render: (val) => {
         // Use backend-calculated payment_status
         const status = val || 'unpaid';
@@ -353,6 +364,7 @@ export default function Reservations() {
     {
       key: 'status',
       header: 'Status',
+      sortable: true,
       render: (val, res) => {
         const statusConfig: Record<string, { color: any; text: string }> = {
           'pending': { color: 'warning', text: 'Na čekanju' },
@@ -635,7 +647,7 @@ export default function Reservations() {
         />
       ) : (
         <>
-          <DataTable data={reservations} columns={columns} />
+          <DataTable data={reservations} columns={columns} rowKey={(r) => r.id} />
           {totalPages > 1 && (
             <Pagination
               currentPage={currentPage}

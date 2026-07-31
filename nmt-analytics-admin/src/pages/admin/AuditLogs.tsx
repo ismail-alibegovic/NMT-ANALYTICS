@@ -115,6 +115,8 @@ export default function AuditLogs() {
     {
       key: 'user',
       header: 'User',
+      sortable: true,
+      sortValue: (log) => log.profiles?.full_name ?? '',
       render: (_, log) => (
         <div className="flex flex-col">
           <span className="text-gray-800 font-medium text-theme-sm dark:text-white/90">
@@ -129,6 +131,7 @@ export default function AuditLogs() {
     {
       key: 'action',
       header: 'Action',
+      sortable: true,
       render: (val) => (
         <Badge size="sm" color={getActionColor(val as string)} variant="light">
           {(val as string).toUpperCase()}
@@ -138,6 +141,8 @@ export default function AuditLogs() {
     {
       key: 'entity',
       header: 'Entity',
+      sortable: true,
+      sortValue: (log) => log.entity ?? '',
       render: (_, log) => (
         <div className="flex flex-col">
           <span className="font-medium text-gray-700 dark:text-gray-300 capitalize">{log.entity}</span>
@@ -162,6 +167,7 @@ export default function AuditLogs() {
     {
       key: 'created_at',
       header: 'Time',
+      sortable: true,
       render: (val) => formatDate(val as string)
     }
   ];
@@ -254,7 +260,12 @@ export default function AuditLogs() {
           </div>
         ) : (
           <>
-            <DataTable data={logs} columns={columns} />
+            <DataTable
+              data={logs}
+              columns={columns}
+              rowKey={(log) => log.id}
+              onRowClick={(log) => setSelectedLog(log)}
+            />
             {totalPages > 1 && (
               <Pagination
                 currentPage={currentPage}
