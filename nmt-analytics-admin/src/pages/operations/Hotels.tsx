@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
-import PageShell from "../../components/common/PageShell";
+import PageToolbar from "../../components/ui/PageToolbar";
 import Button from "../../components/ui/button/Button";
 import { DataTable, Column } from "../../components/ui/DataTable";
 import EmptyState from "../../components/ui/EmptyState";
@@ -221,15 +221,16 @@ export default function Hotels() {
   return (
     <>
       <PageMeta title={`${tr.title} | Travline`} description={tr.description} />
-      <PageShell
+      <PageToolbar
         title={tr.title}
-        subtitle={tr.description}
+        description={tr.description}
+        hideSearch
         actions={
           <Button variant="primary" onClick={() => setIsModalOpen(true)} className="flex items-center gap-2">
             <PlusIcon className="w-4 h-4" /> {tr.add}
           </Button>
         }
-      >
+      />
 
       {loading ? (
         <div className="flex items-center justify-center p-20">
@@ -302,7 +303,6 @@ export default function Hotels() {
           </div>
         </div>
       </Modal>
-      </PageShell>
     </>
   );
 }

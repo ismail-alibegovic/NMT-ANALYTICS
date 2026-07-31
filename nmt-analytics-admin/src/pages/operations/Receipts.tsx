@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
-import PageShell from "../../components/common/PageShell";
 import PageToolbar from "../../components/ui/PageToolbar";
 import Button from "../../components/ui/button/Button";
 import Badge from "../../components/ui/badge/Badge";
@@ -109,12 +108,12 @@ export default function Receipts() {
   };
 
   const columns: Column<Receipt>[] = [
-    { key: "receiptNumber", header: "No.", sortable: true, render: (v) => <span className="font-mono text-sm">{v as string}</span> },
-    { key: "travelerName", header: "Client", sortable: true, render: (v) => <span className="font-medium text-gray-900 dark:text-white">{(v as string) || "—"}</span> },
-    { key: "receiptType", header: "Type", sortable: true, render: (v) => typeBadge(v as string) },
-    { key: "amount", header: "Amount", sortable: true, sortValue: (r) => Number(r.amount || 0), render: (_v, r) => <span>{formatCurrency(r.amount)}</span> },
+    { key: "receiptNumber", header: "No.", render: (v) => <span className="font-mono text-sm">{v as string}</span> },
+    { key: "travelerName", header: "Client", render: (v) => <span className="font-medium text-gray-900 dark:text-white">{(v as string) || "—"}</span> },
+    { key: "receiptType", header: "Type", render: (v) => typeBadge(v as string) },
+    { key: "amount", header: "Amount", render: (_v, r) => <span>{formatCurrency(r.amount)}</span> },
     { key: "paymentMethod", header: "Method", render: (v) => <span className="text-gray-600 capitalize dark:text-gray-300">{(v as string) || "—"}</span> },
-    { key: "issuedAt", header: "Issued", sortable: true, render: (v) => formatDate(v as string) },
+    { key: "issuedAt", header: "Issued", render: (v) => formatDate(v as string) },
     {
       key: "actions", header: "Actions",
       render: (_, r) => (
@@ -134,29 +133,27 @@ export default function Receipts() {
   return (
     <>
       <PageMeta title={`${t.operations.receipts.title} | Travline`} description={t.operations.receipts.description} />
-      <PageShell
+      <PageToolbar
         title={t.operations.receipts.title}
-        subtitle={`${t.operations.receipts.description} · FR-YYYY-XXXX`}
+        description={`${t.operations.receipts.description} · FR-YYYY-XXXX`}
+        searchPlaceholder={t.operations.receipts.search}
+        searchValue={search}
+        onSearchChange={handleSearch}
+        filters={[
+          {
+            key: "type",
+            label: "All types",
+            value: typeFilter,
+            onChange: (v) => handleTypeChange(v as "" | "advance" | "final" | "refund"),
+            options: [
+              { value: "advance", label: "Advance" },
+              { value: "final", label: "Fiscal (Final)" },
+              { value: "refund", label: "Refund" },
+            ],
+          },
+        ]}
         actions={<Button variant="primary" onClick={() => setIsModalOpen(true)} className="flex items-center gap-2"><PlusIcon className="w-4 h-4" /> {tr.add}</Button>}
-      >
-        <PageToolbar
-          searchPlaceholder={t.operations.receipts.search}
-          searchValue={search}
-          onSearchChange={handleSearch}
-          filters={[
-            {
-              key: "type",
-              label: "All types",
-              value: typeFilter,
-              onChange: (v) => handleTypeChange(v as "" | "advance" | "final" | "refund"),
-              options: [
-                { value: "advance", label: "Advance" },
-                { value: "final", label: "Fiscal (Final)" },
-                { value: "refund", label: "Refund" },
-              ],
-            },
-          ]}
-        />
+      />
 
       {loading ? (
         <div className="flex items-center justify-center p-20"><div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div></div>
@@ -166,7 +163,7 @@ export default function Receipts() {
         />
       ) : (
         <>
-          <DataTable data={receipts} columns={columns} rowKey={(r) => r.id} />
+          <DataTable data={receipts} columns={columns} />
           {totalPages > 1 && <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={totalItems} itemsPerPage={ITEMS_PER_PAGE} onPageChange={handlePageChange} />}
         </>
       )}
@@ -207,7 +204,6 @@ export default function Receipts() {
           </div>
         </div>
       </Modal>
-      </PageShell>
     </>
   );
 }

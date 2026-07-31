@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
 import PageMeta from "../../components/common/PageMeta";
-import PageShell from "../../components/common/PageShell";
 import PageToolbar from "../../components/ui/PageToolbar";
 import Button from "../../components/ui/button/Button";
 import { DataTable, Column } from "../../components/ui/DataTable";
@@ -129,9 +128,12 @@ export default function Excursions() {
   return (
     <>
       <PageMeta title={`${tr.title} | Travline`} description={tr.description} />
-      <PageShell
+      <PageToolbar
         title={tr.title}
-        subtitle={tr.description}
+        description={tr.description}
+        searchPlaceholder={tr.search}
+        searchValue={search}
+        onSearchChange={setSearch}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleBusList} disabled={!selectedResId} title="Bus passenger list PDF" className="flex items-center gap-2">
@@ -145,12 +147,7 @@ export default function Excursions() {
             </Button>
           </div>
         }
-      >
-        <PageToolbar
-          searchPlaceholder={tr.search}
-          searchValue={search}
-          onSearchChange={setSearch}
-        />
+      />
 
       {/* Reservation selector — always visible */}
       <div className="mb-6">
@@ -234,7 +231,6 @@ export default function Excursions() {
           </div>
         </div>
       </Modal>
-      </PageShell>
     </>
   );
 }

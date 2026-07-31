@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { Link, useNavigate } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
-import { Panel, SectionLabel } from "../../components/common/PageShell";
 import {
   getAnalyticsOverviewV2,
   getRevenueSeries,
@@ -22,31 +21,11 @@ import {
   PieChartIcon,
   UserCircleIcon,
   GroupIcon,
-  CheckCircleIcon,
 } from "../../icons";
 import { useApp } from "../../context/AppContext";
 import { hasAccess, UserRole } from "../../types/roles";
 import { useT } from "../../lib/i18n/context";
 import { logger } from "../../utils/logger";
-
-type Range = 7 | 30 | 90;
-const RANGES: Range[] = [7, 30, 90];
-
-const RANGE_KEY = "travline.hub.range";
-
-type Severity = "warn" | "urgent";
-
-type AttentionRow = {
-  id: string;
-  title: string;
-  subtitle: string;
-  value: string;
-  href: string;
-  severity: Severity;
-  icon: React.FC<{ className?: string }>;
-  /** Lower sorts first. 0 = departure at risk, 1 = stale balance, 2 = full departure. */
-  rank: number;
-};
 
 type PaymentRow = {
   id: string;
@@ -173,6 +152,12 @@ const MiniSpark: React.FC<{ points: number[]; stroke?: string }> = ({ points, st
   );
 };
 
+const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <h2 className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+    {children}
+  </h2>
+);
+
 type Kpi = {
   label: string;
   value: string;
@@ -240,6 +225,14 @@ const KpiCard: React.FC<{ kpi: Kpi; loading: boolean }> = ({ kpi, loading }) => 
   );
 };
 
+const Panel: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
+  <div
+    className={`rounded-2xl border border-gray-200/70 bg-white p-6 shadow-sm shadow-gray-200/40 dark:border-white/[0.07] dark:bg-white/[0.02] dark:shadow-none ${className}`}
+  >
+    {children}
+  </div>
+);
+
 const HomeHub: React.FC = () => {
   const { userContext } = useApp();
   const navigate = useNavigate();
@@ -251,23 +244,6 @@ const HomeHub: React.FC = () => {
   const [revenue, setRevenue] = useState<RevenueSeriesDataPoint[]>([]);
   const [watchPayments, setWatchPayments] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState<Range>(() => {
-    try {
-      const stored = Number(localStorage.getItem(RANGE_KEY));
-      return stored === 7 || stored === 30 || stored === 90 ? stored : 30;
-    } catch {
-      return 30;
-    }
-  });
-
-  const changeRange = (next: Range) => {
-    setRange(next);
-    try {
-      localStorage.setItem(RANGE_KEY, String(next));
-    } catch {
-      /* private mode — the choice just won't persist */
-    }
-  };
 
   const role = userContext?.role;
   const orgName = userContext?.org?.name;
@@ -295,15 +271,13 @@ const HomeHub: React.FC = () => {
       try {
         const today = new Date();
         const todayISO = today.toISOString().split("T")[0];
-        const rangeStart = new Date(today.getTime() - range * 86_400_000)
-          .toISOString()
-          .split("T")[0];
+        const fortnightAgo = new Date(today.getTime() - 14 * 86_400_000).toISOString().split("T")[0];
 
         const [ov, deps, rev, pays] = await Promise.allSettled([
-          getAnalyticsOverviewV2({ from: rangeStart, to: todayISO }),
-          getDepartures({ status: "active", dateFrom: todayISO, limit: 12 }),
-          getRevenueSeries({ from: rangeStart, to: todayISO, bucket: "daily" }),
-          showFinance ? getReservations({ status: "confirmed", limit: 40 }) : Promise.resolve(null),
+          getAnalyticsOverviewV2({ from: fortnightAgo, to: todayISO }),
+          getDepartures({ status: "active", dateFrom: todayISO, limit: 5 }),
+          getRevenueSeries({ from: fortnightAgo, to: todayISO, bucket: "daily" }),
+          showFinance ? getReservations({ status: "confirmed", limit: 12 }) : Promise.resolve(null),
         ]);
 
         if (!active) return;
@@ -313,6 +287,7 @@ const HomeHub: React.FC = () => {
         if (pays.status === "fulfilled" && pays.value) {
           const rows = (pays.value.data || [])
             .filter((r) => r.balanceDue > 0)
+            .slice(0, 4)
             .map((r) => {
               const created = new Date(r.bookingDate || r.createdAt);
               const daysOpen = Math.max(0, Math.round((Date.now() - created.getTime()) / 86_400_000));
@@ -336,7 +311,7 @@ const HomeHub: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [showFinance, lang, range]);
+  }, [showFinance, lang]);
 
   const upcoming = useMemo(
     () =>
@@ -350,87 +325,6 @@ const HomeHub: React.FC = () => {
       })),
     [departures, hub.untitledDeparture]
   );
-
-  /**
-   * The worklist. Three signals merged into one ranked list:
-   *   rank 0 — departure inside 48h and under 60% filled (revenue at risk, still sellable)
-   *   rank 1 — reservation with a balance open longer than 14 days
-   *   rank 2 — departure already full (needs a waitlist decision)
-   * Finance rows are gated on `showFinance`, so agents never see balances here.
-   */
-  const attention: AttentionRow[] = useMemo(() => {
-    const rows: AttentionRow[] = [];
-    const nowMs = Date.now();
-
-    for (const d of departures) {
-      const departAt = d.depart_at;
-      if (!departAt) continue;
-      const ms = new Date(departAt).getTime();
-      if (Number.isNaN(ms) || ms < nowMs) continue;
-      const hoursOut = (ms - nowMs) / 3_600_000;
-      const capacity = d.capacity || 0;
-      const booked = d.booked || 0;
-      const pct = capacity > 0 ? booked / capacity : 0;
-      const label =
-        d.packages?.name || d.packageName || d.destination || hub.untitledDeparture;
-
-      if (hoursOut <= 48 && capacity > 0 && pct < 0.6) {
-        rows.push({
-          id: `dep-low-${d.id}`,
-          title: label,
-          subtitle:
-            hoursOut <= 24
-              ? hub.attnLowFillSoon.replace("{pct}", String(Math.round(pct * 100)))
-              : hub.attnLowFillDays
-                  .replace("{days}", String(Math.max(1, Math.round(hoursOut / 24))))
-                  .replace("{pct}", String(Math.round(pct * 100))),
-          value: `${Math.round(pct * 100)}%`,
-          href: `/departures/${d.id}`,
-          severity: "urgent",
-          icon: CalenderIcon,
-          rank: 0,
-        });
-      } else if (capacity > 0 && booked >= capacity) {
-        rows.push({
-          id: `dep-full-${d.id}`,
-          title: label,
-          subtitle: `${hub.attnFull} · ${relativeDayLabel(departAt, lang)}`,
-          value: `${booked}/${capacity}`,
-          href: `/departures/${d.id}`,
-          severity: "warn",
-          icon: GroupIcon,
-          rank: 2,
-        });
-      }
-    }
-
-    if (showFinance) {
-      for (const p of watchPayments) {
-        if (p.daysOpen <= 14) continue;
-        rows.push({
-          id: `bal-${p.id}`,
-          title: p.customerName,
-          subtitle: `${p.packageName} · ${hub.attnOverdue.replace("{days}", String(p.daysOpen))}`,
-          value: p.amount,
-          href: p.href,
-          severity: p.daysOpen > 30 ? "urgent" : "warn",
-          icon: DollarLineIcon,
-          rank: 1,
-        });
-      }
-    }
-
-    return rows.sort((a, b) => a.rank - b.rank).slice(0, 6);
-  }, [departures, watchPayments, showFinance, lang, hub]);
-
-  const outstandingSummary = useMemo(() => {
-    if (!showFinance) return null;
-    const count = watchPayments.length;
-    const total = overview?.total_balance_sum ?? null;
-    return { count, total };
-  }, [showFinance, watchPayments.length, overview]);
-
-  const rangeHint = hub.revenueHintRange.replace("{days}", String(range));
 
   const revenuePoints = useMemo(() => revenue.map((p) => p.total_paid_sum || 0), [revenue]);
   const paidTotal = useMemo(
@@ -453,7 +347,7 @@ const HomeHub: React.FC = () => {
         {
           label: hub.revenuePanel,
           value: fmtCurrency(overview.total_paid_sum, lang),
-          hint: rangeHint,
+          hint: hub.revenuePanelHint,
           accent: true,
           spark: revenuePoints,
           icon: DollarLineIcon,
@@ -475,11 +369,12 @@ const HomeHub: React.FC = () => {
       list.push({
         label: hub.recentDepartures,
         value: fmtNumber(upcoming.length),
+        hint: hub.revenuePanelHint,
         icon: CalenderIcon,
       });
     }
     return list;
-  }, [overview, showFinance, lang, revenuePoints, upcoming.length, hub, rangeHint]);
+  }, [overview, showFinance, lang, revenuePoints, upcoming.length, hub]);
 
   const startRef = useRef<HTMLButtonElement>(null);
 
@@ -512,40 +407,15 @@ const HomeHub: React.FC = () => {
               </h1>
               <p className="mt-2.5 text-sm capitalize text-gray-500 dark:text-gray-400">{dateLine}</p>
             </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-3 self-start md:self-auto">
-              {/* Range control — drives both KPI overview and the revenue series */}
-              <div
-                role="group"
-                aria-label={hub.attentionTitle}
-                className="inline-flex items-center gap-0.5 rounded-xl border border-gray-200/70 bg-white p-1 shadow-sm shadow-gray-200/40 dark:border-white/[0.07] dark:bg-white/[0.02] dark:shadow-none"
-              >
-                {RANGES.map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => changeRange(r)}
-                    aria-pressed={range === r}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold tabular-nums transition-colors ${
-                      range === r
-                        ? "bg-brand-500 text-white shadow-sm shadow-brand-500/25"
-                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/[0.04] dark:hover:text-white"
-                    }`}
-                  >
-                    {r === 7 ? hub.range7 : r === 30 ? hub.range30 : hub.range90}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                ref={startRef}
-                onClick={() => navigate("/reservations?new=1")}
-                className="group inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all hover:bg-brand-600 hover:shadow-brand-500/35 active:translate-y-px"
-              >
-                <PlusIcon className="size-4" />
-                {hub.focusNewReservation}
-                <ArrowRightIcon className="size-3.5 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
-              </button>
-            </div>
+            <button
+              ref={startRef}
+              onClick={() => navigate("/reservations?new=1")}
+              className="group inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all hover:bg-brand-600 hover:shadow-brand-500/35 active:translate-y-px md:self-auto"
+            >
+              <PlusIcon className="size-4" />
+              {hub.focusNewReservation}
+              <ArrowRightIcon className="size-3.5 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+            </button>
           </header>
 
           {/* ── KPI row ───────────────────────────────────────────────────── */}
@@ -570,76 +440,6 @@ const HomeHub: React.FC = () => {
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_352px]">
             {/* LEFT */}
             <section className="min-w-0 space-y-5">
-              {/* Needs attention — the worklist. Ranked, capped at 6. */}
-              <Panel>
-                <div className="mb-4 flex items-center justify-between gap-4">
-                  <SectionLabel>{hub.attentionTitle}</SectionLabel>
-                  {attention.length > 0 && (
-                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[0.68rem] font-semibold tabular-nums text-gray-500 dark:bg-white/[0.05] dark:text-gray-400">
-                      {attention.length}
-                    </span>
-                  )}
-                </div>
-
-                {loading ? (
-                  <ul className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                    {[0, 1, 2].map((i) => (
-                      <li key={i} className="flex items-center gap-3 py-3" aria-hidden>
-                        <div className="size-9 shrink-0 animate-pulse rounded-xl bg-gray-200 dark:bg-white/[0.06]" />
-                        <div className="flex-1 space-y-2">
-                          <div className="h-3 w-2/5 animate-pulse rounded bg-gray-200 dark:bg-white/[0.06]" />
-                          <div className="h-2.5 w-1/3 animate-pulse rounded bg-gray-100 dark:bg-white/[0.04]" />
-                        </div>
-                        <div className="h-4 w-12 animate-pulse rounded bg-gray-100 dark:bg-white/[0.04]" />
-                      </li>
-                    ))}
-                  </ul>
-                ) : attention.length === 0 ? (
-                  <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gray-200 px-5 py-12 text-center dark:border-white/[0.08]">
-                    <CheckCircleIcon className="size-6 text-emerald-500/70" />
-                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      {hub.attentionEmpty}
-                    </span>
-                    <span className="text-xs text-gray-400 dark:text-gray-500">
-                      {hub.attentionEmptyDesc}
-                    </span>
-                  </div>
-                ) : (
-                  <ul className="-mx-2 space-y-0.5">
-                    {attention.map((row) => {
-                      const tile =
-                        row.severity === "urgent"
-                          ? "border-rose-200/70 bg-rose-50 text-rose-600 dark:border-rose-500/20 dark:bg-rose-500/[0.08] dark:text-rose-400"
-                          : "border-amber-200/70 bg-amber-50 text-amber-600 dark:border-amber-500/20 dark:bg-amber-500/[0.08] dark:text-amber-400";
-                      return (
-                        <li key={row.id}>
-                          <Link
-                            to={row.href}
-                            className="group flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]"
-                          >
-                            <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl border ${tile}`}>
-                              <row.icon className="size-4" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-medium text-gray-900 dark:text-white">
-                                {row.title}
-                              </div>
-                              <div className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
-                                {row.subtitle}
-                              </div>
-                            </div>
-                            <div className="shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
-                              {row.value}
-                            </div>
-                            <ArrowRightIcon className="size-4 shrink-0 text-gray-300 transition-all group-hover:translate-x-0.5 group-hover:text-brand-500 dark:text-gray-600" />
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </Panel>
-
               {/* Revenue trend */}
               {showFinance && (
                 <Panel>
@@ -651,7 +451,7 @@ const HomeHub: React.FC = () => {
                       </p>
                     </div>
                     <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[0.68rem] font-medium text-gray-500 dark:bg-white/[0.05] dark:text-gray-400">
-                      {rangeHint}
+                      {hub.revenuePanelHint}
                     </span>
                   </div>
                   <div className="mt-5">
@@ -756,23 +556,11 @@ const HomeHub: React.FC = () => {
               {/* Outstanding balances */}
               {showFinance && (
                 <Panel>
-                  <div className="mb-4 flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <SectionLabel>{hub.focusOutstanding}</SectionLabel>
-                      {outstandingSummary && outstandingSummary.count > 0 && (
-                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                          <span className="font-semibold tabular-nums text-gray-900 dark:text-white">
-                            {outstandingSummary.total !== null
-                              ? fmtCurrency(outstandingSummary.total, lang)
-                              : outstandingSummary.count}
-                          </span>{" "}
-                          {hub.outstandingSummary}
-                        </p>
-                      )}
-                    </div>
+                  <div className="mb-4 flex items-center justify-between gap-4">
+                    <SectionLabel>{hub.focusOutstanding}</SectionLabel>
                     <Link
                       to="/payments"
-                      className="mt-0.5 inline-flex shrink-0 items-center gap-1 text-xs font-medium text-brand-500 transition-colors hover:text-brand-600 dark:text-brand-400"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-brand-500 transition-colors hover:text-brand-600 dark:text-brand-400"
                     >
                       {hub.focusOutstandingCta}
                       <ArrowRightIcon className="size-3" />

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import PageMeta from "../../components/common/PageMeta";
-import PageShell from "../../components/common/PageShell";
 import api from "../../lib/apiClient";
 import { useT } from "../../lib/i18n/context";
 import { useToast } from "../../context/ToastContext";
@@ -188,7 +187,15 @@ export default function PdfTemplateEditor() {
   return (
     <>
       <PageMeta title={t.settings.pdfTemplates} description={t.settings.pdfTemplatesDesc} />
-      <PageShell title={t.settings.pdfTemplates} subtitle={t.settings.pdfTemplatesDesc}>
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {t.settings.pdfTemplates}
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {t.settings.pdfTemplatesDesc}
+          </p>
+        </div>
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-800">
@@ -344,7 +351,7 @@ export default function PdfTemplateEditor() {
             </span>
           )}
         </div>
-      </PageShell>
+      </div>
     </>
   );
 }

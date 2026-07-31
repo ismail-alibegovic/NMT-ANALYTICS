@@ -128,6 +128,7 @@ export const en = {
     kpiCancelRateHint: 'Confirmed → cancelled ratio',
     // Revenue sparkline panel
     revenuePanel: 'Paid revenue',
+    revenuePanelHint: 'Last 14 days',
     // Upcoming departures panel
     recentDepartures: 'Upcoming departures',
     viewAll: 'View all',
@@ -147,18 +148,6 @@ export const en = {
     sCustomers: 'Customers',
     sReports: 'Reports',
     sBranding: 'Branding',
-    range7: '7 days',
-    range30: '30 days',
-    range90: '90 days',
-    attentionTitle: 'Needs attention',
-    attentionEmpty: 'All under control',
-    attentionEmptyDesc: 'No departures or balances need a reaction.',
-    attnLowFillSoon: 'Departs soon · {pct}% filled',
-    attnLowFillDays: 'Departs in {days} days · {pct}% filled',
-    attnFull: 'Full · check the waitlist',
-    attnOverdue: 'Balance open {days} days',
-    revenueHintRange: 'Last {days} days',
-    outstandingSummary: 'reservations with an open balance',
   },
   common: {
     save: 'Save', cancel: 'Cancel', delete: 'Delete', edit: 'Edit',

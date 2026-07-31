@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
-import PageShell from "../../components/common/PageShell";
 import { DocsIcon } from "../../icons";
 import api from "../../lib/apiClient";
 import { useT } from "../../lib/i18n/context";
@@ -187,7 +186,10 @@ export default function Settings() {
   return (
     <>
       <PageMeta title={`${t.settings.title} | Travline`} description={t.settings.description} />
-      <PageShell title={t.settings.title} subtitle={t.settings.description}>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{t.settings.title}</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t.settings.description}</p>
+      </div>
 
       {/* PDF Template Editor link */}
       <div className="mb-6 flex items-center gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
@@ -529,7 +531,6 @@ export default function Settings() {
           </button>
         </div>
       </div>
-      </PageShell>
     </>
   );
 }

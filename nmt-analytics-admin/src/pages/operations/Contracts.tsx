@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
-import PageShell from "../../components/common/PageShell";
 import PageToolbar from "../../components/ui/PageToolbar";
 import Button from "../../components/ui/button/Button";
 import Badge from "../../components/ui/badge/Badge";
@@ -114,12 +113,12 @@ export default function Contracts() {
   };
 
   const columns: Column<Contract>[] = [
-    { key: "contractNumber", header: "No.", sortable: true, render: (v) => <span className="font-mono text-sm">{v as string}</span> },
-    { key: "travelerName", header: "Traveler", sortable: true, render: (v) => <span className="font-medium text-gray-900 dark:text-white">{v as string}</span> },
+    { key: "contractNumber", header: "No.", render: (v) => <span className="font-mono text-sm">{v as string}</span> },
+    { key: "travelerName", header: "Traveler", render: (v) => <span className="font-medium text-gray-900 dark:text-white">{v as string}</span> },
     { key: "packageDescription", header: "Package", render: (v) => <span className="text-gray-600 dark:text-gray-300">{(v as string) || "—"}</span> },
-    { key: "totalAmount", header: "Amount", sortable: true, sortValue: (c) => Number(c.totalAmount || 0), render: (_v, c) => <span>{formatCurrency(c.totalAmount)}</span> },
-    { key: "contractDate", header: "Date", sortable: true, render: (v) => formatDate(v as string) },
-    { key: "status", header: "Status", sortable: true, render: (v) => statusBadge(v as string) },
+    { key: "totalAmount", header: "Amount", render: (_v, c) => <span>{formatCurrency(c.totalAmount)}</span> },
+    { key: "contractDate", header: "Date", render: (v) => formatDate(v as string) },
+    { key: "status", header: "Status", render: (v) => statusBadge(v as string) },
     {
       key: "actions", header: "Actions",
       render: (_, c) => (
@@ -145,33 +144,31 @@ export default function Contracts() {
   return (
     <>
       <PageMeta title={`${t.operations.contracts.title} | Travline`} description={t.operations.contracts.description} />
-      <PageShell
+      <PageToolbar
         title={t.operations.contracts.title}
-        subtitle={`${t.operations.contracts.description} · UG-YYYY-XXXX`}
+        description={`${t.operations.contracts.description} · UG-YYYY-XXXX`}
+        searchPlaceholder={t.operations.contracts.search}
+        searchValue={search}
+        onSearchChange={handleSearch}
+        filters={[
+          {
+            key: "status",
+            label: "All statuses",
+            value: statusFilter,
+            onChange: (v) => handleStatusChange(v as "" | "draft" | "signed" | "cancelled"),
+            options: [
+              { value: "draft", label: "Draft" },
+              { value: "signed", label: "Signed" },
+              { value: "cancelled", label: "Cancelled" },
+            ],
+          },
+        ]}
         actions={
           <Button variant="primary" onClick={() => setIsModalOpen(true)} className="flex items-center gap-2">
             <PlusIcon className="w-4 h-4" /> {tr.add}
           </Button>
         }
-      >
-        <PageToolbar
-          searchPlaceholder={t.operations.contracts.search}
-          searchValue={search}
-          onSearchChange={handleSearch}
-          filters={[
-            {
-              key: "status",
-              label: "All statuses",
-              value: statusFilter,
-              onChange: (v) => handleStatusChange(v as "" | "draft" | "signed" | "cancelled"),
-              options: [
-                { value: "draft", label: "Draft" },
-                { value: "signed", label: "Signed" },
-                { value: "cancelled", label: "Cancelled" },
-              ],
-            },
-          ]}
-        />
+      />
 
       {loading ? (
         <div className="flex items-center justify-center p-20">
@@ -185,7 +182,7 @@ export default function Contracts() {
         />
       ) : (
         <>
-          <DataTable data={contracts} columns={columns} rowKey={(c) => c.id} />
+          <DataTable data={contracts} columns={columns} />
           {totalPages > 1 && (
             <Pagination
               currentPage={currentPage}
@@ -226,7 +223,6 @@ export default function Contracts() {
           </div>
         </div>
       </Modal>
-      </PageShell>
     </>
   );
 }

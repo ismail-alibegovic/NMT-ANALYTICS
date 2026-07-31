@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
-import PageShell from "../../components/common/PageShell";
 import { PageToolbar } from "../../components/ui/PageToolbar";
 import EmptyState from "../../components/ui/EmptyState";
 import { useT } from "../../lib/i18n/context";
@@ -165,9 +164,16 @@ export default function Availability() {
   return (
     <>
       <PageMeta title={tr.title} description={tr.description} />
-      <PageShell
+      <PageToolbar
         title={tr.title}
-        subtitle={tr.description}
+        description={tr.description}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder={`${tr.packageName} / ${tr.transport} / ${formatDate(new Date().toISOString())}`}
+        filters={[
+          { key: "package", label: tr.filterPackage, options: [{ value: "all", label: tr.allPackages }, ...packageOptions], value: packageFilter, onChange: setPackageFilter },
+          { key: "status", label: tr.filterStatus, options: [{ value: "all", label: tr.allStatuses }, ...statusOptions], value: statusFilter, onChange: setStatusFilter },
+        ]}
         actions={
           <button
             type="button"
@@ -179,18 +185,7 @@ export default function Availability() {
             {tr.refresh}
           </button>
         }
-      >
-        <PageToolbar
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder={`${tr.packageName} / ${tr.transport} / ${formatDate(new Date().toISOString())}`}
-          filters={[
-            { key: "package", label: tr.filterPackage, options: [{ value: "all", label: tr.allPackages }, ...packageOptions], value: packageFilter, onChange: setPackageFilter },
-            { key: "status", label: tr.filterStatus, options: [{ value: "all", label: tr.allStatuses }, ...statusOptions], value: statusFilter, onChange: setStatusFilter },
-          ]}
-        />
-
-
+      />
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label={tr.summaryTotal} value={stats.total} tone="neutral" />
@@ -222,7 +217,6 @@ export default function Availability() {
           </div>
         )}
       </div>
-      </PageShell>
     </>
   );
 }

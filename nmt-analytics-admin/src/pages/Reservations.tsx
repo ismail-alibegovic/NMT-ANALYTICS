@@ -5,7 +5,6 @@ import Button from "../components/ui/button/Button";
 import ImportModal from "../components/import/ImportModal";
 import PaymentsModal from "../components/payments/PaymentsModal";
 import PageToolbar from "../components/ui/PageToolbar";
-import PageShell from "../components/common/PageShell";
 import { DataTable, Column, Pagination } from "../components/ui/DataTable";
 import { FileIcon, CloseIcon } from "../icons";
 import { useToast } from "../context/ToastContext";
@@ -262,8 +261,6 @@ export default function Reservations() {
     {
       key: 'customerName',
       header: 'Klijent',
-      sortable: true,
-      sortValue: (r) => r.customerName ?? '',
       render: (_, res) => (
         <div>
           <div className="font-medium truncate" title={res.customerName}>
@@ -278,8 +275,6 @@ export default function Reservations() {
     {
       key: 'packageName',
       header: 'Paket',
-      sortable: true,
-      sortValue: (r) => r.packageName ?? '',
       render: (val) => (
         <div className="truncate" title={val || '-'}>
           {val || '-'}
@@ -289,8 +284,6 @@ export default function Reservations() {
     {
       key: 'totalAmount',
       header: 'Ukupno',
-      sortable: true,
-      sortValue: (r) => normalizeMoney(r.totalAmount),
       render: (val) => (
         <div className="text-right whitespace-nowrap">
           {formatCurrency(normalizeMoney(val))}
@@ -300,8 +293,6 @@ export default function Reservations() {
     {
       key: 'paidAmount',
       header: 'Plaćeno',
-      sortable: true,
-      sortValue: (r) => normalizeMoney(r.paidAmount),
       render: (val) => (
         <div className="text-right text-success-600 dark:text-success-500 font-medium whitespace-nowrap">
           {formatCurrency(normalizeMoney(val))}
@@ -311,8 +302,6 @@ export default function Reservations() {
     {
       key: 'balanceDue',
       header: 'Saldo',
-      sortable: true,
-      sortValue: (r) => normalizeMoney(r.balanceDue),
       render: (val) => {
         // Use backend-calculated balanceDue (can be negative for overpayment)
         const balance = normalizeMoney(val);
@@ -338,7 +327,6 @@ export default function Reservations() {
     {
       key: 'paymentStatus',
       header: 'Status plaćanja',
-      sortable: true,
       render: (val) => {
         // Use backend-calculated payment_status
         const status = val || 'unpaid';
@@ -364,7 +352,6 @@ export default function Reservations() {
     {
       key: 'status',
       header: 'Status',
-      sortable: true,
       render: (val, res) => {
         const statusConfig: Record<string, { color: any; text: string }> = {
           'pending': { color: 'warning', text: 'Na čekanju' },
@@ -487,11 +474,18 @@ export default function Reservations() {
     <>
       <PageMeta title="Reservations | Travline" description="Manage reservations and payments" />
 
-      <PageShell
+      <PageToolbar
         title="Rezervacije"
-        subtitle="Upravljanje rezervacijama i plaćanjima"
+        description="Upravljanje rezervacijama i plaćanjima"
+        searchValue={searchQuery}
+        onSearchChange={(val: string) => {
+          setSearchQuery(val);
+          setCurrentPage(1);
+          fetchReservations(1, statusFilter, dateFrom, dateTo, assignedOnly, val);
+        }}
+        searchPlaceholder="Traži klijenta ili telefon..."
         actions={
-          <>
+          <div className="flex gap-2">
             <Button
               onClick={() => setIsCreateOpen(true)}
               className="flex items-center gap-2"
@@ -506,17 +500,8 @@ export default function Reservations() {
               <FileIcon className="w-4 h-4" />
               Import CSV
             </Button>
-          </>
+          </div>
         }
-      >
-      <PageToolbar
-        searchValue={searchQuery}
-        onSearchChange={(val: string) => {
-          setSearchQuery(val);
-          setCurrentPage(1);
-          fetchReservations(1, statusFilter, dateFrom, dateTo, assignedOnly, val);
-        }}
-        searchPlaceholder="Traži klijenta ili telefon..."
       />
 
       {/* Date Filters Row */}
@@ -647,7 +632,7 @@ export default function Reservations() {
         />
       ) : (
         <>
-          <DataTable data={reservations} columns={columns} rowKey={(r) => r.id} />
+          <DataTable data={reservations} columns={columns} />
           {totalPages > 1 && (
             <Pagination
               currentPage={currentPage}
@@ -659,8 +644,6 @@ export default function Reservations() {
           )}
         </>
       )}
-
-      </PageShell>
 
       <ImportModal
         entity="reservations"

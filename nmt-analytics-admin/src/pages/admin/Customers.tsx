@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import PageMeta from '../../components/common/PageMeta';
-import PageShell from '../../components/common/PageShell';
 import { DataTable, Column, Pagination } from '../../components/ui/DataTable';
 import { FormModal } from '../../components/ui/FormModal';
 import ImportModal from '../../components/import/ImportModal';
@@ -181,8 +180,6 @@ export default function Customers() {
     {
       key: 'fullName',
       header: 'Customer',
-      sortable: true,
-      sortValue: (c) => c.full_name ?? '',
       render: (_, customer) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
@@ -197,11 +194,10 @@ export default function Customers() {
         </div>
       )
     },
-    { key: 'phone', header: 'Phone', sortable: true },
+    { key: 'phone', header: 'Phone' },
     {
       key: 'status',
       header: 'Status',
-      sortable: true,
       render: (val) => (
         <Badge color={getStatusColor(val as string)} variant="light" size="sm">
           {(val as string)?.charAt(0).toUpperCase() + (val as string)?.slice(1)}
@@ -211,6 +207,7 @@ export default function Customers() {
     {
       key: 'actions', header: 'Actions', render: (_, customer) => (
         <div className="flex gap-2 justify-end">
+          <Button size="sm" variant="outline" onClick={() => navigate(`/customers/${customer.id}`)} className="p-2">View</Button>
           <Button size="sm" variant="outline" onClick={() => handleEdit(customer)} className="p-2">Edit</Button>
           <Button size="sm" variant="outline" onClick={() => handleDelete(customer)} className="p-2 text-red-600 hover:text-red-700">Delete</Button>
         </div>
@@ -241,43 +238,23 @@ export default function Customers() {
   return (
     <>
       <PageMeta title="Customers | Travline" description="Manage your customer database" />
-      <PageShell
-        title="Customers"
-        subtitle="Manage your customer database"
-        actions={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => setImportModalOpen(true)}
-              className="flex items-center gap-2"
-            >
-              <FileIcon className="w-4 h-4" />
-              Import CSV
-            </Button>
-            <Button onClick={handleCreate}>Add Customer</Button>
-          </>
-        }
-      >
       <PageToolbar
+        title="Customers"
+        description="Manage your customer database"
         searchPlaceholder="Search customers..."
         searchValue={searchTerm}
         onSearchChange={handleSearch}
-        filters={[
-          {
-            key: 'package',
-            label: 'Svi klijenti (svi aranžmani)',
-            value: packageFilter,
-            options: packages.map((pkg) => ({
-              value: pkg.id,
-              label: `${pkg.name} - ${pkg.destination}`,
-            })),
-            onChange: (value) => {
-              setPackageFilter(value);
-              setCurrentPage(1);
-              fetchCustomers(1, searchTerm, value);
-            },
-          },
-        ]}
+        createButton={{ label: "Add Customer", onClick: handleCreate }}
+        actions={
+          <Button
+            variant="outline"
+            onClick={() => setImportModalOpen(true)}
+            className="flex items-center gap-2"
+          >
+            <FileIcon className="w-4 h-4" />
+            Import CSV
+          </Button>
+        }
       />
 
       <ImportModal
@@ -290,11 +267,30 @@ export default function Customers() {
         }}
       />
 
-      {packageFilter && (
-        <p className="-mt-2 mb-6 text-xs text-gray-500">
-          Prikazani su klijenti koji imaju rezervaciju za odabrani aranžman.
-        </p>
-      )}
+      {/* Filter by package */}
+      <div className="mb-6">
+        <div className="w-full sm:w-64">
+          <select
+            value={packageFilter}
+            onChange={(e) => {
+              setPackageFilter(e.target.value);
+              setCurrentPage(1);
+              fetchCustomers(1, searchTerm, e.target.value);
+            }}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/[0.1] dark:bg-gray-900 dark:text-white"
+          >
+            <option value="">Svi klijenti (svi aranžmani)</option>
+            {packages.map((pkg) => (
+              <option key={pkg.id} value={pkg.id}>{pkg.name} - {pkg.destination}</option>
+            ))}
+          </select>
+        </div>
+        {packageFilter && (
+          <p className="text-xs text-gray-500 mt-2">
+            Prikazani su klijenti koji imaju rezervaciju za odabrani aranžman.
+          </p>
+        )}
+      </div>
 
       {loading ? (
         <div className="flex items-center justify-center p-20">
@@ -308,12 +304,7 @@ export default function Customers() {
         <EmptyState title="No customers found" description={searchTerm ? "Try searching for something else" : "Get started by adding your first customer"} action={!searchTerm ? { label: "Add Customer", onClick: handleCreate } : undefined} />
       ) : (
         <>
-          <DataTable
-            data={customers}
-            columns={columns}
-            rowKey={(c) => c.id}
-            onRowClick={(c) => navigate(`/customers/${c.id}`)}
-          />
+          <DataTable data={customers} columns={columns} />
           {totalPages > 1 && (
             <Pagination
               currentPage={currentPage}
@@ -325,8 +316,6 @@ export default function Customers() {
           )}
         </>
       )}
-
-      </PageShell>
 
       <FormModal
         isOpen={modalOpen}

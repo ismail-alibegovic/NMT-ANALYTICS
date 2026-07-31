@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import PageMeta from "../../components/common/PageMeta";
-import PageShell from "../../components/common/PageShell";
 import { DataTable, Column, Pagination } from "../../components/ui/DataTable";
 import Badge from "../../components/ui/badge/Badge";
 import Button from "../../components/ui/button/Button";
@@ -115,8 +114,6 @@ export default function AuditLogs() {
     {
       key: 'user',
       header: 'User',
-      sortable: true,
-      sortValue: (log) => log.profiles?.full_name ?? '',
       render: (_, log) => (
         <div className="flex flex-col">
           <span className="text-gray-800 font-medium text-theme-sm dark:text-white/90">
@@ -131,7 +128,6 @@ export default function AuditLogs() {
     {
       key: 'action',
       header: 'Action',
-      sortable: true,
       render: (val) => (
         <Badge size="sm" color={getActionColor(val as string)} variant="light">
           {(val as string).toUpperCase()}
@@ -141,8 +137,6 @@ export default function AuditLogs() {
     {
       key: 'entity',
       header: 'Entity',
-      sortable: true,
-      sortValue: (log) => log.entity ?? '',
       render: (_, log) => (
         <div className="flex flex-col">
           <span className="font-medium text-gray-700 dark:text-gray-300 capitalize">{log.entity}</span>
@@ -167,7 +161,6 @@ export default function AuditLogs() {
     {
       key: 'created_at',
       header: 'Time',
-      sortable: true,
       render: (val) => formatDate(val as string)
     }
   ];
@@ -180,11 +173,15 @@ export default function AuditLogs() {
     <>
       <PageMeta title="Audit Logs | Travline" description="System activity logs" />
 
-      <PageShell
-        title="System Activity"
-        subtitle="Track all significant changes and actions in the system"
-        actions={
-          <>
+      <div className="p-6">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">System Activity</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Track all significant changes and actions in the system
+            </p>
+          </div>
+          <div className="flex gap-2">
             <Button
               variant="outline"
               onClick={() => exportToCsv(logs)}
@@ -207,9 +204,9 @@ export default function AuditLogs() {
               </svg>
               Refresh
             </Button>
-          </>
-        }
-      >
+          </div>
+        </div>
+
         {/* Filters */}
         <div className="mb-6 space-y-4">
           <div className="relative max-w-sm">
@@ -260,12 +257,7 @@ export default function AuditLogs() {
           </div>
         ) : (
           <>
-            <DataTable
-              data={logs}
-              columns={columns}
-              rowKey={(log) => log.id}
-              onRowClick={(log) => setSelectedLog(log)}
-            />
+            <DataTable data={logs} columns={columns} />
             {totalPages > 1 && (
               <Pagination
                 currentPage={currentPage}
@@ -277,7 +269,7 @@ export default function AuditLogs() {
             )}
           </>
         )}
-      </PageShell>
+      </div>
 
       <Modal isOpen={!!selectedLog} onClose={() => setSelectedLog(null)} className="max-w-3xl" title="Audit Log Details">
         <div className="p-6">

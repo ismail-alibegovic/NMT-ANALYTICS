@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import PageMeta from '../../components/common/PageMeta';
 import { DataTable, Column, Pagination } from '../../components/ui/DataTable';
+import PageBreadCrumb from '../../components/common/PageBreadCrumb';
 import PageToolbar from '../../components/ui/PageToolbar';
-import PageShell from '../../components/common/PageShell';
 import { FileIcon, DownloadIcon, TrashBinIcon, DocsIcon, PageIcon } from '../../icons';
 import EmptyState from '../../components/ui/EmptyState';
 import Button from '../../components/ui/button/Button';
@@ -254,9 +254,16 @@ export default function Documents() {
                 className="hidden"
             />
 
-            <PageShell
+            <div className="mb-6">
+                <PageBreadCrumb pageTitle="Documents" />
+            </div>
+
+            <PageToolbar
                 title="Documents"
-                subtitle="Manage and store important files and documents"
+                description="Manage and store important files and documents"
+                searchPlaceholder="Search documents..."
+                searchValue={searchTerm}
+                onSearchChange={handleSearch}
                 actions={
                     <Button
                         variant="primary"
@@ -272,12 +279,6 @@ export default function Documents() {
                         {uploading ? 'Uploading...' : 'Upload Document'}
                     </Button>
                 }
-            >
-
-            <PageToolbar
-                searchPlaceholder="Search documents..."
-                searchValue={searchTerm}
-                onSearchChange={handleSearch}
             />
 
             {loading ? (
@@ -312,8 +313,6 @@ export default function Documents() {
                     )}
                 </>
             )}
-
-            </PageShell>
         </>
     );
 }

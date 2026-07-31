@@ -4,7 +4,7 @@ import { useApp } from "../context/AppContext";
 import { useNavigate } from "react-router";
 import Button from "../components/ui/button/Button";
 import { useToast } from "../context/ToastContext";
-import PageShell from "../components/common/PageShell";
+import PageToolbar from "../components/ui/PageToolbar";
 import { UserCircleIcon } from "../icons";
 import { ROLE_LABELS, UserRole, isUserRole } from "../types/roles";
 
@@ -137,10 +137,15 @@ export default function Profile() {
     }
 
     return (
-        <PageShell
-            title="Korisnički Profil"
-            subtitle="Pregled i uređivanje vaših ličnih podataka"
-        >
+        <div className="p-6 max-w-4xl mx-auto">
+            <PageToolbar
+                title="Korisnički Profil"
+                description="Pregled i uređivanje vaših ličnih podataka"
+                searchValue=""
+                onSearchChange={() => { }}
+                searchPlaceholder=""
+            />
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Left Column: Basic Info */}
                 <div className="md:col-span-1 space-y-6">
@@ -227,6 +232,6 @@ export default function Profile() {
                     </div>
                 </div>
             </div>
-        </PageShell>
+        </div>
     );
 }

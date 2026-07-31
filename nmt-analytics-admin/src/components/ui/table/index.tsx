@@ -22,8 +22,6 @@ interface TableBodyProps {
 interface TableRowProps {
   children: ReactNode; // Cells (th or td)
   className?: string; // Optional className for styling
-  /** Set only for clickable rows; also opts the row into keyboard activation. */
-  onClick?: (event: React.MouseEvent<HTMLTableRowElement>) => void;
 }
 
 // Props for TableCell
@@ -51,26 +49,8 @@ const TableBody: React.FC<TableBodyProps> = ({ children, className }) => {
 };
 
 // TableRow Component
-const TableRow: React.FC<TableRowProps> = ({ children, className, onClick }) => {
-  if (!onClick) {
-    return <tr className={className}>{children}</tr>;
-  }
-  // A clickable row must be reachable and activatable without a mouse.
-  return (
-    <tr
-      className={className}
-      onClick={onClick}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        onClick(event as unknown as React.MouseEvent<HTMLTableRowElement>);
-      }}
-      tabIndex={0}
-    >
-      {children}
-    </tr>
-  );
+const TableRow: React.FC<TableRowProps> = ({ children, className }) => {
+  return <tr className={className}>{children}</tr>;
 };
 
 // TableCell Component

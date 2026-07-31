@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import PageMeta from '../../components/common/PageMeta';
-import PageShell from '../../components/common/PageShell';
+import PageToolbar from '../../components/ui/PageToolbar';
 import IntegrationCard from '../../components/integrations/IntegrationCard';
 import ConfigureIntegrationModal from '../../components/integrations/ConfigureIntegrationModal';
 import Button from '../../components/ui/button/Button';
@@ -102,10 +102,13 @@ const Integrations = () => {
         <>
             <PageMeta title="Integrations | Travline" description="Manage system integrations and AI tools" />
 
-            <PageShell
+            <PageToolbar
                 title="Integracije i AI Alati"
-                subtitle="Povežite vanjske servise i koristite napredne AI funkcionalnosti"
-            >
+                description="Povežite vanjske servise i koristite napredne AI funkcionalnosti"
+                searchValue=""
+                onSearchChange={() => { }}
+                searchPlaceholder="Traži integracije..." // Hidden if we don't implement filtering logic but keeping prop for now
+            />
 
             {/* Integrations Grid */}
             <div className="mb-10">
@@ -401,8 +404,6 @@ const Integrations = () => {
                 </div>
               )}
             </div>
-            </PageShell>
-
             <ConfigureIntegrationModal
                 isOpen={isConfigModalOpen}
                 onClose={() => setIsConfigModalOpen(false)}

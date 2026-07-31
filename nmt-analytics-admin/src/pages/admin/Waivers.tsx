@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import PageMeta from "../../components/common/PageMeta";
-import PageShell from "../../components/common/PageShell";
 import api from "../../lib/apiClient";
 import { useT } from "../../lib/i18n/context";
 import { useToast } from "../../context/ToastContext";
@@ -195,7 +194,8 @@ export default function WaiversPage() {
   return (
     <>
       <PageMeta title="Waivers | Travline" description="Digitalni pristanak putnika" />
-      <PageShell title="Waivers" subtitle="Digitalni pristanak putnika">
+      <div className="p-6 max-w-5xl mx-auto">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Waivers</h1>
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-700">
@@ -396,7 +396,7 @@ export default function WaiversPage() {
             )}
           </div>
         )}
-      </PageShell>
+      </div>
 
       {/* Template modal */}
       {showTemplateModal && (

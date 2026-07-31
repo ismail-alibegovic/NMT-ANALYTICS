@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import PageToolbar from "../../components/ui/PageToolbar";
-import PageShell from "../../components/common/PageShell";
 import { DataTable, Column, Pagination } from "../../components/ui/DataTable";
 import EmptyState from "../../components/ui/EmptyState";
 import Badge from "../../components/ui/badge/Badge";
@@ -225,8 +224,6 @@ export default function Departures() {
     {
       key: 'packageName',
       header: 'Paket',
-      sortable: true,
-      sortValue: (d) => d.packageName ?? '',
       render: (_, departure) => (
         <div className="min-w-[160px]">
           <button
@@ -244,8 +241,6 @@ export default function Departures() {
     {
       key: 'depart_at',
       header: 'Polazak',
-      sortable: true,
-      sortValue: (d) => d.depart_at ?? '',
       render: (val) => (
         <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
           {formatDate(val as string)}
@@ -255,8 +250,6 @@ export default function Departures() {
     {
       key: 'return_at',
       header: 'Povratak',
-      sortable: true,
-      sortValue: (d) => d.return_at ?? '',
       render: (val) => (
         <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
           {formatDate(val as string)}
@@ -266,8 +259,6 @@ export default function Departures() {
     {
       key: 'capacity',
       header: 'Popunjenost',
-      sortable: true,
-      sortValue: (d) => (d.capacity > 0 ? d.booked / d.capacity : 0),
       render: (_, departure) => {
         const capacityInfo = getDepartureStatus(departure.booked, departure.capacity);
         const occupancy = departure.capacity > 0
@@ -345,27 +336,23 @@ export default function Departures() {
   return (
     <>
       <PageMeta title="Polasci | Travline" description="Upravljanje polascima i kapacitetima" />
-      <PageShell
-        title="Polasci"
-        subtitle="Upravljanje polascima, kapacitetima i terminima"
-        actions={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => setIsImportOpen(true)}
-              className="flex items-center gap-2"
-            >
-              <FileIcon className="w-4 h-4" />
-              Import CSV
-            </Button>
-            <Button onClick={handleCreate}>Dodaj polazak</Button>
-          </>
-        }
-      >
       <PageToolbar
+        title="Polasci"
+        description="Upravljanje polascima, kapacitetima i terminima"
         searchValue={searchQuery}
         onSearchChange={(query) => setSearchQuery(query)}
         searchPlaceholder="Traži polaske..."
+        createButton={{ label: "Dodaj polazak", onClick: handleCreate }}
+        actions={
+          <Button
+            variant="outline"
+            onClick={() => setIsImportOpen(true)}
+            className="flex items-center gap-2"
+          >
+            <FileIcon className="w-4 h-4" />
+            Import CSV
+          </Button>
+        }
       />
 
       {/* View Toggle + Filters Row */}
@@ -458,12 +445,7 @@ export default function Departures() {
             />
           ) : (
             <>
-              <DataTable
-                data={departures}
-                columns={columns}
-                rowKey={(d) => d.id}
-                onRowClick={(d) => navigate(`/departures/${d.id}`)}
-              />
+              <DataTable data={departures} columns={columns} />
               {totalPages > 1 && (
                 <Pagination
                   currentPage={currentPage}
@@ -481,8 +463,6 @@ export default function Departures() {
       {viewMode === "calendar" && (
         <DepartureCalendarView departures={departures} loading={loading} />
       )}
-
-      </PageShell>
 
       <ImportModal
         entity="departures"
