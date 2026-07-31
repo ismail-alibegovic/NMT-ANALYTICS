@@ -5,9 +5,10 @@
 **Sprint 1 + Sprint 2 + Sprint 3 + Sprint 5 are ALL DONE — see the dedicated sections at the bottom of this file.** Both projects build clean (`tsc --noEmit` 0 errors). API `npm audit`: 0 vulnerabilities. Foundation task F-3 (migration script) is also done.
 
 **Next open work (pick up here):**
-1. **Sprint 4 — Stripe Billing** (`TRAVLINE_FINAL_PLAN.md` §4) — explicitly DEFERRED per Ismail's directive ("do not build yet, until first paying client"). Revisit when ≥1 tenant signs a paid contract. Until then, manual invoicing suffices.
-2. **F-2 — Rotate the Supabase `service_role` key** (owner action — Ismail did this on his end; verify by booting production and confirming API still serves 200 on `/api/health`).
-3. **Sentry activation** — Sprint 5 ships Sentinel-ready SDK but DSN is unset. Set `SENTRY_DSN` (API) and `VITE_SENTRY_DSN` (admin) in [Settings > Advanced](/?t=settings&s=advanced) when ready to capture silent failures per-tenant.
+1. **UX redesign — `TRAVLINE_UX_REDESIGN_PLAN.md` is the ACTIVE plan.** Five mechanical passes (PageShell → DataTable sort/row-click → HomeHub Attention panel + range control → URL state → workflow shortcuts). Start at Pass A. Visual language stays exactly as-is; this is structural/interaction work only.
+2. **Sentry activation — DONE 2026-07-31 (`b573e98`).** Wired end-to-end and DSN-gated: `nmt-analytics-api/src/instrument.ts` (must stay the first import in the API process), tenant-scoped tags (`tenant.org_id` + `user.role`), PII-free, 4xx pass through untouched, only real 5xx captured. `apiClient` + `ErrorBoundary` report from the admin side. `/api/health` now exposes `config.sentryEnabled`. To turn on: set `SENTRY_DSN` (API) and `VITE_SENTRY_DSN` (admin — baked at build time, so it needs a rebuild, not just a restart) in [Settings > Advanced](/?t=settings&s=advanced).
+3. **Sprint 4 — Stripe Billing** (`TRAVLINE_FINAL_PLAN.md` §4) — DEFERRED per Ismail's directive ("do not build yet, until first paying client"). Reconfirmed skipped 2026-07-31.
+4. **F-2 — Rotate the Supabase `service_role` key** — owner action, explicitly skipped 2026-07-31 per Ismail's directive. Revisit later.
 
 Earlier-sprint technical notes (kept for context; status DONE):
 - Sprint 2.3 done: `SeatMap` already supports `bus` (2+aisle+2 grid) + `flight` (3+aisle+3 numeric, A-F rows) + `none` (clean fallback). The DepartureDetail passengers tab now renders `SeatMap` for `bus` AND `flight` (was bus-only); the Availability "View seat map" button deep-links to `/departures/:id?tab=passengers` so it lands on the seat map directly.
