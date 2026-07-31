@@ -1,6 +1,7 @@
 import { Router, Response, Request } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
 import { apiError } from "../lib/errors";
+import { sentryEnabled } from '../instrument';
 
 const router = Router();
 
@@ -28,7 +29,8 @@ router.get('/health', async (req: Request, res: Response) => {
       config: {
         supabaseConfigured: true,
         devBypassEnabled: process.env.DEV_BYPASS_AUTH === 'true',
-        devOrgIdSet: !!process.env.DEV_ORG_ID
+        devOrgIdSet: !!process.env.DEV_ORG_ID,
+        sentryEnabled
       },
       time: new Date().toISOString()
     });

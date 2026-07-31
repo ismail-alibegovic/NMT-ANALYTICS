@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
+import { captureError } from '../../lib/sentry';
 
 interface Props {
   children: ReactNode;
@@ -7,6 +8,7 @@ interface Props {
 interface State {
   hasError: boolean;
   error?: Error;
+  errorId?: string;
 }
 
 class ErrorBoundary extends Component<Props, State> {
@@ -33,6 +35,18 @@ class ErrorBoundary extends Component<Props, State> {
       url: window.location.href,
       // No user IDs, emails, or personal data
     });
+
+    // A render crash is the highest-signal client failure there is — the user
+    // is staring at a dead screen. Always report it, with the component stack
+    // so the failing subtree is identifiable without a source-map hunt.
+    captureError(error, {
+      'error.id': errorId,
+      'error.boundary': 'react',
+      'route.pathname': window.location.pathname,
+      'react.componentStack': (errorInfo.componentStack || '').slice(0, 1500),
+    });
+
+    this.setState({ errorId });
   }
 
   private handleGoToLogin = () => {
@@ -85,6 +99,11 @@ class ErrorBoundary extends Component<Props, State> {
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               An unexpected error occurred. Please try refreshing the page or sign in again.
             </p>
+            {this.state.errorId && (
+              <p className="mb-4 font-mono text-[0.7rem] text-gray-400 dark:text-gray-500">
+                {this.state.errorId}
+              </p>
+            )}
             <div className="space-y-2">
               <button
                 onClick={() => window.location.reload()}

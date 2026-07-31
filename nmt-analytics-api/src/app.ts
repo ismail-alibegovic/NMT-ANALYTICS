@@ -6,12 +6,7 @@ import { requestId, requestLogging } from './middleware/logging';
 import { authRateLimit, strictRateLimit } from './middleware/rateLimit';
 import { config } from './config';
 import apiRouter from './routes/index';
-import { initSentry, sentryRequestContext, sentryErrorHandler } from './middleware/sentry';
-
-// Initialise Sentry as early as possible so we capture boot-time exceptions
-// and any error thrown during module evaluation under load. The init function
-// is a no-op when SENTRY_DSN is unset.
-initSentry();
+import { sentryRequestContext, sentryErrorHandler } from './middleware/sentry';
 
 const app = express();
 app.set('trust proxy', 1);const adminDistPath = path.resolve(process.cwd(), '../nmt-analytics-admin/dist');

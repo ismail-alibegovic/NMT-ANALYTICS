@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { getMeContext, UserContext } from '../api/me';
 import { useToast } from './ToastContext';
 import { logger } from '../utils/logger';
+import { setSentryUser } from '../lib/sentry';
 
 interface AppContextType {
   user: User | null;
@@ -103,6 +104,13 @@ export function AppProvider({ children }: AppProviderProps) {
       try {
         const context = await getMeContext();
         setUserContext(context);
+        setSentryUser({
+          userId: context.user?.id,
+          email: context.user?.email,
+          role: context.role,
+          orgId: context.org?.id,
+          orgName: context.org?.name,
+        });
         cachedContext.current = context; // Cache successful response
         lastUserId.current = user.id; // Track user ID
         rateLimitCooldownUntil.current = 0; // Clear any cooldown on success
@@ -284,6 +292,7 @@ export function AppProvider({ children }: AppProviderProps) {
     await supabase.auth.signOut();
     setUserContext(null);
     setUser(null);
+    setSentryUser(null);
   }, []);
 
   useEffect(() => {

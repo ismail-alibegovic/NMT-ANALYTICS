@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { supabase } from './supabase';
 import { logger } from '../utils/logger';
+import { captureError } from './sentry';
 
 const isDev = import.meta.env.DEV;
 
@@ -191,6 +192,20 @@ api.interceptors.response.use(
     if (error.response?.status === 403 && !originalRequest._retry) {
       originalRequest._retry = true;
       return Promise.reject(error);
+    }
+
+    // Server-side failures and hard network drops are the silent-failure class
+    // this reporting exists for: the UI shows an empty table or a toast, and
+    // nobody finds out which tenant it happened to. 4xx is expected traffic
+    // and is deliberately not reported.
+    const status = error.response?.status;
+    if (!status || status >= 500) {
+      captureError(error, {
+        'api.status': status ?? 'network',
+        'api.method': (originalRequest?.method || 'get').toUpperCase(),
+        'api.url': originalRequest?.url || 'unknown',
+        'api.code': error.code || 'none',
+      });
     }
 
     return Promise.reject(error);

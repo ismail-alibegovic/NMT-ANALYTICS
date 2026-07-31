@@ -22,6 +22,8 @@ if [ ! -d node_modules ]; then npm ci; fi
 VITE_SUPABASE_URL="$SUPABASE_URL" \
 VITE_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
 VITE_API_URL="/api" \
+VITE_SENTRY_DSN="${VITE_SENTRY_DSN:-}" \
+VITE_APP_VERSION="${VITE_APP_VERSION:-travline-admin@1.0.0}" \
 npm run build
 
 cd "$ROOT/nmt-analytics-api"
