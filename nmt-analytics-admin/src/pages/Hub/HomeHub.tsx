@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { Link, useNavigate } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
+import { Panel, SectionLabel } from "../../components/common/PageShell";
 import {
   getAnalyticsOverviewV2,
   getRevenueSeries,
@@ -152,12 +153,6 @@ const MiniSpark: React.FC<{ points: number[]; stroke?: string }> = ({ points, st
   );
 };
 
-const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <h2 className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
-    {children}
-  </h2>
-);
-
 type Kpi = {
   label: string;
   value: string;
@@ -224,14 +219,6 @@ const KpiCard: React.FC<{ kpi: Kpi; loading: boolean }> = ({ kpi, loading }) => 
     </div>
   );
 };
-
-const Panel: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
-  <div
-    className={`rounded-2xl border border-gray-200/70 bg-white p-6 shadow-sm shadow-gray-200/40 dark:border-white/[0.07] dark:bg-white/[0.02] dark:shadow-none ${className}`}
-  >
-    {children}
-  </div>
-);
 
 const HomeHub: React.FC = () => {
   const { userContext } = useApp();

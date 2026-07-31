@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import PageMeta from '../../components/common/PageMeta';
+import PageShell from '../../components/common/PageShell';
 import { DataTable, Column, Pagination } from '../../components/ui/DataTable';
 import { FormModal } from '../../components/ui/FormModal';
 import ImportModal from '../../components/import/ImportModal';
@@ -238,23 +239,43 @@ export default function Customers() {
   return (
     <>
       <PageMeta title="Customers | Travline" description="Manage your customer database" />
-      <PageToolbar
+      <PageShell
         title="Customers"
-        description="Manage your customer database"
+        subtitle="Manage your customer database"
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setImportModalOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <FileIcon className="w-4 h-4" />
+              Import CSV
+            </Button>
+            <Button onClick={handleCreate}>Add Customer</Button>
+          </>
+        }
+      >
+      <PageToolbar
         searchPlaceholder="Search customers..."
         searchValue={searchTerm}
         onSearchChange={handleSearch}
-        createButton={{ label: "Add Customer", onClick: handleCreate }}
-        actions={
-          <Button
-            variant="outline"
-            onClick={() => setImportModalOpen(true)}
-            className="flex items-center gap-2"
-          >
-            <FileIcon className="w-4 h-4" />
-            Import CSV
-          </Button>
-        }
+        filters={[
+          {
+            key: 'package',
+            label: 'Svi klijenti (svi aranžmani)',
+            value: packageFilter,
+            options: packages.map((pkg) => ({
+              value: pkg.id,
+              label: `${pkg.name} - ${pkg.destination}`,
+            })),
+            onChange: (value) => {
+              setPackageFilter(value);
+              setCurrentPage(1);
+              fetchCustomers(1, searchTerm, value);
+            },
+          },
+        ]}
       />
 
       <ImportModal
@@ -267,30 +288,11 @@ export default function Customers() {
         }}
       />
 
-      {/* Filter by package */}
-      <div className="mb-6">
-        <div className="w-full sm:w-64">
-          <select
-            value={packageFilter}
-            onChange={(e) => {
-              setPackageFilter(e.target.value);
-              setCurrentPage(1);
-              fetchCustomers(1, searchTerm, e.target.value);
-            }}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/[0.1] dark:bg-gray-900 dark:text-white"
-          >
-            <option value="">Svi klijenti (svi aranžmani)</option>
-            {packages.map((pkg) => (
-              <option key={pkg.id} value={pkg.id}>{pkg.name} - {pkg.destination}</option>
-            ))}
-          </select>
-        </div>
-        {packageFilter && (
-          <p className="text-xs text-gray-500 mt-2">
-            Prikazani su klijenti koji imaju rezervaciju za odabrani aranžman.
-          </p>
-        )}
-      </div>
+      {packageFilter && (
+        <p className="-mt-2 mb-6 text-xs text-gray-500">
+          Prikazani su klijenti koji imaju rezervaciju za odabrani aranžman.
+        </p>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center p-20">
@@ -316,6 +318,8 @@ export default function Customers() {
           )}
         </>
       )}
+
+      </PageShell>
 
       <FormModal
         isOpen={modalOpen}

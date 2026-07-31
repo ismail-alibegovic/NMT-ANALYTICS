@@ -5,6 +5,7 @@ import Button from "../components/ui/button/Button";
 import ImportModal from "../components/import/ImportModal";
 import PaymentsModal from "../components/payments/PaymentsModal";
 import PageToolbar from "../components/ui/PageToolbar";
+import PageShell from "../components/common/PageShell";
 import { DataTable, Column, Pagination } from "../components/ui/DataTable";
 import { FileIcon, CloseIcon } from "../icons";
 import { useToast } from "../context/ToastContext";
@@ -474,18 +475,11 @@ export default function Reservations() {
     <>
       <PageMeta title="Reservations | Travline" description="Manage reservations and payments" />
 
-      <PageToolbar
+      <PageShell
         title="Rezervacije"
-        description="Upravljanje rezervacijama i plaćanjima"
-        searchValue={searchQuery}
-        onSearchChange={(val: string) => {
-          setSearchQuery(val);
-          setCurrentPage(1);
-          fetchReservations(1, statusFilter, dateFrom, dateTo, assignedOnly, val);
-        }}
-        searchPlaceholder="Traži klijenta ili telefon..."
+        subtitle="Upravljanje rezervacijama i plaćanjima"
         actions={
-          <div className="flex gap-2">
+          <>
             <Button
               onClick={() => setIsCreateOpen(true)}
               className="flex items-center gap-2"
@@ -500,8 +494,17 @@ export default function Reservations() {
               <FileIcon className="w-4 h-4" />
               Import CSV
             </Button>
-          </div>
+          </>
         }
+      >
+      <PageToolbar
+        searchValue={searchQuery}
+        onSearchChange={(val: string) => {
+          setSearchQuery(val);
+          setCurrentPage(1);
+          fetchReservations(1, statusFilter, dateFrom, dateTo, assignedOnly, val);
+        }}
+        searchPlaceholder="Traži klijenta ili telefon..."
       />
 
       {/* Date Filters Row */}
@@ -644,6 +647,8 @@ export default function Reservations() {
           )}
         </>
       )}
+
+      </PageShell>
 
       <ImportModal
         entity="reservations"

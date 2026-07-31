@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import PageToolbar from "../../components/ui/PageToolbar";
+import PageShell from "../../components/common/PageShell";
 import { DataTable, Column, Pagination } from "../../components/ui/DataTable";
 import EmptyState from "../../components/ui/EmptyState";
 import Badge from "../../components/ui/badge/Badge";
@@ -336,23 +337,27 @@ export default function Departures() {
   return (
     <>
       <PageMeta title="Polasci | Travline" description="Upravljanje polascima i kapacitetima" />
-      <PageToolbar
+      <PageShell
         title="Polasci"
-        description="Upravljanje polascima, kapacitetima i terminima"
+        subtitle="Upravljanje polascima, kapacitetima i terminima"
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setIsImportOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <FileIcon className="w-4 h-4" />
+              Import CSV
+            </Button>
+            <Button onClick={handleCreate}>Dodaj polazak</Button>
+          </>
+        }
+      >
+      <PageToolbar
         searchValue={searchQuery}
         onSearchChange={(query) => setSearchQuery(query)}
         searchPlaceholder="Traži polaske..."
-        createButton={{ label: "Dodaj polazak", onClick: handleCreate }}
-        actions={
-          <Button
-            variant="outline"
-            onClick={() => setIsImportOpen(true)}
-            className="flex items-center gap-2"
-          >
-            <FileIcon className="w-4 h-4" />
-            Import CSV
-          </Button>
-        }
       />
 
       {/* View Toggle + Filters Row */}
@@ -463,6 +468,8 @@ export default function Departures() {
       {viewMode === "calendar" && (
         <DepartureCalendarView departures={departures} loading={loading} />
       )}
+
+      </PageShell>
 
       <ImportModal
         entity="departures"

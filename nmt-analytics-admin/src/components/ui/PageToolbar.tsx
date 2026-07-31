@@ -15,7 +15,11 @@ interface Filter {
 }
 
 interface PageToolbarProps {
-  title: string;
+  /**
+   * Optional when the toolbar renders inside `PageShell` — the shell already
+   * owns the page masthead, so passing a title here would draw a second one.
+   */
+  title?: string;
   description?: string;
   searchPlaceholder?: string;
   searchValue?: string;
@@ -44,27 +48,33 @@ export function PageToolbar({
   className = ''
 }: PageToolbarProps) {
   const showSearchRow = filters.length > 0 || (!hideSearch && !!onSearchChange);
+  const showHeaderRow = !!title || !!description || !!actions || !!createButton;
+
   return (
     <div className={`mb-6 ${className}`}>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">{title}</h1>
-          {description && (
-            <p className="text-gray-500 dark:text-gray-400">{description}</p>
-          )}
+      {showHeaderRow && (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            {title && (
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">{title}</h1>
+            )}
+            {description && (
+              <p className="text-gray-500 dark:text-gray-400">{description}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {actions}
+            {createButton && (
+              <Button onClick={createButton.onClick}>
+                {createButton.label}
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          {actions}
-          {createButton && (
-            <Button onClick={createButton.onClick}>
-              {createButton.label}
-            </Button>
-          )}
-        </div>
-      </div>
+      )}
 
       {showSearchRow && (
-      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
+      <div className={`flex flex-col gap-4 sm:flex-row sm:items-center ${showHeaderRow ? 'mt-4' : ''}`}>
         {!hideSearch && onSearchChange && (
         <div className="flex-1 max-w-md">
           <Input
