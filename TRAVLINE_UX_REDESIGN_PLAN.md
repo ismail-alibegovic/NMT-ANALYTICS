@@ -1,6 +1,10 @@
-# Travline — UX Redesign Plan (ACTIVE)
+# Travline — UX Redesign Plan (HISTORICAL — REVERTED, DO NOT EXECUTE AS-IS)
 
-**Status:** active · **Created:** 2026-07-31 · **Supersedes:** nothing (new track, runs after Sprint 5)
+**Status:** historical · **Created:** 2026-07-31 · **Reverted:** 2026-08-01 (`4c78367`)
+
+> Passes A, B and C were implemented (`4d63aac`, `8f625fe`, `818d76c`, `e7a0bd3`) and then fully reverted. Ismail's verdict: the layout came out broken — misaligned, badly spaced, numbers wrong. The mechanical all-pages-at-once approach is the root cause: `tsc` and `vite build` stayed green the whole time while the visual result regressed, so nothing caught it.
+>
+> If UX work resumes, ignore the batching in this document. One page at a time, screenshot the real page before and after, get approval before moving on.
 
 **Hard constraint:** the visual language does not change. Same `brand-500` (`#465fff`), same Outfit type, same `rounded-2xl` panels, same dark-mode surfaces (`dark:bg-white/[0.02]`, `dark:border-white/[0.07]`), same 20/24px panel padding. This is a **structure + interaction** plan, not a restyle. Every pass below is mechanical and independently shippable.
 
