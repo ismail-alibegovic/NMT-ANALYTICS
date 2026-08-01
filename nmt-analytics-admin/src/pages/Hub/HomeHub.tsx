@@ -39,25 +39,48 @@ type PaymentRow = {
   href: string;
 };
 
-const fmtCurrency = (n: number | null | undefined, lang: "bs" | "en" = "bs") => {
-  if (n == null || Number.isNaN(n)) return "—";
-  try {
-    return new Intl.NumberFormat(lang === "bs" ? "bs-BA" : "en-US", {
-      style: "currency",
-      currency: "BAM",
-      maximumFractionDigits: 0,
-    }).format(n);
-  } catch {
-    return `${Math.round(n).toLocaleString()} KM`;
-  }
+/**
+ * V8 in Chrome ships no ICU data for `bs-BA`, so `toLocaleDateString("bs-BA")`
+ * degrades to strings like "M07 31, Fri" and `Intl.NumberFormat` renders
+ * "BAM 1,234" with English grouping. Bosnian month/day names and BiH number
+ * grouping are therefore handled explicitly here.
+ */
+type Lang = "bs" | "en";
+
+const BS_MONTHS = [
+  "januar", "februar", "mart", "april", "maj", "juni",
+  "juli", "august", "septembar", "oktobar", "novembar", "decembar",
+];
+const BS_MONTHS_SHORT = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+const BS_DAYS = ["nedjelja", "ponedjeljak", "utorak", "srijeda", "\u010detvrtak", "petak", "subota"];
+
+/** 12345 -> "12.345" (bs) / "12,345" (en) */
+const groupInt = (n: number, lang: Lang) => {
+  const sep = lang === "bs" ? "." : ",";
+  const body = Math.round(Math.abs(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+  return n < 0 ? `-${body}` : body;
 };
 
-const fmtNumber = (n: number | null | undefined) => {
-  if (n == null || Number.isNaN(n)) return "—";
-  return new Intl.NumberFormat("bs-BA").format(n);
+const fmtCurrency = (n: number | null | undefined, lang: Lang = "bs") => {
+  if (n == null || Number.isNaN(n)) return "\u2014";
+  return lang === "bs" ? `${groupInt(n, "bs")} KM` : `KM ${groupInt(n, "en")}`;
 };
 
-const relativeDayLabel = (iso: string, lang: "bs" | "en") => {
+const fmtNumber = (n: number | null | undefined, lang: Lang = "bs") => {
+  if (n == null || Number.isNaN(n)) return "\u2014";
+  return groupInt(n, lang);
+};
+
+/** "petak, 31. juli" / "Friday, 31 July" */
+const fmtDateLine = (d: Date, lang: Lang) =>
+  lang === "bs"
+    ? `${BS_DAYS[d.getDay()]}, ${d.getDate()}. ${BS_MONTHS[d.getMonth()]}`
+    : d.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" });
+
+const fmtMonthShort = (d: Date, lang: Lang) =>
+  lang === "bs" ? BS_MONTHS_SHORT[d.getMonth()] : d.toLocaleDateString("en-US", { month: "short" });
+
+const relativeDayLabel = (iso: string, lang: Lang) => {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   const today = new Date();
@@ -67,30 +90,37 @@ const relativeDayLabel = (iso: string, lang: "bs" | "en") => {
   const diff = Math.round((target.getTime() - today.getTime()) / 86_400_000);
   if (diff === 0) return lang === "bs" ? "Danas" : "Today";
   if (diff === 1) return lang === "bs" ? "Sutra" : "Tomorrow";
-  if (diff === -1) return lang === "bs" ? "Jučer" : "Yesterday";
-  if (diff > 1 && diff < 7)
-    return date.toLocaleDateString(lang === "bs" ? "bs-BA" : "en-US", { weekday: "long" });
-  return date.toLocaleDateString(lang === "bs" ? "bs-BA" : "en-US", { day: "2-digit", month: "short" });
+  if (diff === -1) return lang === "bs" ? "Ju\u010der" : "Yesterday";
+  if (diff > 1 && diff < 7) {
+    return lang === "bs" ? BS_DAYS[date.getDay()] : date.toLocaleDateString("en-US", { weekday: "long" });
+  }
+  return lang === "bs"
+    ? `${date.getDate()}. ${BS_MONTHS_SHORT[date.getMonth()]}`
+    : date.toLocaleDateString("en-US", { day: "2-digit", month: "short" });
 };
 
-/** Pure-SVG area chart — gradient fill, smooth curve, scales to viewBox. */
+/**
+ * Pure-SVG area chart. Bleeds edge-to-edge inside its container: the baseline
+ * sits exactly on the container's bottom, so it can meet the panel border with
+ * no dead strip underneath.
+ */
 const AreaChart: React.FC<{
   points: number[];
   height?: number;
   stroke?: string;
   gradientId?: string;
-}> = ({ points, height = 132, stroke = "#465fff", gradientId = "rev" }) => {
+}> = ({ points, height = 128, stroke = "#465fff", gradientId = "rev" }) => {
   const width = 640;
   if (!points.length) return null;
   const min = Math.min(...points, 0);
   const max = Math.max(...points, 1);
   const span = max - min || 1;
   const stepX = points.length > 1 ? width / (points.length - 1) : width;
-  const pad = 12;
-  const usableH = height - pad * 2;
+  const topPad = 14;
+  const usableH = height - topPad;
   const coords = points.map((p, i) => {
     const x = i * stepX;
-    const y = pad + usableH - ((p - min) / span) * usableH;
+    const y = topPad + usableH - ((p - min) / span) * usableH;
     return [x, y] as const;
   });
   const linePath = coords.reduce((acc, c, i, arr) => {
@@ -110,11 +140,11 @@ const AreaChart: React.FC<{
       preserveAspectRatio="none"
       role="img"
       aria-label="Revenue trend"
-      className="overflow-visible"
+      className="block w-full"
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={stroke} stopOpacity={0.26} />
+          <stop offset="0%" stopColor={stroke} stopOpacity={0.28} />
           <stop offset="100%" stopColor={stroke} stopOpacity={0} />
         </linearGradient>
       </defs>
@@ -135,13 +165,10 @@ const AreaChart: React.FC<{
   );
 };
 
-/**
- * Empty state for the chart slot. A flat dashed baseline instead of a tall
- * dashed box — keeps the panel's height honest when there is nothing to plot.
- */
-const FlatBaseline: React.FC<{ label: string }> = ({ label }) => (
-  <div className="flex h-[132px] flex-col justify-end gap-3">
-    <p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
+/** Chart slot with nothing to plot: a flat baseline sitting on the panel edge. */
+const FlatBaseline: React.FC<{ label: string; height?: number }> = ({ label, height = 128 }) => (
+  <div className="flex w-full flex-col justify-end px-6" style={{ height }}>
+    <p className="mb-3 text-xs text-gray-400 dark:text-gray-500">{label}</p>
     <div className="h-px w-full border-t border-dashed border-gray-200 dark:border-white/[0.10]" />
   </div>
 );
@@ -165,7 +192,7 @@ const EmptyLine: React.FC<{ icon: React.FC<{ className?: string }>; label: strin
   icon: Icon,
   label,
 }) => (
-  <div className="flex items-center gap-2.5 py-6">
+  <div className="flex items-center gap-2.5 py-4">
     <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-300 dark:bg-white/[0.04] dark:text-gray-600">
       <Icon className="size-4" />
     </span>
@@ -181,13 +208,16 @@ type Metric = {
   tone?: "default" | "warn";
 };
 
-/** Compact metric row — reads like a ledger line, not a billboard. */
+/**
+ * One row of the hero ledger. Stacked vertically beside the revenue block so
+ * the two halves of the hero panel end at the same height — no gap to fill.
+ */
 const MetricRow: React.FC<{ metric: Metric; loading: boolean }> = ({ metric, loading }) => {
   const Icon = metric.icon;
   return (
     <Link
       to={metric.href}
-      className="group flex items-center gap-3 px-5 py-[0.9rem] transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03]"
+      className="group flex flex-1 items-center gap-3.5 px-5 py-4 transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03]"
     >
       <span
         className={`flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors ${
@@ -196,18 +226,21 @@ const MetricRow: React.FC<{ metric: Metric; loading: boolean }> = ({ metric, loa
             : "bg-gray-100 text-gray-400 group-hover:bg-brand-500/10 group-hover:text-brand-500 dark:bg-white/[0.05] dark:text-gray-500"
         }`}
       >
-        <Icon className="size-[18px]" />
+        <Icon className="size-[17px]" />
       </span>
-      <span className="min-w-0 flex-1 truncate text-[0.82rem] font-medium text-gray-600 dark:text-gray-300">
-        {metric.label}
-      </span>
-      {loading ? (
-        <span className="h-5 w-16 animate-pulse rounded bg-gray-200 dark:bg-white/[0.06]" />
-      ) : (
-        <span className="text-[0.95rem] font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">
-          {metric.value}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[0.66rem] font-semibold uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500">
+          {metric.label}
         </span>
-      )}
+        {loading ? (
+          <span className="mt-1.5 block h-4 w-16 animate-pulse rounded bg-gray-200 dark:bg-white/[0.06]" />
+        ) : (
+          <span className="mt-0.5 block truncate text-[1.05rem] font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">
+            {metric.value}
+          </span>
+        )}
+      </span>
+      <ArrowRightIcon className="size-3.5 shrink-0 text-gray-200 transition-all group-hover:translate-x-0.5 group-hover:text-brand-500 dark:text-gray-700" />
     </Link>
   );
 };
@@ -238,11 +271,7 @@ const HomeHub: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hub.good_night, hub.good_morning, hub.good_afternoon, hub.good_evening]);
 
-  const dateLine = now.toLocaleDateString(lang === "bs" ? "bs-BA" : "en-US", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  const dateLine = fmtDateLine(now, lang);
 
   useEffect(() => {
     let active = true;
@@ -254,7 +283,7 @@ const HomeHub: React.FC = () => {
 
         const [ov, deps, rev, pays] = await Promise.allSettled([
           getAnalyticsOverviewV2({ from: fortnightAgo, to: todayISO }),
-          getDepartures({ status: "active", dateFrom: todayISO, limit: 5 }),
+          getDepartures({ status: "active", dateFrom: todayISO, limit: 6 }),
           getRevenueSeries({ from: fortnightAgo, to: todayISO, bucket: "daily" }),
           showFinance ? getReservations({ status: "confirmed", limit: 12 }) : Promise.resolve(null),
         ]);
@@ -294,7 +323,7 @@ const HomeHub: React.FC = () => {
 
   const upcoming = useMemo(
     () =>
-      departures.slice(0, 4).map((d) => ({
+      departures.slice(0, 5).map((d) => ({
         id: d.id,
         label: d.packages?.name || d.packageName || d.destination || hub.untitledDeparture,
         destination: d.packages?.destination || d.destination || "",
@@ -311,7 +340,7 @@ const HomeHub: React.FC = () => {
     [revenue]
   );
 
-  /** Second-half vs first-half of the series — a real, explainable delta. */
+  /** Second-half vs first-half of the 14-day series — a real, explainable delta. */
   const trendPct = useMemo(() => {
     if (revenuePoints.length < 4) return null;
     const mid = Math.floor(revenuePoints.length / 2);
@@ -325,7 +354,7 @@ const HomeHub: React.FC = () => {
     const list: Metric[] = [
       {
         label: hub.kpiReservations,
-        value: fmtNumber(overview?.reservations_count),
+        value: fmtNumber(overview?.reservations_count, lang),
         icon: TableIcon,
         href: "/reservations",
       },
@@ -347,12 +376,20 @@ const HomeHub: React.FC = () => {
         }
       );
     } else {
-      list.push({
-        label: hub.recentDepartures,
-        value: fmtNumber(upcoming.length),
-        icon: CalenderIcon,
-        href: "/departures",
-      });
+      list.push(
+        {
+          label: hub.recentDepartures,
+          value: fmtNumber(upcoming.length, lang),
+          icon: CalenderIcon,
+          href: "/departures",
+        },
+        {
+          label: hub.psPaid,
+          value: fmtNumber(overview?.paid_count, lang),
+          icon: CheckCircleIcon,
+          href: "/reservations",
+        }
+      );
     }
     return list;
   }, [overview, showFinance, lang, upcoming.length, hub]);
@@ -372,6 +409,9 @@ const HomeHub: React.FC = () => {
     { label: hub.sBranding, href: "/settings", icon: UserCircleIcon, minRole: "director" as UserRole },
   ].filter((s) => !s.minRole || hasAccess(s.minRole, role));
 
+  const heroLabel = showFinance ? hub.revenuePanel : hub.recentDepartures;
+  const heroValue = showFinance ? fmtCurrency(paidTotal, lang) : fmtNumber(upcoming.length, lang);
+
   return (
     <>
       <PageMeta title={`Travline — ${hub.title}`} description={hub.subtitle} />
@@ -380,14 +420,14 @@ const HomeHub: React.FC = () => {
       <div className="relative">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72 bg-gradient-to-b from-brand-500/[0.07] via-brand-500/[0.02] to-transparent dark:from-brand-500/[0.12] dark:via-brand-500/[0.03]"
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-64 bg-gradient-to-b from-brand-500/[0.07] via-brand-500/[0.02] to-transparent dark:from-brand-500/[0.12] dark:via-brand-500/[0.03]"
         />
 
-        <div className="mx-auto w-full max-w-[1240px] px-4 pb-24 pt-9 md:px-8 md:pt-12">
+        <div className="mx-auto w-full max-w-[1240px] px-4 pb-24 pt-8 md:px-8 md:pt-10">
           {/* ── Masthead ─────────────────────────────────────────────────── */}
-          <header className="mb-8 flex flex-col gap-6 md:mb-10 md:flex-row md:items-end md:justify-between">
+          <header className="mb-6 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <div className="mb-3 flex items-center gap-2.5">
+              <div className="mb-2.5 flex items-center gap-2.5">
                 <span className="inline-flex size-6 items-center justify-center rounded-md bg-brand-500 text-[0.7rem] font-bold text-white shadow-sm shadow-brand-500/30">
                   {(orgName || "T").charAt(0).toUpperCase()}
                 </span>
@@ -395,15 +435,19 @@ const HomeHub: React.FC = () => {
                   {orgName || "Travline"}
                 </p>
               </div>
-              <h1 className="text-[2rem] font-semibold leading-[1.05] tracking-tight text-gray-900 dark:text-white md:text-[2.6rem]">
-                {greeting}
-                <span className="text-brand-500">.</span>
+              <h1 className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[1.75rem] font-semibold leading-[1.1] tracking-tight text-gray-900 dark:text-white md:text-[2.15rem]">
+                <span>
+                  {greeting}
+                  <span className="text-brand-500">.</span>
+                </span>
+                <span className="text-sm font-normal text-gray-400 first-letter:uppercase dark:text-gray-500">
+                  {dateLine}
+                </span>
               </h1>
-              <p className="mt-2.5 text-sm capitalize text-gray-500 dark:text-gray-400">{dateLine}</p>
             </div>
             <button
               onClick={() => navigate("/reservations?new=1")}
-              className="group inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all hover:bg-brand-600 hover:shadow-brand-500/35 active:translate-y-px md:self-auto"
+              className="group inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all hover:bg-brand-600 hover:shadow-brand-500/35 active:translate-y-px sm:self-auto"
             >
               <PlusIcon className="size-4" />
               {hub.focusNewReservation}
@@ -411,185 +455,173 @@ const HomeHub: React.FC = () => {
             </button>
           </header>
 
-          {/* ── Row A: revenue hero + metric ledger ──────────────────────── */}
-          <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_352px]">
-            <Panel className="flex min-w-0 flex-col p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <SectionLabel>{showFinance ? hub.revenuePanel : hub.recentDepartures}</SectionLabel>
-                  <div className="mt-2.5 flex items-baseline gap-3">
-                    {loading ? (
-                      <span className="block h-9 w-40 animate-pulse rounded bg-gray-200 dark:bg-white/[0.06]" />
-                    ) : (
-                      <p className="text-[2rem] font-semibold leading-none tracking-tight tabular-nums text-gray-900 dark:text-white">
-                        {showFinance ? fmtCurrency(paidTotal, lang) : fmtNumber(upcoming.length)}
-                      </p>
-                    )}
-                    {!loading && showFinance && trendPct !== null && (
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.7rem] font-semibold tabular-nums ${
-                          trendPct >= 0
-                            ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/[0.12] dark:text-emerald-400"
-                            : "bg-rose-50 text-rose-600 dark:bg-rose-500/[0.12] dark:text-rose-400"
-                        }`}
-                      >
-                        {trendPct >= 0 ? (
-                          <ArrowUpIcon className="size-3" />
-                        ) : (
-                          <ArrowDownIcon className="size-3" />
-                        )}
-                        {Math.abs(trendPct)}%
-                      </span>
-                    )}
+          {/* ── Hero: the money on the left, the ledger on the right ─────── */}
+          <Panel className="mb-5 overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_312px]">
+              {/* Money + chart. The chart bleeds to the panel's bottom edge. */}
+              <div className="flex min-w-0 flex-col">
+                <div className="flex items-start justify-between gap-4 p-6 pb-0">
+                  <div className="min-w-0">
+                    <SectionLabel>{heroLabel}</SectionLabel>
+                    <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-2">
+                      {loading ? (
+                        <span className="block h-10 w-44 animate-pulse rounded bg-gray-200 dark:bg-white/[0.06]" />
+                      ) : (
+                        <p className="text-[2.25rem] font-semibold leading-none tracking-tight tabular-nums text-gray-900 dark:text-white md:text-[2.6rem]">
+                          {heroValue}
+                        </p>
+                      )}
+                      {!loading && showFinance && trendPct !== null && (
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.7rem] font-semibold tabular-nums ${
+                            trendPct >= 0
+                              ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/[0.12] dark:text-emerald-400"
+                              : "bg-rose-50 text-rose-600 dark:bg-rose-500/[0.12] dark:text-rose-400"
+                          }`}
+                        >
+                          {trendPct >= 0 ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />}
+                          {Math.abs(trendPct)}%
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-2 text-[0.72rem] text-gray-400 dark:text-gray-500">
+                      {!loading && showFinance && trendPct !== null ? hub.trendVsPrev : hub.revenuePanelHint}
+                    </p>
                   </div>
-                  {!loading && showFinance && trendPct !== null && (
-                    <p className="mt-1.5 text-[0.7rem] text-gray-400 dark:text-gray-500">{hub.trendVsPrev}</p>
+                  {showFinance && (
+                    <Link
+                      to="/reports"
+                      className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-brand-500 transition-colors hover:text-brand-600 dark:text-brand-400"
+                    >
+                      {hub.viewAll}
+                      <ArrowRightIcon className="size-3" />
+                    </Link>
                   )}
                 </div>
-                <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[0.68rem] font-medium text-gray-500 dark:bg-white/[0.05] dark:text-gray-400">
-                  {hub.revenuePanelHint}
-                </span>
+
+                <div className="mt-auto pt-6">
+                  {loading ? (
+                    <div className="mx-6 mb-6 h-[128px] animate-pulse rounded-xl bg-gray-100 dark:bg-white/[0.04]" />
+                  ) : revenuePoints.length > 1 ? (
+                    <AreaChart points={revenuePoints} height={128} gradientId="hub-rev" />
+                  ) : (
+                    <FlatBaseline label={hub.quietPeriod} height={128} />
+                  )}
+                </div>
               </div>
 
-              <div className="mt-6">
+              {/* Ledger — hairline-divided rows, flush to the panel's right */}
+              <div className="flex flex-col divide-y divide-gray-100 border-t border-gray-100 dark:divide-white/[0.05] dark:border-white/[0.05] lg:border-l lg:border-t-0">
+                {metrics.map((m) => (
+                  <MetricRow key={m.label} metric={m} loading={loading} />
+                ))}
+              </div>
+            </div>
+          </Panel>
+
+          {/* ── Work on the left, navigation on the right ────────────────── */}
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_312px]">
+            <div className="flex min-w-0 flex-col gap-5">
+              {/* Upcoming departures */}
+              <Panel className="min-w-0 p-6">
+                <div className="mb-2 flex items-center justify-between gap-4">
+                  <SectionLabel>{hub.recentDepartures}</SectionLabel>
+                  <Link
+                    to="/departures"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-brand-500 transition-colors hover:text-brand-600 dark:text-brand-400"
+                  >
+                    {hub.viewAll}
+                    <ArrowRightIcon className="size-3" />
+                  </Link>
+                </div>
+
                 {loading ? (
-                  <div className="h-[132px] w-full animate-pulse rounded-xl bg-gray-100 dark:bg-white/[0.04]" />
-                ) : revenuePoints.length > 1 ? (
-                  <AreaChart points={revenuePoints} gradientId="hub-rev" />
-                ) : (
-                  <FlatBaseline label={hub.quietPeriod} />
-                )}
-              </div>
-            </Panel>
-
-            {/* Metric ledger — one card, dividers instead of four floating boxes */}
-            <Panel className="divide-y divide-gray-100 overflow-hidden dark:divide-white/[0.05]">
-              {metrics.map((m) => (
-                <MetricRow key={m.label} metric={m} loading={loading} />
-              ))}
-              <div className="px-5 py-4">
-                <SectionLabel>{hub.workspacesTitle}</SectionLabel>
-                <nav className="mt-3 flex flex-col gap-1">
-                  {workspaces.map((s) => (
-                    <Link
-                      key={s.href}
-                      to={s.href}
-                      className="group flex items-center gap-3 rounded-xl border border-transparent px-2 py-2 transition-all hover:border-gray-200 hover:bg-gray-50 dark:hover:border-white/[0.08] dark:hover:bg-white/[0.03]"
-                    >
-                      <span className="flex size-8 items-center justify-center rounded-lg bg-gray-100 text-gray-400 transition-colors group-hover:bg-brand-500 group-hover:text-white dark:bg-white/[0.05] dark:text-gray-500">
-                        <s.icon className="size-4" />
-                      </span>
-                      <span className="text-[0.82rem] font-medium text-gray-700 transition-colors group-hover:text-gray-900 dark:text-gray-300 dark:group-hover:text-white">
-                        {s.label}
-                      </span>
-                      <ArrowRightIcon className="ml-auto size-3.5 text-gray-300 transition-all group-hover:translate-x-0.5 group-hover:text-brand-500 dark:text-gray-600" />
-                    </Link>
-                  ))}
-                </nav>
-              </div>
-            </Panel>
-          </div>
-
-          {/* ── Row B: departures + outstanding ──────────────────────────── */}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_352px]">
-            <Panel className="min-w-0 p-6">
-              <div className="mb-3 flex items-center justify-between gap-4">
-                <SectionLabel>{hub.recentDepartures}</SectionLabel>
-                <Link
-                  to="/departures"
-                  className="inline-flex items-center gap-1 text-xs font-medium text-brand-500 transition-colors hover:text-brand-600 dark:text-brand-400"
-                >
-                  {hub.viewAll}
-                  <ArrowRightIcon className="size-3" />
-                </Link>
-              </div>
-
-              {loading ? (
-                <ul className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                  {[0, 1, 2].map((i) => (
-                    <li key={i} className="flex items-center gap-4 py-3.5" aria-hidden>
-                      <div className="h-11 w-11 shrink-0 animate-pulse rounded-xl bg-gray-200 dark:bg-white/[0.06]" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-3 w-2/5 animate-pulse rounded bg-gray-200 dark:bg-white/[0.06]" />
-                        <div className="h-2.5 w-1/3 animate-pulse rounded bg-gray-100 dark:bg-white/[0.04]" />
-                      </div>
-                      <div className="h-6 w-12 animate-pulse rounded bg-gray-100 dark:bg-white/[0.04]" />
-                    </li>
-                  ))}
-                </ul>
-              ) : upcoming.length === 0 ? (
-                <EmptyLine icon={CalenderIcon} label={hub.noDepartures} />
-              ) : (
-                <ul className="-mx-2 space-y-0.5">
-                  {upcoming.map((d) => {
-                    const pct = d.seats > 0 ? Math.round((d.booked / d.seats) * 100) : 0;
-                    const fill = pct >= 95 ? "bg-rose-500" : pct >= 75 ? "bg-brand-500" : "bg-emerald-500";
-                    const pctText =
-                      pct >= 95 ? "text-rose-500" : pct >= 75 ? "text-brand-500" : "text-emerald-500";
-                    return (
-                      <li key={d.id}>
-                        <Link
-                          to={`/departures/${d.id}`}
-                          className="group flex items-center gap-4 rounded-xl px-2 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]"
-                        >
-                          <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl border border-gray-200 bg-gray-50 transition-colors group-hover:border-brand-500/30 group-hover:bg-brand-500/[0.06] dark:border-white/[0.08] dark:bg-white/[0.03]">
-                            <span className="text-sm font-semibold leading-none tabular-nums text-gray-900 dark:text-white">
-                              {new Date(d.departAt).toLocaleDateString(lang === "bs" ? "bs-BA" : "en-US", { day: "2-digit" })}
-                            </span>
-                            <span className="mt-1 text-[0.55rem] uppercase leading-none text-gray-500 dark:text-gray-400">
-                              {new Date(d.departAt).toLocaleDateString(lang === "bs" ? "bs-BA" : "en-US", { month: "short" })}
-                            </span>
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">{d.label}</div>
-                            <div className="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                              <span className="tabular-nums">{relativeDayLabel(d.departAt, lang)}</span>
-                              {d.destination && (
-                                <>
-                                  <span className="text-gray-300 dark:text-gray-700">·</span>
-                                  <span className="truncate">{d.destination}</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          <div className="hidden items-center gap-2.5 sm:flex">
-                            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-100 dark:bg-white/[0.06]">
-                              <div className={`h-full rounded-full ${fill}`} style={{ width: `${Math.max(3, pct)}%` }} />
-                            </div>
-                            <span className={`w-9 text-right text-xs font-semibold tabular-nums ${pctText}`}>
-                              {pct}%
-                            </span>
-                          </div>
-                          <ArrowRightIcon className="size-4 shrink-0 text-gray-300 transition-all group-hover:translate-x-0.5 group-hover:text-brand-500 dark:text-gray-600" />
-                        </Link>
+                  <ul className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                    {[0, 1, 2].map((i) => (
+                      <li key={i} className="flex items-center gap-4 py-3.5" aria-hidden>
+                        <div className="h-11 w-11 shrink-0 animate-pulse rounded-xl bg-gray-200 dark:bg-white/[0.06]" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3 w-2/5 animate-pulse rounded bg-gray-200 dark:bg-white/[0.06]" />
+                          <div className="h-2.5 w-1/3 animate-pulse rounded bg-gray-100 dark:bg-white/[0.04]" />
+                        </div>
+                        <div className="h-6 w-12 animate-pulse rounded bg-gray-100 dark:bg-white/[0.04]" />
                       </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </Panel>
+                    ))}
+                  </ul>
+                ) : upcoming.length === 0 ? (
+                  <EmptyLine icon={CalenderIcon} label={hub.noDepartures} />
+                ) : (
+                  <ul className="-mx-2">
+                    {upcoming.map((d) => {
+                      const pct = d.seats > 0 ? Math.round((d.booked / d.seats) * 100) : 0;
+                      const fill = pct >= 95 ? "bg-rose-500" : pct >= 75 ? "bg-brand-500" : "bg-emerald-500";
+                      const pctText =
+                        pct >= 95 ? "text-rose-500" : pct >= 75 ? "text-brand-500" : "text-emerald-500";
+                      const dt = new Date(d.departAt);
+                      return (
+                        <li key={d.id}>
+                          <Link
+                            to={`/departures/${d.id}`}
+                            className="group flex items-center gap-4 rounded-xl px-2 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+                          >
+                            <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl border border-gray-200 bg-gray-50 transition-colors group-hover:border-brand-500/30 group-hover:bg-brand-500/[0.06] dark:border-white/[0.08] dark:bg-white/[0.03]">
+                              <span className="text-sm font-semibold leading-none tabular-nums text-gray-900 dark:text-white">
+                                {String(dt.getDate()).padStart(2, "0")}
+                              </span>
+                              <span className="mt-1 text-[0.55rem] uppercase leading-none text-gray-500 dark:text-gray-400">
+                                {fmtMonthShort(dt, lang)}
+                              </span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">{d.label}</div>
+                              <div className="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                <span className="tabular-nums">{relativeDayLabel(d.departAt, lang)}</span>
+                                {d.destination && (
+                                  <>
+                                    <span className="text-gray-300 dark:text-gray-700">·</span>
+                                    <span className="truncate">{d.destination}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            <div className="hidden items-center gap-2.5 sm:flex">
+                              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-100 dark:bg-white/[0.06]">
+                                <div className={`h-full rounded-full ${fill}`} style={{ width: `${Math.max(3, pct)}%` }} />
+                              </div>
+                              <span className={`w-9 text-right text-xs font-semibold tabular-nums ${pctText}`}>
+                                {pct}%
+                              </span>
+                            </div>
+                            <ArrowRightIcon className="size-4 shrink-0 text-gray-300 transition-all group-hover:translate-x-0.5 group-hover:text-brand-500 dark:text-gray-600" />
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </Panel>
 
-            <aside className="space-y-5">
+              {/* Money to chase — work, so it lives beside the departures */}
               {showFinance && (
-                <Panel className="p-6">
-                  <div className="mb-3 flex items-center justify-between gap-4">
+                <Panel className="min-w-0 p-6">
+                  <div className="mb-2 flex items-center justify-between gap-4">
                     <SectionLabel>{hub.focusOutstanding}</SectionLabel>
                     <Link
                       to="/payments"
                       className="inline-flex items-center gap-1 text-xs font-medium text-brand-500 transition-colors hover:text-brand-600 dark:text-brand-400"
                     >
-                      {hub.focusOutstandingCta}
+                      {hub.viewAll}
                       <ArrowRightIcon className="size-3" />
                     </Link>
                   </div>
                   {loading ? (
-                    <ul className="space-y-3">
+                    <ul className="space-y-3 py-1">
                       {[0, 1].map((i) => (
                         <li key={i} className="flex items-center gap-3" aria-hidden>
                           <div className="size-9 shrink-0 animate-pulse rounded-xl bg-gray-200 dark:bg-white/[0.06]" />
                           <div className="flex-1 space-y-2">
-                            <div className="h-3 w-3/5 animate-pulse rounded bg-gray-200 dark:bg-white/[0.06]" />
-                            <div className="h-2.5 w-2/5 animate-pulse rounded bg-gray-100 dark:bg-white/[0.04]" />
+                            <div className="h-3 w-2/5 animate-pulse rounded bg-gray-200 dark:bg-white/[0.06]" />
+                            <div className="h-2.5 w-1/4 animate-pulse rounded bg-gray-100 dark:bg-white/[0.04]" />
                           </div>
                         </li>
                       ))}
@@ -597,26 +629,29 @@ const HomeHub: React.FC = () => {
                   ) : watchPayments.length === 0 ? (
                     <EmptyLine icon={CheckCircleIcon} label={hub.allSettled} />
                   ) : (
-                    <ul className="-mx-2 space-y-0.5">
+                    <ul className="-mx-2">
                       {watchPayments.map((p) => (
                         <li key={p.id}>
                           <Link
                             to={p.href}
-                            className="group flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+                            className="group flex items-center gap-3.5 rounded-xl px-2 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]"
                           >
-                            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-amber-200/70 bg-amber-50 text-amber-600 dark:border-amber-500/20 dark:bg-amber-500/[0.08] dark:text-amber-400">
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-amber-200/70 bg-amber-50 text-amber-600 dark:border-amber-500/20 dark:bg-amber-500/[0.08] dark:text-amber-400">
                               <DollarLineIcon className="size-4" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-medium text-gray-900 dark:text-white">{p.customerName}</div>
-                              <div className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">{p.packageName}</div>
+                              <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">{p.customerName}</div>
+                              <div className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">{p.packageName}</div>
                             </div>
                             <div className="shrink-0 text-right">
                               <div className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{p.amount}</div>
                               {p.daysOpen > 0 && (
-                                <div className="mt-0.5 text-[0.7rem] leading-none text-amber-500 dark:text-amber-400">{p.daysOpen}d</div>
+                                <div className="mt-1 text-[0.7rem] leading-none text-amber-500 dark:text-amber-400">
+                                  {p.daysOpen}d
+                                </div>
                               )}
                             </div>
+                            <ArrowRightIcon className="size-4 shrink-0 text-gray-300 transition-all group-hover:translate-x-0.5 group-hover:text-brand-500 dark:text-gray-600" />
                           </Link>
                         </li>
                       ))}
@@ -624,23 +659,49 @@ const HomeHub: React.FC = () => {
                   )}
                 </Panel>
               )}
+            </div>
 
-              <Panel className="p-6">
-                <SectionLabel>{hub.shortcutsTitle}</SectionLabel>
-                <nav className="mt-3 grid grid-cols-2 gap-2.5">
-                  {shortcuts.map((s) => (
-                    <Link
-                      key={s.href}
-                      to={s.href}
-                      className="group flex flex-col gap-2.5 rounded-xl border border-gray-100 p-3.5 transition-all hover:-translate-y-0.5 hover:border-brand-500/30 hover:bg-brand-500/[0.04] hover:shadow-sm dark:border-white/[0.05] dark:hover:border-brand-500/25"
-                    >
-                      <s.icon className="size-[18px] text-gray-400 transition-colors group-hover:text-brand-500 dark:text-gray-500" />
-                      <span className="text-xs font-medium text-gray-600 transition-colors group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white">
-                        {s.label}
-                      </span>
-                    </Link>
-                  ))}
-                </nav>
+            {/* Right rail — all navigation in one panel, so no stub cards */}
+            <aside className="min-w-0">
+              <Panel className="overflow-hidden">
+                <div className="p-6 pb-4">
+                  <SectionLabel>{hub.workspacesTitle}</SectionLabel>
+                  <nav className="mt-3 flex flex-col gap-1">
+                    {workspaces.map((s) => (
+                      <Link
+                        key={s.href}
+                        to={s.href}
+                        className="group flex items-center gap-3 rounded-xl border border-transparent px-2.5 py-2.5 transition-all hover:border-gray-200 hover:bg-gray-50 dark:hover:border-white/[0.08] dark:hover:bg-white/[0.03]"
+                      >
+                        <span className="flex size-9 items-center justify-center rounded-lg bg-gray-100 text-gray-400 transition-colors group-hover:bg-brand-500 group-hover:text-white dark:bg-white/[0.05] dark:text-gray-500">
+                          <s.icon className="size-4" />
+                        </span>
+                        <span className="text-[0.85rem] font-medium text-gray-700 transition-colors group-hover:text-gray-900 dark:text-gray-300 dark:group-hover:text-white">
+                          {s.label}
+                        </span>
+                        <ArrowRightIcon className="ml-auto size-3.5 text-gray-300 transition-all group-hover:translate-x-0.5 group-hover:text-brand-500 dark:text-gray-600" />
+                      </Link>
+                    ))}
+                  </nav>
+                </div>
+
+                <div className="border-t border-gray-100 p-6 pt-5 dark:border-white/[0.05]">
+                  <SectionLabel>{hub.shortcutsTitle}</SectionLabel>
+                  <nav className="mt-3 grid grid-cols-2 gap-2.5">
+                    {shortcuts.map((s) => (
+                      <Link
+                        key={s.href}
+                        to={s.href}
+                        className="group flex flex-col gap-2.5 rounded-xl border border-gray-100 p-3.5 transition-all hover:-translate-y-0.5 hover:border-brand-500/30 hover:bg-brand-500/[0.04] hover:shadow-sm dark:border-white/[0.05] dark:hover:border-brand-500/25"
+                      >
+                        <s.icon className="size-[18px] text-gray-400 transition-colors group-hover:text-brand-500 dark:text-gray-500" />
+                        <span className="text-xs font-medium text-gray-600 transition-colors group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white">
+                          {s.label}
+                        </span>
+                      </Link>
+                    ))}
+                  </nav>
+                </div>
               </Panel>
             </aside>
           </div>
