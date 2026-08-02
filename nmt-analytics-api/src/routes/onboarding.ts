@@ -6,6 +6,12 @@ import { supabaseAdmin } from '../lib/supabase';
 import { apiError } from '../lib/errors';
 import { logAuditEntry } from '../middleware/auditLogger';
 import { z } from 'zod';
+import {
+  mergeWithDefaults,
+  type DocType,
+  type DocTemplateConfig,
+  type TemplateConfig,
+} from '../lib/pdfTemplateConfig';
 
 const router = Router({ mergeParams: true });
 
@@ -143,63 +149,22 @@ router.post('/skip', async (req: Request, res: Response) => {
 // PDF TEMPLATE EDITOR
 // =====================
 
-interface TemplateBlock {
-  id: string;
-  type: 'header' | 'logo' | 'trip_info' | 'passenger_table' | 'pricing' | 'qr_code' | 'terms' | 'footer' | 'signature' | 'spacer';
-  enabled: boolean;
-  label: string;
-  style: { [key: string]: any };
+/**
+ * Persistence layer for the block-based PDF template editor.
+ *
+ * The block vocabulary lives in ../lib/pdfTemplateConfig and is shared with the
+ * PDF renderer and (as a verbatim duplicate) the admin editor. This route must
+ * round-trip that shape losslessly: the previous local schema here
+ * (id/type/label/style with a 10-value `type` union) silently dropped `key` and
+ * `customText` on every save, which is why the editor was write-only and the
+ * generators could never resolve a block.
+ */
+function validateDocTemplateConfig(docType: DocType, input: any): DocTemplateConfig {
+  return mergeWithDefaults({ [docType]: input } as Partial<TemplateConfig>)[docType];
 }
 
-interface PDFTemplateConfig {
-  blocks: TemplateBlock[];
-  pageSize: 'A4' | 'Letter';
-  orientation: 'portrait' | 'landscape';
-  margins: { top: number; bottom: number; left: number; right: number };
-  fontFamily: string;
-  accentColor: string;
-}
-
-const DEFAULT_TEMPLATE: PDFTemplateConfig = {
-  pageSize: 'A4',
-  orientation: 'portrait',
-  margins: { top: 50, bottom: 50, left: 50, right: 50 },
-  fontFamily: 'DejaVu',
-  accentColor: '#1D4ED8',
-  blocks: [
-    { id: 'b1', type: 'header', enabled: true, label: 'Zaglavlje sa nazivom agencije', style: {} },
-    { id: 'b2', type: 'logo', enabled: true, label: 'Logo agencije', style: { position: 'right', maxWidth: 120 } },
-    { id: 'b3', type: 'trip_info', enabled: true, label: 'Podaci o putovanju', style: {} },
-    { id: 'b4', type: 'passenger_table', enabled: true, label: 'Tabela putnika', style: { alternatingRows: true } },
-    { id: 'b5', type: 'pricing', enabled: true, label: 'Cijena i naplata', style: {} },
-    { id: 'b6', type: 'qr_code', enabled: false, label: 'QR kod (link)', style: { size: 80 } },
-    { id: 'b7', type: 'terms', enabled: true, label: 'Opšti uslovi', style: {} },
-    { id: 'b8', type: 'signature', enabled: true, label: 'Potpis klijenta', style: {} },
-    { id: 'b9', type: 'footer', enabled: true, label: 'Podnožje', style: {} },
-  ],
-};
-
-function validateTemplateConfig(input: any): PDFTemplateConfig {
-  if (!input || typeof input !== 'object') return { ...DEFAULT_TEMPLATE };
-  return {
-    pageSize: input.pageSize === 'Letter' ? 'Letter' : 'A4',
-    orientation: input.orientation === 'landscape' ? 'landscape' : 'portrait',
-    margins: {
-      top: Number(input.margins?.top) || 50,
-      bottom: Number(input.margins?.bottom) || 50,
-      left: Number(input.margins?.left) || 50,
-      right: Number(input.margins?.right) || 50,
-    },
-    fontFamily: typeof input.fontFamily === 'string' ? input.fontFamily : 'DejaVu',
-    accentColor: typeof input.accentColor === 'string' ? input.accentColor : '#1D4ED8',
-    blocks: Array.isArray(input.blocks) ? input.blocks.map((b: any) => ({
-      id: String(b.id || ''),
-      type: String(b.type || 'spacer'),
-      enabled: Boolean(b.enabled),
-      label: String(b.label || ''),
-      style: typeof b.style === 'object' && b.style !== null ? b.style : {},
-    })) : DEFAULT_TEMPLATE.blocks,
-  };
+function isDocType(value: string): value is DocType {
+  return value === 'invoice' || value === 'voucher' || value === 'contract' || value === 'receipt';
 }
 
 // GET /pdf-templates — bulk GET all template configs
@@ -218,10 +183,9 @@ router.get('/templates', async (req: Request, res: Response) => {
     }
 
     const raw = (data?.pdf_template_config as Record<string, any>) || {};
-    const configs: Record<string, PDFTemplateConfig> = {};
-    for (const dt of ['invoice', 'voucher', 'contract', 'receipt']) {
-      configs[dt] = raw[dt] ? validateTemplateConfig(raw[dt]) : { ...DEFAULT_TEMPLATE };
-    }
+    // mergeWithDefaults fills every doc type, preserves stored block order, and
+    // appends blocks added by later schema upgrades.
+    const configs = mergeWithDefaults(raw);
 
     return res.json({ pdf_template_config: configs });
   } catch (err) {
@@ -240,10 +204,7 @@ router.put('/templates', async (req: Request, res: Response) => {
       return apiError(res, 400, "INVALID_INPUT", "Expected pdf_template_config object");
     }
 
-    const configs: Record<string, any> = {};
-    for (const dt of ['invoice', 'voucher', 'contract', 'receipt']) {
-      configs[dt] = validateTemplateConfig(input[dt] || DEFAULT_TEMPLATE);
-    }
+    const configs = mergeWithDefaults(input);
 
     const { error: updateErr } = await supabaseAdmin
       .from('org_branding')
@@ -279,9 +240,8 @@ router.put('/templates', async (req: Request, res: Response) => {
 router.get('/templates/:docType', async (req: Request, res: Response) => {
   const orgId = req.orgId!;
   const docType = req.params.docType;
-  const validDocTypes = ['invoice', 'voucher', 'contract', 'receipt'];
 
-  if (!validDocTypes.includes(docType)) {
+  if (!isDocType(docType)) {
     return apiError(res, 400, "INVALID_DOC_TYPE", "Valid types: invoice, voucher, contract, receipt");
   }
 
@@ -301,7 +261,7 @@ router.get('/templates/:docType', async (req: Request, res: Response) => {
 
     return res.json({
       docType,
-      config: docConfig ? validateTemplateConfig(docConfig) : { ...DEFAULT_TEMPLATE },
+      config: validateDocTemplateConfig(docType, docConfig),
       isDefault: !docConfig,
     });
   } catch (err) {
@@ -314,9 +274,8 @@ router.get('/templates/:docType', async (req: Request, res: Response) => {
 router.put('/templates/:docType', async (req: Request, res: Response) => {
   const orgId = req.orgId!;
   const docType = req.params.docType;
-  const validDocTypes = ['invoice', 'voucher', 'contract', 'receipt'];
 
-  if (!validDocTypes.includes(docType)) {
+  if (!isDocType(docType)) {
     return apiError(res, 400, "INVALID_DOC_TYPE", "Valid types: invoice, voucher, contract, receipt");
   }
 
@@ -332,7 +291,7 @@ router.put('/templates/:docType', async (req: Request, res: Response) => {
       return apiError(res, 500, "INTERNAL_ERROR", "Failed to fetch existing config");
     }
 
-    const validated = validateTemplateConfig(req.body);
+    const validated = validateDocTemplateConfig(docType, req.body);
     const allConfigs = ((existing?.pdf_template_config as any) || {});
     allConfigs[docType] = validated;
 
@@ -373,6 +332,10 @@ router.get('/templates/preview/:docType', async (req: Request, res: Response) =>
   const orgId = req.orgId!;
   const docType = req.params.docType;
 
+  if (!isDocType(docType)) {
+    return apiError(res, 400, "INVALID_DOC_TYPE", "Valid types: invoice, voucher, contract, receipt");
+  }
+
   try {
     const { data } = await supabaseAdmin
       .from('org_branding')
@@ -381,7 +344,7 @@ router.get('/templates/preview/:docType', async (req: Request, res: Response) =>
       .single();
 
     const allConfigs = (data?.pdf_template_config as any) || {};
-    const config = validateTemplateConfig(allConfigs[docType]);
+    const config = validateDocTemplateConfig(docType, allConfigs[docType]);
 
     // Return a JSON preview structure for the frontend to render
     const mockData = {
