@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
 import PageSkeleton from "./components/common/PageSkeleton";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import AuthGuard from "./components/auth/AuthGuard";
@@ -10,6 +10,7 @@ import "./index.css";
 
 const SignIn = lazy(() => import("./pages/AuthPages/SignIn"));
 const SignUp = lazy(() => import("./pages/AuthPages/SignUp"));
+const ResetPassword = lazy(() => import("./pages/AuthPages/ResetPassword"));
 const Home = lazy(() => import("./pages/Dashboard/Home"));
 const HomeHub = lazy(() => import("./pages/Hub/HomeHub"));
 const SalesScope = lazy(() => import("./pages/Hub/SalesScope"));
@@ -65,6 +66,11 @@ export default function App() {
       <Routes>
         <Route path="/auth/signin" element={<SuspenseWrapper><SignIn /></SuspenseWrapper>} />
         <Route path="/auth/signup" element={<SuspenseWrapper><SignUp /></SuspenseWrapper>} />
+        <Route path="/auth/reset-password" element={<SuspenseWrapper><ResetPassword /></SuspenseWrapper>} />
+        {/* Legacy / bare aliases — keep old links and pasted URLs working */}
+        <Route path="/signin" element={<Navigate to="/auth/signin" replace />} />
+        <Route path="/signup" element={<Navigate to="/auth/signup" replace />} />
+        <Route path="/reset-password" element={<SuspenseWrapper><ResetPassword /></SuspenseWrapper>} />
         <Route path="/waiver/:token" element={<SuspenseWrapper><PublicSignWaiver /></SuspenseWrapper>} />
         <Route path="/portal/subagent/:token" element={<SuspenseWrapper><PublicSubAgentPortal /></SuspenseWrapper>} />
 

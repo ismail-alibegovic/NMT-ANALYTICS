@@ -20,7 +20,7 @@ export default function UserDropdown() {
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    navigate("/signin");
+    navigate("/auth/signin", { replace: true });
   }
   return (
     <div className="relative">

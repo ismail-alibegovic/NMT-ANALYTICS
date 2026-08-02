@@ -1,7 +1,7 @@
 import { useT } from "../../lib/i18n/context";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
+import { EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
@@ -19,6 +19,7 @@ export default function SignInForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const justRegistered = searchParams.get("registered") === "1";
+  const justReset = searchParams.get("reset") === "1";
 
   const handleDevLogin = async () => {
     if (!import.meta.env.DEV) {
@@ -56,15 +57,6 @@ export default function SignInForm() {
 
   return (
     <div className="flex flex-col flex-1">
-      <div className="w-full max-w-md pt-10 mx-auto">
-        <Link
-          to="/"
-          className="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-        >
-          <ChevronLeftIcon className="size-5" />
-          {t.common.back} {t.nav.dashboard}
-        </Link>
-      </div>
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
         <div>
           <div className="mb-5 sm:mb-8">
@@ -78,11 +70,16 @@ export default function SignInForm() {
           <div>
             {justRegistered && (
               <div className="mb-4 p-3 bg-success-50 border border-success-200 text-success-700 rounded-lg dark:bg-success-900/30 dark:border-success-800 dark:text-success-400">
-                Account created successfully. You can now sign in.
+                {t.auth.accountCreated}
+              </div>
+            )}
+            {justReset && (
+              <div className="mb-4 p-3 bg-success-50 border border-success-200 text-success-700 rounded-lg dark:bg-success-900/30 dark:border-success-800 dark:text-success-400">
+                {t.auth.passwordResetDone}
               </div>
             )}
             {error && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+              <div className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-900/30 dark:text-error-400">
                 {error}
               </div>
             )}
@@ -134,33 +131,37 @@ export default function SignInForm() {
             }}>
               <div className="space-y-6">
                 <div>
-                  <Label>
+                  <Label htmlFor="signin-email">
                     {t.auth.email} <span className="text-error-500">*</span>
                   </Label>
                   <Input
+                    id="signin-email"
                     type="email"
                     name="email"
                     autoComplete="email"
-                    placeholder="info@gmail.com"
+                    placeholder={t.auth.enterEmail}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
                 <div>
-                  <Label>
+                  <Label htmlFor="signin-password">
                     {t.auth.password} <span className="text-error-500">*</span>
                   </Label>
                   <div className="relative">
                     <Input
+                      id="signin-password"
                       type={showPassword ? "text" : "password"}
                       name="password"
                       autoComplete="current-password"
-                      placeholder={`Enter ${t.auth.password}`}
+                      placeholder={t.auth.enterPassword}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
-                    <span
+                    <button
+                      type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? t.auth.hidePassword : t.auth.showPassword}
                       className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
                     >
                       {showPassword ? (
@@ -168,7 +169,7 @@ export default function SignInForm() {
                       ) : (
                         <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
                       )}
-                    </span>
+                    </button>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
@@ -179,7 +180,7 @@ export default function SignInForm() {
                     </span>
                   </div>
                   <Link
-                    to="/reset-password"
+                    to="/auth/reset-password"
                     className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
                   >
                     {t.auth.forgotPassword}
@@ -217,7 +218,7 @@ export default function SignInForm() {
               <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
                 {t.auth.noAccount} {" "}
                 <Link
-                  to="/signup"
+                  to="/auth/signup"
                   className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
                 >
                   {t.auth.signUp}

@@ -58,7 +58,7 @@ export default function SignUpForm() {
         return;
       }
 
-      navigate("/signin?registered=1");
+      navigate("/auth/signin?registered=1", { replace: true });
     } catch {
       setError(t.errors.generic);
     } finally {
@@ -72,7 +72,7 @@ export default function SignUpForm() {
         <div>
           <div className="mb-5 sm:mb-8">
             <Link
-              to="/signin"
+              to="/auth/signin"
               className="inline-flex items-center gap-2 text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
             >
               <ChevronLeftIcon className="size-5" />
@@ -204,7 +204,7 @@ export default function SignUpForm() {
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {t.auth.hasAccount}{" "}
               <Link
-                to="/signin"
+                to="/auth/signin"
                 className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
               >
                 {t.auth.signIn}
