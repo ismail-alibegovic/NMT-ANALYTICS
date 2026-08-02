@@ -12,6 +12,8 @@ import {
   type DocTemplateConfig,
   type TemplateConfig,
 } from '../lib/pdfTemplateConfig';
+import { renderTemplatedPDF, type RenderStyle } from '../lib/pdfTemplateRenderer';
+import { getOrgBranding } from '../lib/orgBranding';
 
 const router = Router({ mergeParams: true });
 
@@ -327,7 +329,80 @@ router.put('/templates/:docType', async (req: Request, res: Response) => {
   }
 });
 
-// GET /pdf-templates/preview/:docType — preview template with mock data
+// GET /pdf-templates/preview/:docType — render the live stored template config
+// to a real PDF against demo data. Returned as application/pdf so the admin
+// editor can embed it in an <iframe>. Auth-gated like the rest of this router
+// (director+) so the URL is not a public PDF oracle.
+const PREVIEW_DEMO_DATA: Record<DocType, any> = {
+  invoice: {
+    id: 'PREVIEW-INVOICE-01',
+    organizations: {
+      name: 'Demo Travel Agency', address: 'Sarajevo, BiH',
+      email: 'info@demo.ba', phone: '+387 33 000 000',
+      tax_id: '4200000000000', bank_account: 'BA001234567890123456',
+      invoice_footer: 'Hvala na povjerenju.',
+      currency: 'BAM',
+    },
+    customers: { full_name: 'Amer Hodić', phone: '+387 61 234 567', email: 'amer@example.com' },
+    departures: {
+      depart_at: '2026-08-15', return_at: '2026-08-22',
+      packages: { name: 'Kapadokija — 8 dana', destination: 'Turska' },
+    },
+    currency: 'BAM', total_amount: 2400, paid_amount: 1200, status: 'confirmed',
+    payment_status: 'partially_paid', party_size: 2,
+    package_services: [
+      { serviceType: 'hotel', providerName: 'Sultan Cave', quantity: 2, unitPrice: 780, totalPrice: 1560 },
+      { serviceType: 'transport', providerName: 'Pegasus', quantity: 2, unitPrice: 400, totalPrice: 800 },
+      { serviceType: 'insurance', providerName: 'Sarajevo osiguranje', quantity: 2, unitPrice: 60, totalPrice: 120, isOptional: true },
+    ],
+    hotel_name: 'Hotel Sultan Cave', room_type: 'double',
+    check_in: '2026-08-15', check_out: '2026-08-22', tour_guide: 'Aida Hodžić',
+  },
+  voucher: {
+    id: 'PREVIEW-VOUCHER-01',
+    organizations: {
+      name: 'Demo Travel Agency', address: 'Sarajevo, BiH',
+      email: 'info@demo.ba', phone: '+387 33 000 000', currency: 'BAM',
+    },
+    customers: { full_name: 'Selma Hodić', phone: '+387 61 333 222', email: 'selma@example.com' },
+    departures: {
+      depart_at: '2026-08-15', return_at: '2026-08-22',
+      packages: { name: 'Kapadokija — 8 dana', destination: 'Turska' },
+    },
+    currency: 'BAM', total_amount: 1200, status: 'confirmed', party_size: 1,
+    hotel_name: 'Hotel Sultan Cave', room_type: 'single',
+    check_in: '2026-08-15', check_out: '2026-08-22', tour_guide: 'Aida Hodžić',
+  },
+  contract: {
+    contract_number: 'UG-2026-PREV', contract_date: '2026-08-02', status: 'draft', currency: 'BAM',
+    total_amount: 2400, party_size: 2,
+    organizations: { name: 'Demo Travel Agency', address: 'Sarajevo, BiH', email: 'info@demo.ba', phone: '+387 33 000 000', tax_id: '4200000000000', bank_account: 'BA001234567890123456' },
+    travelers: { full_name: 'Amer Hodić', phone: '+387 61 234 567', email: 'amer@example.com' },
+    reservations: {
+      id: 'PREVIEW-RES-01', customer_name: 'Amer Hodić', customer_phone: '+387 61 234 567',
+      party_size: 2, total_amount: 2400, currency: 'BAM',
+      departures: {
+        depart_at: '2026-08-15', return_at: '2026-08-22',
+        packages: { name: 'Kapadokija — 8 dana', destination: 'Turska' },
+      },
+      customers: { full_name: 'Amer Hodić', phone: '+387 61 234 567', email: 'amer@example.com' },
+    },
+    payment_terms: 'Avans 30% pri potpisu, ostatak 14 dana prije polaska.',
+    cancellation_policy: 'Otkaz do 30 dana: 10%. Do 15 dana: 50%. Manje od 7 dana: 100%.',
+  },
+  receipt: {
+    receipt_number: 'FR-2026-PREV', issued_at: '2026-08-02', receipt_type: 'advance', currency: 'BAM',
+    amount: 1200, payment_method: 'kartica',
+    organizations: { name: 'Demo Travel Agency', address: 'Sarajevo, BiH', email: 'info@demo.ba', phone: '+387 33 000 000', tax_id: '4200000000000' },
+    reservations: {
+      id: 'PREVIEW-RES-01',
+      customers: { full_name: 'Amer Hodić', phone: '+387 61 234 567', email: 'amer@example.com' },
+    },
+    contracts: { contract_number: 'UG-2026-PREV' },
+    fiscal_data: { cin: '12345678', zki: 'a1b2c3d4e5f6', verificationUrl: 'https://efiskalizacija.ba/v/12345678' },
+  },
+};
+
 router.get('/templates/preview/:docType', async (req: Request, res: Response) => {
   const orgId = req.orgId!;
   const docType = req.params.docType;
@@ -337,30 +412,66 @@ router.get('/templates/preview/:docType', async (req: Request, res: Response) =>
   }
 
   try {
-    const { data } = await supabaseAdmin
-      .from('org_branding')
-      .select('pdf_template_config')
-      .eq('org_id', orgId)
-      .single();
+    // Always render the current stored config; if the editor saved a draft,
+    // it already wrote it to org_branding.pdf_template_config. Optional `?raw=`
+    // JSON body POST is not used here — the admin posts its working copy to
+    // the same /templates PUT route before previewing.
+    const branding = await getOrgBranding(orgId);
+    const config = branding.pdfTemplateConfig ?? null;
 
-    const allConfigs = (data?.pdf_template_config as any) || {};
-    const config = validateDocTemplateConfig(docType, allConfigs[docType]);
+    const demo = PREVIEW_DEMO_DATA[docType];
+    const pdfBuffer = await renderTemplatedPDF(docType, demo, config, {
+      primaryColor: branding.primaryColor,
+      secondaryColor: branding.secondaryColor,
+      footerText: branding.footerText,
+      logoUrl: branding.logoUrl,
+      showQr: branding.showQr,
+    } as Partial<RenderStyle>);
 
-    // Return a JSON preview structure for the frontend to render
-    const mockData = {
-      org: { name: 'Demo Travel Agency', address: 'Sarajevo, BiH', email: 'info@demo.ba', phone: '+387 33 000 000' },
-      trip: { destination: 'Antalya, Turska', departure: '15.08.2026', return: '22.08.2026', duration: '7 noći' },
-      passengers: [
-        { name: 'Amer Hodić', passport: 'BH1234567', seat: '12A', paid: 1200, debt: 0 },
-        { name: 'Selma Hodić', passport: 'BH7654321', seat: '12B', paid: 1200, debt: 0 },
-      ],
-      pricing: { total: 2400, currency: 'BAM', perPerson: 1200 },
-      config,
-    };
-
-    return res.json(mockData);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="preview-${docType}.pdf"`);
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return res.send(pdfBuffer);
   } catch (err) {
-    return apiError(res, 500, "INTERNAL_ERROR", "Internal server error");
+    console.error('[PDF_TEMPLATES] preview exception:', err);
+    return apiError(res, 500, "INTERNAL_ERROR", "Failed to render preview");
+  }
+});
+
+router.post('/templates/preview/:docType', async (req: Request, res: Response) => {
+  const orgId = req.orgId!;
+  const docType = req.params.docType;
+
+  if (!isDocType(docType)) {
+    return apiError(res, 400, "INVALID_DOC_TYPE", "Valid types: invoice, voucher, contract, receipt");
+  }
+
+  try {
+    // The editor sends its working copy (unsaved draft) for the active doc
+    // type. validate it, then render it against demo data with the org's
+    // branding. Mirrors the GET path exactly except config comes from the
+    // request body instead of org_branding.pdf_template_config.
+    const draftConfig = validateDocTemplateConfig(docType, req.body ?? {});
+
+    const branding = await getOrgBranding(orgId);
+    const baseConfig = mergeWithDefaults(branding.pdfTemplateConfig);
+    const mergedConfig: TemplateConfig = { ...baseConfig, [docType]: draftConfig };
+    const demo = PREVIEW_DEMO_DATA[docType];
+    const pdfBuffer = await renderTemplatedPDF(docType, demo, mergedConfig, {
+      primaryColor: branding.primaryColor,
+      secondaryColor: branding.secondaryColor,
+      footerText: branding.footerText,
+      logoUrl: branding.logoUrl,
+      showQr: branding.showQr,
+    } as Partial<RenderStyle>);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="preview-${docType}.pdf"`);
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return res.send(pdfBuffer);
+  } catch (err) {
+    console.error('[PDF_TEMPLATES] POST preview exception:', err);
+    return apiError(res, 500, "INTERNAL_ERROR", "Failed to render preview");
   }
 });
 
