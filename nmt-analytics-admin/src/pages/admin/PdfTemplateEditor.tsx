@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import api from "../../lib/apiClient";
 import { useT } from "../../lib/i18n/context";
@@ -34,6 +34,10 @@ export default function PdfTemplateEditor() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState<Set<DocType>>(new Set());
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const activeDraftRef = useRef<number>(0);
 
   const fetchConfigs = useCallback(async () => {
     try {
@@ -116,6 +120,33 @@ export default function PdfTemplateEditor() {
       setSaving(false);
     }
   };
+
+  const handlePreview = async () => {
+    const myRun = ++activeDraftRef.current;
+    setPreviewLoading(true);
+    setPreviewOpen(true);
+    try {
+      const res = await api.post(`/onboarding/templates/preview/${activeTab}`, configs[activeTab], {
+        responseType: "blob",
+        headers: { Accept: "application/pdf" },
+      });
+      if (myRun !== activeDraftRef.current) return; // stale response
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      setPreviewUrl(url);
+    } catch (err: any) {
+      error(err?.message || "Preview failed");
+    } finally {
+      if (myRun === activeDraftRef.current) setPreviewLoading(false);
+    }
+  };
+
+  // Clean up blob URL on unmount.
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const handleReset = () => {
     const defaults = buildDefaultTemplateConfig();
@@ -296,6 +327,47 @@ export default function PdfTemplateEditor() {
               </div>
             );
           })}
+        </div>
+
+        {/* Live preview */}
+        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
+          <div className="flex items-center gap-3 mb-3">
+            <button
+              onClick={handlePreview}
+              disabled={previewLoading}
+              className="px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors text-sm font-medium disabled:opacity-50"
+            >
+              {previewLoading ? "…" : t.settings.previewTemplate || "Preview PDF"}
+            </button>
+            {previewOpen && previewUrl && (
+              <button
+                onClick={() => setPreviewOpen(false)}
+                className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                Hide
+              </button>
+            )}
+          </div>
+          {previewOpen && (
+            <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-900">
+              {previewLoading && !previewUrl ? (
+                <div className="flex items-center justify-center h-64 text-sm text-gray-500 dark:text-gray-400">
+                  Generating preview…
+                </div>
+              ) : previewUrl ? (
+                <iframe
+                  src={previewUrl}
+                  title="PDF preview"
+                  className="w-full"
+                  style={{ height: "70vh" }}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-64 text-sm text-gray-500 dark:text-gray-400">
+                  Click “Preview PDF”.
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Actions */}
