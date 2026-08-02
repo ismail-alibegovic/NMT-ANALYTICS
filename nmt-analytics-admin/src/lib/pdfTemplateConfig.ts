@@ -1,9 +1,12 @@
 /**
- * PDF Template Configuration
+ * PDF Template Configuration — shared vocabulary with backend.
  *
- * Shared types and helpers for the block-based PDF template editor.
- * Each doc type (invoice, voucher, contract, receipt) has a set of blocks
- * that can be toggled, reordered, and customized per org.
+ * SHARED SCHEMA — verbatim duplicate of
+ * `nmt-analytics-api/src/lib/pdfTemplateConfig.ts`.
+ * Both admin and api have separate tsconfig roots (no shared package exists yet).
+ * SYNC RULE: when editing either file, copy the change to the other verbatim.
+ * Drift check: `tsc --noEmit` on both sides catches type divergence only after
+ * editing — manual review is the contract for non-type changes (labels, defaults).
  */
 
 export type DocType = 'invoice' | 'voucher' | 'contract' | 'receipt';
