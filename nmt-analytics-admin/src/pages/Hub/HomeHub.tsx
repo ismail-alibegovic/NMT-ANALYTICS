@@ -109,14 +109,14 @@ const AreaChart: React.FC<{
   height?: number;
   stroke?: string;
   gradientId?: string;
-}> = ({ points, height = 128, stroke = "#465fff", gradientId = "rev" }) => {
+}> = ({ points, height = 84, stroke = "#465fff", gradientId = "rev" }) => {
   const width = 640;
   if (!points.length) return null;
   const min = Math.min(...points, 0);
   const max = Math.max(...points, 1);
   const span = max - min || 1;
   const stepX = points.length > 1 ? width / (points.length - 1) : width;
-  const topPad = 14;
+  const topPad = 12;
   const usableH = height - topPad;
   const coords = points.map((p, i) => {
     const x = i * stepX;
@@ -166,9 +166,9 @@ const AreaChart: React.FC<{
 };
 
 /** Chart slot with nothing to plot: a flat baseline sitting on the panel edge. */
-const FlatBaseline: React.FC<{ label: string; height?: number }> = ({ label, height = 128 }) => (
-  <div className="flex w-full flex-col justify-end px-6" style={{ height }}>
-    <p className="mb-3 text-xs text-gray-400 dark:text-gray-500">{label}</p>
+const FlatBaseline: React.FC<{ label: string; height?: number }> = ({ label, height = 84 }) => (
+  <div className="flex w-full flex-col justify-end px-5" style={{ height }}>
+    <p className="mb-2.5 text-xs text-gray-400 dark:text-gray-500">{label}</p>
     <div className="h-px w-full border-t border-dashed border-gray-200 dark:border-white/[0.10]" />
   </div>
 );
@@ -192,7 +192,7 @@ const EmptyLine: React.FC<{ icon: React.FC<{ className?: string }>; label: strin
   icon: Icon,
   label,
 }) => (
-  <div className="flex items-center gap-2.5 py-4">
+  <div className="flex items-center gap-2.5 py-3">
     <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-300 dark:bg-white/[0.04] dark:text-gray-600">
       <Icon className="size-4" />
     </span>
@@ -209,15 +209,15 @@ type Metric = {
 };
 
 /**
- * One row of the hero ledger. Stacked vertically beside the revenue block so
- * the two halves of the hero panel end at the same height — no gap to fill.
+ * One row of the KPI ledger. Stacked vertically; tightened padding for the
+ * compact single-viewport hub.
  */
 const MetricRow: React.FC<{ metric: Metric; loading: boolean }> = ({ metric, loading }) => {
   const Icon = metric.icon;
   return (
     <Link
       to={metric.href}
-      className="group flex flex-1 items-center gap-3.5 px-5 py-4 transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03]"
+      className="group flex flex-1 items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03]"
     >
       <span
         className={`flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors ${
@@ -235,7 +235,7 @@ const MetricRow: React.FC<{ metric: Metric; loading: boolean }> = ({ metric, loa
         {loading ? (
           <span className="mt-1.5 block h-4 w-16 animate-pulse rounded bg-gray-200 dark:bg-white/[0.06]" />
         ) : (
-          <span className="mt-0.5 block truncate text-[1.05rem] font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">
+          <span className="mt-0.5 block truncate text-[1rem] font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">
             {metric.value}
           </span>
         )}
@@ -323,7 +323,7 @@ const HomeHub: React.FC = () => {
 
   const upcoming = useMemo(
     () =>
-      departures.slice(0, 5).map((d) => ({
+      departures.slice(0, 4).map((d) => ({
         id: d.id,
         label: d.packages?.name || d.packageName || d.destination || hub.untitledDeparture,
         destination: d.packages?.destination || d.destination || "",
@@ -420,112 +420,106 @@ const HomeHub: React.FC = () => {
       <div className="relative">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-64 bg-gradient-to-b from-brand-500/[0.07] via-brand-500/[0.02] to-transparent dark:from-brand-500/[0.12] dark:via-brand-500/[0.03]"
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-44 bg-gradient-to-b from-brand-500/[0.07] via-brand-500/[0.02] to-transparent dark:from-brand-500/[0.12] dark:via-brand-500/[0.03]"
         />
 
-        <div className="mx-auto w-full max-w-[1240px] px-4 pb-24 pt-8 md:px-8 md:pt-10">
-          {/* ── Masthead ─────────────────────────────────────────────────── */}
-          <header className="mb-6 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="mb-2.5 flex items-center gap-2.5">
-                <span className="inline-flex size-6 items-center justify-center rounded-md bg-brand-500 text-[0.7rem] font-bold text-white shadow-sm shadow-brand-500/30">
-                  {(orgName || "T").charAt(0).toUpperCase()}
-                </span>
-                <p className="truncate text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500">
+        <div className="mx-auto flex h-[calc(100dvh-130px)] w-full max-w-[1360px] flex-col overflow-hidden px-4 py-4 md:px-6 md:py-5">
+          {/* ── Masthead — slim, one row ─────────────────────────────────── */}
+          <header className="mb-4 flex items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-[0.78rem] font-bold text-white shadow-sm shadow-brand-500/30">
+                {(orgName || "T").charAt(0).toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <h1 className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-xl font-semibold leading-tight tracking-tight text-gray-900 dark:text-white sm:text-2xl">
+                  <span>
+                    {greeting}
+                    <span className="text-brand-500">.</span>
+                  </span>
+                  <span className="text-xs font-normal capitalize text-gray-400 dark:text-gray-500">
+                    {dateLine}
+                  </span>
+                </h1>
+                <p className="truncate text-[0.66rem] font-semibold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500">
                   {orgName || "Travline"}
                 </p>
               </div>
-              <h1 className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[1.75rem] font-semibold leading-[1.1] tracking-tight text-gray-900 dark:text-white md:text-[2.15rem]">
-                <span>
-                  {greeting}
-                  <span className="text-brand-500">.</span>
-                </span>
-                <span className="text-sm font-normal text-gray-400 first-letter:uppercase dark:text-gray-500">
-                  {dateLine}
-                </span>
-              </h1>
             </div>
             <button
               onClick={() => navigate("/reservations?new=1")}
-              className="group inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all hover:bg-brand-600 hover:shadow-brand-500/35 active:translate-y-px sm:self-auto"
+              className="group inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all hover:bg-brand-600 hover:shadow-brand-500/35 active:translate-y-px"
             >
               <PlusIcon className="size-4" />
-              {hub.focusNewReservation}
+              <span className="hidden sm:inline">{hub.focusNewReservation}</span>
               <ArrowRightIcon className="size-3.5 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
             </button>
           </header>
 
-          {/* ── Hero: the money on the left, the ledger on the right ─────── */}
-          <Panel className="mb-5 overflow-hidden">
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_312px]">
-              {/* Money + chart. The chart bleeds to the panel's bottom edge. */}
-              <div className="flex min-w-0 flex-col">
-                <div className="flex items-start justify-between gap-4 p-6 pb-0">
-                  <div className="min-w-0">
-                    <SectionLabel>{heroLabel}</SectionLabel>
-                    <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-2">
-                      {loading ? (
-                        <span className="block h-10 w-44 animate-pulse rounded bg-gray-200 dark:bg-white/[0.06]" />
-                      ) : (
-                        <p className="text-[2.25rem] font-semibold leading-none tracking-tight tabular-nums text-gray-900 dark:text-white md:text-[2.6rem]">
-                          {heroValue}
-                        </p>
-                      )}
-                      {!loading && showFinance && trendPct !== null && (
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.7rem] font-semibold tabular-nums ${
-                            trendPct >= 0
-                              ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/[0.12] dark:text-emerald-400"
-                              : "bg-rose-50 text-rose-600 dark:bg-rose-500/[0.12] dark:text-rose-400"
-                          }`}
-                        >
-                          {trendPct >= 0 ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />}
-                          {Math.abs(trendPct)}%
+          {/* ── Single-viewport grid: everything visible, no page scroll ── */}
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_288px]">
+            {/* COL 1 — Revenue hero + Upcoming departures */}
+            <div className="flex min-w-0 flex-col gap-4 lg:min-h-0">
+              {/* Revenue hero (compact) */}
+              <Panel className="flex shrink-0 flex-col overflow-hidden">
+                <div className="p-5 pb-0">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <SectionLabel>{heroLabel}</SectionLabel>
+                      <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <span className="text-[1.85rem] font-semibold leading-none tabular-nums tracking-tight text-gray-900 dark:text-white">
+                          {loading ? (
+                            <span className="block h-8 w-32 animate-pulse rounded bg-gray-100 dark:bg-white/[0.06]" />
+                          ) : (
+                            heroValue
+                          )}
                         </span>
-                      )}
+                        {showFinance && trendPct != null && (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.7rem] font-semibold tabular-nums ${
+                              trendPct >= 0
+                                ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/[0.12] dark:text-emerald-400"
+                                : "bg-rose-50 text-rose-600 dark:bg-rose-500/[0.12] dark:text-rose-400"
+                            }`}
+                          >
+                            {trendPct >= 0 ? (
+                              <ArrowUpIcon className="size-3" />
+                            ) : (
+                              <ArrowDownIcon className="size-3" />
+                            )}
+                            {Math.abs(trendPct)}%
+                            <span className="ml-0.5 font-normal text-gray-400 dark:text-gray-500">
+                              {hub.trendVsPrev}
+                            </span>
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <p className="mt-2 text-[0.72rem] text-gray-400 dark:text-gray-500">
-                      {!loading && showFinance && trendPct !== null ? hub.trendVsPrev : hub.revenuePanelHint}
-                    </p>
+                    {showFinance && (
+                      <Link
+                        to="/reports"
+                        className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-brand-500 transition-colors hover:text-brand-600 dark:text-brand-400"
+                      >
+                        {hub.viewAll}
+                        <ArrowRightIcon className="size-3" />
+                      </Link>
+                    )}
                   </div>
-                  {showFinance && (
-                    <Link
-                      to="/reports"
-                      className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-brand-500 transition-colors hover:text-brand-600 dark:text-brand-400"
-                    >
-                      {hub.viewAll}
-                      <ArrowRightIcon className="size-3" />
-                    </Link>
-                  )}
                 </div>
-
-                <div className="mt-auto pt-6">
+                <div className="mt-auto">
                   {loading ? (
-                    <div className="mx-6 mb-6 h-[128px] animate-pulse rounded-xl bg-gray-100 dark:bg-white/[0.04]" />
-                  ) : revenuePoints.length > 1 ? (
-                    <AreaChart points={revenuePoints} height={128} gradientId="hub-rev" />
+                    <div className="mx-5 mb-5 h-[84px] animate-pulse rounded-xl bg-gray-100 dark:bg-white/[0.04]" />
+                  ) : revenuePoints.length >= 4 ? (
+                    <AreaChart points={revenuePoints} height={84} />
                   ) : (
-                    <FlatBaseline label={hub.quietPeriod} height={128} />
+                    <FlatBaseline label={hub.quietPeriod} height={84} />
                   )}
                 </div>
-              </div>
+              </Panel>
 
-              {/* Ledger — hairline-divided rows, flush to the panel's right */}
-              <div className="flex flex-col divide-y divide-gray-100 border-t border-gray-100 dark:divide-white/[0.05] dark:border-white/[0.05] lg:border-l lg:border-t-0">
-                {metrics.map((m) => (
-                  <MetricRow key={m.label} metric={m} loading={loading} />
-                ))}
-              </div>
-            </div>
-          </Panel>
-
-          {/* ── Work on the left, navigation on the right ────────────────── */}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_312px]">
-            <div className="flex min-w-0 flex-col gap-5">
-              {/* Upcoming departures */}
-              <Panel className="min-w-0 p-6">
-                <div className="mb-2 flex items-center justify-between gap-4">
-                  <SectionLabel>{hub.recentDepartures}</SectionLabel>
+              {/* Upcoming departures — fills the column's remaining height */}
+              <Panel className="flex min-h-0 flex-1 flex-col p-5">
+                <div className="mb-2 flex shrink-0 items-center justify-between gap-4">
+                  <SectionLabel>{hub.upcomingTitle}</SectionLabel>
                   <Link
                     to="/departures"
                     className="inline-flex items-center gap-1 text-xs font-medium text-brand-500 transition-colors hover:text-brand-600 dark:text-brand-400"
@@ -534,47 +528,57 @@ const HomeHub: React.FC = () => {
                     <ArrowRightIcon className="size-3" />
                   </Link>
                 </div>
-
                 {loading ? (
-                  <ul className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                    {[0, 1, 2].map((i) => (
-                      <li key={i} className="flex items-center gap-4 py-3.5" aria-hidden>
-                        <div className="h-11 w-11 shrink-0 animate-pulse rounded-xl bg-gray-200 dark:bg-white/[0.06]" />
+                  <ul className="space-y-2.5 py-1">
+                    {[0, 1, 2, 3].map((i) => (
+                      <li key={i} className="flex items-center gap-3.5" aria-hidden>
+                        <div className="h-10 w-10 shrink-0 animate-pulse rounded-xl bg-gray-200 dark:bg-white/[0.06]" />
                         <div className="flex-1 space-y-2">
                           <div className="h-3 w-2/5 animate-pulse rounded bg-gray-200 dark:bg-white/[0.06]" />
                           <div className="h-2.5 w-1/3 animate-pulse rounded bg-gray-100 dark:bg-white/[0.04]" />
                         </div>
-                        <div className="h-6 w-12 animate-pulse rounded bg-gray-100 dark:bg-white/[0.04]" />
                       </li>
                     ))}
                   </ul>
                 ) : upcoming.length === 0 ? (
-                  <EmptyLine icon={CalenderIcon} label={hub.noDepartures} />
+                  <EmptyLine icon={CalenderIcon} label={hub.quietDepartures} />
                 ) : (
-                  <ul className="-mx-2">
+                  <ul className="-mx-2 flex-1 overflow-y-auto">
                     {upcoming.map((d) => {
-                      const pct = d.seats > 0 ? Math.round((d.booked / d.seats) * 100) : 0;
-                      const fill = pct >= 95 ? "bg-rose-500" : pct >= 75 ? "bg-brand-500" : "bg-emerald-500";
+                      const pct =
+                        d.seats > 0 ? Math.min(100, Math.round((d.booked / d.seats) * 100)) : 0;
+                      const fill =
+                        pct >= 90
+                          ? "bg-rose-400 dark:bg-rose-500"
+                          : pct >= 60
+                            ? "bg-amber-400 dark:bg-amber-500"
+                            : "bg-brand-500";
                       const pctText =
-                        pct >= 95 ? "text-rose-500" : pct >= 75 ? "text-brand-500" : "text-emerald-500";
+                        pct >= 90
+                          ? "text-rose-500 dark:text-rose-400"
+                          : pct >= 60
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-gray-700 dark:text-gray-300";
                       const dt = new Date(d.departAt);
                       return (
                         <li key={d.id}>
                           <Link
                             to={`/departures/${d.id}`}
-                            className="group flex items-center gap-4 rounded-xl px-2 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+                            className="group flex items-center gap-3.5 rounded-xl px-2 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]"
                           >
-                            <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl border border-gray-200 bg-gray-50 transition-colors group-hover:border-brand-500/30 group-hover:bg-brand-500/[0.06] dark:border-white/[0.08] dark:bg-white/[0.03]">
+                            <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-xl border border-gray-200 bg-gray-50 transition-colors group-hover:border-brand-500/30 group-hover:bg-brand-500/[0.06] dark:border-white/[0.08] dark:bg-white/[0.03]">
                               <span className="text-sm font-semibold leading-none tabular-nums text-gray-900 dark:text-white">
                                 {String(dt.getDate()).padStart(2, "0")}
                               </span>
-                              <span className="mt-1 text-[0.55rem] uppercase leading-none text-gray-500 dark:text-gray-400">
+                              <span className="mt-1 text-[0.5rem] uppercase leading-none text-gray-500 dark:text-gray-400">
                                 {fmtMonthShort(dt, lang)}
                               </span>
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">{d.label}</div>
-                              <div className="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                              <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                                {d.label}
+                              </div>
+                              <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                                 <span className="tabular-nums">{relativeDayLabel(d.departAt, lang)}</span>
                                 {d.destination && (
                                   <>
@@ -585,8 +589,11 @@ const HomeHub: React.FC = () => {
                               </div>
                             </div>
                             <div className="hidden items-center gap-2.5 sm:flex">
-                              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-100 dark:bg-white/[0.06]">
-                                <div className={`h-full rounded-full ${fill}`} style={{ width: `${Math.max(3, pct)}%` }} />
+                              <div className="h-1.5 w-14 overflow-hidden rounded-full bg-gray-100 dark:bg-white/[0.06]">
+                                <div
+                                  className={`h-full rounded-full ${fill}`}
+                                  style={{ width: `${Math.max(3, pct)}%` }}
+                                />
                               </div>
                               <span className={`w-9 text-right text-xs font-semibold tabular-nums ${pctText}`}>
                                 {pct}%
@@ -600,11 +607,23 @@ const HomeHub: React.FC = () => {
                   </ul>
                 )}
               </Panel>
+            </div>
 
-              {/* Money to chase — work, so it lives beside the departures */}
+            {/* COL 2 — KPI ledger + Outstanding payments */}
+            <div className="flex min-w-0 flex-col gap-4 lg:min-h-0">
+              <Panel
+                className={`flex flex-col divide-y divide-gray-100 dark:divide-white/[0.05] ${
+                  showFinance ? "shrink-0" : "flex-1"
+                }`}
+              >
+                {metrics.map((m) => (
+                  <MetricRow key={m.href} metric={m} loading={loading} />
+                ))}
+              </Panel>
+
               {showFinance && (
-                <Panel className="min-w-0 p-6">
-                  <div className="mb-2 flex items-center justify-between gap-4">
+                <Panel className="flex min-h-0 flex-1 flex-col p-5">
+                  <div className="mb-2 flex shrink-0 items-center justify-between gap-4">
                     <SectionLabel>{hub.focusOutstanding}</SectionLabel>
                     <Link
                       to="/payments"
@@ -615,7 +634,7 @@ const HomeHub: React.FC = () => {
                     </Link>
                   </div>
                   {loading ? (
-                    <ul className="space-y-3 py-1">
+                    <ul className="space-y-2.5 py-1">
                       {[0, 1].map((i) => (
                         <li key={i} className="flex items-center gap-3" aria-hidden>
                           <div className="size-9 shrink-0 animate-pulse rounded-xl bg-gray-200 dark:bg-white/[0.06]" />
@@ -629,24 +648,30 @@ const HomeHub: React.FC = () => {
                   ) : watchPayments.length === 0 ? (
                     <EmptyLine icon={CheckCircleIcon} label={hub.allSettled} />
                   ) : (
-                    <ul className="-mx-2">
-                      {watchPayments.map((p) => (
+                    <ul className="-mx-2 flex-1 overflow-y-auto">
+                      {watchPayments.slice(0, 3).map((p) => (
                         <li key={p.id}>
                           <Link
                             to={p.href}
-                            className="group flex items-center gap-3.5 rounded-xl px-2 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+                            className="group flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]"
                           >
-                            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-amber-200/70 bg-amber-50 text-amber-600 dark:border-amber-500/20 dark:bg-amber-500/[0.08] dark:text-amber-400">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-amber-200/70 bg-amber-50 text-amber-600 dark:border-amber-500/20 dark:bg-amber-500/[0.08] dark:text-amber-400">
                               <DollarLineIcon className="size-4" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">{p.customerName}</div>
-                              <div className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">{p.packageName}</div>
+                              <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                                {p.customerName}
+                              </div>
+                              <div className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
+                                {p.packageName}
+                              </div>
                             </div>
                             <div className="shrink-0 text-right">
-                              <div className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{p.amount}</div>
+                              <div className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
+                                {p.amount}
+                              </div>
                               {p.daysOpen > 0 && (
-                                <div className="mt-1 text-[0.7rem] leading-none text-amber-500 dark:text-amber-400">
+                                <div className="mt-0.5 text-[0.68rem] leading-none text-amber-500 dark:text-amber-400">
                                   {p.daysOpen}d
                                 </div>
                               )}
@@ -661,47 +686,45 @@ const HomeHub: React.FC = () => {
               )}
             </div>
 
-            {/* Right rail — all navigation in one panel, so no stub cards */}
-            <aside className="min-w-0">
-              <Panel className="overflow-hidden">
-                <div className="p-6 pb-4">
-                  <SectionLabel>{hub.workspacesTitle}</SectionLabel>
-                  <nav className="mt-3 flex flex-col gap-1">
-                    {workspaces.map((s) => (
-                      <Link
-                        key={s.href}
-                        to={s.href}
-                        className="group flex items-center gap-3 rounded-xl border border-transparent px-2.5 py-2.5 transition-all hover:border-gray-200 hover:bg-gray-50 dark:hover:border-white/[0.08] dark:hover:bg-white/[0.03]"
-                      >
-                        <span className="flex size-9 items-center justify-center rounded-lg bg-gray-100 text-gray-400 transition-colors group-hover:bg-brand-500 group-hover:text-white dark:bg-white/[0.05] dark:text-gray-500">
-                          <s.icon className="size-4" />
-                        </span>
-                        <span className="text-[0.85rem] font-medium text-gray-700 transition-colors group-hover:text-gray-900 dark:text-gray-300 dark:group-hover:text-white">
-                          {s.label}
-                        </span>
-                        <ArrowRightIcon className="ml-auto size-3.5 text-gray-300 transition-all group-hover:translate-x-0.5 group-hover:text-brand-500 dark:text-gray-600" />
-                      </Link>
-                    ))}
-                  </nav>
-                </div>
+            {/* COL 3 — Workspaces + Shortcuts (right rail) */}
+            <aside className="flex min-w-0 flex-col gap-4 lg:min-h-0">
+              <Panel className="shrink-0 p-5 pb-4">
+                <SectionLabel>{hub.workspacesTitle}</SectionLabel>
+                <nav className="mt-3 flex flex-col gap-1">
+                  {workspaces.map((s) => (
+                    <Link
+                      key={s.href}
+                      to={s.href}
+                      className="group flex items-center gap-3 rounded-xl border border-transparent px-2.5 py-2 transition-all hover:border-gray-200 hover:bg-gray-50 dark:hover:border-white/[0.08] dark:hover:bg-white/[0.03]"
+                    >
+                      <span className="flex size-8 items-center justify-center rounded-lg bg-gray-100 text-gray-400 transition-colors group-hover:bg-brand-500 group-hover:text-white dark:bg-white/[0.05] dark:text-gray-500">
+                        <s.icon className="size-4" />
+                      </span>
+                      <span className="text-[0.85rem] font-medium text-gray-700 transition-colors group-hover:text-gray-900 dark:text-gray-300 dark:group-hover:text-white">
+                        {s.label}
+                      </span>
+                      <ArrowRightIcon className="ml-auto size-3.5 text-gray-300 transition-all group-hover:translate-x-0.5 group-hover:text-brand-500 dark:text-gray-600" />
+                    </Link>
+                  ))}
+                </nav>
+              </Panel>
 
-                <div className="border-t border-gray-100 p-6 pt-5 dark:border-white/[0.05]">
-                  <SectionLabel>{hub.shortcutsTitle}</SectionLabel>
-                  <nav className="mt-3 grid grid-cols-2 gap-2.5">
-                    {shortcuts.map((s) => (
-                      <Link
-                        key={s.href}
-                        to={s.href}
-                        className="group flex flex-col gap-2.5 rounded-xl border border-gray-100 p-3.5 transition-all hover:-translate-y-0.5 hover:border-brand-500/30 hover:bg-brand-500/[0.04] hover:shadow-sm dark:border-white/[0.05] dark:hover:border-brand-500/25"
-                      >
-                        <s.icon className="size-[18px] text-gray-400 transition-colors group-hover:text-brand-500 dark:text-gray-500" />
-                        <span className="text-xs font-medium text-gray-600 transition-colors group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white">
-                          {s.label}
-                        </span>
-                      </Link>
-                    ))}
-                  </nav>
-                </div>
+              <Panel className="flex min-h-0 flex-1 flex-col p-5">
+                <SectionLabel>{hub.shortcutsTitle}</SectionLabel>
+                <nav className="mt-3 grid grid-cols-2 gap-2">
+                  {shortcuts.map((s) => (
+                    <Link
+                      key={s.href}
+                      to={s.href}
+                      className="group flex flex-col gap-2 rounded-xl border border-gray-100 p-3 transition-all hover:-translate-y-0.5 hover:border-brand-500/30 hover:bg-brand-500/[0.04] hover:shadow-sm dark:border-white/[0.05] dark:hover:border-brand-500/25"
+                    >
+                      <s.icon className="size-[18px] text-gray-400 transition-colors group-hover:text-brand-500 dark:text-gray-500" />
+                      <span className="text-xs font-medium leading-tight text-gray-600 transition-colors group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white">
+                        {s.label}
+                      </span>
+                    </Link>
+                  ))}
+                </nav>
               </Panel>
             </aside>
           </div>
