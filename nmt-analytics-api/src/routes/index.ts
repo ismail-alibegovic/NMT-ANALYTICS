@@ -36,6 +36,7 @@ import waiverRoutes from './waivers';
 import commissionRulesRoutes from './commissionRules';
 import subAgentPortalRoutes from './subAgentPortal';
 import availabilityRoutes from './availability';
+import flightRoutes from "./flights";
 
 const router = Router();
 
@@ -81,6 +82,7 @@ router.use('/', waiverRoutes);
 router.use('/', commissionRulesRoutes);
 
 // Mount routes that rely on parent prefix
+router.use("/", flightRoutes);
 router.use('/admin', adminRoutes);
 router.use('/', aiRoutes);
 

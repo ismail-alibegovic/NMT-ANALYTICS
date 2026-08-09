@@ -34,6 +34,8 @@ const createPackageSchema = z.object({
   endDate: z.string().optional().nullable(),
   // Transport (ukomponovano: how the group travels — plane vs. bus)
   transportType: z.enum(['flight', 'bus', 'train', 'ship', 'mixed', 'none']).optional().nullable(),
+  tripType: z.enum(['beach', 'city', 'pilgrimage', 'honeymoon', 'ski', 'adventure', 'cruise', 'cultural', 'wellness', 'other']).optional().nullable(),
+  tags: z.array(z.string()).optional().nullable(),
   transportCapacity: z.number().int().min(0).optional().nullable(),
   // Package variants: tier (delux/standard/premium), hotel category, price modifiers —
   // structured JSON; backend persists verbatim. when migration 036 not applied, camelCase
@@ -60,6 +62,8 @@ const updatePackageSchema = z.object({
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
   transportType: z.enum(['flight', 'bus', 'train', 'ship', 'mixed', 'none']).optional().nullable(),
+  tripType: z.enum(['beach', 'city', 'pilgrimage', 'honeymoon', 'ski', 'adventure', 'cruise', 'cultural', 'wellness', 'other']).optional().nullable(),
+  tags: z.array(z.string()).optional().nullable(),
   transportCapacity: z.number().int().min(0).optional().nullable(),
   variants: z.array(z.object({
     name: z.string(),
@@ -149,6 +153,8 @@ router.post('/packages', authenticateToken, requireOrgContext, auditPackageCreat
         transport_type: validated.transportType ?? null,
         transport_capacity: validated.transportCapacity ?? null,
         variants: validated.variants ?? null,
+        trip_type: validated.tripType ?? null,
+        tags: validated.tags ?? null,
       })
       .select()
       .single();
@@ -236,6 +242,8 @@ router.patch('/packages/:id', authenticateToken, requireOrgContext, auditPackage
     if (validated.startDate !== undefined) updateData.start_date = validated.startDate;
     if (validated.endDate !== undefined) updateData.end_date = validated.endDate;
     if (validated.transportType !== undefined) updateData.transport_type = validated.transportType;
+    if (validated.tripType !== undefined) updateData.trip_type = validated.tripType;
+    if (validated.tags !== undefined) updateData.tags = validated.tags;
     if (validated.transportCapacity !== undefined) updateData.transport_capacity = validated.transportCapacity;
     if (validated.variants !== undefined) updateData.variants = validated.variants;
 

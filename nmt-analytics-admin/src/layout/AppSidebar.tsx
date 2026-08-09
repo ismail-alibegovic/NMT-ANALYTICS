@@ -15,6 +15,7 @@ import {
   UserCircleIcon,
   PlugInIcon,
   LockIcon,
+  PaperPlaneIcon,
   FileIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
@@ -73,6 +74,7 @@ const AppSidebar: React.FC = () => {
     { icon: <GridIcon />, name: t.nav.commissionRules, path: "/operations/commission-rules", module: "travel_core", minRole: "director" },
     { icon: <ShootingStarIcon />, name: t.nav.excursions, path: "/operations/excursions", module: "travel_core", minRole: "manager" },
     { icon: <GridIcon />, name: t.nav.hotels, path: "/operations/hotels", module: "travel_core", minRole: "manager" },
+    { icon: <PaperPlaneIcon />, name: t.nav.flights, path: "/operations/flights", module: "travel_core", minRole: "manager" },
     { icon: <GridIcon />, name: t.nav.availability, path: "/operations/availability", module: "travel_core", minRole: "viewer" },
   ];
 

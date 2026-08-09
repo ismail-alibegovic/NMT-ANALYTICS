@@ -126,6 +126,11 @@ export interface Hotel {
   totalRooms: number;
   createdAt: string;
   rooms?: HotelRoom[];
+  stars?: number | null;
+  description?: string | null;
+  amenities?: string[] | null;
+  email?: string | null;
+  website?: string | null;
   allocations?: HotelAllocation[];
 }
 
@@ -162,6 +167,11 @@ export async function createHotel(payload: {
   address?: string;
   contact?: string;
   totalRooms?: number;
+  stars?: number | null;
+  description?: string | null;
+  amenities?: string[] | null;
+  email?: string | null;
+  website?: string | null;
 }): Promise<Hotel> {
   const { data } = await post<Hotel>('/hotels', payload);
   return data;
@@ -321,4 +331,47 @@ export async function previewCommission(
     params: { partnerType, bookingAmount, serviceType },
   });
   return data.data || data;
+}
+// ─── Flights ────────────────────────────────────────────────────────────
+export interface Flight {
+  id: string;
+  orgId: string;
+  airline: string;
+  flightNumber: string;
+  departureAirport: string;
+  arrivalAirport: string;
+  departureTime: string;
+  arrivalTime: string;
+  capacity: number;
+  basePrice: number;
+  currency: string;
+  notes: string | null;
+  active: boolean;
+  createdAt: string;
+}
+
+export async function getFlights(params?: { search?: string; active?: string }): Promise<Flight[]> {
+  const { data } = await get<{ data: Flight[] }>('/flights', params);
+  return data.data || [];
+}
+
+export async function createFlight(payload: {
+  airline: string;
+  flightNumber: string;
+  departureAirport: string;
+  arrivalAirport: string;
+  departureTime: string;
+  arrivalTime: string;
+  capacity?: number;
+  basePrice?: number;
+  currency?: string;
+  notes?: string;
+  active?: boolean;
+}): Promise<Flight> {
+  const { data } = await post<Flight>('/flights', payload);
+  return data;
+}
+
+export async function deleteFlight(id: string): Promise<void> {
+  await del(`/flights/${id}`);
 }

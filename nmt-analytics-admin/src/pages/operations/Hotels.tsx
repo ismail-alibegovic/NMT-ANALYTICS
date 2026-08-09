@@ -38,6 +38,11 @@ export default function Hotels() {
   const [formAddress, setFormAddress] = useState("");
   const [formContact, setFormContact] = useState("");
   const [formTotalRooms, setFormTotalRooms] = useState(10);
+  const [formStars, setFormStars] = useState<number | "">(3);
+  const [formDescription, setFormDescription] = useState("");
+  const [formAmenities, setFormAmenities] = useState("");
+  const [formEmail, setFormEmail] = useState("");
+  const [formWebsite, setFormWebsite] = useState("");
 
   // Room form
   const [roomType, setRoomType] = useState("");
@@ -87,6 +92,11 @@ export default function Hotels() {
         address: formAddress || undefined,
         contact: formContact || undefined,
         totalRooms: formTotalRooms,
+        stars: formStars === "" ? null : Number(formStars),
+        description: formDescription || undefined,
+        amenities: formAmenities ? formAmenities.split(",").map((s: string) => s.trim()).filter(Boolean) : undefined,
+        email: formEmail || undefined,
+        website: formWebsite || undefined,
       });
       showSuccess("Hotel created");
       setIsModalOpen(false);
@@ -250,6 +260,20 @@ export default function Hotels() {
           <input placeholder="Address" value={formAddress} onChange={e => setFormAddress(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700" />
           <input placeholder="Contact" value={formContact} onChange={e => setFormContact(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700" />
           <input type="number" placeholder="Total rooms" value={formTotalRooms} onChange={e => setFormTotalRooms(+e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700" />
+          <div className="flex gap-2">
+            <select value={formStars} onChange={e => setFormStars(e.target.value === "" ? "" : +e.target.value)} className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700">
+              <option value="">—</option>
+              <option value={1}>★ 1</option>
+              <option value={2}>★★ 2</option>
+              <option value={3}>★★★ 3</option>
+              <option value={4}>★★★★ 4</option>
+              <option value={5}>★★★★★ 5</option>
+            </select>
+            <input placeholder="Email (npr. info@hotel.ba)" value={formEmail} onChange={e => setFormEmail(e.target.value)} className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700" />
+          </div>
+          <input placeholder="Website (npr. www.hotel.ba)" value={formWebsite} onChange={e => setFormWebsite(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700" />
+          <input placeholder="Sadržaji (wifi, pool, spa, gym, parking...)" value={formAmenities} onChange={e => setFormAmenities(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700" />
+          <textarea placeholder="Opis hotela" value={formDescription} onChange={e => setFormDescription(e.target.value)} rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700" />
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
             <Button variant="primary" onClick={handleCreateHotel}>Create</Button>

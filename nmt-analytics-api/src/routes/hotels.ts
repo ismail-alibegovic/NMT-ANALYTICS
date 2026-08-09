@@ -32,10 +32,20 @@ const createSchema = z.object({
   address: z.string().optional(),
   contact: z.string().optional(),
   totalRooms: z.number().int().positive().default(0),
+  stars: z.number().int().min(1).max(5).optional().nullable(),
+  description: z.string().optional().nullable(),
+  amenities: z.array(z.string()).optional().nullable(),
+  email: z.string().email().optional().nullable(),
+  website: z.string().url().optional().nullable(),
 });
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
+  stars: z.number().int().min(1).max(5).optional().nullable(),
+  description: z.string().optional().nullable(),
+  amenities: z.array(z.string()).optional().nullable(),
+  email: z.string().email().optional().nullable(),
+  website: z.string().url().optional().nullable(),
   destination: z.string().min(1).optional(),
   address: z.string().optional(),
   contact: z.string().optional(),
@@ -51,6 +61,11 @@ function transformHotel(h: any) {
     address: h.address,
     contact: h.contact,
     totalRooms: h.total_rooms,
+    stars: h.stars,
+    description: h.description,
+    amenities: h.amenities,
+    email: h.email,
+    website: h.website,
     slug: h.slug,
     createdAt: h.created_at,
     rooms: h.rooms,
@@ -105,6 +120,11 @@ router.post('/hotels', authenticateToken, requireOrgContext, requireMinimumRole(
         address: body.address,
         contact: body.contact,
         total_rooms: body.totalRooms,
+        stars: body.stars ?? null,
+        description: body.description ?? null,
+        amenities: body.amenities ?? null,
+        email: body.email ?? null,
+        website: body.website ?? null,
         slug,
       })
       .select()
@@ -147,6 +167,11 @@ router.patch('/hotels/:id', authenticateToken, requireOrgContext, requireMinimum
     if (r.data.contact !== undefined) updates.contact = r.data.contact;
     if (r.data.totalRooms !== undefined) updates.total_rooms = r.data.totalRooms;
 
+    if (r.data.stars !== undefined) updates.stars = r.data.stars;
+    if (r.data.description !== undefined) updates.description = r.data.description;
+    if (r.data.amenities !== undefined) updates.amenities = r.data.amenities;
+    if (r.data.email !== undefined) updates.email = r.data.email;
+    if (r.data.website !== undefined) updates.website = r.data.website;
     const { data: updated, error: updateErr } = await supabaseAdmin.from('hotels').update(updates).eq('id', id).eq('org_id', orgId).select().single();
     if (updateErr) return handleSupabaseError(res, updateErr, 'Failed to update hotel');
 

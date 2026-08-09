@@ -20,6 +20,9 @@ export interface Package {
   // --- Nova Prodaja wizard support (migration 036) ---
   transport_type?: 'bus' | 'flight' | 'none';
   transport_capacity?: number | null;
+  trip_type?: string | null;
+  tags?: string[] | null;
+  tripType?: string | null;
   variants?: PackageVariant[];
 }
 

@@ -53,6 +53,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial }
   const [active, setActive] = useState(true);
   const [transportMode, setTransportMode] = useState<TransportMode>("none");
   const [transportCapacity, setTransportCapacity] = useState<number | "">("");
+  const [tripType, setTripType] = useState<string>("");
   const [variants, setVariants] = useState<Variant[]>([]);
 
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial }
       setActive((initial as any).is_active ?? initial.active ?? true);
       const t = (initial as any).transport_mode || "none";
       setTransportMode((["none", "bus", "flight"].includes(t) ? t : "none") as TransportMode);
+      setTripType((initial as any).trip_type ?? (initial as any).tripType ?? "");
       setTransportCapacity((initial as any).transport_capacity ?? "");
       const v = (initial as any).variants;
       setVariants(Array.isArray(v) ? v.map((x: any) => ({
@@ -80,7 +82,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial }
       })) : []);
     } else {
       setName(""); setDestination(""); setDescription(""); setBasePrice(""); setCurrency("BAM");
-      setDurationDays(""); setActive(true); setTransportMode("none"); setTransportCapacity(""); setVariants([]);
+      setDurationDays(""); setActive(true); setTransportMode("none"); setTransportCapacity(""); setVariants([]); setTripType("");
     }
   }, [initial, isOpen]);
 
@@ -133,6 +135,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial }
         startDate: null,
         endDate: null,
         transportMode,
+        tripType: tripType || null,
         transportCapacity: transportMode === "none" ? null : Number(transportCapacity || 0),
         variants: variants
           .filter(v => v.name.trim())
@@ -192,6 +195,26 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial }
                 { value: "EUR", label: "EUR" },
                 { value: "USD", label: "USD" },
                 { value: "TRY", label: "TRY" },
+              ]}
+            />
+          </div>
+          <div>
+            <Label>Vrsta putovanja</Label>
+            <Select
+              value={tripType}
+              onChange={setTripType}
+              options={[
+                { value: "", label: "—" },
+                { value: "beach", label: "More / Plaža" },
+                { value: "city", label: "City break" },
+                { value: "pilgrimage", label: "Hodočašće" },
+                { value: "honeymoon", label: "Medeni mjesec" },
+                { value: "ski", label: "Skijanje" },
+                { value: "adventure", label: "Avantura" },
+                { value: "cruise", label: "Krstarenje" },
+                { value: "cultural", label: "Kulturno putovanje" },
+                { value: "wellness", label: "Wellness / Spa" },
+                { value: "other", label: "Ostalo" },
               ]}
             />
           </div>

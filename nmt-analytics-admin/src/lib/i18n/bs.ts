@@ -74,7 +74,7 @@ export const bs: Translations = {
     auditLogs: 'Audit zapisi', profile: 'Profil', signOut: 'Odjava',
     operations: 'Operacije',
     calendar: 'Kalendar', contracts: 'Ugovori', receipts: 'Računi',
-    subAgents: 'Subagenti', excursions: 'Ekskurzije', hotels: 'Hoteli',
+    subAgents: 'Subagenti', excursions: 'Ekskurzije', hotels: 'Hoteli', flights: 'Letovi',
     commissionRules: 'Pravila provizije',
     availability: 'Dostupnost',
     fakturisanje: 'Fakturisanje',

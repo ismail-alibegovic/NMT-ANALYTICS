@@ -72,7 +72,7 @@ export const en = {
     auditLogs: 'Audit Logs', profile: 'Profile', signOut: 'Sign Out',
     operations: 'Operations',
     calendar: 'Calendar', contracts: 'Contracts', receipts: 'Receipts',
-    subAgents: 'Sub-agents', excursions: 'Excursions', hotels: 'Hotels',
+    subAgents: 'Sub-agents', excursions: 'Excursions', hotels: 'Hotels', flights: 'Flights',
     commissionRules: 'Commission rules',
     availability: 'Availability',
     fakturisanje: 'Invoicing',
