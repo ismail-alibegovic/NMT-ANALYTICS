@@ -24,6 +24,8 @@ import {
   UserCircleIcon,
   GroupIcon,
   CheckCircleIcon,
+  LockIcon,
+  FileIcon,
 } from "../../icons";
 import { useApp } from "../../context/AppContext";
 import { hasAccess, UserRole } from "../../types/roles";
@@ -413,6 +415,7 @@ const HomeHub: React.FC = () => {
     { label: hub.salesTitle, href: "/sales", icon: GridIcon, minRole: "agent" as UserRole },
     { label: hub.opsTitle, href: "/operations", icon: BoxIconLine, minRole: "agent" as UserRole },
     { label: hub.finTitle, href: "/payments", icon: PieChartIcon, minRole: "manager" as UserRole },
+    { label: hub.sysTitle, href: "/admin/audit-logs", icon: LockIcon, minRole: "director" as UserRole },
   ].filter((s) => hasAccess(s.minRole, role));
 
   const shortcuts = [
@@ -422,6 +425,7 @@ const HomeHub: React.FC = () => {
     { label: hub.sCustomers, href: "/customers", icon: GroupIcon },
     { label: hub.sReports, href: "/reports", icon: PieChartIcon, minRole: "manager" as UserRole },
     { label: hub.sBranding, href: "/settings", icon: UserCircleIcon, minRole: "director" as UserRole },
+    { label: hub.sPdfTemplates, href: "/settings/pdf-templates", icon: FileIcon, minRole: "director" as UserRole },
   ].filter((s) => !s.minRole || hasAccess(s.minRole, role));
 
   const heroLabel = showFinance ? hub.revenuePanel : hub.recentDepartures;

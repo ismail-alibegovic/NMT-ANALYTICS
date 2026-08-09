@@ -78,6 +78,7 @@ export const bs: Translations = {
     commissionRules: 'Pravila provizije',
     availability: 'Dostupnost',
     fakturisanje: 'Fakturisanje',
+    pdfTemplates: 'PDF Predlošci',
     hub: 'Početna',
   },
   hub: {
@@ -92,6 +93,8 @@ export const bs: Translations = {
     finTitle: 'Finansije',
     finDesc: 'Plaćanja, fakturisanje, izvještaji i integracije',
     finStat: 'Prati novac',
+    sysTitle: 'Sistem',
+    sysDesc: 'Audit zapisi, dokumenti i PDF predlošci',
     locked: 'Zaključano',
     lockedDesc: 'Tražite pristup od menadžera',
     scopeSubtitle: 'Sve sekcije sistema',
@@ -147,6 +150,7 @@ export const bs: Translations = {
     sCustomers: 'Klijenti',
     sReports: 'Izvještaji',
     sBranding: 'Brendiranje',
+    sPdfTemplates: 'PDF Predlošci',
   },
   common: {
     save: 'Sačuvaj', cancel: 'Odustani', delete: 'Obriši', edit: 'Uredi',

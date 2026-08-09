@@ -179,7 +179,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial }
             <Input value={destination} onChange={(e: any) => setDestination(e.target.value)} placeholder="Pariz, Francuska" />
           </div>
           <div>
-            <Label>Bazna cijena (bez varijanti)</Label>
+            <Label>bazna cijena (bez opcija)</Label>
             <Input type="number" value={basePrice} onChange={(e: any) => setBasePrice(e.target.value === "" ? "" : Number(e.target.value))} placeholder="0" />
           </div>
           <div>
@@ -257,20 +257,20 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial }
         {/* Variants */}
         <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
           <div className="flex items-center justify-between mb-1">
-            <h4 className="text-base font-semibold text-gray-900 dark:text-white">Varijante paketa</h4>
+            <h4 className="text-base font-semibold text-gray-900 dark:text-white">Opcije paketa</h4>
             <button
               type="button"
               onClick={addVariant}
               className="inline-flex items-center gap-1 rounded-lg bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100 dark:bg-brand-500/10 dark:text-brand-300"
             >
-              <PlusIcon className="size-4" /> Dodaj varijantu
+              <PlusIcon className="size-4" /> Dodaj opciju
             </button>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Standard / Premium / Deluxe — tip hotela (ili studentski smještaj / apartman) + cijena + kapacitet. Agent bira jednu varijantu prilikom prodaje.</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Standard / Premium / Deluxe — tip hotela (ili studentski smještaj / apartman) + cijena + kapacitet. Agent bira jednu opciju prilikom prodaje.</p>
 
           {variants.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-6 text-center text-xs text-gray-400">
-              još nema varijanti. npr. "Standard — Hotel 3* — 1200 KM — 30 mjesta".
+              još nema opcija. npr. "Standard — Hotel 3* — 1200 KM — 30 mjesta".
             </div>
           ) : (
             <div className="space-y-3">
@@ -309,7 +309,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial }
                       type="button"
                       onClick={() => removeVariant(i)}
                       className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
-                      aria-label="Ukloni varijantu"
+                      aria-label="Ukloni opciju"
                     >
                       <TrashBinIcon className="size-5" />
                     </button>

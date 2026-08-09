@@ -76,6 +76,7 @@ export const en = {
     commissionRules: 'Commission rules',
     availability: 'Availability',
     fakturisanje: 'Invoicing',
+    pdfTemplates: 'PDF Templates',
     hub: 'Home',
   },
   hub: {
@@ -90,6 +91,8 @@ export const en = {
     finTitle: 'Finance',
     finDesc: 'Payments, invoicing, reports and integrations',
     finStat: 'Track the money',
+    sysTitle: 'System',
+    sysDesc: 'Audit logs, documents and PDF templates',
     locked: 'Locked',
     lockedDesc: 'Ask a manager for access',
     scopeSubtitle: 'All system sections',
@@ -151,6 +154,7 @@ export const en = {
     sCustomers: 'Customers',
     sReports: 'Reports',
     sBranding: 'Branding',
+    sPdfTemplates: 'PDF Templates',
   },
   common: {
     save: 'Save', cancel: 'Cancel', delete: 'Delete', edit: 'Edit',

@@ -330,7 +330,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated }: Props) {
               <div className="space-y-3 pb-4 border-b border-gray-100 dark:border-gray-800">
                 {hasVariants && (
                   <div>
-                    <Label>Varijanta paketa</Label>
+                    <Label>Opcija paketa</Label>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
                       {variants.map((v) => {
                         const active = v.id === variantId;
@@ -483,7 +483,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated }: Props) {
               {customerEmail ? <Row label="Email" value={customerEmail} /> : null}
               <Row label="Aranžman" value={selectedPackage?.name ?? "—"} />
               <Row label="Termin" value={selectedDeparture ? `${new Date(selectedDeparture.depart_at).toLocaleDateString("bs-BA")} → ${new Date(selectedDeparture.return_at).toLocaleDateString("bs-BA")}` : "—"} />
-              {variantId ? <Row label="Varijanta" value={variants.find((v) => v.id === variantId)?.name ?? "—"} /> : null}
+              {variantId ? <Row label="Opcija" value={variants.find((v) => v.id === variantId)?.name ?? "—"} /> : null}
               {showAdvanced || hasVariants ? <>
                 <Row label="Prijevoz" value={transport === "flight" ? "Avion" : transport === "bus" ? "Autobus" : "Bez prijevoza"} />
                 <Row label="Smještaj" value={accommodation || "—"} />

@@ -16,7 +16,7 @@ export function scopeFromPath(pathname: string): Scope {
     return "all";
   }
   if (pathname.startsWith("/operations/")) return "operations";
-  if (pathname.startsWith("/admin/")) return "admin";
+  if (pathname.startsWith("/admin/") || pathname.startsWith("/settings")) return "admin";
   if (
     pathname.startsWith("/payments") ||
     pathname.startsWith("/reports") ||
