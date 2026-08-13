@@ -1,3 +1,4 @@
+import QuickStart from "../../components/hub/QuickStart";
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import { Link, useNavigate } from "react-router";
@@ -433,6 +434,8 @@ const HomeHub: React.FC = () => {
 
   const bookingsList = bookingsTab === "upcoming" ? upcoming : past;
 
+
+  const isNewOrg = !loading && overview?.reservations_count === 0 && departures.length === 0;
   return (
     <>
       <PageMeta title={`Travline — ${hub.title}`} description={hub.subtitle} />
@@ -473,6 +476,7 @@ const HomeHub: React.FC = () => {
           </header>
 
           {/* ── Single-viewport 3-column grid ───────────────────────── */}
+n          {isNewOrg ? <QuickStart /> : (
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 overflow-hidden lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.05fr)_300px]">
             {/* ════ COL 1 — Revenue hero + Bookings ════ */}
             <div className="flex min-w-0 flex-col gap-5 lg:min-h-0">
@@ -868,6 +872,8 @@ const HomeHub: React.FC = () => {
             </aside>
           </div>
 
+
+          )}
           {/* Footer */}
           <footer className="mt-4 shrink-0 px-1">
             <p className="text-[0.66rem] text-gray-400 dark:text-gray-600">

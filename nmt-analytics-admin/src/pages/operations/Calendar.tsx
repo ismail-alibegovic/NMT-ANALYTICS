@@ -160,24 +160,34 @@ export default function Calendar() {
                     <div className={`mb-1.5 inline-flex size-6 items-center justify-center rounded-full text-xs font-semibold ${isToday(cell.date) ? "bg-brand-500 text-white" : "text-gray-700 dark:text-gray-300"}`}>
                       {cell.date.getDate()}
                     </div>
-                    <div className="grid grid-cols-1 gap-1">
-                      {dayEvents.slice(0, 4).map((ev) => (
-                        <Link
-                          key={ev.id}
-                          to={`/reservations?departure=${ev.id}`}
-                          title={`${ev.packageName ?? "—"} · ${tr.booked}: ${ev.booked}/${ev.capacity} · ${tr.clickForDetails}`}
-                          className={`block truncate rounded border px-1.5 py-1 text-[11px] font-medium ${capacityClass(ev)}`}
-                        >
-                          <span className="block truncate">{ev.packageName ?? "—"}</span>
-                          <span className="block text-[10px] opacity-80">{ev.booked}/{ev.capacity}</span>
-                        </Link>
-                      ))}
-                      {dayEvents.length > 4 && (
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                          +{dayEvents.length - 4}
-                        </span>
-                      )}
-                    </div>
+                    {dayEvents.length === 0 ? (
+                      <Link
+                        to={`/departures?date=${dateStr}`}
+                        className="flex h-full min-h-[80px] items-center justify-center rounded-md border border-dashed border-gray-300 text-xs text-gray-400 transition-colors hover:border-brand-400 hover:text-brand-500 dark:border-gray-700 dark:hover:border-brand-600"
+                        title={tr.addDeparture || "Dodaj polazak"}
+                      >
+                        <span className="text-lg leading-none">+</span>
+                      </Link>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-1">
+                        {dayEvents.slice(0, 4).map((ev) => (
+                          <Link
+                            key={ev.id}
+                            to={`/departures/${ev.id}`}
+                            title={`${ev.packageName ?? "—"} · ${tr.booked}: ${ev.booked}/${ev.capacity} · ${tr.clickForDetails}`}
+                            className={`block truncate rounded border px-1.5 py-1 text-[11px] font-medium ${capacityClass(ev)}`}
+                          >
+                            <span className="block truncate">{ev.packageName ?? "—"}</span>
+                            <span className="block text-[10px] opacity-80">{ev.booked}/{ev.capacity}</span>
+                          </Link>
+                        ))}
+                        {dayEvents.length > 4 && (
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                            +{dayEvents.length - 4}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
               </div>

@@ -150,6 +150,18 @@ export const bs: Translations = {
     sCustomers: 'Klijenti',
     sReports: 'Izvještaji',
     sBranding: 'Brendiranje',
+    // QuickStart za nove organizacije
+    quickStartTitle: 'Dobrodošli u Travline',
+    quickStartSubtitle: 'Sve je spremno. Počnite sa tri koraka:',
+    qsStep1Title: 'Kreirajte prvi paket',
+    qsStep1Desc: 'Aranžmani, opcije i cijene — sve što agenti trebaju za prodaju.',
+    qsStep1Cta: 'Dodaj paket',
+    qsStep2Title: 'Definišite termine polazaka',
+    qsStep2Desc: 'Datumi, prijevoz, kapacitet i hoteli — povežite ih sa paketom.',
+    qsStep2Cta: 'Kreiraj polazak',
+    qsStep3Title: 'Napravite prvu rezervaciju',
+    qsStep3Desc: 'Odaberite klijenta, paket i termin — prodaja je gotova za 60 sekundi.',
+    qsStep3Cta: 'Nova rezervacija',
     sPdfTemplates: 'PDF Predlošci',
   },
   common: {
@@ -445,6 +457,7 @@ export const bs: Translations = {
       noDepartures: 'Nema polazaka u ovom mjesecu', capacity: 'Kapacitet',
       booked: 'Zauzeto', available: 'Dostupno', packageName: 'Paket',
       destination: 'Destinacija', clickForDetails: 'Kliknite za detalje', reservations: 'Rezervacije',
+      addDeparture: "Dodaj polazak",
     },
     contracts: {
       title: 'Ugovori', description: 'Generisanje i upravljanje ugovorima',

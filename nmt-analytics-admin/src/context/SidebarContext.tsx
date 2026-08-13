@@ -3,13 +3,12 @@ import { createContext, useContext, useState, useEffect } from "react";
 export type Scope = "sales" | "operations" | "finance" | "admin" | "all" | null;
 
 // Derive which sidebar section a route belongs to.
-// Returns null for the top-level hub (no sidebar — the hub IS the navigation).
-// Returns "all" for scope-hub routes so the sidebar shows every group.
+// Returns "all" for hub routes so the sidebar shows every group.
 export function scopeFromPath(pathname: string): Scope {
   if (!pathname) return null;
-  // Top-level hub — no sidebar, the hub cards ARE the navigation
+  // Top-level hub — sidebar shows all groups
   if (pathname === "/" || pathname === "/home") {
-    return null;
+    return "all";
   }
   // Scope hub routes — sidebar shows all groups
   if (pathname === "/sales" || pathname === "/operations" || pathname === "/finance") {
