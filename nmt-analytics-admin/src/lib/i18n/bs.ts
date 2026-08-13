@@ -149,6 +149,8 @@ export const bs: Translations = {
     sCalendar: 'Kalendar',
     sCustomers: 'Klijenti',
     sReports: 'Izvještaji',
+    attentionOutstanding: "Otvoreni saldo",
+    attentionLowOccupancy: "Niska popunjenost",
     sBranding: 'Brendiranje',
     // QuickStart za nove organizacije
     quickStartTitle: 'Dobrodošli u Travline',

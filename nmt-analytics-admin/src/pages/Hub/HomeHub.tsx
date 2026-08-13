@@ -435,6 +435,15 @@ const HomeHub: React.FC = () => {
   const bookingsList = bookingsTab === "upcoming" ? upcoming : past;
 
 
+
+  const needsAttention = useMemo(() => {
+    if (loading) return [];
+    const items: { label: string; sublabel: string; href: string; icon: "warning" | "arrow" }[] = [];
+    if ((overview?.total_balance_sum || 0) > 0) items.push({ label: hub.attentionOutstanding || "Otvoreni saldo", sublabel: fmtCurrency(overview!.total_balance_sum, lang), href: "/payments", icon: "warning" });
+    const lowOccupancy = upcoming.filter(d => d.seats > 0 && d.booked / d.seats < 0.3);
+    if (lowOccupancy.length > 0) items.push({ label: hub.attentionLowOccupancy || "Niska popunjenost", sublabel: `${lowOccupancy.length} ${lowOccupancy.length === 1 ? "polazak" : "polazaka"}`, href: "/departures", icon: "warning" });
+    return items.slice(0, 3);
+  }, [loading, overview?.total_balance_sum, lang, upcoming]);
   const isNewOrg = !loading && overview?.reservations_count === 0 && departures.length === 0;
   return (
     <>
@@ -474,6 +483,24 @@ const HomeHub: React.FC = () => {
               <ArrowRightIcon className="size-3.5 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
             </button>
           </header>
+
+          {/* ── Needs Attention ──────────────────────────────────────── */}
+          {needsAttention.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-2">
+              {needsAttention.map((item, i) => (
+                <Link
+                  key={i}
+                  to={item.href}
+                  className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-sm font-medium text-amber-800 transition-colors hover:border-amber-300 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/8 dark:text-amber-300 dark:hover:border-amber-500/30 dark:hover:bg-amber-500/12"
+                >
+                  <span className="flex size-1.5 shrink-0 rounded-full bg-amber-500" />
+                  <span>{item.label}</span>
+                  <span className="tabular-nums text-amber-600 dark:text-amber-400">{item.sublabel}</span>
+                  <ArrowRightIcon className="size-3.5 text-amber-400 dark:text-amber-500" />
+                </Link>
+              ))}
+            </div>
+          )}
 
           {/* ── Single-viewport 3-column grid ───────────────────────── */}
 n          {isNewOrg ? <QuickStart /> : (

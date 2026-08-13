@@ -165,6 +165,8 @@ export const en = {
     qsStep3Desc: 'Pick a customer, package and departure — sale done in 60 seconds.',
     qsStep3Cta: 'New Reservation',
     sReports: 'Reports',
+    attentionOutstanding: "Outstanding balance",
+    attentionLowOccupancy: "Low occupancy",
     sBranding: 'Branding',
     sPdfTemplates: 'PDF Templates',
   },
