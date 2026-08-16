@@ -24,7 +24,12 @@ Earlier-sprint technical notes (kept for context; status DONE):
 
 **⚠️ Do NOT delete `components/common/GridShape.tsx`** — it is referenced by `AuthPageLayout.tsx` and `NotFound.tsx`. The plan's §1.4 claim that it's dead code is wrong.
 
-**⚠️ Pre-existing audit gaps (not Sprint 1.1 scope):** `onboarding.ts`, `settings.ts`, `waivers.ts`, `eturista.ts`, `excursions.ts` may each have 1–2 mutative routes without an `audit*` wrapper. Optional final sweep later. Timeline: minimum demoable in ~1.5 weeks (~8 working days), polished production in ~3 weeks (~15 working days).
+**⚠️ Pre-existing audit gaps — RESOLVED 2026-08-16 (commit `4f98707`):** Audited all 5 previously-flagged route files. `onboarding.ts` and `eturista.ts` already had full audit coverage (inline `logAuditEntry` + `auditSubmission` wrapper, respectively — counts were misleading). Fixed the genuinely missing ones:
+- `waivers.ts` — 6 admin mutative routes now emit audit logs (POST/PATCH/DELETE `/waiver-templates`, POST `/waivers/issue` + `/waivers/issue-batch`, and the public `/public/waiver/:token/sign` which logs a `SIGN` action against the owning org despite no authenticated signer).
+- `excursions.ts` — `DELETE` + `PATCH /excursions/:id` now wrapped (`auditExcursionDelete`/`auditExcursionUpdate`); `auditExcursionCreate` already covered POST + bulk-import.
+- `settings.ts` — two entity misclassifications corrected: `PATCH /modules/:moduleKey` `integration` → `settings`; `PATCH /plan` `organizations` as any → `settings`, dropped the cast.
+- `auditLogger.ts` — added `SIGN` to the `AuditAction` union (public waiver self-sign path).
+Both projects `tsc` clean, `npm audit` 0 vulnerabilities, API tests 9/9 pass (the only failing suite, `pdfGeneration.test.ts`, fails on a missing `./test/data/05-versions-space.pdf` fixture — pre-existing, unrelated). Pushed to `main`; live API restarted and HTTP 200 on `/health`. Timeline: minimum demoable in ~1.5 weeks (~8 working days), polished production in ~3 weeks (~15 working days).
 
 **Last activity:** 2026-07-18 (Sprint 3 — Customer self-service portal committed in `6b7205b` + `5db72a7`. Full Sprints 1 + 2 + 3 complete. Both projects `tsc --noEmit` clean, `npm audit` 0 vulnerabilities. Live service on https://travline-sprypine.zocomputer.io health-checked + restarted). Uncommitted 2026-07-14 work: 5 `20260715*` migrations applied to the live DB + `organizations.plan` column promoted to `pro` for all 3 orgs.
 
