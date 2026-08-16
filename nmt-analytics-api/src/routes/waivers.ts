@@ -19,7 +19,7 @@ import { Router, type Request, type Response } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
 import { requireMinimumRole } from '../middleware/requireRole';
-import { auditLog } from '../middleware/auditLogger';
+import { auditLog, logAuditEntry } from '../middleware/auditLogger';
 import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
 import { apiError } from '../lib/errors';
 import { getOrgBranding } from '../lib/orgBranding';
@@ -27,6 +27,13 @@ import { z } from 'zod';
 import crypto from 'node:crypto';
 
 const router = Router();
+
+// Audit wrappers (scoped to charter-person waiver entities)
+const auditWaiverTemplateCreate = auditLog('CREATE', 'waiver_template', undefined, (req) => (req.body as any)?.title);
+const auditWaiverTemplateUpdate = auditLog('UPDATE', 'waiver_template', (req) => req.params.id, (req) => (req.body as any)?.title);
+const auditWaiverTemplateDelete = auditLog('DELETE', 'waiver_template', (req) => req.params.id);
+const auditWaiverIssue          = auditLog('CREATE', 'waiver_token', undefined, (req) => `passenger:${(req.body as any)?.passenger_id}`);
+const auditWaiverIssueBatch     = auditLog('CREATE', 'waiver_token', undefined, (req) => `batch:departure:${(req.body as any)?.departure_id}`);
 
 // ── Admin: Waiver Templates ─────────────────────────────────────────────────
 router.use(
@@ -55,7 +62,7 @@ const templateSchema = z.object({
 });
 
 // POST /waiver-templates
-router.post('/waiver-templates', async (req: any, res: Response) => {
+router.post('/waiver-templates', auditWaiverTemplateCreate, async (req: any, res: Response) => {
   const orgId = req.orgId!;
   const parsed = templateSchema.safeParse(req.body);
   if (!parsed.success)
@@ -75,7 +82,7 @@ router.post('/waiver-templates', async (req: any, res: Response) => {
 });
 
 // PATCH /waiver-templates/:id
-router.patch('/waiver-templates/:id', async (req: any, res: Response) => {
+router.patch('/waiver-templates/:id', auditWaiverTemplateUpdate, async (req: any, res: Response) => {
   const { id } = req.params;
   const orgId = req.orgId!;
   const parsed = templateSchema.partial().safeParse(req.body);
@@ -97,7 +104,7 @@ router.patch('/waiver-templates/:id', async (req: any, res: Response) => {
 });
 
 // DELETE /waiver-templates/:id
-router.delete('/waiver-templates/:id', async (req: any, res: Response) => {
+router.delete('/waiver-templates/:id', auditWaiverTemplateDelete, async (req: any, res: Response) => {
   const { id } = req.params;
   const orgId = req.orgId!;
   const { error } = await supabaseAdmin
@@ -208,6 +215,7 @@ router.post(
   authenticateToken,
   requireOrgContext,
   requireMinimumRole('agent'),
+  auditWaiverIssue,
   async (req: any, res: Response) => {
     const orgId = req.orgId!;
     const parsed = issueSchema.safeParse(req.body);
@@ -233,6 +241,7 @@ router.post(
   authenticateToken,
   requireOrgContext,
   requireMinimumRole('manager'),
+  auditWaiverIssueBatch,
   async (req: any, res: Response) => {
     const orgId = req.orgId!;
     const parsed = z
@@ -385,6 +394,16 @@ router.post('/public/waiver/:token/sign', async (req: Request, res: Response) =>
 
   const { error } = await supabaseAdmin.from('waiver_tokens').update(update).eq('id', waiver.id);
   if (error) return handleSupabaseError(res, error, 'Failed to sign waiver');
+
+  // Audit: public self-sign — log against owning org (no authenticated user).
+  logAuditEntry({
+    org_id: waiver.org_id,
+    user_id: 'public',
+    action: 'SIGN',
+    entity: 'waiver_token',
+    entity_id: waiver.id,
+    metadata: { signed_via: 'web', signer_name: parsed.data.signer_name },
+  }).catch(err => console.error('[AUDIT] waiver sign log failed:', err));
 
   return res.json({ ok: true, signed: true, signed_at: update.signed_at });
 });

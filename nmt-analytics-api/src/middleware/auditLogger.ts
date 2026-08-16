@@ -11,7 +11,8 @@ export type AuditAction =
   | 'VIEW' 
   | 'EXPORT' 
   | 'IMPORT'
-  | 'STATUS_CHANGE';
+  | 'STATUS_CHANGE'
+  | 'SIGN';
 
 // Entity types that can be audited
 export type AuditEntity = 

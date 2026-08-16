@@ -249,9 +249,9 @@ router.patch('/modules/:moduleKey', async (req, res: Response) => {
       org_id: orgId,
       user_id: req.user?.id || 'unknown',
       action: 'UPDATE',
-      entity: 'integration',
-      entity_id: moduleKey,
-      metadata: { enabled, settings }
+      entity: 'settings',
+      entity_id: `modules:${moduleKey}`,
+      metadata: { module: moduleKey, enabled, settings }
     });
 
     return res.json(data);
@@ -441,7 +441,7 @@ router.patch('/plan', async (req, res: Response) => {
       org_id: orgId,
       user_id: userId,
       action: 'UPDATE',
-      entity: 'organizations' as any,
+      entity: 'settings',
       entity_id: orgId,
       metadata: { field: 'plan', newValue: newPlan },
     });

@@ -18,6 +18,8 @@ import { getOrgBranding } from '../lib/orgBranding';
 const router = Router();
 
 const auditExcursionCreate = auditLog('CREATE', 'excursion_passenger', undefined, (req) => (req.body as any)?.fullName);
+const auditExcursionUpdate = auditLog('UPDATE', 'excursion_passenger', (req) => req.params.id);
+const auditExcursionDelete = auditLog('DELETE', 'excursion_passenger', (req) => req.params.id);
 
 const listQuerySchema = z
   .object({
@@ -162,7 +164,7 @@ router.post('/excursions', authenticateToken, requireOrgContext, requireMinimumR
 });
 
 /** DELETE /api/excursions/:id */
-router.delete('/excursions/:id', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
+router.delete('/excursions/:id', authenticateToken, requireOrgContext, requireMinimumRole('manager'), auditExcursionDelete, async (req, res: Response) => {
   try {
     const { id } = req.params;
     const orgId = req.orgId!;
@@ -173,7 +175,7 @@ router.delete('/excursions/:id', authenticateToken, requireOrgContext, requireMi
 });
 
 /** PATCH /api/excursions/:id — update passenger (seat assignment, paid, notes) */
-router.patch('/excursions/:id', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req, res: Response) => {
+router.patch('/excursions/:id', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditExcursionUpdate, async (req, res: Response) => {
   try {
     const { id } = req.params;
     const orgId = req.orgId!;
