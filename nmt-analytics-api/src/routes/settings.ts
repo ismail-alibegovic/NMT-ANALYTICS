@@ -10,6 +10,32 @@ import { requireMinimumRole } from '../middleware/requireRole';
 import { PLAN_TIERS, PLAN_MODULE_MAP, PLAN_LABELS, isPlanTier, type PlanTier, type ModuleKey } from '../lib/planModules';
 const router = Router();
 
+const organizationBaseSelect = `
+  id,
+  name,
+  slug,
+  phone,
+  email,
+  address,
+  currency,
+  created_at
+`;
+
+const organizationExtendedSelect = `
+  ${organizationBaseSelect},
+  timezone,
+  tax_id,
+  bank_account,
+  invoice_footer,
+  invoice_notes
+`;
+
+const extendedOrganizationFields = ['timezone', 'tax_id', 'bank_account', 'invoice_footer', 'invoice_notes'];
+
+function isMissingColumnError(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === '42703');
+}
+
 // All routes require auth and org context
 router.use(authenticateToken);
 router.use(requireOrgContext);
@@ -62,26 +88,23 @@ router.get('/', async (req, res: Response) => {
   const orgId = req.orgId!;
 
   try {
-    // Fetch organization details with extended columns
-    const { data: org, error: orgError } = await supabaseAdmin
+    const orgResult = await supabaseAdmin
       .from('organizations')
-      .select(`
-        id,
-        name,
-        slug,
-        phone,
-        email,
-        address,
-        currency,
-        timezone,
-        tax_id,
-        bank_account,
-        invoice_footer,
-        invoice_notes,
-        created_at
-      `)
+      .select(organizationExtendedSelect)
       .eq('id', orgId)
       .single();
+    let org = orgResult.data as any;
+    let orgError = orgResult.error;
+
+    if (isMissingColumnError(orgError)) {
+      const fallback = await supabaseAdmin
+        .from('organizations')
+        .select(organizationBaseSelect)
+        .eq('id', orgId)
+        .single();
+      org = fallback.data;
+      orgError = fallback.error;
+    }
 
     if (orgError) {
       console.error('[SETTINGS] Error fetching organization:', orgError);
@@ -159,6 +182,49 @@ router.patch('/', auditSettingsUpdate, async (req, res: Response) => {
       .eq('id', orgId)
       .select()
       .single();
+
+    if (isMissingColumnError(updateError)) {
+      const safeUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([key, value]) => !extendedOrganizationFields.includes(key) || value === '' || value === null)
+      );
+      for (const key of extendedOrganizationFields) delete safeUpdates[key];
+
+      if (Object.keys(safeUpdates).length > 0) {
+        const fallbackUpdate = await supabaseAdmin
+          .from('organizations')
+          .update(safeUpdates)
+          .eq('id', orgId)
+          .select(organizationBaseSelect)
+          .single();
+
+        if (fallbackUpdate.error) {
+          console.error('[SETTINGS] Update fallback error:', fallbackUpdate.error);
+          return apiError(res, 500, "INTERNAL_ERROR", "Failed to update settings", fallbackUpdate.error.message);
+        }
+
+        await logAuditEntry({
+          org_id: orgId,
+          user_id: userId || 'unknown',
+          action: 'UPDATE',
+          entity: 'settings',
+          entity_id: orgId,
+          metadata: { updated_fields: Object.keys(safeUpdates), skipped_fields_pending_migration: extendedOrganizationFields.filter((key) => updates[key] !== undefined) }
+        });
+
+        return res.json({
+          ...fallbackUpdate.data,
+          timezone: 'Europe/Sarajevo',
+          tax_id: null,
+          bank_account: null,
+          invoice_footer: null,
+          invoice_notes: null,
+          migrationPending: true,
+          migrationMessage: 'Extended organization settings columns are not present yet. Apply migration 20260816010000_organization_settings_columns.sql.'
+        });
+      }
+
+      return apiError(res, 409, "MIGRATION_PENDING", "Extended organization settings columns are not present yet. Apply migration 20260816010000_organization_settings_columns.sql.");
+    }
 
     if (updateError) {
       console.error('[SETTINGS] Update error:', updateError);
