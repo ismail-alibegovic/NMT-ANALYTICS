@@ -11,7 +11,10 @@ interface SelectProps {
   placeholder?: string;
   onChange: (value: string) => void;
   className?: string;
+  /** Uncontrolled initial value. Use `value` for controlled usage. */
   defaultValue?: string;
+  /** Controlled value — when provided, the component reflects it directly. */
+  value?: string;
   error?: boolean;
   disabled?: boolean;
   id?: string;
@@ -24,22 +27,30 @@ const Select: React.FC<SelectProps> = ({
   onChange,
   className = "",
   defaultValue = "",
+  value,
   error = false,
   disabled = false,
   id,
   name,
 }) => {
-  const [selectedValue, setSelectedValue] = useState<string>(defaultValue);
+  // `value` (controlled) takes precedence over `defaultValue` (uncontrolled).
+  const [internalValue, setInternalValue] = useState<string>(value ?? defaultValue);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    setSelectedValue(value);
-    onChange(value);
+    const next = e.target.value;
+    setInternalValue(next);
+    onChange(next);
   };
 
+  // Controlled mode renders `value` directly; uncontrolled uses internal state.
+  const selectedValue = value !== undefined ? value : internalValue;
+
   useEffect(() => {
-    setSelectedValue(defaultValue);
-  }, [defaultValue]);
+    if (value === undefined) {
+      setInternalValue(defaultValue);
+    }
+    // When `value` is provided we render it directly, no internal update needed.
+  }, [value, defaultValue]);
 
   const stateClasses = disabled
     ? "cursor-not-allowed border-gray-300 bg-gray-100 text-gray-400 opacity-60 dark:border-gray-700 dark:bg-gray-800"

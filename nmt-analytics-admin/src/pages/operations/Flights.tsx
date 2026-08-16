@@ -7,19 +7,17 @@ import EmptyState from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/modal";
 import { useToast } from "../../context/ToastContext";
 import { useApp } from "../../context/AppContext";
-import { useT } from "../../lib/i18n/context";
 import { PlusIcon, TrashBinIcon } from "../../icons";
 import { getFlights, createFlight, deleteFlight, Flight } from "../../api/operations";
 
 export default function Flights() {
   const { success: showSuccess, error: showError } = useToast();
   const { user, loading: authLoading } = useApp();
-  const { t } = useT();
 
   const [flights, setFlights] = useState<Flight[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [search, setSearch] = useState("");
+  const search = ""; // server-side search hook not yet wired to toolbar
 
   const [formAirline, setFormAirline] = useState("");
   const [formFlightNumber, setFormFlightNumber] = useState("");
@@ -165,14 +163,15 @@ export default function Flights() {
       <PageMeta title="Letovi — Travline" description="Katalog letova i avio prijevoza" />
       <PageToolbar
         title="Letovi"
-        breadcrumb="Operacije / Letovi"
-        showSearch={false}
-      >
-        <Button variant="primary" onClick={() => setIsModalOpen(true)} className="flex items-center gap-2">
-          <PlusIcon className="size-4" />
-          <span>Novi let</span>
-        </Button>
-      </PageToolbar>
+        hideSearch
+        actions={
+          <Button variant="primary" onClick={() => setIsModalOpen(true)} className="flex items-center gap-2">
+            <PlusIcon className="size-4" />
+            <span>Novi let</span>
+          </Button>
+        }
+      />
+
 
       <div className="p-4">
         {loading ? (
@@ -181,12 +180,7 @@ export default function Flights() {
           <EmptyState
             title="Nema letova"
             description="Dodajte prvi let u katalog"
-            action={
-              <Button variant="primary" onClick={() => setIsModalOpen(true)}>
-                <PlusIcon className="size-4 mr-2" />
-                Novi let
-              </Button>
-            }
+            action={{ label: "Novi let", onClick: () => setIsModalOpen(true) }}
           />
         ) : (
           <DataTable data={flights} columns={columns} />

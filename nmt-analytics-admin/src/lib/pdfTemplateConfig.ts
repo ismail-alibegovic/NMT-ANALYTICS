@@ -108,7 +108,6 @@ export function mergeWithDefaults(stored: Partial<TemplateConfig> | null | undef
     const s = stored[dt];
     if (s) {
       // Merge existing blocks by key, preserving stored order for known keys.
-      const storedByKey = new Map((s.blocks || []).map(b => [b.key, b]));
       const blocks: BlockConfig[] = [];
       const seenKeys = new Set<BlockKey>();
       // First: stored blocks (in stored order) merged over default block if missing fields.
