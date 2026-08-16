@@ -18,11 +18,9 @@ import { generateReceiptPDF } from '../lib/receiptGenerator'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-// pdf-parse has no types shipped — load via require in node env.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-import * as pdfParseModule from 'pdf-parse'
-// @ts-ignore - the default export has no call signature in the .d.ts
-const pdfParse = (pdfParseModule as any).default ?? pdfParseModule
+// pdf-parse runs broken sample-file code when imported through ESM here.
+// CommonJS require keeps module.parent set and skips that debug branch.
+const pdfParse = require('pdf-parse') as (buffer: Buffer) => Promise<{ text: string }>
 
 async function withTempPdf(buffer: Buffer): Promise<{ text: string; cleanup: () => Promise<void> }> {
   const tmp = path.join(os.tmpdir(), `travline-test-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`)
