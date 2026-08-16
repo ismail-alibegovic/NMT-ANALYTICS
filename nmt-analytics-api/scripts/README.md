@@ -18,6 +18,9 @@ export SUPABASE_MGMT_TOKEN=<management-api-token>
 python3 scripts/apply_migrations.py path/to/migration.sql
 ```
 
+`SUPABASE_MANAGEMENT_TOKEN` is also accepted as an alias for
+`SUPABASE_MGMT_TOKEN`.
+
 Use this when the Supabase dashboard SQL editor is blocked or when applying
 migrations from a fresh environment. The Management API token can be created
 from the Supabase dashboard (Account → Access Tokens).

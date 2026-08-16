@@ -5,10 +5,13 @@ endpoint. Splits the file into individual statements (respecting single-quote
 strings and $$ ... $$ dollar-quoted blocks) and runs each as a single-query
 POST, since the endpoint rejects multi-statement bodies with CF WAF 1010.
 """
-import sys, os, json, time, re, requests
+import sys, os, json, time, re
+from urllib import request, error
 
 REF = os.environ["SUPABASE_REF"]
-MGMT = os.environ["SUPABASE_MGMT_TOKEN"]
+MGMT = os.environ.get("SUPABASE_MGMT_TOKEN") or os.environ.get("SUPABASE_MANAGEMENT_TOKEN")
+if not MGMT:
+    raise RuntimeError("Set SUPABASE_MGMT_TOKEN or SUPABASE_MANAGEMENT_TOKEN")
 URL = f"https://api.supabase.com/v1/projects/{REF}/database/query"
 
 def split_sql(text: str) -> list[str]:
@@ -63,14 +66,20 @@ def split_sql(text: str) -> list[str]:
     return stmts
 
 def run(stmt: str) -> tuple[int, str]:
-    r = requests.post(URL, headers={
+    payload = json.dumps({"query": stmt}).encode("utf-8")
+    req = request.Request(URL, data=payload, headers={
         "Authorization": f"Bearer {MGMT}",
         "Content-Type": "application/json",
         "User-Agent": "Travline-Migrator/1.0",
         "Accept": "application/json",
-    }, json={"query": stmt}, timeout=30)
-    body = r.text[:300]
-    return r.status_code, body
+    }, method="POST")
+    try:
+        with request.urlopen(req, timeout=30) as r:
+            body = r.read(300).decode("utf-8", errors="replace")
+            return r.status, body
+    except error.HTTPError as e:
+        body = e.read(300).decode("utf-8", errors="replace")
+        return e.code, body
 
 def main():
     path = sys.argv[1]
