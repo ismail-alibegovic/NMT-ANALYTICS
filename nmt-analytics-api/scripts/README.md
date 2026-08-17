@@ -13,13 +13,12 @@ blocks) and POSTs each one separately.
 ### Usage
 
 ```bash
-export SUPABASE_REF=<project-ref>
-export SUPABASE_MGMT_TOKEN=<management-api-token>
+export TRAVLINE_SUPABASE_PROJECT_REF=<project-ref>
+export TRAVLINE_SUPABASE_MANAGEMENT_TOKEN=<management-api-token>
 python3 scripts/apply_migrations.py path/to/migration.sql
 ```
 
-`SUPABASE_MANAGEMENT_TOKEN` is also accepted as an alias for
-`SUPABASE_MGMT_TOKEN`.
+`SUPABASE_REF`, `SUPABASE_MGMT_TOKEN`, and `SUPABASE_MANAGEMENT_TOKEN` are accepted only as legacy aliases. Prefer the `TRAVLINE_*` names in Zo Secrets.
 
 Use this when the Supabase dashboard SQL editor is blocked or when applying
 migrations from a fresh environment. The Management API token can be created

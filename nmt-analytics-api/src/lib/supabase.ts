@@ -10,9 +10,9 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.TRAVLINE_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.TRAVLINE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.TRAVLINE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // 2. Debug Logging (Server Start)
 console.log('--- Supabase Configuration Check ---');

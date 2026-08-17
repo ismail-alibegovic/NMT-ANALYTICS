@@ -12,8 +12,9 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - TRAVLINE_SUPABASE_URL=${TRAVLINE_SUPABASE_URL}
+      - TRAVLINE_SUPABASE_ANON_KEY=${TRAVLINE_SUPABASE_ANON_KEY}
+      - TRAVLINE_SUPABASE_SERVICE_ROLE_KEY=${TRAVLINE_SUPABASE_SERVICE_ROLE_KEY}
       - ADMIN_URL=${ADMIN_URL:-http://localhost:80}
       - DEV_BYPASS_AUTH=false
       - DEV_AUTO_BOOTSTRAP=false
@@ -29,8 +30,8 @@ services:
       context: ./nmt-analytics-admin
       dockerfile: Dockerfile
       args:
-        - VITE_SUPABASE_URL=${SUPABASE_URL}
-        - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+        - VITE_SUPABASE_URL=${TRAVLINE_SUPABASE_URL}
+        - VITE_SUPABASE_ANON_KEY=${TRAVLINE_SUPABASE_ANON_KEY}
         - VITE_API_URL=/api
     container_name: nmt-admin
     restart: unless-stopped

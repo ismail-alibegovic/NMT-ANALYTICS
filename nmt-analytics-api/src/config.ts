@@ -9,17 +9,24 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+const rawEnv = {
+  ...process.env,
+  SUPABASE_URL: process.env.TRAVLINE_SUPABASE_URL || process.env.SUPABASE_URL,
+  SUPABASE_ANON_KEY: process.env.TRAVLINE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY,
+  SUPABASE_SERVICE_ROLE_KEY: process.env.TRAVLINE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
+};
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().transform(val => parseInt(val)).default(3001),
 
   // Supabase
-  SUPABASE_URL: z.string().url('SUPABASE_URL must be a valid URL'),
+  SUPABASE_URL: z.string().url('TRAVLINE_SUPABASE_URL must be a valid URL'),
   SUPABASE_ANON_KEY: z.string().optional(),
   // Service role key is STRICTLY required for the backend to function correctly
   SUPABASE_SERVICE_ROLE_KEY: z.string()
-    .min(1, 'SUPABASE_SERVICE_ROLE_KEY is required')
-    .refine(val => val.startsWith('ey'), 'SUPABASE_SERVICE_ROLE_KEY must be a valid JWT (starts with "ey")'),
+    .min(1, 'TRAVLINE_SUPABASE_SERVICE_ROLE_KEY is required')
+    .refine(val => val.startsWith('ey'), 'TRAVLINE_SUPABASE_SERVICE_ROLE_KEY must be a valid JWT (starts with "ey")'),
 
   // Admin URL for CORS
   ADMIN_URL: z.string().url('ADMIN_URL must be a valid URL').default('http://localhost:5173'),
@@ -39,7 +46,7 @@ export type EnvConfig = z.infer<typeof envSchema>;
 
 export function validateEnv(): EnvConfig {
   try {
-    const parsed = envSchema.parse(process.env);
+    const parsed = envSchema.parse(rawEnv);
 
     // Safety & Diagnostic logs
     const url = new URL(parsed.SUPABASE_URL);
@@ -96,7 +103,7 @@ export function validateEnv(): EnvConfig {
       });
 
       console.error('\nPlease check your .env file and ensure all required variables are set.');
-      console.error('Required variables: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY');
+      console.error('Required variables: TRAVLINE_SUPABASE_URL, TRAVLINE_SUPABASE_SERVICE_ROLE_KEY');
     } else {
       console.error('❌ Unexpected error during environment validation:', error);
     }

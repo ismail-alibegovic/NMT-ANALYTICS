@@ -8,10 +8,16 @@ POST, since the endpoint rejects multi-statement bodies with CF WAF 1010.
 import sys, os, json, time, re
 from urllib import request, error
 
-REF = os.environ["SUPABASE_REF"]
-MGMT = os.environ.get("SUPABASE_MGMT_TOKEN") or os.environ.get("SUPABASE_MANAGEMENT_TOKEN")
+REF = os.environ.get("TRAVLINE_SUPABASE_PROJECT_REF") or os.environ.get("SUPABASE_REF")
+MGMT = (
+    os.environ.get("TRAVLINE_SUPABASE_MANAGEMENT_TOKEN")
+    or os.environ.get("SUPABASE_MGMT_TOKEN")
+    or os.environ.get("SUPABASE_MANAGEMENT_TOKEN")
+)
+if not REF:
+    raise RuntimeError("Set TRAVLINE_SUPABASE_PROJECT_REF")
 if not MGMT:
-    raise RuntimeError("Set SUPABASE_MGMT_TOKEN or SUPABASE_MANAGEMENT_TOKEN")
+    raise RuntimeError("Set TRAVLINE_SUPABASE_MANAGEMENT_TOKEN")
 URL = f"https://api.supabase.com/v1/projects/{REF}/database/query"
 
 def split_sql(text: str) -> list[str]:
