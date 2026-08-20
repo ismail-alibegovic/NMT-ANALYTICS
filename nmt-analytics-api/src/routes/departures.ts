@@ -521,7 +521,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
     if (reservationIds.length > 0) {
       const { data: passRows, error: passErr } = await supabaseAdmin
         .from('excursion_passengers')
-        .select('id, reservation_id, full_name, seat_number, paid_amount, debt_amount, phone, email, notes')
+        .select('id, reservation_id, full_name, seat_number, paid_amount, debt_amount, phone, notes')
         .in('reservation_id', reservationIds)
         .order('seat_number', { ascending: true, nullsFirst: false });
       if (passErr) console.error('Passengers fetch (non-fatal):', passErr);
@@ -572,7 +572,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
             reservationId: r.id,
             fullName: p.full_name || r.customer_name,
             phone: p.phone || r.customer_phone || cust?.phone,
-            email: p.email || cust?.email,
+            email: cust?.email,
             seat: p.seat_number,
             paid: Number(p.paid_amount || 0),
             debt: Number(p.debt_amount || 0),
@@ -624,11 +624,11 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
     }
 
     // Summary stats
-    const totalGuests = manifest.reduce((s, m) => s + (m.partySize || 1), 0);
+    const totalGuests = manifest.reduce((s, m) => s + (m.passengerId ? 1 : (m.partySize || 1)), 0);
     const totalBooked = (reservations || []).reduce((s, r) => s + r.party_size, 0);
     const confirmedGuests = manifest
       .filter(m => m.reservationStatus === 'confirmed')
-      .reduce((s, m) => s + (m.partySize || 1), 0);
+      .reduce((s, m) => s + (m.passengerId ? 1 : (m.partySize || 1)), 0);
     const totalPaidAmount = manifest.reduce((s, m) => s + m.paid, 0);
     const totalDebtAmount = manifest.reduce((s, m) => s + m.debt, 0);
     const guides = Array.from(new Set(manifest.map(m => m.tourGuide).filter(Boolean)));

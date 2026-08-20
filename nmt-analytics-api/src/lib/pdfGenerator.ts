@@ -41,3 +41,7 @@ export async function generateVoucherPDF(reservation: any, branding?: BrandingWi
 export async function generateInvoicePDF(reservation: any, branding?: BrandingWithConfig): Promise<Buffer> {
   return renderTemplatedPDF('invoice', reservation, branding?.pdfTemplateConfig, brandingOverrides(branding));
 }
+
+export async function generateOfferPDF(quotation: any, branding?: BrandingWithConfig): Promise<Buffer> {
+  return renderTemplatedPDF("invoice", quotation, branding?.pdfTemplateConfig, brandingOverrides(branding));
+}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
+import { useQueryParams } from "../../hooks/useQueryParams";
 import PageMeta from "../../components/common/PageMeta";
 import PageToolbar from "../../components/ui/PageToolbar";
 import { DataTable, Column, Pagination } from "../../components/ui/DataTable";
@@ -34,6 +35,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function Departures() {
   const navigate = useNavigate();
+  const { getParam, setParams } = useQueryParams();
   const { error: showError, success: showSuccess } = useToast();
   const [departures, setDepartures] = useState<Departure[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -93,6 +95,14 @@ export default function Departures() {
   useEffect(() => {
     fetchPackages();
   }, []);
+
+  useEffect(() => {
+    if (getParam("new", "") === "1") {
+      setEditingDeparture(null);
+      setModalOpen(true);
+      setParams({ new: null });
+    }
+  }, [getParam, setParams]);
 
   useEffect(() => {
     fetchDepartures(1);

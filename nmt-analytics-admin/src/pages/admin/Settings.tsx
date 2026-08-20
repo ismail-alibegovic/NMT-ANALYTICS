@@ -4,6 +4,7 @@ import PageMeta from "../../components/common/PageMeta";
 import { DocsIcon } from "../../icons";
 import api from "../../lib/apiClient";
 import { useT } from "../../lib/i18n/context";
+import { useApp } from "../../context/AppContext";
 
 interface OrgSettings {
   name: string;
@@ -49,8 +50,17 @@ interface PlanResponse {
   migrationMessage?: string;
 }
 
+type AgencyProfileKey = 'retail_agency' | 'group_tours' | 'dmc_incoming' | 'tour_operator';
+
+interface AgencyProfileResponse {
+  profiles: AgencyProfileKey[];
+  capabilities: string[];
+  configured: boolean;
+}
+
 export default function Settings() {
   const { t } = useT();
+  const { refreshUserContext } = useApp();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<OrgSettings>({
@@ -79,6 +89,11 @@ export default function Settings() {
   const [planSaving, setPlanSaving] = useState(false);
   const [planMessage, setPlanMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [planMigrationPending, setPlanMigrationPending] = useState(false);
+  const [agencyProfiles, setAgencyProfiles] = useState<AgencyProfileKey[]>([]);
+  const [agencyCapabilities, setAgencyCapabilities] = useState<string[]>([]);
+  const [agencyProfileSaving, setAgencyProfileSaving] = useState(false);
+  const [agencyProfileMigrationPending, setAgencyProfileMigrationPending] = useState(false);
+  const [agencyProfileMessage, setAgencyProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const showPlanMessage = (text: string, type: 'success' | 'error') => {
     setPlanMessage({ type, text });
@@ -90,7 +105,50 @@ export default function Settings() {
     setTimeout(() => setSmtpMessage(null), 5000);
   };
 
-  useEffect(() => { fetchSettings(); fetchSmtpSettings(); fetchBranding(); fetchPlan(); }, []);
+  useEffect(() => { fetchSettings(); fetchSmtpSettings(); fetchBranding(); fetchPlan(); fetchAgencyProfile(); }, []);
+
+  const fetchAgencyProfile = async () => {
+    try {
+      const { data } = await api.get<AgencyProfileResponse>('/settings/agency-profile');
+      setAgencyProfiles(data.profiles || []);
+      setAgencyCapabilities(data.capabilities || []);
+      setAgencyProfileMigrationPending(false);
+    } catch (error: any) {
+      if (error?.response?.data?.code === 'MIGRATION_PENDING') {
+        setAgencyProfileMigrationPending(true);
+        return;
+      }
+      setAgencyProfileMessage({ type: 'error', text: error?.message || t.settings.agencyProfileLoadError });
+    }
+  };
+
+  const toggleAgencyProfile = (profile: AgencyProfileKey) => {
+    setAgencyProfiles((current) => current.includes(profile)
+      ? current.filter((item) => item !== profile)
+      : [...current, profile]);
+  };
+
+  const handleSaveAgencyProfile = async () => {
+    if (agencyProfiles.length === 0) {
+      setAgencyProfileMessage({ type: 'error', text: t.settings.agencyProfileRequired });
+      return;
+    }
+    setAgencyProfileSaving(true);
+    setAgencyProfileMessage(null);
+    try {
+      const { data } = await api.patch<AgencyProfileResponse>('/settings/agency-profile', {
+        profiles: agencyProfiles,
+        enabledCapabilities: [],
+      });
+      setAgencyCapabilities(data.capabilities || []);
+      await refreshUserContext();
+      setAgencyProfileMessage({ type: 'success', text: t.settings.agencyProfileSaved });
+    } catch (error: any) {
+      setAgencyProfileMessage({ type: 'error', text: error?.message || t.settings.saveError });
+    } finally {
+      setAgencyProfileSaving(false);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -447,6 +505,73 @@ export default function Settings() {
             <button onClick={handleSaveBranding} disabled={brandingSaving}
               className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {brandingSaving ? t.common.saving : t.settings.save}
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="max-w-3xl">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">{t.settings.agencyProfileTitle}</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t.settings.agencyProfileDesc}</p>
+          </div>
+
+          {agencyProfileMigrationPending && (
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
+              {t.settings.agencyProfileMigrationPending}
+            </div>
+          )}
+
+          {agencyProfileMessage && (
+            <div className={`mt-4 rounded-lg p-3 text-sm ${agencyProfileMessage.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400'}`}>
+              {agencyProfileMessage.text}
+            </div>
+          )}
+
+          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+            {(['retail_agency', 'group_tours', 'dmc_incoming', 'tour_operator'] as AgencyProfileKey[]).map((profile) => {
+              const selected = agencyProfiles.includes(profile);
+              const profileCopy = t.settings.agencyProfiles[profile];
+              return (
+                <label
+                  key={profile}
+                  className={`relative flex cursor-pointer gap-3 rounded-xl border p-4 transition-colors ${selected ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={() => toggleAgencyProfile(profile)}
+                    disabled={agencyProfileMigrationPending}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-gray-900 dark:text-white">{profileCopy.title}</span>
+                    <span className="mt-1 block text-sm leading-5 text-gray-500 dark:text-gray-400">{profileCopy.description}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+
+          {agencyCapabilities.length > 0 && (
+            <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{t.settings.agencyCapabilitiesEnabled}</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {agencyCapabilities.map((capability) => (
+                  <span key={capability} className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-700 ring-1 ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700">
+                    {capability.replace(/_/g, ' ')}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-5 flex justify-end">
+            <button
+              onClick={handleSaveAgencyProfile}
+              disabled={agencyProfileSaving || agencyProfileMigrationPending || agencyProfiles.length === 0}
+              className="whitespace-nowrap rounded-lg bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {agencyProfileSaving ? t.common.saving : t.settings.agencyProfileSave}
             </button>
           </div>
         </div>

@@ -24,9 +24,11 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onCreated?: () => void;
+  initialPackageId?: string;
+  initialDepartureId?: string;
 }
 
-export default function NewSaleWizard({ isOpen, onClose, onCreated }: Props) {
+export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPackageId, initialDepartureId }: Props) {
   const { success, error: showError } = useToast();
 
   const [step, setStep] = useState<Step>("arrangement");
@@ -75,6 +77,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated }: Props) {
   useEffect(() => {
     if (!isOpen) return;
     reset();
+    if (initialPackageId) setPackageId(initialPackageId);
     void loadPackages();
     void loadCustomers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,12 +119,14 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated }: Props) {
         const active = deps.filter((d) => d.status === "active" && d.booked < d.capacity);
         const pkg = packages.find((p) => p.id === packageId);
         const pkgVariants = Array.isArray(pkg?.variants) ? pkg!.variants : [];
-        if (active.length === 1 && pkgVariants.length === 0) {
+        if (initialDepartureId && active.some((departure) => departure.id === initialDepartureId)) {
+          setDepartureId(initialDepartureId);
+        } else if (active.length === 1 && pkgVariants.length === 0) {
           setDepartureId(active[0].id);
         }
       })
       .catch(() => setDepartures([]));
-  }, [packageId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [packageId, initialDepartureId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prefill price when package chosen
   useEffect(() => {

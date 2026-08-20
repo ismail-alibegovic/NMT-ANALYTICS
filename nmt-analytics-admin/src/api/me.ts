@@ -23,6 +23,9 @@ export interface UserContext {
   };
   role: string;
   modules: string[];
+  agencyProfiles: string[];
+  capabilities: string[];
+  agencyProfileConfigured: boolean;
 }
 
 /**

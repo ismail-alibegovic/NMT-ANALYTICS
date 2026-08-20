@@ -4,6 +4,7 @@ import { Outlet, useLocation } from "react-router";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
+import { QuickCreateProvider } from "../context/QuickCreateContext";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen, activeScope, setActiveScope } = useSidebar();
@@ -45,7 +46,9 @@ const LayoutContent: React.FC = () => {
 const AppLayout: React.FC = () => {
   return (
     <SidebarProvider>
-      <LayoutContent />
+      <QuickCreateProvider>
+        <LayoutContent />
+      </QuickCreateProvider>
     </SidebarProvider>
   );
 };

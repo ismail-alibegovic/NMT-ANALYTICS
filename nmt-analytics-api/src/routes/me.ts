@@ -5,6 +5,7 @@ import { getUserContext } from '../lib/auth-helpers';
 import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
 import { config } from '../config';
 import { apiError } from "../lib/errors";
+import { resolveAgencyConfiguration } from '../lib/agencyCapabilities';
 
 const router = Router();
 
@@ -55,29 +56,57 @@ router.get('/me/context', authenticateToken, requireOrgContext, async (req, res)
   try {
     // In DEV_BYPASS_AUTH mode, return simplified context
     if (config.DEV_BYPASS_AUTH) {
+      const { data: devOrg } = await supabaseAdmin
+        .from('organizations')
+        .select('id, name, slug, agency_profiles, enabled_capabilities')
+        .eq('id', req.orgId!)
+        .single();
+      const devAgencyConfiguration = resolveAgencyConfiguration(
+        devOrg?.agency_profiles,
+        devOrg?.enabled_capabilities,
+      );
       const response = {
         user: {
           id: req.user!.id,
           email: req.user!.email
         },
-        org: { id: req.orgId, name: 'Travline', slug: 'travline' },
+        org: devOrg || { id: req.orgId, name: 'Travline', slug: 'travline' },
         role: req.user!.role || 'director',
-        modules: ['dashboard', 'customers', 'packages', 'reservations', 'departures', 'payments', 'transactions', 'analytics', 'integrations']
+        modules: ['dashboard', 'customers', 'packages', 'reservations', 'departures', 'payments', 'transactions', 'analytics', 'integrations', 'travel_core', 'documents', 'accounting'],
+        agencyProfiles: devAgencyConfiguration.profiles,
+        capabilities: devAgencyConfiguration.capabilities,
+        agencyProfileConfigured: devAgencyConfiguration.configured,
       };
       console.log(`[ME/CONTEXT] DEV_BYPASS: User ${req.user!.id} context`);
       return res.json(response);
     }
 
     // Fetch organization details
-    const { data: org, error: orgError } = await supabaseAdmin
+    let { data: org, error: orgError } = await supabaseAdmin
       .from('organizations')
-      .select('id, name, slug')
+      .select('id, name, slug, agency_profiles, enabled_capabilities')
       .eq('id', req.orgId!)
       .single();
 
     if (orgError) {
+      console.warn(`[ME/CONTEXT] Extended agency profile columns unavailable; using legacy context:`, orgError.message);
+      const legacyResult = await supabaseAdmin
+        .from('organizations')
+        .select('id, name, slug')
+        .eq('id', req.orgId!)
+        .single();
+      org = legacyResult.data as typeof org;
+      orgError = legacyResult.error;
+    }
+
+    if (orgError) {
       console.error(`[ME/CONTEXT] Error fetching org:`, orgError);
     }
+
+    const agencyConfiguration = resolveAgencyConfiguration(
+      org && 'agency_profiles' in org ? org.agency_profiles : null,
+      org && 'enabled_capabilities' in org ? org.enabled_capabilities : null,
+    );
 
     // Fetch enabled modules
     const { data: orgModules, error: modulesError } = await supabaseAdmin
@@ -99,7 +128,10 @@ router.get('/me/context', authenticateToken, requireOrgContext, async (req, res)
       },
       org: org || { id: req.orgId, name: 'Unknown', slug: 'unknown' },
       role: req.user!.role || 'viewer',
-      modules
+      modules,
+      agencyProfiles: agencyConfiguration.profiles,
+      capabilities: agencyConfiguration.capabilities,
+      agencyProfileConfigured: agencyConfiguration.configured,
     };
 
     console.log(`[ME/CONTEXT] User ${req.user!.id} context: org=${org?.name}, role=${req.user!.role}, modules=${modules.length}`);

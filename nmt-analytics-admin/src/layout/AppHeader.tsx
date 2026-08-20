@@ -7,13 +7,16 @@ import GlobalSearch from "../components/common/GlobalSearch";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
 import { useT } from "../lib/i18n/context";
+import { PlusIcon } from "../icons";
+import { useQuickCreate } from "../context/QuickCreateContext";
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar, activeScope } = useSidebar();
-  const { setLang, lang } = useT();
+  const { setLang, lang, t } = useT();
+  const { openQuickCreate } = useQuickCreate();
 
   const hasSidebar = activeScope !== null;
 
@@ -148,6 +151,15 @@ const AppHeader: React.FC = () => {
           } items-center justify-between w-full gap-4 px-5 py-4 lg:flex shadow-theme-md lg:justify-end lg:px-0 lg:shadow-none`}
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
+            <button
+              type="button"
+              onClick={openQuickCreate}
+              className="flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-500 px-3 text-sm font-semibold text-white transition-colors hover:bg-brand-600 active:translate-y-px sm:px-4"
+              aria-label={t.quickCreate.title}
+            >
+              <PlusIcon className="size-4" />
+              <span className="hidden xl:inline">{t.quickCreate.title}</span>
+            </button>
             {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}

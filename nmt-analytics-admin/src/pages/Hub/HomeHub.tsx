@@ -1,7 +1,7 @@
 import QuickStart from "../../components/hub/QuickStart";
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import {
   getAnalyticsOverviewV2,
@@ -13,8 +13,6 @@ import { getDepartures } from "../../api/departures";
 import { getReservations } from "../../api/reservations";
 import {
   ArrowRightIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
   PlusIcon,
   CalenderIcon,
   DollarLineIcon,
@@ -32,6 +30,7 @@ import { useApp } from "../../context/AppContext";
 import { hasAccess, UserRole } from "../../types/roles";
 import { useT } from "../../lib/i18n/context";
 import { logger } from "../../utils/logger";
+import { useQuickCreate } from "../../context/QuickCreateContext";
 
 type PaymentRow = {
   id: string;
@@ -40,6 +39,15 @@ type PaymentRow = {
   amount: string;
   daysOpen: number;
   href: string;
+};
+
+type TodayWorkItem = {
+  id: string;
+  title: string;
+  detail: string;
+  href: string;
+  kind: "reservation" | "departure" | "occupancy" | "payment";
+  urgency: "urgent" | "attention" | "normal";
 };
 
 /**
@@ -150,55 +158,6 @@ const SectionLabel: React.FC<{ children: React.ReactNode; className?: string }> 
 /* ───────────────────────── Charts ───────────────────────── */
 
 /**
- * Pure-SVG area chart with smooth catmull-rom-ish curves. Bleeds edge-to-edge
- * inside its container so the baseline meets the panel with no dead strip.
- */
-const AreaChart: React.FC<{
-  points: number[];
-  height?: number;
-  stroke?: string;
-  gradientId?: string;
-}> = ({ points, height = 92, stroke = "#465fff", gradientId = "rev" }) => {
-  const width = 640;
-  if (!points.length) return null;
-  const min = Math.min(...points, 0);
-  const max = Math.max(...points, 1);
-  const span = max - min || 1;
-  const stepX = points.length > 1 ? width / (points.length - 1) : width;
-  const topPad = 14;
-  const usableH = height - topPad;
-  const coords = points.map((p, i) => {
-    const x = i * stepX;
-    const y = topPad + usableH - ((p - min) / span) * usableH;
-    return [x, y] as const;
-  });
-  const linePath = coords.reduce((acc, c, i, arr) => {
-    if (i === 0) return `M${c[0].toFixed(1)},${c[1].toFixed(1)}`;
-    const p0 = arr[i - 1];
-    const cp1x = p0[0] + (c[0] - p0[0]) / 2;
-    return `${acc} C${cp1x.toFixed(1)},${p0[1].toFixed(1)} ${cp1x.toFixed(1)},${c[1].toFixed(1)} ${c[0].toFixed(1)},${c[1].toFixed(1)}`;
-  }, "");
-  const areaPath = `${linePath} L${width},${height} L0,${height} Z`;
-  const last = coords[coords.length - 1];
-
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} preserveAspectRatio="none" role="img" aria-label="Revenue trend" className="block w-full">
-      <defs>
-        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={stroke} stopOpacity={0.26} />
-          <stop offset="100%" stopColor={stroke} stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
-      <path d={linePath} fill="none" stroke={stroke} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-      <circle cx={last[0]} cy={last[1]} r={10} fill={stroke} opacity={0.14} />
-      <circle cx={last[0]} cy={last[1]} r={4.5} fill={stroke} />
-      <circle cx={last[0]} cy={last[1]} r={2} fill="#fff" />
-    </svg>
-  );
-};
-
-/**
  * Combo chart for the BOOKINGS panel: soft bars (gross reservation value) +
  * a smooth line on top (paid revenue). Shared y-scale so the line reads
  * against the bars without a second axis.
@@ -280,14 +239,16 @@ const ProgressBar: React.FC<{ pct: number; tone?: "brand" | "warm" }> = ({
 
 const HomeHub: React.FC = () => {
   const { userContext } = useApp();
-  const navigate = useNavigate();
   const { t, lang } = useT();
   const hub = t.hub;
+  const { openQuickCreate } = useQuickCreate();
 
   const [overview, setOverview] = useState<OverviewAnalyticsV2 | null>(null);
   const [departures, setDepartures] = useState<any[]>([]);
   const [revenue, setRevenue] = useState<RevenueSeriesDataPoint[]>([]);
   const [watchPayments, setWatchPayments] = useState<PaymentRow[]>([]);
+  const [pendingReservations, setPendingReservations] = useState(0);
+  const [queueError, setQueueError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [bookingsTab, setBookingsTab] = useState<"upcoming" | "past">("upcoming");
 
@@ -315,17 +276,23 @@ const HomeHub: React.FC = () => {
         const todayISO = today.toISOString().split("T")[0];
         const fortnightAgo = new Date(today.getTime() - 14 * 86_400_000).toISOString().split("T")[0];
 
-        const [ov, deps, rev, pays] = await Promise.allSettled([
+        const [ov, deps, rev, pays, pending] = await Promise.allSettled([
           getAnalyticsOverviewV2({ from: fortnightAgo, to: todayISO }),
           getDepartures({ status: "active", dateFrom: todayISO, limit: 12 }),
           getRevenueSeries({ from: fortnightAgo, to: todayISO, bucket: "daily" }),
           showFinance ? getReservations({ status: "confirmed", limit: 12 }) : Promise.resolve(null),
+          getReservations({ status: "pending", limit: 1 }),
         ]);
 
         if (!active) return;
         if (ov.status === "fulfilled") setOverview(ov.value);
         if (deps.status === "fulfilled") setDepartures((deps.value as any)?.data || []);
         if (rev.status === "fulfilled") setRevenue(rev.value || []);
+        if (pending.status === "fulfilled") setPendingReservations(pending.value.total);
+        setQueueError(deps.status === "rejected" || pending.status === "rejected" || (showFinance && ov.status === "rejected"));
+        [ov, deps, rev, pays, pending].forEach((result) => {
+          if (result.status === "rejected") logger.error("[HomeHub] partial load failed", result.reason);
+        });
         if (pays.status === "fulfilled" && pays.value) {
           const rows = (pays.value.data || [])
             .filter((r) => r.balanceDue > 0)
@@ -379,35 +346,6 @@ const HomeHub: React.FC = () => {
 
   const revenuePoints = useMemo(() => revenue.map((p) => p.total_paid_sum || 0), [revenue]);
   const grossPoints = useMemo(() => revenue.map((p) => p.total_amount_sum || 0), [revenue]);
-  const paidTotal = useMemo(
-    () => revenue.reduce((acc, p) => acc + (p.total_paid_sum || 0), 0),
-    [revenue]
-  );
-
-  /** Second-half vs first-half of the 14-day series — a real, explainable delta. */
-  const trendPct = useMemo(() => {
-    if (revenuePoints.length < 4) return null;
-    const mid = Math.floor(revenuePoints.length / 2);
-    const prev = revenuePoints.slice(0, mid).reduce((a, b) => a + b, 0);
-    const curr = revenuePoints.slice(mid).reduce((a, b) => a + b, 0);
-    if (prev <= 0) return curr > 0 ? 100 : null;
-    return Math.round(((curr - prev) / prev) * 100);
-  }, [revenuePoints]);
-
-  /** Payment-status breakdown → the Travel/Event/Other-style bars, driven by
-   *  real paid / partial / unpaid counts so the proportions are truthful. */
-  const statusBreakdown = useMemo(() => {
-    const paid = overview?.paid_count || 0;
-    const partial = overview?.partially_paid_count || 0;
-    const unpaid = overview?.unpaid_count || 0;
-    const total = paid + partial + unpaid || 1;
-    return [
-      { label: hub.psPaid, pct: Math.round((paid / total) * 100), tone: "brand" as const },
-      { label: hub.psPartial, pct: Math.round((partial / total) * 100), tone: "warm" as const },
-      { label: hub.psUnpaid, pct: Math.round((unpaid / total) * 100), tone: "brand" as const },
-    ];
-  }, [overview, hub.psPaid, hub.psPartial, hub.psUnpaid]);
-
   const openBalance = overview?.total_balance_sum || 0;
   const activeCount = overview?.reservations_count || 0;
   const paidCount = overview?.paid_count || 0;
@@ -429,27 +367,65 @@ const HomeHub: React.FC = () => {
     { label: hub.sPdfTemplates, href: "/settings/pdf-templates", icon: FileIcon, minRole: "director" as UserRole },
   ].filter((s) => !s.minRole || hasAccess(s.minRole, role));
 
-  const heroLabel = showFinance ? hub.revenuePanel : hub.recentDepartures;
-  const heroValue = showFinance ? fmtCurrency(paidTotal, lang) : fmtNumber(upcoming.length, lang);
-
   const bookingsList = bookingsTab === "upcoming" ? upcoming : past;
 
-
-
-  const needsAttention = useMemo(() => {
+  const todayWork = useMemo<TodayWorkItem[]>(() => {
     if (loading) return [];
-    const items: { label: string; sublabel: string; href: string; icon: "warning" | "arrow" }[] = [];
-    if ((overview?.total_balance_sum || 0) > 0) items.push({ label: hub.attentionOutstanding || "Otvoreni saldo", sublabel: fmtCurrency(overview!.total_balance_sum, lang), href: "/payments", icon: "warning" });
-    const lowOccupancy = upcoming.filter(d => d.seats > 0 && d.booked / d.seats < 0.3);
-    if (lowOccupancy.length > 0) items.push({ label: hub.attentionLowOccupancy || "Niska popunjenost", sublabel: `${lowOccupancy.length} ${lowOccupancy.length === 1 ? "polazak" : "polazaka"}`, href: "/departures", icon: "warning" });
-    return items.slice(0, 3);
-  }, [loading, overview?.total_balance_sum, lang, upcoming]);
+    const items: TodayWorkItem[] = [];
+    if (pendingReservations > 0) {
+      items.push({
+        id: "pending-reservations",
+        title: hub.todayPendingReservations,
+        detail: hub.todayPendingReservationsDetail.replace("{count}", fmtNumber(pendingReservations, lang)),
+        href: "/reservations?status=pending",
+        kind: "reservation",
+        urgency: "urgent",
+      });
+    }
+    const sevenDaysFromNow = Date.now() + 7 * 86_400_000;
+    const nearDepartures = allDepartures.filter((departure) => {
+      const departureTime = new Date(departure.departAt).getTime();
+      return departureTime >= Date.now() - 86_400_000 && departureTime <= sevenDaysFromNow;
+    });
+    if (nearDepartures.length > 0) {
+      items.push({
+        id: "near-departures",
+        title: hub.todayNearDepartures,
+        detail: hub.todayNearDeparturesDetail.replace("{count}", fmtNumber(nearDepartures.length, lang)),
+        href: "/operations/calendar",
+        kind: "departure",
+        urgency: "attention",
+      });
+    }
+    const lowOccupancy = allDepartures.filter((departure) => departure.seats > 0 && departure.booked / departure.seats < 0.3);
+    if (lowOccupancy.length > 0) {
+      items.push({
+        id: "low-occupancy",
+        title: hub.attentionLowOccupancy,
+        detail: hub.todayLowOccupancyDetail.replace("{count}", fmtNumber(lowOccupancy.length, lang)),
+        href: "/departures",
+        kind: "occupancy",
+        urgency: "attention",
+      });
+    }
+    if (showFinance && openBalance > 0) {
+      items.push({
+        id: "outstanding-balance",
+        title: hub.attentionOutstanding,
+        detail: fmtCurrency(openBalance, lang),
+        href: "/payments",
+        kind: "payment",
+        urgency: "normal",
+      });
+    }
+    return items.slice(0, 4);
+  }, [allDepartures, hub, lang, loading, openBalance, pendingReservations, showFinance]);
   const isNewOrg = !loading && overview?.reservations_count === 0 && departures.length === 0;
   return (
     <>
       <PageMeta title={`Travline — ${hub.title}`} description={hub.subtitle} />
 
-      <div className="mx-auto flex h-[calc(100dvh-130px)] w-full max-w-[1380px] flex-col overflow-hidden px-4 py-5 md:px-6 md:py-6">
+      <div className="mx-auto flex min-h-[calc(100dvh-65px)] w-full max-w-[1380px] flex-col px-4 py-5 md:px-6 md:py-6 lg:h-[calc(100dvh-130px)] lg:min-h-0 lg:overflow-hidden">
           {/* ── Masthead ─────────────────────────────────────────────── */}
           <header className="mb-5 flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3.5">
@@ -475,109 +451,69 @@ const HomeHub: React.FC = () => {
               </div>
             </div>
             <button
-              onClick={() => navigate("/reservations?new=1")}
-              className="group inline-flex shrink-0 items-center gap-2 rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-600 active:translate-y-px"
+              onClick={openQuickCreate}
+              aria-label={hub.focusNewReservation}
+              className="group inline-flex size-12 shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-500 text-sm font-semibold text-white transition-colors hover:bg-brand-600 active:translate-y-px sm:h-auto sm:w-auto sm:px-5 sm:py-3"
             >
-              <PlusIcon className="size-4" />
+              <span className="text-xl leading-none sm:hidden">+</span>
+              <PlusIcon className="hidden size-4 sm:block" />
               <span className="hidden sm:inline">{hub.focusNewReservation}</span>
               <ArrowRightIcon className="size-3.5 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
             </button>
           </header>
 
-          {/* ── Needs Attention ──────────────────────────────────────── */}
-          {needsAttention.length > 0 && (
-            <div className="mb-4 flex flex-wrap gap-2">
-              {needsAttention.map((item, i) => (
-                <Link
-                  key={i}
-                  to={item.href}
-                  className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-sm font-medium text-amber-800 transition-colors hover:border-amber-300 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/8 dark:text-amber-300 dark:hover:border-amber-500/30 dark:hover:bg-amber-500/12"
-                >
-                  <span className="flex size-1.5 shrink-0 rounded-full bg-amber-500" />
-                  <span>{item.label}</span>
-                  <span className="tabular-nums text-amber-600 dark:text-amber-400">{item.sublabel}</span>
-                  <ArrowRightIcon className="size-3.5 text-amber-400 dark:text-amber-500" />
-                </Link>
-              ))}
-            </div>
-          )}
-
           {/* ── Single-viewport 3-column grid ───────────────────────── */}
-n          {isNewOrg ? <QuickStart /> : (
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 overflow-hidden lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.05fr)_300px]">
-            {/* ════ COL 1 — Revenue hero + Bookings ════ */}
+          {isNewOrg ? <QuickStart /> : (
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.05fr)_300px] lg:overflow-hidden">
+            {/* ════ COL 1 — Today's work + Departures ════ */}
             <div className="flex min-w-0 flex-col gap-5 lg:min-h-0">
-              {/* Revenue hero */}
-              <Panel className="flex shrink-0 flex-col overflow-hidden">
-                <div className="p-5 pb-2">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <SectionLabel>{heroLabel}</SectionLabel>
-                      <div className="mt-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                        <span className="text-[1.9rem] font-semibold leading-none tabular-nums tracking-tight text-gray-800 dark:text-white">
-                          {loading ? (
-                            <span className="block h-9 w-36 animate-pulse rounded-lg bg-gray-200 dark:bg-white/[0.06]" />
-                          ) : (
-                            heroValue
-                          )}
-                        </span>
-                        {showFinance && trendPct != null && (
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[0.7rem] font-semibold tabular-nums ${
-                              trendPct >= 0
-                                ? "bg-emerald-100/80 text-emerald-600 dark:bg-emerald-500/[0.14] dark:text-emerald-400"
-                                : "bg-rose-100/80 text-rose-600 dark:bg-rose-500/[0.14] dark:text-rose-400"
-                            }`}
-                          >
-                            {trendPct >= 0 ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />}
-                            {Math.abs(trendPct)}%
-                            <span className="ml-0.5 font-normal text-gray-400 dark:text-gray-500">
-                              {hub.trendVsPrev}
-                            </span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {showFinance && (
-                      <Link
-                        to="/reports"
-                        className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-brand-500 transition-colors hover:text-brand-600 dark:text-brand-400"
-                      >
-                        {hub.viewAll}
-                        <ArrowRightIcon className="size-3" />
-                      </Link>
-                    )}
+              <Panel className="flex shrink-0 flex-col overflow-hidden p-5">
+                <div className="mb-3 flex items-start justify-between gap-4">
+                  <div>
+                    <SectionLabel>{hub.todayQueueTitle}</SectionLabel>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{hub.todayQueueSubtitle}</p>
                   </div>
-                </div>
-                {/* Chart well */}
-                <div className="mx-3 mb-3 mt-1 overflow-hidden rounded-lg">
-                  {loading ? (
-                    <div className={`h-[92px] w-full animate-pulse ${neuInset}`} />
-                  ) : revenuePoints.length >= 4 ? (
-                    <AreaChart points={revenuePoints} height={92} />
-                  ) : (
-                    <div className={`flex h-[92px] items-end px-4 ${neuInset}`}>
-                      <p className="mb-2.5 text-xs text-gray-400 dark:text-gray-500">{hub.quietPeriod}</p>
-                    </div>
+                  {!loading && !queueError && (
+                    <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold tabular-nums text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+                      {todayWork.length}
+                    </span>
                   )}
                 </div>
-                {/* Breakdown bars — paid / partial / unpaid */}
-                {showFinance && (
-                  <div className="flex items-center gap-5 px-5 pb-4 pt-1">
-                    {statusBreakdown.map((b) => (
-                      <div key={b.label} className="min-w-0 flex-1">
-                        <div className="mb-1.5 flex items-baseline justify-between gap-2">
-                          <span className="truncate text-[0.66rem] font-medium text-gray-500 dark:text-gray-400">
-                            {b.label}
-                          </span>
-                          <span className="text-[0.66rem] font-semibold tabular-nums text-gray-700 dark:text-gray-300">
-                            {b.pct}%
-                          </span>
-                        </div>
-                        <ProgressBar pct={b.pct} tone={b.tone} />
-                      </div>
-                    ))}
+                {loading ? (
+                  <div className="space-y-2">
+                    {[0, 1, 2].map((item) => <div key={item} className="h-12 animate-pulse rounded-lg bg-gray-100 dark:bg-white/[0.04]" />)}
                   </div>
+                ) : queueError ? (
+                  <div className="flex min-h-[116px] items-center rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
+                    {hub.todayQueueError}
+                  </div>
+                ) : todayWork.length === 0 ? (
+                  <div className="flex min-h-[116px] items-center gap-3 rounded-lg bg-emerald-50 px-4 dark:bg-emerald-500/10">
+                    <CheckCircleIcon className="size-5 text-emerald-500" />
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">{hub.todayQueueClear}</p>
+                      <p className="mt-0.5 text-xs text-emerald-600 dark:text-emerald-400">{hub.todayQueueClearDetail}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <ul className="-mx-2 max-h-[196px] overflow-y-auto">
+                    {todayWork.map((item) => {
+                      const Icon = item.kind === "reservation" ? TableIcon : item.kind === "departure" ? CalenderIcon : item.kind === "payment" ? DollarLineIcon : BoxIconLine;
+                      const tone = item.urgency === "urgent" ? "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400" : item.urgency === "attention" ? "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400" : "bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400";
+                      return (
+                        <li key={item.id}>
+                          <Link to={item.href} className="group flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]">
+                            <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${tone}`}><Icon className="size-4" /></span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-semibold text-gray-800 dark:text-white">{item.title}</span>
+                              <span className="mt-0.5 block truncate text-xs text-gray-500 dark:text-gray-400">{item.detail}</span>
+                            </span>
+                            <ArrowRightIcon className="size-4 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-500 dark:text-gray-600" />
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
               </Panel>
 

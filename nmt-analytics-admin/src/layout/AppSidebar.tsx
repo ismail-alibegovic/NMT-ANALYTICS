@@ -26,6 +26,7 @@ type NavItem = {
   icon: React.ReactNode;
   path?: string;
   module?: string;
+  capability?: string;
   minRole?: UserRole;
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
@@ -47,6 +48,11 @@ const AppSidebar: React.FC = () => {
 
   const canSeeItem = (nav: NavItem) => {
     if (nav.minRole && !hasAccess(nav.minRole, role)) return false;
+    if (
+      nav.capability &&
+      userContext?.agencyProfileConfigured &&
+      !userContext.capabilities?.includes(nav.capability)
+    ) return false;
     if (!nav.module) return true;
     if (userContext?.modules?.includes(nav.module)) return true;
     if (import.meta.env.DEV && (!userContext?.modules || userContext.modules.length === 0)) return true;
@@ -60,6 +66,9 @@ const AppSidebar: React.FC = () => {
 
   const salesItems: NavItem[] = [
     { icon: <GridIcon />, name: t.nav.dashboard, path: "/dashboard", minRole: "viewer" },
+    { icon: <PaperPlaneIcon />, name: t.nav.inquiries, path: "/inquiries", capability: "customer_sales", minRole: "viewer" },
+    { icon: <UserCircleIcon />, name: t.nav.suppliers, path: "/suppliers", capability: "supplier_management", minRole: "viewer" },
+    { icon: <FileIcon />, name: t.nav.itineraries, path: "/itineraries", capability: "tailor_made_itineraries", minRole: "viewer" },
     { icon: <UserCircleIcon />, name: t.nav.customers, path: "/customers", module: "customers", minRole: "viewer" },
     { icon: <ShootingStarIcon />, name: t.nav.packages, path: "/packages", module: "packages", minRole: "agent" },
     { icon: <CalenderIcon />, name: t.nav.reservations, path: "/reservations", module: "reservations", minRole: "viewer" },
@@ -67,15 +76,15 @@ const AppSidebar: React.FC = () => {
   ];
 
   const operationsItems: NavItem[] = [
-    { icon: <CalenderIcon />, name: t.nav.calendar, path: "/operations/calendar", module: "travel_core", minRole: "viewer" },
-    { icon: <FileIcon />, name: t.nav.contracts, path: "/operations/contracts", module: "travel_core", minRole: "viewer" },
-    { icon: <DollarLineIcon />, name: t.nav.receipts, path: "/operations/receipts", module: "travel_core", minRole: "manager" },
-    { icon: <UserCircleIcon />, name: t.nav.subAgents, path: "/operations/subagents", module: "travel_core", minRole: "manager" },
-    { icon: <GridIcon />, name: t.nav.commissionRules, path: "/operations/commission-rules", module: "travel_core", minRole: "director" },
-    { icon: <ShootingStarIcon />, name: t.nav.excursions, path: "/operations/excursions", module: "travel_core", minRole: "manager" },
-    { icon: <GridIcon />, name: t.nav.hotels, path: "/operations/hotels", module: "travel_core", minRole: "manager" },
-    { icon: <PaperPlaneIcon />, name: t.nav.flights, path: "/operations/flights", module: "travel_core", minRole: "manager" },
-    { icon: <GridIcon />, name: t.nav.availability, path: "/operations/availability", module: "travel_core", minRole: "viewer" },
+    { icon: <CalenderIcon />, name: t.nav.calendar, path: "/operations/calendar", module: "travel_core", capability: "scheduled_departures", minRole: "viewer" },
+    { icon: <FileIcon />, name: t.nav.contracts, path: "/operations/contracts", module: "travel_core", capability: "document_generation", minRole: "viewer" },
+    { icon: <DollarLineIcon />, name: t.nav.receipts, path: "/operations/receipts", module: "travel_core", capability: "customer_finance", minRole: "manager" },
+    { icon: <UserCircleIcon />, name: t.nav.subAgents, path: "/operations/subagents", module: "travel_core", capability: "b2b_distribution", minRole: "manager" },
+    { icon: <GridIcon />, name: t.nav.commissionRules, path: "/operations/commission-rules", module: "travel_core", capability: "b2b_distribution", minRole: "director" },
+    { icon: <ShootingStarIcon />, name: t.nav.excursions, path: "/operations/excursions", module: "travel_core", capability: "group_operations", minRole: "manager" },
+    { icon: <GridIcon />, name: t.nav.hotels, path: "/operations/hotels", module: "travel_core", capability: "accommodation_operations", minRole: "manager" },
+    { icon: <PaperPlaneIcon />, name: t.nav.flights, path: "/operations/flights", module: "travel_core", capability: "transport_operations", minRole: "manager" },
+    { icon: <GridIcon />, name: t.nav.availability, path: "/operations/availability", module: "travel_core", capability: "inventory_contracting", minRole: "viewer" },
   ];
 
   const financeItems: NavItem[] = [

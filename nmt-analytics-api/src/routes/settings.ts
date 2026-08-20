@@ -8,6 +8,11 @@ import { apiError } from "../lib/errors";
 
 import { requireMinimumRole } from '../middleware/requireRole';
 import { PLAN_TIERS, PLAN_MODULE_MAP, PLAN_LABELS, isPlanTier, type PlanTier, type ModuleKey } from '../lib/planModules';
+import {
+  AGENCY_CAPABILITIES,
+  AGENCY_PROFILES,
+  resolveAgencyConfiguration,
+} from '../lib/agencyCapabilities';
 const router = Router();
 
 const organizationBaseSelect = `
@@ -81,6 +86,11 @@ const settingsUpdateSchema = z.object({
   
   // Custom settings (flexible JSON)
   custom_settings: z.record(z.string(), z.unknown()).optional(),
+});
+
+const agencyProfileSchema = z.object({
+  profiles: z.array(z.enum(AGENCY_PROFILES)).min(1).max(AGENCY_PROFILES.length),
+  enabledCapabilities: z.array(z.enum(AGENCY_CAPABILITIES)).optional().default([]),
 });
 
 // GET /settings - Get organization settings
@@ -246,6 +256,69 @@ router.patch('/', auditSettingsUpdate, async (req, res: Response) => {
     console.error('[SETTINGS] Exception:', err);
     return apiError(res, 500, "INTERNAL_ERROR", "Internal server error");
   }
+});
+
+// GET /settings/modules - Get organization modules
+router.get('/agency-profile', async (req, res: Response) => {
+  const { data, error } = await supabaseAdmin
+    .from('organizations')
+    .select('agency_profiles, enabled_capabilities')
+    .eq('id', req.orgId!)
+    .single();
+
+  if (isMissingColumnError(error)) {
+    return apiError(
+      res,
+      409,
+      'MIGRATION_PENDING',
+      'Agency profile fields are not available. Apply migration 20260818010000_agency_profiles_capabilities.sql.',
+    );
+  }
+  if (error) {
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to load agency profile', error.message);
+  }
+
+  return res.json(resolveAgencyConfiguration(data?.agency_profiles, data?.enabled_capabilities));
+});
+
+router.patch('/agency-profile', async (req, res: Response) => {
+  const parsed = agencyProfileSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return apiError(res, 400, 'VALIDATION_ERROR', parsed.error.issues[0]?.message || 'Invalid agency profile');
+  }
+
+  const { profiles, enabledCapabilities } = parsed.data;
+  const { error } = await supabaseAdmin
+    .from('organizations')
+    .update({
+      agency_profiles: profiles,
+      enabled_capabilities: enabledCapabilities,
+    })
+    .eq('id', req.orgId!);
+
+  if (isMissingColumnError(error)) {
+    return apiError(
+      res,
+      409,
+      'MIGRATION_PENDING',
+      'Agency profile fields are not available. Apply migration 20260818010000_agency_profiles_capabilities.sql.',
+    );
+  }
+  if (error) {
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to update agency profile', error.message);
+  }
+
+  const configuration = resolveAgencyConfiguration(profiles, enabledCapabilities);
+  await logAuditEntry({
+    org_id: req.orgId!,
+    user_id: req.user?.id || 'unknown',
+    action: 'UPDATE',
+    entity: 'settings',
+    entity_id: 'agency-profile',
+    metadata: configuration,
+  });
+
+  return res.json(configuration);
 });
 
 // GET /settings/modules - Get organization modules

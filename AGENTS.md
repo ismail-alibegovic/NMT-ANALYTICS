@@ -23,7 +23,7 @@ Earlier-sprint technical notes (kept for context; status DONE):
 
 **F-2 foundation item — DONE 2026-08-17:** Supabase `service_role` key rotated and stored as `TRAVLINE_SUPABASE_SERVICE_ROLE_KEY`.
 
-**Canonical plan:** `TRAVLINE_FINAL_PLAN.md` — Sprints are sequenced (F-1 keys → Sprint 1 audit/gating → Sprint 2 availability → Sprint 3 customer portal → Sprint 5 quality → Sprint 4 Stripe optional last).
+**Canonical plan for new product work:** `docs/plans/2026-08-18-travline-operating-system-redesign.md`. `TRAVLINE_FINAL_PLAN.md` remains the historical completion record for the earlier feature roadmap. The active redesign moves Travline from disconnected feature pages to a configurable travel operating system for retail agencies, group-tour organizers, DMCs, and tour operators.
 
 **⚠️ Do NOT delete `components/common/GridShape.tsx`** — it is referenced by `AuthPageLayout.tsx` and `NotFound.tsx`. The plan's §1.4 claim that it's dead code is wrong.
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ComponentType, type SVGProps } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
@@ -7,6 +7,18 @@ import EmptyState from "../components/ui/EmptyState";
 import { DataTable, Column } from "../components/ui/DataTable";
 import SeatMap from "../components/operations/SeatMap";
 import { useToast } from "../context/ToastContext";
+import {
+  AlertIcon,
+  AngleRightIcon,
+  BoxIcon,
+  CalenderIcon,
+  CheckLineIcon,
+  ChevronLeftIcon,
+  DollarLineIcon,
+  GroupIcon,
+  ListIcon,
+  PlugInIcon,
+} from "../icons";
 import {
   getDeparture,
   getDeparturePassengers,
@@ -121,9 +133,61 @@ export default function DepartureDetail() {
     }));
   }, [normPax]);
 
+  const totalGuests = manifest?.summary.totalGuests ?? departure?.booked ?? 0;
   const occupancyPct = departure && departure.capacity > 0
-    ? Math.round((departure.booked / departure.capacity) * 100)
+    ? Math.round((totalGuests / departure.capacity) * 100)
     : 0;
+  const overCapacity = departure ? Math.max(0, totalGuests - departure.capacity) : 0;
+  const confirmedGuests = manifest?.summary.confirmedGuests ?? 0;
+  const totalDebt = manifest?.summary.totalDebt ?? 0;
+  const totalPaid = manifest?.summary.totalPaid ?? 0;
+  const currency = manifest?.summary.currency || departure?.packages?.currency || "EUR";
+  const allocations = manifest?.summary.allocations || [];
+  const transportConfigured = departure?.transport_type && departure.transport_type !== "none";
+  const readinessItems = departure ? [
+    {
+      label: "Kapacitet i putnička lista",
+      detail: overCapacity > 0
+        ? `${overCapacity} putnika iznad kapaciteta ${departure.capacity}`
+        : totalGuests > 0
+          ? `${totalGuests} evidentiranih putnika unutar kapaciteta`
+          : "Još nema evidentiranih putnika",
+      ready: totalGuests > 0 && overCapacity === 0,
+      action: () => setActiveTab("passengers"),
+    },
+    {
+      label: "Potvrde rezervacija",
+      detail: totalGuests > 0 ? `${confirmedGuests} od ${totalGuests} putnika potvrđeno` : "Nema rezervacija za potvrdu",
+      ready: totalGuests > 0 && confirmedGuests === totalGuests,
+      action: () => setActiveTab("passengers"),
+    },
+    {
+      label: "Naplata",
+      detail: totalDebt > 0 ? `${formatCurrency(totalDebt, currency)} preostalog duga` : "Nema evidentiranog duga",
+      ready: totalGuests > 0 && totalDebt <= 0,
+      action: () => navigate("/payments"),
+    },
+    {
+      label: "Smještaj",
+      detail: allocations.length > 0
+        ? `${allocations.length} aktivnih hotelskih alokacija`
+        : hotelGroups.length > 0
+          ? `${hotelGroups.length} hotel${hotelGroups.length === 1 ? "" : "a"} u rezervacijama, bez alokacije`
+          : "Smještaj nije dodijeljen",
+      ready: allocations.length > 0,
+      action: () => setActiveTab("hotels"),
+    },
+    {
+      label: "Transport",
+      detail: transportConfigured
+        ? `${departure.transport_type === "flight" ? "Avionski" : "Autobuski"} prevoz · kapacitet ${departure.transport_capacity || departure.capacity}`
+        : "Transport nije konfigurisan",
+      ready: Boolean(transportConfigured),
+      action: () => setActiveTab("passengers"),
+    },
+  ] : [];
+  const readyCount = readinessItems.filter((item) => item.ready).length;
+  const readinessPct = readinessItems.length > 0 ? Math.round((readyCount / readinessItems.length) * 100) : 0;
 
   const passengerCols: Column<DeparturePassenger>[] = [
     { key: "fullName", header: "Putnik", render: (v) => <span className="font-medium dark:text-white">{String(v)}</span> },
@@ -141,8 +205,13 @@ export default function DepartureDetail() {
     return (
       <>
         <PageMeta title="Polazak | Travline" description="Detalji polaska" />
-        <div className="flex items-center justify-center p-20">
-          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="p-4 sm:p-6">
+          <div className="mb-5 h-8 w-24 animate-pulse rounded-lg bg-gray-200 dark:bg-gray-800" />
+          <div className="h-52 animate-pulse rounded-2xl bg-gray-100 dark:bg-white/[0.04]" />
+          <div className="mt-6 grid gap-5 lg:grid-cols-3">
+            <div className="h-80 animate-pulse rounded-2xl bg-gray-100 dark:bg-white/[0.04] lg:col-span-2" />
+            <div className="h-80 animate-pulse rounded-2xl bg-gray-100 dark:bg-white/[0.04]" />
+          </div>
         </div>
       </>
     );
@@ -158,7 +227,7 @@ export default function DepartureDetail() {
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: "overview", label: "Pregled" },
-    { key: "passengers", label: "Putnici", count: passengers.length },
+    { key: "passengers", label: "Putnici", count: totalGuests },
     { key: "groups", label: "Grupe", count: (groupBy === "hotel" ? groups?.byHotel : groups?.byAgent)?.length },
     { key: "hotels", label: "Hoteli", count: hotelGroups.length },
   ];
@@ -169,92 +238,60 @@ export default function DepartureDetail() {
     <>
       <PageMeta title={`${departure.packageName} | Travline`} description={`Polazak ${formatDate(departure.depart_at)}`} />
 
-      <div className="p-6">
-        {/* Header */}
-        <div className="mb-6 flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={() => navigate("/departures")} className="flex items-center gap-1">
-            ← Nazad
-          </Button>
-        </div>
+      <div className="p-4 sm:p-6">
+        <button
+          type="button"
+          onClick={() => navigate("/departures")}
+          className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-gray-400 dark:hover:text-white"
+        >
+          <ChevronLeftIcon className="size-4" aria-hidden="true" />
+          Svi polasci
+        </button>
 
-        {/* Hero card with departure info */}
-        <div className="relative overflow-hidden rounded-2xl mb-6 bg-gradient-to-br from-[#0F0F1A] via-[#15162B] to-[#1A1B3A] border border-white/10 p-8">
-          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 30% 20%, #6366F1 0%, transparent 50%)" }} />
-          <div className="relative z-10 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
-            <div>
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-xs uppercase tracking-wider text-indigo-300 font-semibold">Polazak</span>
+        <section className="mb-6 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+          <div className="flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-600 dark:text-brand-400">Radni prostor putovanja</span>
                 {statusBadge(departure.status)}
               </div>
-              <h1 className="text-3xl font-bold text-white mb-1">{departure.packageName}</h1>
-              <p className="text-indigo-200/70 text-sm">{departure.destination}</p>
-              <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-300">
-                <span className="flex items-center gap-2">
-                  <span className="text-gray-500">📅 Polazak:</span>
-                  <span className="font-medium text-white">{formatDateTime(departure.depart_at)}</span>
+              <h1 className="text-2xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-3xl">{departure.packageName}</h1>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{departure.destination}</p>
+              <div className="mt-5 flex flex-col gap-2 text-sm text-gray-600 dark:text-gray-300 sm:flex-row sm:flex-wrap sm:gap-x-6">
+                <span className="inline-flex items-center gap-2">
+                  <CalenderIcon className="size-4 text-gray-400" aria-hidden="true" />
+                  {formatDateTime(departure.depart_at)} — {formatDateTime(departure.return_at)}
                 </span>
-                <span className="flex items-center gap-2">
-                  <span className="text-gray-500">↩ Povratak:</span>
-                  <span className="font-medium text-white">{formatDateTime(departure.return_at)}</span>
+                <span className="inline-flex items-center gap-2">
+                  <PlugInIcon className="size-4 text-gray-400" aria-hidden="true" />
+                  {transportConfigured ? (departure.transport_type === "flight" ? "Avionski prevoz" : "Autobuski prevoz") : "Transport nije definisan"}
                 </span>
               </div>
             </div>
-
-            {/* Occupancy gauge */}
-            <div className="bg-white/5 backdrop-blur rounded-xl p-4 min-w-[200px] border border-white/10">
-              <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Popunjenost</div>
-              <div className="flex items-baseline gap-2 mb-2">
-                <span className="text-3xl font-bold text-white">{departure.booked}</span>
-                <span className="text-gray-500">/ {departure.capacity}</span>
-                <span className="ml-auto text-sm font-semibold text-indigo-300">{occupancyPct}%</span>
-              </div>
-              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: `${occupancyPct}%`,
-                    background: occupancyPct >= 90
-                      ? "linear-gradient(90deg, #EF4444, #F87171)"
-                      : occupancyPct >= 50
-                        ? "linear-gradient(90deg, #6366F1, #818CF8)"
-                        : "linear-gradient(90deg, #22C55E, #4ADE80)",
-                  }}
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                {departure.capacity - departure.booked} slobodnih mjesta
-              </p>
+            <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setActiveTab("passengers")} className="justify-center gap-2">
+                <GroupIcon className="size-4" aria-hidden="true" /> Putnička lista
+              </Button>
+              <Button size="sm" onClick={() => navigate(`/reservations?departureId=${departure.id}`)} className="justify-center gap-2">
+                <ListIcon className="size-4" aria-hidden="true" /> Rezervacije
+              </Button>
             </div>
           </div>
 
-          {/* Summary stats row */}
-          <div className="relative z-10 mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-              <div className="text-xs text-gray-400 mb-1">Putnika</div>
-              <div className="text-lg font-bold text-white">{manifest?.summary.totalGuests ?? departure.booked}</div>
-            </div>
-            <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-              <div className="text-xs text-gray-400 mb-1">Potvrđeno</div>
-              <div className="text-lg font-bold text-emerald-300">{manifest?.summary.confirmedGuests ?? 0}</div>
-            </div>
-            <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-              <div className="text-xs text-gray-400 mb-1">Naplavljeno</div>
-              <div className="text-lg font-bold text-indigo-300">{formatCurrency(manifest?.summary.totalPaid ?? 0, manifest?.summary.currency || "EUR")}</div>
-            </div>
-            <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-              <div className="text-xs text-gray-400 mb-1">Dugovanja</div>
-              <div className="text-lg font-bold text-red-300">{formatCurrency(manifest?.summary.totalDebt ?? 0, manifest?.summary.currency || "EUR")}</div>
-            </div>
+          <div className="grid border-t border-gray-200 dark:border-gray-800 sm:grid-cols-2 xl:grid-cols-4">
+            <WorkspaceMetric icon={GroupIcon} label="Putnici" value={`${totalGuests}`} detail={`${confirmedGuests} potvrđeno`} />
+            <WorkspaceMetric icon={DollarLineIcon} label="Naplaćeno" value={formatCurrency(totalPaid, currency)} detail={totalDebt > 0 ? `${formatCurrency(totalDebt, currency)} duga` : "Bez duga"} attention={totalDebt > 0} />
+            <WorkspaceMetric icon={BoxIcon} label="Smještaj" value={`${hotelGroups.length}`} detail={allocations.length > 0 ? `${allocations.length} alokacija` : "Bez alokacije"} attention={allocations.length === 0} />
+            <WorkspaceMetric icon={ListIcon} label="Operativna spremnost" value={`${readinessPct}%`} detail={`${readyCount} od ${readinessItems.length} stavki spremno`} attention={readinessPct < 100} />
           </div>
-        </div>
+        </section>
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-800">
+        <div className="mb-6 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              className={`shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 ${
                 activeTab === tab.key
                   ? "border-brand-500 text-brand-600 dark:text-brand-400"
                   : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
@@ -265,48 +302,58 @@ export default function DepartureDetail() {
           ))}
         </div>
 
-        {/* OVERVIEW TAB */}
         {activeTab === "overview" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Linija putovanja</h3>
-              <div className="flex items-center gap-4 py-2">
-                <div className="flex flex-col items-center">
-                  <div className="w-3 h-3 rounded-full bg-brand-500 ring-4 ring-brand-500/20" />
-                  <div className="w-px h-12 bg-gray-200 dark:bg-gray-700" />
-                  <div className="w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20" />
-                </div>
-                <div className="flex-1 space-y-6">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+            <section className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] lg:col-span-2">
+              <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <div className="text-xs text-gray-500">Polazak</div>
-                    <div className="font-medium text-gray-900 dark:text-white">{departure.destination}</div>
-                    <div className="text-sm text-gray-500">{formatDateTime(departure.depart_at)}</div>
+                    <h2 className="font-semibold text-gray-950 dark:text-white">Operativna spremnost</h2>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Stvarno stanje ključnih priprema za ovaj polazak.</p>
                   </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Povratak</div>
-                    <div className="font-medium text-gray-900 dark:text-white">{departure.destination}</div>
-                    <div className="text-sm text-gray-500">{formatDateTime(departure.return_at)}</div>
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800" aria-hidden="true">
+                      <div className="h-full rounded-full bg-brand-500" style={{ width: `${readinessPct}%` }} />
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">{readinessPct}%</span>
                   </div>
                 </div>
               </div>
-              <p className="text-xs text-gray-400 mt-4 italic">
-                Trajanje: {Math.ceil((new Date(departure.return_at).getTime() - new Date(departure.depart_at).getTime()) / 86400000)} dana
-              </p>
-            </div>
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                {readinessItems.map((item) => (
+                  <button
+                    type="button"
+                    key={item.label}
+                    onClick={item.action}
+                    className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-white/[0.03] sm:px-6"
+                  >
+                    <span className={`flex size-8 shrink-0 items-center justify-center rounded-full ${item.ready ? "bg-success-50 text-success-600 dark:bg-success-500/10 dark:text-success-400" : "bg-warning-50 text-warning-600 dark:bg-warning-500/10 dark:text-warning-400"}`}>
+                      {item.ready ? <CheckLineIcon className="size-4" aria-hidden="true" /> : <AlertIcon className="size-4" aria-hidden="true" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-gray-900 dark:text-white">{item.label}</span>
+                      <span className="mt-0.5 block text-sm text-gray-500 dark:text-gray-400">{item.detail}</span>
+                    </span>
+                    <span className={`hidden text-xs font-semibold sm:block ${item.ready ? "text-success-600 dark:text-success-400" : "text-warning-600 dark:text-warning-400"}`}>
+                      {item.ready ? "Spremno" : "Potrebna pažnja"}
+                    </span>
+                    <AngleRightIcon className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            </section>
 
-            <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Statistika</h3>
-              <div className="space-y-3">
-                <StatRow label="Ukupno putnika" value={`${manifest?.summary.totalGuests ?? departure.booked}`} />
-                <StatRow label="Potvrđeno" value={`${manifest?.summary.confirmedGuests ?? 0}`} color="success" />
-                <StatRow label="Na čekanju" value={`${(manifest?.summary.totalGuests ?? 0) - (manifest?.summary.confirmedGuests ?? 0)}`} color="warning" />
-                <StatRow label="Otkazano" value={"0"} color="error" />
-                <hr className="border-gray-100 dark:border-gray-800" />
-                <StatRow label="Hotela" value={`${hotelGroups.length}`} />
-                <StatRow label="Grupa (po hotelu)" value={`${groups?.byHotel.length ?? 0}`} />
-                <StatRow label="Grupa (po agentu)" value={`${groups?.byAgent.length ?? 0}`} />
-              </div>
-            </div>
+            <aside className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+              <h2 className="font-semibold text-gray-950 dark:text-white">Sažetak putovanja</h2>
+              <dl className="mt-5 space-y-4">
+                <TripFact label="Period" value={`${formatDate(departure.depart_at)} — ${formatDate(departure.return_at)}`} />
+                <TripFact label="Trajanje" value={`${Math.max(1, Math.ceil((new Date(departure.return_at).getTime() - new Date(departure.depart_at).getTime()) / 86400000))} dana`} />
+                <TripFact label="Kapacitet" value={`${totalGuests} / ${departure.capacity} mjesta (${occupancyPct}%)`} attention={overCapacity > 0} />
+                <TripFact label="Rezervacije" value={`${manifest?.summary.totalReservations ?? 0}`} />
+                <TripFact label="Prodajni agenti" value={`${groups?.byAgent.length ?? 0}`} />
+                <TripFact label="Vodiči" value={`${manifest?.summary.guides?.length ?? 0}`} />
+              </dl>
+            </aside>
           </div>
         )}
 
@@ -438,16 +485,26 @@ export default function DepartureDetail() {
   );
 }
 
-function StatRow({ label, value, color }: { label: string; value: string; color?: "success" | "warning" | "error" }) {
-  const colorMap = {
-    success: "text-emerald-600 dark:text-emerald-400",
-    warning: "text-amber-600 dark:text-amber-400",
-    error: "text-red-600 dark:text-red-400",
-  };
+function WorkspaceMetric({ icon: Icon, label, value, detail, attention = false }: { icon: ComponentType<SVGProps<SVGSVGElement>>; label: string; value: string; detail: string; attention?: boolean }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm text-gray-500">{label}</span>
-      <span className={`font-semibold ${color ? colorMap[color] : "text-gray-900 dark:text-white"}`}>{value}</span>
+    <div className="flex min-w-0 items-start gap-3 border-gray-200 p-4 dark:border-gray-800 sm:[&:nth-child(even)]:border-l xl:border-l xl:first:border-l-0">
+      <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-white/[0.05] dark:text-gray-400">
+        <Icon className="size-4" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <div className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</div>
+        <div className="mt-1 truncate text-lg font-semibold text-gray-950 dark:text-white">{value}</div>
+        <div className={`mt-0.5 truncate text-xs ${attention ? "text-warning-600 dark:text-warning-400" : "text-gray-500 dark:text-gray-400"}`}>{detail}</div>
+      </div>
+    </div>
+  );
+}
+
+function TripFact({ label, value, attention = false }: { label: string; value: string; attention?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4 last:border-0 last:pb-0 dark:border-gray-800">
+      <dt className="text-sm text-gray-500 dark:text-gray-400">{label}</dt>
+      <dd className={`text-right text-sm font-medium ${attention ? "text-warning-600 dark:text-warning-400" : "text-gray-900 dark:text-white"}`}>{value}</dd>
     </div>
   );
 }

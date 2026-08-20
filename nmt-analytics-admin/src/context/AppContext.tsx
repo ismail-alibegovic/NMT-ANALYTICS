@@ -12,6 +12,7 @@ interface AppContextType {
   loading: boolean;
   profileLoading: boolean;
   signOut: () => Promise<void>;
+  refreshUserContext: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -165,6 +166,9 @@ export function AppProvider({ children }: AppProviderProps) {
             org: { id: 'error', name: 'Error Loading', slug: 'error' },
             role: 'viewer',
             modules: [],
+            agencyProfiles: [],
+            capabilities: [],
+            agencyProfileConfigured: false,
           };
           setUserContext(minimalContext);
           cachedContext.current = minimalContext; // Cache to prevent retries
@@ -177,6 +181,9 @@ export function AppProvider({ children }: AppProviderProps) {
             org: { id: 'error', name: 'Error Loading', slug: 'error' },
             role: 'viewer',
             modules: [],
+            agencyProfiles: [],
+            capabilities: [],
+            agencyProfileConfigured: false,
           };
           setUserContext(minimalContext);
           cachedContext.current = minimalContext; // Cache to prevent retries
@@ -316,6 +323,7 @@ export function AppProvider({ children }: AppProviderProps) {
     loading,
     profileLoading,
     signOut,
+    refreshUserContext: () => fetchUserContext(user, true),
   };
 
   return (

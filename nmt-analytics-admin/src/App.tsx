@@ -20,6 +20,12 @@ const Customers = lazy(() => import("./pages/admin/Customers"));
 const CustomerDetail = lazy(() => import("./pages/CustomerDetail"));
 const Packages = lazy(() => import("./pages/admin/Packages"));
 const Reservations = lazy(() => import("./pages/Reservations"));
+const Inquiries = lazy(() => import("./pages/Inquiries"));
+const Suppliers = lazy(() => import("./pages/Suppliers"));
+const Itineraries = lazy(() => import("./pages/Itineraries"));
+const ItineraryDetail = lazy(() => import("./pages/ItineraryDetail"));
+const Quotations = lazy(() => import("./pages/Quotations"));
+const QuotationDetail = lazy(() => import("./pages/QuotationDetail"));
 const Departures = lazy(() => import("./pages/admin/Departures"));
 const DepartureDetail = lazy(() => import("./pages/DepartureDetail"));
 const UnifiedPayments = lazy(() => import("./pages/admin/UnifiedPayments"));
@@ -96,6 +102,12 @@ export default function App() {
           <Route path="/customers/:id" element={<SuspenseWrapper><CustomerDetail /></SuspenseWrapper>} />
           <Route path="/packages" element={<SuspenseWrapper><Packages /></SuspenseWrapper>} />
           <Route path="/reservations" element={<SuspenseWrapper><Reservations /></SuspenseWrapper>} />
+          <Route path="/inquiries" element={<SuspenseWrapper><Inquiries /></SuspenseWrapper>} />
+          <Route path="/suppliers" element={<SuspenseWrapper><Suppliers /></SuspenseWrapper>} />
+          <Route path="/itineraries" element={<SuspenseWrapper><Itineraries /></SuspenseWrapper>} />
+          <Route path="/itineraries/:id" element={<SuspenseWrapper><ItineraryDetail /></SuspenseWrapper>} />
+          <Route path="/quotations" element={<SuspenseWrapper><Quotations /></SuspenseWrapper>} />
+          <Route path="/quotations/:id" element={<SuspenseWrapper><QuotationDetail /></SuspenseWrapper>} />
           <Route path="/departures" element={<SuspenseWrapper><Departures /></SuspenseWrapper>} />
           <Route path="/departures/:id" element={<SuspenseWrapper><DepartureDetail /></SuspenseWrapper>} />
           <Route path="/payments" element={<SuspenseWrapper><ModuleGuard moduleKey="payments"><UnifiedPayments /></ModuleGuard></SuspenseWrapper>} />

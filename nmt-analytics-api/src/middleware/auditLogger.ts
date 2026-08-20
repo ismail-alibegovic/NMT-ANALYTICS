@@ -46,7 +46,13 @@ export type AuditEntity =
   | 'commission_rule'
   | 'import'
   | 'email_settings'
-  | 'paylink';
+  | 'paylink'
+  | 'inquiry'
+  | 'supplier'
+  | 'supplier_service'
+  | 'itinerary'
+  | 'itinerary_version'
+  | 'itinerary_item';
 
 // Audit log entry
 interface AuditLogEntry {

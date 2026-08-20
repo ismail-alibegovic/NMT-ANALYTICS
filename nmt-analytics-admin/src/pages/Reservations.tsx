@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
@@ -27,11 +28,13 @@ import {
   ReservationFilters
 } from "../api/reservations";
 import { hasAccess } from "../types/roles";
+import { getDeparture, type Departure } from "../api/departures";
 
 const ITEMS_PER_PAGE = 10;
 
 export default function Reservations() {
   const { error: showError, success: showSuccess } = useToast();
+  const navigate = useNavigate();
   const { user, userContext, loading: authLoading } = useApp();
   const role = userContext?.role ?? 'agent';
   const isAgent = !hasAccess('manager', role);
@@ -47,6 +50,8 @@ export default function Reservations() {
   const [batchLoading, setBatchLoading] = useState(false);
   const [assignedOnly, setAssignedOnly] = useState<boolean>(getParam('my', '') === 'true');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const departureFilter = getParam('departureId', '');
+  const [contextDeparture, setContextDeparture] = useState<Departure | null>(null);
 
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -70,6 +75,7 @@ export default function Reservations() {
       if (to) filters.dateTo = to;
       if (myOnly) filters.assignedOnly = true;
       if (search) filters.search = search;
+      if (departureFilter) filters.departureId = departureFilter;
 
       const response: ReservationListResponse = await getReservations(filters);
       setReservations(response.data);
@@ -94,6 +100,10 @@ export default function Reservations() {
       setStatusFilter(status);
       setDateFrom(from);
       setDateTo(to);
+      if (getParam('new', '') === '1') {
+        setIsCreateOpen(true);
+        setParams({ new: null });
+      }
 
       fetchReservations(page, status, from, to, assignedOnly, searchQuery);
     } else if (!authLoading) {
@@ -101,6 +111,19 @@ export default function Reservations() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
+
+  useEffect(() => {
+    if (!departureFilter) {
+      setContextDeparture(null);
+      return;
+    }
+    getDeparture(departureFilter)
+      .then(setContextDeparture)
+      .catch(() => {
+        setContextDeparture(null);
+        showError('Polazak iz filtera nije dostupan');
+      });
+  }, [departureFilter, showError]);
 
   useEffect(() => {
     if (user && !authLoading) {
@@ -475,8 +498,8 @@ export default function Reservations() {
       <PageMeta title="Reservations | Travline" description="Manage reservations and payments" />
 
       <PageToolbar
-        title="Rezervacije"
-        description="Upravljanje rezervacijama i plaćanjima"
+        title={contextDeparture ? `Rezervacije · ${contextDeparture.packageName}` : "Rezervacije"}
+        description={contextDeparture ? "Rezervacije i naplata za odabrani polazak" : "Upravljanje rezervacijama i plaćanjima"}
         searchValue={searchQuery}
         onSearchChange={(val: string) => {
           setSearchQuery(val);
@@ -488,9 +511,11 @@ export default function Reservations() {
           <div className="flex gap-2">
             <Button
               onClick={() => setIsCreateOpen(true)}
+              disabled={Boolean(departureFilter && (!contextDeparture || contextDeparture.status !== 'active'))}
+              title={contextDeparture && contextDeparture.status !== 'active' ? 'Nove rezervacije su dostupne samo za aktivne polaske' : undefined}
               className="flex items-center gap-2"
             >
-              + Nova rezervacija
+              {departureFilter && !contextDeparture ? 'Učitavanje polaska…' : contextDeparture && contextDeparture.status !== 'active' ? 'Polazak nije aktivan' : '+ Nova rezervacija'}
             </Button>
             <Button
               variant="outline"
@@ -503,6 +528,27 @@ export default function Reservations() {
           </div>
         }
       />
+
+      {departureFilter && (
+        <div className="mb-5 flex flex-col gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 dark:border-brand-500/20 dark:bg-brand-500/10 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-brand-900 dark:text-brand-100">
+              {contextDeparture?.packageName || 'Rezervacije odabranog polaska'}
+            </div>
+            <div className="mt-0.5 text-xs text-brand-700 dark:text-brand-300">
+              Prikazuju se samo rezervacije povezane s ovim polaskom.
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+            <Button size="sm" variant="outline" onClick={() => navigate(`/departures/${departureFilter}`)}>
+              Nazad na putovanje
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => navigate('/reservations')}>
+              Sve rezervacije
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Date Filters Row */}
       <div className="mb-6 flex flex-wrap gap-4 items-center">
@@ -684,6 +730,8 @@ export default function Reservations() {
 
       <NewSaleWizard
         isOpen={isCreateOpen}
+        initialPackageId={contextDeparture?.package_id}
+        initialDepartureId={contextDeparture?.id}
         onClose={() => setIsCreateOpen(false)}
         onCreated={() => {
           fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly);
