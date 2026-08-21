@@ -104,23 +104,75 @@ export default function Inquiries() {
         </div>
       )}
       <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} className="m-4 max-w-2xl" title="Novi prodajni upit">
-        <div className="grid max-h-[75vh] gap-4 overflow-y-auto p-6 sm:grid-cols-2">
-          <Field label="Kontakt *"><Input value={form.contactName} onChange={(e) => setForm({ ...form, contactName: e.target.value })} /></Field>
-          <Field label="Telefon"><Input value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value || null })} /></Field>
-          <Field label="Email"><Input type="email" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value || null })} /></Field>
-          <Field label="Vrsta zahtjeva"><Select value={form.tripType} onChange={(value) => setForm({ ...form, tripType: value as InquiryTripType })} options={tripTypes} /></Field>
-          <Field label="Destinacija"><Input value={form.destination || ''} onChange={(e) => setForm({ ...form, destination: e.target.value || null })} /></Field>
-          <Field label="Broj putnika"><Input type="number" min="1" value={form.travelers} onChange={(e) => setForm({ ...form, travelers: Number(e.target.value) })} /></Field>
-          <Field label="Početak putovanja"><Input type="date" value={form.travelStart || ''} onChange={(e) => setForm({ ...form, travelStart: e.target.value || null })} /></Field>
-          <Field label="Kraj putovanja"><Input type="date" value={form.travelEnd || ''} onChange={(e) => setForm({ ...form, travelEnd: e.target.value || null })} /></Field>
-          <Field label="Okvirni budžet"><Input type="number" min="0" value={form.budget || ''} onChange={(e) => setForm({ ...form, budget: e.target.value ? Number(e.target.value) : null })} /></Field>
-          <Field label="Izvor"><Select value={form.source} onChange={(value) => setForm({ ...form, source: value })} options={[{ value: 'phone', label: 'Telefon' }, { value: 'web', label: 'Web' }, { value: 'email', label: 'Email' }, { value: 'walk_in', label: 'Direktan dolazak' }, { value: 'partner', label: 'Partner' }, { value: 'social', label: 'Društvene mreže' }, { value: 'referral', label: 'Preporuka' }, { value: 'other', label: 'Ostalo' }]} /></Field>
-          <div className="flex justify-end gap-2 border-t border-gray-100 pt-4 dark:border-gray-800 sm:col-span-2"><Button variant="outline" onClick={() => setIsOpen(false)}>Odustani</Button><Button onClick={() => void save()} disabled={saving}>{saving ? 'Čuvanje…' : 'Sačuvaj upit'}</Button></div>
+        <div className="grid max-h-[75vh] gap-6 overflow-y-auto p-6 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Kontakt</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Kontakt *" required>
+                <Input value={form.contactName} onChange={(e) => setForm({ ...form, contactName: e.target.value })} placeholder="Ime i prezime ili firma" />
+              </Field>
+              <Field label="Telefon">
+                <Input value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value || null })} placeholder="+387 61 ..." />
+              </Field>
+              <Field label="Email">
+                <Input type="email" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value || null })} placeholder="email@domain.ba" />
+              </Field>
+              <Field label="Izvor">
+                <Select value={form.source} onChange={(value) => setForm({ ...form, source: value })} options={[{ value: 'phone', label: 'Telefon' }, { value: 'web', label: 'Web' }, { value: 'email', label: 'Email' }, { value: 'walk_in', label: 'Direktan dolazak' }, { value: 'partner', label: 'Partner' }, { value: 'social', label: 'Društvene mreže' }, { value: 'referral', label: 'Preporuka' }, { value: 'other', label: 'Ostalo' }]} />
+              </Field>
+            </div>
+          </div>
+
+          <div className="sm:col-span-2">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Putovanje</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Vrsta zahtjeva">
+                <Select value={form.tripType} onChange={(value) => setForm({ ...form, tripType: value as InquiryTripType })} options={tripTypes} />
+              </Field>
+              <Field label="Destinacija">
+                <Input value={form.destination || ''} onChange={(e) => setForm({ ...form, destination: e.target.value || null })} placeholder="Grad, zemlja ili regija" />
+              </Field>
+              <Field label="Broj putnika">
+                <Input type="number" min="1" value={form.travelers} onChange={(e) => setForm({ ...form, travelers: Number(e.target.value) })} />
+              </Field>
+              <Field label="Početak putovanja">
+                <Input type="date" value={form.travelStart || ''} onChange={(e) => setForm({ ...form, travelStart: e.target.value || null })} />
+              </Field>
+              <Field label="Kraj putovanja">
+                <Input type="date" value={form.travelEnd || ''} onChange={(e) => setForm({ ...form, travelEnd: e.target.value || null })} />
+              </Field>
+            </div>
+          </div>
+
+          <div className="sm:col-span-2">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Budžet i aktivnost</h3>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Okvirni budžet">
+                <Input type="number" min="0" value={form.budget || ''} onChange={(e) => setForm({ ...form, budget: e.target.value ? Number(e.target.value) : null })} placeholder="0" />
+              </Field>
+              <Field label="Valuta">
+                <Select value={form.currency} onChange={(value) => setForm({ ...form, currency: value })} options={[{ value: 'BAM', label: 'BAM' }, { value: 'EUR', label: 'EUR' }, { value: 'USD', label: 'USD' }]} />
+              </Field>
+              <Field label="Sljedeća akcija">
+                <Input type="datetime-local" value={form.nextActionAt || ''} onChange={(e) => setForm({ ...form, nextActionAt: e.target.value || null })} />
+              </Field>
+            </div>
+            <div className="mt-4">
+              <Field label="Napomene">
+                <textarea value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value || null })} placeholder="Detalji, preferencije, posebni zahtjevi…" rows={3} className="h-auto min-h-[84px] w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-sm placeholder:text-gray-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+              </Field>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4 dark:border-gray-800 sm:col-span-2">
+            <Button variant="outline" onClick={() => setIsOpen(false)}>Odustani</Button>
+            <Button onClick={() => void save()} disabled={saving}>{saving ? 'Čuvanje…' : 'Sačuvaj upit'}</Button>
+          </div>
         </div>
       </Modal>
     </>
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) { return <div><Label>{label}</Label><div className="mt-1.5">{children}</div></div>; }
+function Field({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) { return <div><Label>{label}{required ? <span className="ml-1 text-error-500">*</span> : null}</Label><div className="mt-1.5">{children}</div></div>; }
 function Select({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: { value: string; label: string }[] }) { return <select value={value} onChange={(e) => onChange(e.target.value)} className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white">{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>; }
