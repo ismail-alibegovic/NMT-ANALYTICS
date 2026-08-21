@@ -153,19 +153,68 @@ export default function Suppliers() {
       )}
 
       <Modal isOpen={supplierOpen} onClose={() => setSupplierOpen(false)} className="m-4 max-w-2xl" title={c.addSupplier}>
-        <div className="grid max-h-[75vh] gap-4 overflow-y-auto p-6 sm:grid-cols-2">
-          <Field label={`${c.name} *`}><Input value={supplierForm.name} onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })} /></Field>
-          <Field label={c.category}><Select value={supplierForm.category} onChange={(value) => setSupplierForm({ ...supplierForm, category: value as SupplierCategory })} options={supplierCategories.map((value) => ({ value, label: categoryLabel(value) }))} /></Field>
-          <Field label={c.contact}><Input value={supplierForm.contactName || ''} onChange={(e) => setSupplierForm({ ...supplierForm, contactName: e.target.value || null })} /></Field>
-          <Field label={c.phone}><Input value={supplierForm.phone || ''} onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value || null })} /></Field>
-          <Field label={c.email}><Input type="email" value={supplierForm.email || ''} onChange={(e) => setSupplierForm({ ...supplierForm, email: e.target.value || null })} /></Field>
-          <Field label={c.website}><Input type="url" value={supplierForm.website || ''} onChange={(e) => setSupplierForm({ ...supplierForm, website: e.target.value || null })} /></Field>
-          <Field label={c.city}><Input value={supplierForm.city || ''} onChange={(e) => setSupplierForm({ ...supplierForm, city: e.target.value || null })} /></Field>
-          <Field label={c.country}><Input value={supplierForm.country || ''} onChange={(e) => setSupplierForm({ ...supplierForm, country: e.target.value || null })} /></Field>
-          <Field label={c.taxId}><Input value={supplierForm.taxId || ''} onChange={(e) => setSupplierForm({ ...supplierForm, taxId: e.target.value || null })} /></Field>
-          <Field label={c.defaultCurrency}><Input value={supplierForm.defaultCurrency} onChange={(e) => setSupplierForm({ ...supplierForm, defaultCurrency: e.target.value.toUpperCase().slice(0, 3) })} /></Field>
-          <Field label={c.paymentTerms}><Input value={supplierForm.paymentTerms || ''} onChange={(e) => setSupplierForm({ ...supplierForm, paymentTerms: e.target.value || null })} /></Field>
-          <div className="flex justify-end gap-2 border-t border-gray-100 pt-4 sm:col-span-2 dark:border-gray-800"><Button variant="outline" onClick={() => setSupplierOpen(false)}>{c.cancel}</Button><Button onClick={() => void saveSupplier()} disabled={saving}>{saving ? c.saving : c.saveSupplier}</Button></div>
+        <div className="grid max-h-[75vh] gap-6 overflow-y-auto p-6 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Osnovni podaci</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={`${c.name} *`} required>
+                <Input value={supplierForm.name} onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })} placeholder="Naziv dobavljača" />
+              </Field>
+              <Field label={c.category}>
+                <Select value={supplierForm.category} onChange={(value) => setSupplierForm({ ...supplierForm, category: value as SupplierCategory })} options={supplierCategories.map((value) => ({ value, label: categoryLabel(value) }))} />
+              </Field>
+            </div>
+          </div>
+
+          <div className="sm:col-span-2">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Kontakt</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={c.contact}>
+                <Input value={supplierForm.contactName || ''} onChange={(e) => setSupplierForm({ ...supplierForm, contactName: e.target.value || null })} placeholder="Ime i prezime" />
+              </Field>
+              <Field label={c.phone}>
+                <Input value={supplierForm.phone || ''} onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value || null })} placeholder="+387 ..." />
+              </Field>
+              <Field label={c.email}>
+                <Input type="email" value={supplierForm.email || ''} onChange={(e) => setSupplierForm({ ...supplierForm, email: e.target.value || null })} placeholder="email@domain.ba" />
+              </Field>
+              <Field label={c.website}>
+                <Input type="url" value={supplierForm.website || ''} onChange={(e) => setSupplierForm({ ...supplierForm, website: e.target.value || null })} placeholder="https://" />
+              </Field>
+            </div>
+          </div>
+
+          <div className="sm:col-span-2">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Lokacija i fakturisanje</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={c.city}>
+                <Input value={supplierForm.city || ''} onChange={(e) => setSupplierForm({ ...supplierForm, city: e.target.value || null })} placeholder="Grad" />
+              </Field>
+              <Field label={c.country}>
+                <Input value={supplierForm.country || ''} onChange={(e) => setSupplierForm({ ...supplierForm, country: e.target.value || null })} placeholder="Zemlja" />
+              </Field>
+              <Field label={c.taxId}>
+                <Input value={supplierForm.taxId || ''} onChange={(e) => setSupplierForm({ ...supplierForm, taxId: e.target.value || null })} placeholder="JIB/PDV" />
+              </Field>
+              <Field label={c.defaultCurrency}>
+                <Input value={supplierForm.defaultCurrency} onChange={(e) => setSupplierForm({ ...supplierForm, defaultCurrency: e.target.value.toUpperCase().slice(0, 3) })} placeholder="BAM" />
+              </Field>
+            </div>
+          </div>
+
+          <div className="sm:col-span-2">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Uslovi</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={c.paymentTerms}>
+                <Input value={supplierForm.paymentTerms || ''} onChange={(e) => setSupplierForm({ ...supplierForm, paymentTerms: e.target.value || null })} placeholder="npr. 14 dana" />
+              </Field>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4 sm:col-span-2 dark:border-gray-800">
+            <Button variant="outline" onClick={() => setSupplierOpen(false)}>{c.cancel}</Button>
+            <Button onClick={() => void saveSupplier()} disabled={saving}>{saving ? c.saving : c.saveSupplier}</Button>
+          </div>
         </div>
       </Modal>
     </>
@@ -173,5 +222,5 @@ export default function Suppliers() {
 }
 
 function Detail({ label, value }: { label: string; value: string | null }) { return <div><p className="text-xs text-gray-500 dark:text-gray-400">{label}</p><p className="mt-0.5 truncate font-medium text-gray-800 dark:text-gray-200">{value || '—'}</p></div>; }
-function Field({ label, children }: { label: string; children: ReactNode }) { return <div><Label>{label}</Label><div className="mt-1.5">{children}</div></div>; }
+function Field({ label, children, required }: { label: string; children: ReactNode; required?: boolean }) { return <div><Label>{label}{required ? <span className="ml-1 text-error-500">*</span> : null}</Label><div className="mt-1.5">{children}</div></div>; }
 function Select({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: { value: string; label: string }[] }) { return <select value={value} onChange={(e) => onChange(e.target.value)} className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white">{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>; }
