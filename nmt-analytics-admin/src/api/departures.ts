@@ -202,6 +202,13 @@ export interface DepartureGroup {
   passengers: DeparturePassenger[];
 }
 
+
+
+export async function updatePassengerSeat(passengerId: string, seatNumber: number | null) {
+  const { data } = await patch(`/departure-passengers/${passengerId}`, { seat_number: seatNumber });
+  return data;
+}
+
 export async function getDepartureGroups(id: string): Promise<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] }> {
   const { data } = await get<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] }>(`/departures/${id}/groups`);
   return data;

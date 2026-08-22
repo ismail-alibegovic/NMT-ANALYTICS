@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { updateExcursionPassenger } from "../../api/operations";
+import { updatePassengerSeat } from "../../api/departures";
 import type { DeparturePassenger } from "../../api/departures";
 
 export interface SeatMapProps {
@@ -97,7 +97,7 @@ export default function SeatMap({
     async (passengerId: string, seatNum: number) => {
       setBusy(true);
       try {
-        await updateExcursionPassenger(passengerId, { seatNumber: seatNum });
+        await updatePassengerSeat(passengerId, seatNum);
         onSeatChanged?.(passengerId, seatNum);
         setPendingPassengerId(null);
       } catch (e) {
@@ -113,7 +113,7 @@ export default function SeatMap({
     async (passengerId: string) => {
       setBusy(true);
       try {
-        await updateExcursionPassenger(passengerId, { seatNumber: 0 });
+        await updatePassengerSeat(passengerId, null);
         onSeatChanged?.(passengerId, null);
       } catch (e) {
         console.error("Failed to clear seat:", e);

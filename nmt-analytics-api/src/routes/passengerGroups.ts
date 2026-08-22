@@ -82,7 +82,34 @@ router.post(
 
       const { name, notes, seatingPreference, accommodationPreference, memberIds } = r.data;
 
-      // Count existing groups for color assignment
+      // Validate all passengers BEFORE creating the group row (no orphans)
+      const { data: passengers, error: paxCheckErr } = await supabaseAdmin
+        .from('departure_passengers')
+        .select('id, reservation_id, departure_id')
+        .eq('org_id', orgId)
+        .eq('departure_id', departureId)
+        .in('id', memberIds);
+
+      if (paxCheckErr) return handleSupabaseError(res, paxCheckErr, 'Failed to validate passengers');
+
+      if (!passengers || passengers.length !== memberIds.length) {
+        return apiError(res, 400, 'VALIDATION_ERROR', 'All passengers must belong to the same departure and organization');
+      }
+
+      // Check for duplicate group membership
+      const { data: existingMembers } = await supabaseAdmin
+        .from('trip_passenger_group_members')
+        .select('passenger_id')
+        .eq('group_id', departureId)  // this won't work for filtering — let's check per-passenger
+        .in('passenger_id', memberIds)
+        .limit(memberIds.length);
+
+      if (existingMembers && existingMembers.length > 0) {
+        const alreadyGrouped = existingMembers.map((m: any) => m.passenger_id);
+        return apiError(res, 400, 'VALIDATION_ERROR', 'Some passengers are already members of another group', { alreadyGrouped });
+      }
+
+      // All clear — create the group and members atomically
       const { count } = await supabaseAdmin
         .from('trip_passenger_groups')
         .select('*', { count: 'exact', head: true })
@@ -91,7 +118,6 @@ router.post(
 
       const groupColor = autoColor(count || 0);
 
-      // Create group
       const { data: group, error: groupErr } = await supabaseAdmin
         .from('trip_passenger_groups')
         .insert({
@@ -109,20 +135,6 @@ router.post(
 
       if (groupErr) return handleSupabaseError(res, groupErr, 'Failed to create group');
 
-      // Cross-departure validation: all passengers must belong to this departure
-      const { data: passengers, error: paxCheckErr } = await supabaseAdmin
-        .from('departure_passengers')
-        .select('id, reservation_id, departure_id')
-        .eq('org_id', orgId)
-        .eq('departure_id', departureId)
-        .in('id', memberIds);
-
-      if (paxCheckErr) return handleSupabaseError(res, paxCheckErr, 'Failed to validate passengers');
-
-      if (!passengers || passengers.length !== memberIds.length) {
-        return apiError(res, 400, 'VALIDATION_ERROR', 'All passengers must belong to the same departure and organization');
-      }
-
       const memberInserts = (passengers || []).map((p: any, i: number) => ({
         group_id: group.id,
         passenger_id: p.id,
@@ -134,7 +146,11 @@ router.post(
         .from('trip_passenger_group_members')
         .insert(memberInserts);
 
-      if (memberErr) return handleSupabaseError(res, memberErr, 'Failed to add members');
+      if (memberErr) {
+        // Rollback: delete the orphan group
+        await supabaseAdmin.from('trip_passenger_groups').delete().eq('id', group.id).eq('org_id', orgId);
+        return handleSupabaseError(res, memberErr, 'Failed to add members');
+      }
 
       return res.status(201).json(group);
     } catch (err) {
@@ -224,7 +240,7 @@ router.post(
       // Verify group belongs to org + fetch departure_id for cross-departure check
       const { data: group } = await supabaseAdmin
         .from('trip_passenger_groups')
-        .select('id, departure_id')
+        .select('id, departure_id, reservation_id')
         .eq('id', id)
         .eq('org_id', orgId)
         .single();
@@ -234,7 +250,7 @@ router.post(
       // Validate passenger belongs to the same departure
       const { data: passenger } = await supabaseAdmin
         .from('departure_passengers')
-        .select('id, departure_id')
+        .select('id, departure_id, reservation_id')
         .eq('id', r.data.passengerId)
         .eq('org_id', orgId)
         .single();
@@ -243,12 +259,13 @@ router.post(
         return apiError(res, 400, 'VALIDATION_ERROR', 'Passenger must belong to the same departure as the group');
       }
 
+      // Use the canonical reservation_id from the validated passenger, not frontend input
       const { error } = await supabaseAdmin
         .from('trip_passenger_group_members')
         .insert({
           group_id: id,
           passenger_id: r.data.passengerId,
-          reservation_id: r.data.reservationId,
+          reservation_id: passenger.reservation_id,
         });
 
       if (error) return handleSupabaseError(res, error, 'Failed to add member');
