@@ -1,76 +1,67 @@
--- ===============================================================
--- Phase 6C: Atomic Rooming Apply RPC — true all-or-nothing v2
--- ===============================================================
--- Phase 1: Validate EVERY proposed assignment against canonical state.
--- Phase 2: Insert ALL assignments in one statement.
--- If ANY validation fails, the entire transaction rolls back.
+-- ============================================================
+-- Migration 20260822150000_rooming_atomic_apply.sql
+-- Phase 6C — Atomic rooming apply RPC (all-or-nothing)
+-- v5 — each passenger validated, batch committed inside single txn
+-- Any failure (stale pax, capacity exceeded, wrong org/dep) → zero rows written.
+-- ============================================================
+
+-- Drop old function if it exists from an earlier session
+DROP FUNCTION IF EXISTS apply_accommodation_assignments_atomic(UUID,UUID,JSONB);
 
 CREATE OR REPLACE FUNCTION apply_accommodation_assignments_atomic(
   p_departure_id UUID,
   p_org_id UUID,
-  p_assignments JSONB  -- [{passengerId, roomId, passengerName}, ...]
+  p_assignments JSONB,
+  OUT applied_count INT,
+  OUT error_detail TEXT
 )
-RETURNS TABLE (
-  applied_count INT,
-  error_detail TEXT
-)
+RETURNS SETOF RECORD
 LANGUAGE plpgsql
-SECURITY DEFINER
 AS $$
 DECLARE
-  rec              JSONB;
   v_candidate_count INT;
-  v_unique_pax      INT;
-  v_unique_rooms    INT;
+  v_unique_pax INT;
   v_room_cap_needed RECORD;
-  v_solo_check      BOOLEAN;
-  v_already_exists  BOOLEAN;
-  v_count           INT;
-  v_room_cap        INT;
-  v_existing_occ    INT;
-  v_new_occ         INT;
+  v_solo_check BOOLEAN;
+  v_already_exists BOOLEAN;
+  v_count INT;
+  v_room_cap INT;
+  v_existing_occ INT;
+  v_new_occ INT;
 BEGIN
-  -- Lock the accommodation tables for this departure to prevent
-  -- concurrent assignments during validation.
+  -- Lock buildings for this departure so concurrent proposals don't race
   PERFORM 1 FROM accommodation_buildings
-    WHERE departure_id = p_departure_id AND org_id = p_org_id
-    FOR UPDATE;
+  WHERE departure_id = p_departure_id AND org_id = p_org_id
+  FOR UPDATE;
 
-  -- ================================================================
-  -- PHASE 1: VALIDATE ALL ASSIGNMENTS BEFORE ANY WRITE
-  -- ================================================================
-
-  -- 1a: Count input
   SELECT count(*) INTO v_candidate_count
-    FROM jsonb_array_elements(p_assignments);
+  FROM jsonb_array_elements(p_assignments);
 
   IF v_candidate_count = 0 THEN
     error_detail := 'Proposal is empty';
     RAISE EXCEPTION '%', error_detail;
   END IF;
 
-  -- 1b: No duplicate passengers within the proposal
-  SELECT count(DISTINCT rec->>'passengerId') INTO v_unique_pax
-    FROM jsonb_array_elements(p_assignments) AS rec;
+  -- Duplicate passenger within proposal?
+  SELECT count(DISTINCT item->>'passengerId') INTO v_unique_pax
+  FROM jsonb_array_elements(p_assignments) AS item;
 
   IF v_unique_pax < v_candidate_count THEN
-    error_detail := format('Proposal contains %s duplicate passenger(s)', v_candidate_count - v_unique_pax);
+    error_detail := format('Proposal contains %s duplicate passenger(s)',
+      v_candidate_count - v_unique_pax);
     RAISE EXCEPTION '%', error_detail;
   END IF;
 
-  -- 1c: Every passenger exists, belongs to this org + departure, and is unassigned
+  -- Every passenger belongs to this departure + org
   SELECT bool_or(NOT ok) INTO v_solo_check
   FROM (
-    SELECT
-      rec->>'passengerId' AS pid,
-      rec->>'passengerName' AS pname,
-      EXISTS(
-        SELECT 1 FROM departure_passengers
-        WHERE id = (rec->>'passengerId')::UUID
-          AND org_id = p_org_id
-          AND departure_id = p_departure_id
-      ) AS ok
-    FROM jsonb_array_elements(p_assignments) AS rec
+    SELECT EXISTS(
+      SELECT 1 FROM departure_passengers
+      WHERE id = (item->>'passengerId')::UUID
+        AND org_id = p_org_id
+        AND departure_id = p_departure_id
+    ) AS ok
+    FROM jsonb_array_elements(p_assignments) AS item
   ) sub;
 
   IF v_solo_check THEN
@@ -78,35 +69,33 @@ BEGIN
     RAISE EXCEPTION '%', error_detail;
   END IF;
 
-  -- 1d: No passenger already has an accommodation assignment
+  -- No passenger is already assigned
   SELECT bool_or(already) INTO v_already_exists
   FROM (
     SELECT EXISTS(
       SELECT 1 FROM accommodation_assignments
-      WHERE passenger_id = (rec->>'passengerId')::UUID
+      WHERE passenger_id = (item->>'passengerId')::UUID
         AND org_id = p_org_id
     ) AS already
-    FROM jsonb_array_elements(p_assignments) AS rec
+    FROM jsonb_array_elements(p_assignments) AS item
   ) sub;
 
   IF v_already_exists THEN
-    error_detail := 'One or more passengers already have an accommodation assignment';
+    error_detail := 'One or more passengers already assigned';
     RAISE EXCEPTION '%', error_detail;
   END IF;
 
-  -- 1e: Every room exists and belongs to this departure/org
+  -- Every room belongs to this departure + org
   SELECT bool_or(NOT valid) INTO v_solo_check
   FROM (
-    SELECT
-      rec->>'roomId' AS rid,
-      EXISTS(
-        SELECT 1 FROM accommodation_rooms r
-        JOIN accommodation_buildings b ON r.building_id = b.id
-        WHERE r.id = (rec->>'roomId')::UUID
-          AND r.org_id = p_org_id
-          AND b.departure_id = p_departure_id
-      ) AS valid
-    FROM jsonb_array_elements(p_assignments) AS rec
+    SELECT EXISTS(
+      SELECT 1 FROM accommodation_rooms r
+      JOIN accommodation_buildings b ON r.building_id = b.id
+      WHERE r.id = (item->>'roomId')::UUID
+        AND r.org_id = p_org_id
+        AND b.departure_id = p_departure_id
+    ) AS valid
+    FROM jsonb_array_elements(p_assignments) AS item
   ) sub;
 
   IF v_solo_check THEN
@@ -114,57 +103,49 @@ BEGIN
     RAISE EXCEPTION '%', error_detail;
   END IF;
 
-  -- 1f: Room capacity — must accommodate the entire batch
+  -- Validate room capacity for the whole batch
   FOR v_room_cap_needed IN
     SELECT
-      (rec->>'roomId')::UUID AS room_id,
-      count(*)              AS proposed_additions
-    FROM jsonb_array_elements(p_assignments) AS rec
-    GROUP BY (rec->>'roomId')::UUID
+      (item->>'roomId')::UUID AS room_id,
+      count(*) AS proposed_additions
+    FROM jsonb_array_elements(p_assignments) AS item
+    GROUP BY (item->>'roomId')::UUID
   LOOP
     SELECT r.capacity INTO v_room_cap
-      FROM accommodation_rooms r
-      WHERE r.id = v_room_cap_needed.room_id;
+    FROM accommodation_rooms r
+    WHERE r.id = v_room_cap_needed.room_id;
 
     SELECT count(*) INTO v_existing_occ
-      FROM accommodation_assignments
-      WHERE room_id = v_room_cap_needed.room_id
-        AND org_id = p_org_id;
+    FROM accommodation_assignments
+    WHERE room_id = v_room_cap_needed.room_id
+      AND org_id = p_org_id;
 
     v_new_occ := v_existing_occ + v_room_cap_needed.proposed_additions;
 
     IF v_new_occ > v_room_cap THEN
-      error_detail := format(
-        'Room %s: would go from %s/%s to %s/%s (proposal adds %s)',
-        v_room_cap_needed.room_id, v_existing_occ, v_room_cap,
-        v_new_occ, v_room_cap, v_room_cap_needed.proposed_additions
-      );
+      error_detail := format('Room capacity exceeded');
       RAISE EXCEPTION '%', error_detail;
     END IF;
   END LOOP;
 
-  -- ================================================================
-  -- PHASE 2: ALL VALIDATIONS PASSED — INSERT ALL ASSIGNMENTS
-  -- ================================================================
-
+  -- All validations passed — insert all assignments atomically
   INSERT INTO accommodation_assignments (
     org_id, room_id, passenger_id, passenger_name, assigned_by
   )
   SELECT
     p_org_id,
-    (rec->>'roomId')::UUID,
-    (rec->>'passengerId')::UUID,
-    rec->>'passengerName',
+    (item->>'roomId')::UUID,
+    (item->>'passengerId')::UUID,
+    item->>'passengerName',
     NULL
-  FROM jsonb_array_elements(p_assignments) AS rec;
+  FROM jsonb_array_elements(p_assignments) AS item;
 
   GET DIAGNOSTICS v_count = ROW_COUNT;
-
   applied_count := v_count;
   error_detail := NULL;
   RETURN NEXT;
 END;
 $$;
 
-COMMENT ON FUNCTION apply_accommodation_assignments_atomic IS
-  'Atomically validates a batch of accommodation assignments then inserts them all. True all-or-nothing: two-phase validate-then-write inside one PostgreSQL transaction. If any validation fails (stale passenger, missing room, capacity overflow, within-proposal duplicate), zero rows are written.';
+COMMENT ON FUNCTION apply_accommodation_assignments_atomic(UUID,UUID,JSONB)
+  IS 'Atomic all-or-nothing accommodation batch apply. Any failure → zero rows written.';
