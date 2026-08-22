@@ -528,6 +528,32 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
       if (passRows) passengers = passRows;
     }
 
+    // 2b) Passenger groups for this departure
+    let groupMembers: any[] = [];
+    let groups: any[] = [];
+    let groupById: Record<string, any> = {};
+    if (reservationIds.length > 0) {
+      const { data: gmRows, error: gmErr } = await supabaseAdmin
+        .from('trip_passenger_group_members')
+        .select('id, group_id, passenger_name, reservation_id')
+        .in('reservation_id', reservationIds);
+      if (gmErr) console.error('Group members fetch (non-fatal):', gmErr);
+      else groupMembers = gmRows || [];
+    }
+    if (groupMembers.length > 0) {
+      const groupIds = Array.from(new Set(groupMembers.map((gm: any) => gm.group_id)));
+      const { data: gRows, error: gErr } = await supabaseAdmin
+        .from('trip_passenger_groups')
+        .select('id, name, color, primary_passenger_name, notes, seating_preference, accommodation_preference, locked')
+        .in('id', groupIds)
+        .eq('org_id', orgId);
+      if (gErr) console.error('Groups fetch (non-fatal):', gErr);
+      else {
+        groups = gRows || [];
+        for (const g of groups) groupById[g.id] = g;
+      }
+    }
+
     // 3) Hotel allocations for this departure — rooms assigned from the hotel_rooms matrix
     const { data: allocations, error: allocErr } = await supabaseAdmin
       .from('hotel_allocations')
@@ -557,6 +583,12 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
       (acc[p.reservation_id] ||= []).push(p);
       return acc;
     }, {});
+
+    // Group member lookup by passenger name
+    const groupMemberByName: Record<string, any> = {};
+    for (const gm of groupMembers) {
+      if (gm.passenger_name) groupMemberByName[gm.passenger_name] = gm;
+    }
 
     for (const r of (reservations || [])) {
       const cust = custRow(r);
@@ -591,6 +623,9 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
             currency: r.currency || pkg?.currency || 'EUR',
             payments: paymentsForRes,
             notes: p.notes,
+            groupName: (() => { const gm = groupMemberByName[p.full_name]; return gm && groupById[gm.group_id] ? groupById[gm.group_id].name : null; })(),
+            groupId: groupMemberByName[p.full_name]?.group_id || null,
+            groupColor: (() => { const gm = groupMemberByName[p.full_name]; return gm && groupById[gm.group_id] ? groupById[gm.group_id].color : null; })(),
           });
         }
       } else {
@@ -619,6 +654,9 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
           currency: r.currency || pkg?.currency || 'EUR',
           payments: paymentsForRes,
           notes: null,
+          groupName: (() => { const gm = groupMemberByName[r.customer_name]; return gm && groupById[gm.group_id] ? groupById[gm.group_id].name : null; })(),
+          groupId: groupMemberByName[r.customer_name]?.group_id || null,
+          groupColor: (() => { const gm = groupMemberByName[r.customer_name]; return gm && groupById[gm.group_id] ? groupById[gm.group_id].color : null; })(),
         });
       }
     }

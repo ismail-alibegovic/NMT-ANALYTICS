@@ -3,7 +3,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import path from 'path';
 import { requestId, requestLogging } from './middleware/logging';
-import { authRateLimit, strictRateLimit } from './middleware/rateLimit';
+import { authRateLimit, strictRateLimit, contextRateLimit } from './middleware/rateLimit';
 import { config } from './config';
 import apiRouter from './routes/index';
 import { sentryRequestContext, sentryErrorHandler } from './middleware/sentry';
@@ -88,10 +88,10 @@ app.use('/api', (req, res, next) => {
   if (req.path === '/health') {
     return next();
   }
-  return authRateLimit(req, res, next);
+  return contextRateLimit(req, res, next);
 });
 
-app.use('/api/me', strictRateLimit);
+app.use('/api/me', contextRateLimit);
 
 app.use(['/api/customers', '/api/metrics', '/api/analytics'], (req, res, next) => {
   console.log(`[API-${req.method}] ${req.path} - userId: ${req.user?.id || 'N/A'}, role: ${req.user?.role || 'N/A'}, orgId: ${req.orgId || 'N/A'}`);

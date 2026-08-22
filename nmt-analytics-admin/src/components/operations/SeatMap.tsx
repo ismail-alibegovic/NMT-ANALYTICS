@@ -3,22 +3,26 @@ import { updateExcursionPassenger } from "../../api/operations";
 import type { DeparturePassenger } from "../../api/departures";
 
 export interface SeatMapProps {
-  /** Total seat capacity (departure.capacity or transport_capacity). */
   capacity: number;
-  /** Passenger manifest from GET /departures/:id/passengers. */
   passengers: DeparturePassenger[];
-  /** 'bus' renders a 2+aisle+2 grid; 'flight' renders a numeric list. */
   transportType: "bus" | "flight" | "none";
-  /** When true, clicking a seat opens assign/clear actions. */
   editable?: boolean;
-  /** Notify parent after a seat was successfully reassigned. */
   onSeatChanged?: (passengerId: string, newSeat: number | null) => void;
 }
 
+const GROUP_PALETTE = [
+  "bg-rose-500 text-white border-rose-500",
+  "bg-sky-500 text-white border-sky-500",
+  "bg-amber-500 text-white border-amber-500",
+  "bg-emerald-500 text-white border-emerald-500",
+  "bg-violet-500 text-white border-violet-500",
+  "bg-cyan-500 text-white border-cyan-500",
+  "bg-orange-500 text-white border-orange-500",
+  "bg-pink-500 text-white border-pink-500",
+];
 const PALETTE = {
   free: "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700",
   occupied: "bg-primary text-white border-primary",
-  legroom: "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700",
 } as const;
 
 export default function SeatMap({
@@ -30,36 +34,79 @@ export default function SeatMap({
 }: SeatMapProps) {
   const [busy, setBusy] = useState(false);
   const [pendingPassengerId, setPendingPassengerId] = useState<string | null>(null);
+  const [highlightedGroupId, setHighlightedGroupId] = useState<string | null>(null);
+
+  const totalSeats = Math.max(capacity, passengers.length);
 
   const seatMap = useMemo(() => {
     const map = new Map<number, DeparturePassenger>();
     for (const p of passengers) {
-      const seatNum = Number(p.seat);
-      if (Number.isFinite(seatNum) && seatNum > 0) map.set(seatNum, p);
+      const s = typeof p.seat === "number" ? p.seat : typeof p.seat === "string" ? parseInt(p.seat, 10) : null;
+      if (s && s > 0 && s <= totalSeats) {
+        map.set(s, p);
+      }
+    }
+    return map;
+  }, [passengers, totalSeats]);
+
+  const unassigned = useMemo(() => {
+    const assignedIds = new Set<string>();
+    for (const [, p] of seatMap) {
+      if (p.passengerId) assignedIds.add(p.passengerId);
+    }
+    return passengers.filter((p) => !p.passengerId || !assignedIds.has(p.passengerId));
+  }, [passengers, seatMap]);
+
+  const groupMap = useMemo(() => {
+    const map = new Map<string, DeparturePassenger[]>();
+    for (const p of passengers) {
+      const gid = p.groupId || p.groupName;
+      if (gid) {
+        if (!map.has(gid)) map.set(gid, []);
+        map.get(gid)!.push(p);
+      }
     }
     return map;
   }, [passengers]);
 
-  const totalSeats = Math.max(1, capacity || 1);
+  const unassignedGroups = useMemo(() => {
+    const groups: { id: string; name: string; color: string; members: DeparturePassenger[] }[] = [];
+    const seen = new Set<string>();
+    for (const p of unassigned) {
+      const gid = p.groupId || p.groupName;
+      if (gid && !seen.has(gid)) {
+        seen.add(gid);
+        const members = groupMap.get(gid) || [p];
+        groups.push({
+          id: gid,
+          name: p.groupName || gid,
+          color: p.groupColor || "",
+          members,
+        });
+      }
+    }
+    return groups;
+  }, [unassigned, groupMap]);
+
+  const soloUnassigned = useMemo(
+    () => unassigned.filter((p) => !p.groupId && !p.groupName),
+    [unassigned]
+  );
 
   const assignSeat = useCallback(
-    async (seatNum: number) => {
-      if (!editable || !pendingPassengerId) return;
-      const existing = seatMap.get(seatNum);
-      if (existing && existing.passengerId !== pendingPassengerId) {
-        // Seat taken — cannot reassign without confirmation flow
-        return;
-      }
+    async (passengerId: string, seatNum: number) => {
       setBusy(true);
       try {
-        await updateExcursionPassenger(pendingPassengerId, { seatNumber: seatNum });
-        onSeatChanged?.(pendingPassengerId, seatNum);
+        await updateExcursionPassenger(passengerId, { seatNumber: seatNum });
+        onSeatChanged?.(passengerId, seatNum);
         setPendingPassengerId(null);
+      } catch (e) {
+        console.error("Failed to assign seat:", e);
       } finally {
         setBusy(false);
       }
     },
-    [editable, pendingPassengerId, seatMap, onSeatChanged],
+    [onSeatChanged]
   );
 
   const clearSeat = useCallback(
@@ -68,83 +115,107 @@ export default function SeatMap({
       try {
         await updateExcursionPassenger(passengerId, { seatNumber: 0 });
         onSeatChanged?.(passengerId, null);
+      } catch (e) {
+        console.error("Failed to clear seat:", e);
       } finally {
         setBusy(false);
       }
     },
-    [onSeatChanged],
+    [onSeatChanged]
   );
 
-  if (transportType === "none" || capacity <= 0) {
+  if (!capacity || capacity <= 0 || transportType === "none") {
     return (
-      <div className="text-sm text-gray-400 dark:text-gray-500">
-        Nema transporta za ovaj polazak.
+      <div className="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">
+        Seat map not available for this transport type.
       </div>
     );
   }
 
-  const occupiedCount = seatMap.size;
-  const freeCount = totalSeats - occupiedCount;
-
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-            {transportType === "bus" ? "Raspored sjedišta — autobus" : "Raspored sjedišta — let"}
-          </h3>
-          <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-            <span>{occupiedCount} zauzeto</span>
-            <span>·</span>
-            <span>{freeCount > 0 ? `${freeCount} slobodno` : "popunjeno"}</span>
-          </div>
-        </div>
-        {editable && pendingPassengerId && (
-          <button
-            onClick={() => setPendingPassengerId(null)}
-            className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-          >
-            Otkaži izbor
-          </button>
+    <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex-1">
+        {transportType === "bus" ? (
+          <BusLayout
+            totalSeats={totalSeats}
+            seatMap={seatMap}
+            editable={editable}
+            busy={busy}
+            onAssign={(num) => {
+              if (pendingPassengerId) assignSeat(pendingPassengerId, num);
+            }}
+            highlightedGroupId={highlightedGroupId}
+            onHighlightGroup={setHighlightedGroupId}
+          />
+        ) : (
+          <FlightLayout
+            totalSeats={totalSeats}
+            seatMap={seatMap}
+            editable={editable}
+            busy={busy}
+            onAssign={(num) => {
+              if (pendingPassengerId) assignSeat(pendingPassengerId, num);
+            }}
+            highlightedGroupId={highlightedGroupId}
+            onHighlightGroup={setHighlightedGroupId}
+          />
         )}
       </div>
 
       {editable && (
-        <div className="mb-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
-          {pendingPassengerId
-            ? "Kliknite na slobodno (svijetlo) sjedište da dodijelite putniku."
-            : "Ispod rasporeda, kliknite „Dodijeli sjedište“ pored imena putnika da započnete."}
-        </div>
-      )}
+        <div className="lg:w-72 flex-shrink-0">
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+              Unassigned passengers
+            </h4>
+            <p className="text-xs text-gray-500 mb-3">
+              {unassigned.length} passenger{unassigned.length !== 1 ? "s" : ""}
+            </p>
 
-      {transportType === "bus" ? (
-        <BusLayout totalSeats={totalSeats} seatMap={seatMap} editable={editable} busy={busy} onAssign={assignSeat} />
-      ) : (
-        <FlightLayout totalSeats={totalSeats} seatMap={seatMap} editable={editable} busy={busy} onAssign={assignSeat} />
-      )}
-
-      {editable && (
-        <div className="mt-5 border-t border-gray-200 dark:border-gray-700 pt-4">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Putnici bez sjedišta
-          </h4>
-          <div className="space-y-1.5">
-            {passengers
-              .filter((p) => !p.seat || Number(p.seat) <= 0)
-              .map((p) => (
-                <PassengerAssignRow
-                  key={p.passengerId || p.reservationId + p.fullName}
-                  passenger={p}
-                  pending={pendingPassengerId === p.passengerId}
-                  busy={busy}
-                  onSelect={() => p.passengerId && setPendingPassengerId(p.passengerId)}
-                  onClear={() => p.passengerId && clearSeat(p.passengerId)}
-                />
-              ))}
-            {passengers.every((p) => p.seat && Number(p.seat) > 0) && (
-              <div className="text-xs text-gray-400 dark:text-gray-500 py-2">
-                Svi putnici imaju dodijeljeno sjedište.
+            {unassignedGroups.map((group) => (
+              <div key={group.id} className="mb-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                    {group.name}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {group.members.length} members
+                  </span>
+                </div>
+                {group.members.map((p) => (
+                  <PassengerAssignRow
+                    key={p.passengerId || p.fullName}
+                    passenger={p}
+                    pending={pendingPassengerId === p.passengerId}
+                    busy={busy}
+                    onSelect={() =>
+                      setPendingPassengerId(
+                        pendingPassengerId === p.passengerId ? null : p.passengerId || null
+                      )
+                    }
+                    onClear={p.passengerId ? () => clearSeat(p.passengerId!) : () => {}}
+                  />
+                ))}
               </div>
+            ))}
+
+            {soloUnassigned.map((p) => (
+              <PassengerAssignRow
+                key={p.passengerId || p.fullName}
+                passenger={p}
+                pending={pendingPassengerId === p.passengerId}
+                busy={busy}
+                onSelect={() =>
+                  setPendingPassengerId(
+                    pendingPassengerId === p.passengerId ? null : p.passengerId || null
+                  )
+                }
+                onClear={p.passengerId ? () => clearSeat(p.passengerId!) : () => {}}
+              />
+            ))}
+
+            {unassigned.length === 0 && (
+              <p className="text-xs text-gray-400 italic">All passengers assigned</p>
             )}
           </div>
         </div>
@@ -159,58 +230,77 @@ function BusLayout({
   editable,
   busy,
   onAssign,
+  highlightedGroupId,
+  onHighlightGroup,
 }: {
   totalSeats: number;
   seatMap: Map<number, DeparturePassenger>;
   editable: boolean;
   busy: boolean;
   onAssign: (seatNum: number) => void;
+  highlightedGroupId: string | null;
+  onHighlightGroup: (gid: string | null) => void;
 }) {
-  const rows: number[] = [];
-  for (let i = 1; i <= totalSeats; i += 4) rows.push(i);
+  const rows = Math.ceil(totalSeats / 4);
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-950 rounded-xl p-4 overflow-x-auto">
-      <div className="flex flex-col items-center gap-2 min-w-fit">
-        {/* Driver */}
-        <div className="flex items-center gap-1 mb-1">
-          <div className="w-12 h-8 rounded-lg bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex items-center justify-center text-xs font-medium">
-            VOZAČ
-          </div>
-        </div>
+    <div className="flex flex-col items-center gap-4">
+      <div className="text-xs text-gray-400 select-none font-medium tracking-wide uppercase">
+        Front / Driver
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {Array.from({ length: rows }, (_, ri) => {
+          const rowLabel = ri + 1;
+          const base = ri * 4;
+          const seatNums = [base + 1, base + 2, base + 3, base + 4].filter(
+            (n) => n <= totalSeats
+          );
+          const left = seatNums.slice(0, 2);
+          const right = seatNums.slice(2, 4);
 
-        {/* Seats */}
-        <div className="flex flex-col gap-2">
-          {rows.map((rowStart) => {
-            const seatNums = [rowStart, rowStart + 1, rowStart + 2, rowStart + 3].filter((n) => n <= totalSeats);
-            const left = seatNums.slice(0, 2);
-            const right = seatNums.slice(2, 4);
-            const rowLabel = Math.ceil(rowStart / 4);
-            return (
-              <div key={rowStart} className="flex items-center gap-2">
-                <div className="flex gap-1.5">
-                  {left.map((n) => (
-                    <Seat key={n} num={n} passenger={seatMap.get(n)} editable={editable} busy={busy} onAssign={onAssign} />
-                  ))}
-                </div>
-                {/* Aisle */}
-                <div className="w-5 text-center text-[10px] text-gray-300 dark:text-gray-600 select-none">
-                  {rowLabel}
-                </div>
-                <div className="flex gap-1.5">
-                  {right.map((n) => (
-                    <Seat key={n} num={n} passenger={seatMap.get(n)} editable={editable} busy={busy} onAssign={onAssign} />
-                  ))}
-                </div>
+          return (
+            <div key={ri} className="flex items-center gap-2">
+              <div className="w-6 text-center text-[10px] text-gray-300 dark:text-gray-600 select-none">
+                {rowLabel}
               </div>
-            );
-          })}
-        </div>
-
-        {/* Back row */}
-        <div className="mt-1 text-[10px] text-gray-300 dark:text-gray-600 select-none">
-          ZADNJI RED
-        </div>
+              <div className="flex gap-1.5">
+                {left.map((n) => (
+                  <Seat
+                    key={n}
+                    num={n}
+                    passenger={seatMap.get(n)}
+                    editable={editable}
+                    busy={busy}
+                    onAssign={onAssign}
+                    highlightedGroupId={highlightedGroupId}
+                    onHighlightGroup={onHighlightGroup}
+                  />
+                ))}
+              </div>
+              <div className="w-3" />
+              <div className="flex gap-1.5">
+                {right.map((n) => (
+                  <Seat
+                    key={n}
+                    num={n}
+                    passenger={seatMap.get(n)}
+                    editable={editable}
+                    busy={busy}
+                    onAssign={onAssign}
+                    highlightedGroupId={highlightedGroupId}
+                    onHighlightGroup={onHighlightGroup}
+                  />
+                ))}
+              </div>
+              <div className="w-6 text-center text-[10px] text-gray-300 dark:text-gray-600 select-none">
+                {String.fromCharCode(64 + rowLabel)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="text-xs text-gray-400 select-none font-medium tracking-wide uppercase">
+        Back
       </div>
     </div>
   );
@@ -222,43 +312,65 @@ function FlightLayout({
   editable,
   busy,
   onAssign,
+  highlightedGroupId,
+  onHighlightGroup,
 }: {
   totalSeats: number;
   seatMap: Map<number, DeparturePassenger>;
   editable: boolean;
   busy: boolean;
   onAssign: (seatNum: number) => void;
+  highlightedGroupId: string | null;
+  onHighlightGroup: (gid: string | null) => void;
 }) {
-  const rows: number[] = [];
-  for (let i = 1; i <= totalSeats; i += 6) rows.push(i);
+  const rows = Math.ceil(totalSeats / 6);
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-950 rounded-xl p-4 overflow-x-auto">
-      <div className="flex flex-col items-center gap-2 min-w-fit">
-        <div className="text-xs text-gray-400 dark:text-gray-500 mb-1">Prednji dio aviona ↑</div>
-        {rows.map((rowStart) => {
-          const seatNums = [rowStart, rowStart+1, rowStart+2, rowStart+3, rowStart+4, rowStart+5].filter((n) => n <= totalSeats);
-          const left = seatNums.slice(0, 3);
-          const right = seatNums.slice(3, 6);
-          return (
-            <div key={rowStart} className="flex items-center gap-2">
-              <div className="flex gap-1">
-                {left.map((n) => (
-                  <Seat key={n} num={n} passenger={seatMap.get(n)} editable={editable} busy={busy} onAssign={onAssign} />
-                ))}
-              </div>
-              <div className="w-6 text-center text-[10px] text-gray-300 dark:text-gray-600 select-none">
-                {String.fromCharCode(64 + Math.ceil(rowStart/6))}
-              </div>
-              <div className="flex gap-1">
-                {right.map((n) => (
-                  <Seat key={n} num={n} passenger={seatMap.get(n)} editable={editable} busy={busy} onAssign={onAssign} />
-                ))}
-              </div>
+    <div className="flex flex-col gap-1.5">
+      {Array.from({ length: rows }, (_, ri) => {
+        const rowLabel = ri + 1;
+        const base = ri * 6;
+        const seatNums = [base + 1, base + 2, base + 3, base + 4, base + 5, base + 6].filter(
+          (n) => n <= totalSeats
+        );
+        const left = seatNums.slice(0, 3);
+        const right = seatNums.slice(3, 6);
+
+        return (
+          <div key={ri} className="flex items-center gap-2">
+            <div className="w-8 text-center text-xs text-gray-400 select-none">{rowLabel}</div>
+            <div className="flex gap-1.5">
+              {left.map((n) => (
+                <Seat
+                  key={n}
+                  num={n}
+                  passenger={seatMap.get(n)}
+                  editable={editable}
+                  busy={busy}
+                  onAssign={onAssign}
+                  highlightedGroupId={highlightedGroupId}
+                  onHighlightGroup={onHighlightGroup}
+                />
+              ))}
             </div>
-          );
-        })}
-      </div>
+            <div className="w-4" />
+            <div className="flex gap-1.5">
+              {right.map((n) => (
+                <Seat
+                  key={n}
+                  num={n}
+                  passenger={seatMap.get(n)}
+                  editable={editable}
+                  busy={busy}
+                  onAssign={onAssign}
+                  highlightedGroupId={highlightedGroupId}
+                  onHighlightGroup={onHighlightGroup}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -269,25 +381,72 @@ function Seat({
   editable,
   busy,
   onAssign,
+  highlightedGroupId,
+  onHighlightGroup,
 }: {
   num: number;
   passenger?: DeparturePassenger;
   editable: boolean;
   busy: boolean;
   onAssign: (seatNum: number) => void;
+  highlightedGroupId: string | null;
+  onHighlightGroup: (gid: string | null) => void;
 }) {
   const occupied = Boolean(passenger);
   const disabled = busy || (occupied && !editable);
+
+  const groupId = passenger?.groupId || passenger?.groupName || null;
+  const isHighlighted = highlightedGroupId && groupId === highlightedGroupId;
+  const otherHighlighted = highlightedGroupId && groupId && groupId !== highlightedGroupId;
+
+  const baseClass =
+    "w-10 h-10 rounded-lg border text-xs font-medium flex items-center justify-center transition-all relative";
+
+  let colorClass = PALETTE.free;
+  if (occupied && passenger) {
+    if (passenger.groupColor) {
+      colorClass = `${passenger.groupColor} text-white border-transparent`;
+      if (otherHighlighted) colorClass += " opacity-30";
+      if (isHighlighted) colorClass += " ring-2 ring-white shadow-lg scale-110 z-10";
+    } else if (passenger.groupId || passenger.groupName) {
+      const hash = [...(groupId || "")].reduce((a, c) => a + c.charCodeAt(0), 0);
+      const idx = hash % GROUP_PALETTE.length;
+      colorClass = GROUP_PALETTE[idx];
+      if (otherHighlighted) colorClass += " opacity-30";
+      if (isHighlighted) colorClass += " ring-2 ring-white shadow-lg scale-110 z-10";
+    } else {
+      colorClass =
+        "bg-white text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600";
+    }
+  }
+
+  const tooltip = passenger
+    ? [
+        passenger.fullName,
+        passenger.groupName ? `Group: ${passenger.groupName}` : null,
+        passenger.groupSize ? `Group members: ${passenger.groupSize}` : null,
+        passenger.reservationId ? `Booking: ${passenger.reservationId.slice(0, 8)}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : `Slobodno sjedište ${num}`;
+
   return (
     <button
-      onClick={() => editable && !occupied && onAssign(num)}
+      onClick={() => {
+        if (editable && !occupied) onAssign(num);
+        if (groupId) onHighlightGroup(isHighlighted ? null : groupId);
+      }}
+      onMouseEnter={() => groupId && onHighlightGroup(groupId)}
+      onMouseLeave={() => onHighlightGroup(null)}
       disabled={disabled}
-      title={passenger ? passenger.fullName : `Slobodno sjedište ${num}`}
+      title={tooltip}
       className={[
-        "w-10 h-10 rounded-lg border text-xs font-medium flex items-center justify-center transition-all",
-        occupied ? PALETTE.occupied : PALETTE.free,
+        baseClass,
+        colorClass,
         editable && !occupied ? "hover:border-primary hover:bg-primary/10 cursor-pointer" : "",
         disabled ? "opacity-50 cursor-not-allowed" : "",
+        occupied ? "cursor-pointer" : "",
       ].join(" ")}
     >
       {num}
@@ -309,38 +468,23 @@ function PassengerAssignRow({
   onClear: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors">
-      <div className="flex items-center gap-2 min-w-0">
-        {pending && <span className="size-2 rounded-full bg-amber-500 animate-pulse" />}
-        <span className="text-sm text-gray-900 dark:text-white truncate">{passenger.fullName}</span>
-        {passenger.seat && Number(passenger.seat) > 0 && (
-          <span className="text-xs text-gray-500 dark:text-gray-400">sjedište {passenger.seat}</span>
-        )}
+    <div className="flex items-center gap-2 py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-0">
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-gray-900 dark:text-white truncate">
+          {passenger.fullName}
+        </p>
       </div>
-      <div className="flex items-center gap-2">
-        {passenger.seat && Number(passenger.seat) > 0 ? (
-          <button
-            onClick={onClear}
-            disabled={busy}
-            className="text-xs px-2.5 py-1 rounded-md text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-50"
-          >
-            Ukloni
-          </button>
-        ) : (
-          <button
-            onClick={onSelect}
-            disabled={busy}
-            className={[
-              "text-xs px-2.5 py-1 rounded-md font-medium disabled:opacity-50",
-              pending
-                ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
-                : "bg-primary/10 text-primary hover:bg-primary/20",
-            ].join(" ")}
-          >
-            {pending ? "Čeka sjedište…" : "Dodijeli sjedište"}
-          </button>
-        )}
-      </div>
+      {pending ? (
+        <span className="text-xs text-amber-600">Seat pending…</span>
+      ) : (
+        <button
+          onClick={onSelect}
+          disabled={busy}
+          className="text-xs px-3 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-primary hover:text-white transition-colors"
+        >
+          Assign seat
+        </button>
+      )}
     </div>
   );
 }

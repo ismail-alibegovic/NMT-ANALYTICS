@@ -206,7 +206,7 @@ export default function Hotels() {
       <Modal isOpen={roomModalOpen} onClose={() => setRoomModalOpen(false)} className="m-4 max-w-2xl" title={selectedHotel ? `${selectedHotel.name} — ${tr.roomTypes || "Room Types"}` : (tr.roomTypes || "Room Types")}>
         <div className="max-h-[75vh] overflow-y-auto p-6">
           <div className="mb-6 grid gap-3 sm:grid-cols-5 sm:items-end">
-            <Field label={tr.roomType || "Type"}><Input placeholder="Double" value={roomType} onChange={(e) => setRoomType(e.target.value)} /></Field>
+            <Field label={tr.roomType || "Type"}><Input placeholder="e.g. 2-bed, 3-bed, twin, family" value={roomType} onChange={(e) => setRoomType(e.target.value)} /></Field>
             <Field label={tr.capacity || "Capacity"}><Input type="number" value={String(roomCapacity)} onChange={(e) => setRoomCapacity(Number(e.target.value) || 1)} /></Field>
             <Field label={tr.price || "Price"}><Input type="number" value={String(roomPrice)} onChange={(e) => setRoomPrice(Number(e.target.value) || 0)} /></Field>
             <Field label={tr.currency || "Currency"}>
@@ -247,7 +247,7 @@ export default function Hotels() {
               ]} />
             </Field>
           </div>
-          <Field label={tr.roomType || "Room type"}><Input placeholder="Double" value={allocRoomType} onChange={(e) => setAllocRoomType(e.target.value)} /></Field>
+          <Field label={tr.roomType || "Room type"}><Input placeholder="e.g. 2-bed, 3-bed, twin, family" value={allocRoomType} onChange={(e) => setAllocRoomType(e.target.value)} /></Field>
           <Field label={tr.roomsReserved || "Rooms reserved"}><Input type="number" value={String(allocRoomsReserved)} onChange={(e) => setAllocRoomsReserved(Number(e.target.value) || 0)} /></Field>
           <Field label={tr.checkIn || "Check-in"}><Input type="date" value={allocCheckIn} onChange={(e) => setAllocCheckIn(e.target.value)} /></Field>
           <Field label={tr.checkOut || "Check-out"}><Input type="date" value={allocCheckOut} onChange={(e) => setAllocCheckOut(e.target.value)} /></Field>

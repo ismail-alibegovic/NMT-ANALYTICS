@@ -41,6 +41,8 @@ import inquiryRoutes from './inquiries';
 import supplierRoutes from './suppliers';
 import itineraryRoutes from './itineraries';
 import quotationRoutes from './quotations';
+import passengerGroupsRoutes from './passengerGroups';
+import accommodationRoutes from './accommodation';
 
 const router = Router();
 
@@ -94,5 +96,7 @@ router.use('/', commissionRulesRoutes);
 router.use("/", flightRoutes);
 router.use('/admin', adminRoutes);
 router.use('/', aiRoutes);
+router.use('/', passengerGroupsRoutes);
+router.use('/', accommodationRoutes);
 
 export default router;

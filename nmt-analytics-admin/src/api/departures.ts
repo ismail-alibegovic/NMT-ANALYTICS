@@ -118,6 +118,13 @@ export interface DeparturePassenger {
   phone?: string;
   email?: string;
   seat?: string | number | null;
+  seatCategory?: string | null;
+  groupName?: string | null;
+  groupId?: string | null;
+  groupColor?: string | null;
+  groupSize?: number;
+  groupMemberIds?: string[];
+  passengerGroupName?: string | null;
   hotelName?: string | null;
   roomType?: string | null;
   checkIn?: string | null;

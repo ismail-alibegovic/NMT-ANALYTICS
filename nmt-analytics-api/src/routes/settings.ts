@@ -156,7 +156,7 @@ router.patch('/', auditSettingsUpdate, async (req, res: Response) => {
   const userId = req.user?.id;
 
   // Only allow updating columns that exist
-  const allowedUpdates = ['name', 'slug', 'phone', 'email', 'address', 'currency', 'timezone', 'tax_id', 'bank_account', 'invoice_footer', 'invoice_notes'];
+  const allowedUpdates = ['name', 'slug', 'phone', 'email', 'address', 'currency', 'timezone', 'tax_id', 'bank_account', 'invoice_footer', 'invoice_notes', 'email_sender_name', 'email_sender_address', 'sms_sender_name', 'sms_sender_number'];
   const updates: Record<string, unknown> = {};
   
   for (const key of allowedUpdates) {

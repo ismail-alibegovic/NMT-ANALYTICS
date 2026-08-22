@@ -17,6 +17,10 @@ interface OrgSettings {
   tax_id: string;
   bank_account: string;
   invoice_footer: string;
+  email_sender_name: string;
+  email_sender_address: string;
+  sms_sender_name: string;
+  sms_sender_number: string;
 }
 
 interface SmtpSettings {
@@ -64,8 +68,20 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<OrgSettings>({
-    name: '', slug: '', currency: 'BAM', timezone: 'Europe/Sarajevo',
-    email: '', phone: '', address: '', tax_id: '', bank_account: '', invoice_footer: '',
+    name: '',
+    slug: '',
+    currency: 'BAM',
+    timezone: 'Europe/Sarajevo',
+    email: '',
+    phone: '',
+    address: '',
+    tax_id: '',
+    bank_account: '',
+    invoice_footer: '',
+    email_sender_name: '',
+    email_sender_address: '',
+    sms_sender_name: '',
+    sms_sender_number: '',
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -154,9 +170,20 @@ export default function Settings() {
     try {
       const { data } = await api.get<OrgSettings>('/settings');
       setSettings({
-        name: data.name || '', slug: data.slug || '', currency: data.currency || 'BAM',
-        timezone: data.timezone || 'Europe/Sarajevo', email: data.email || '', phone: data.phone || '',
-        address: '', tax_id: data.tax_id || '', bank_account: data.bank_account || '', invoice_footer: data.invoice_footer || '',
+        name: data.name || '',
+        slug: data.slug || '',
+        currency: data.currency || 'BAM',
+        timezone: data.timezone || 'Europe/Sarajevo',
+        email: data.email || '',
+        phone: data.phone || '',
+        address: data.address || '',
+        tax_id: data.tax_id || '',
+        bank_account: data.bank_account || '',
+        invoice_footer: data.invoice_footer || '',
+        email_sender_name: data.email_sender_name || '',
+        email_sender_address: data.email_sender_address || '',
+        sms_sender_name: data.sms_sender_name || '',
+        sms_sender_number: data.sms_sender_number || '',
       });
     } catch (error) { console.error('Failed to fetch settings:', error);
     } finally { setLoading(false); }
@@ -402,6 +429,34 @@ export default function Settings() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Communication Sender Settings */}
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Komunikacijski pošiljaoci</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Ime i adresa/kontakt koji se prikazuju na mail i SMS porukama.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ime pošiljaoca e-mail</label>
+              <input type="text" value={settings.email_sender_name || ''} onChange={e => setSettings({ ...settings, email_sender_name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="Travline Travel" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">E-mail adresa pošiljaoca</label>
+              <input type="email" value={settings.email_sender_address || ''} onChange={e => setSettings({ ...settings, email_sender_address: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="info@travline.ba" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ime pošiljaoca SMS</label>
+              <input type="text" value={settings.sms_sender_name || ''} onChange={e => setSettings({ ...settings, sms_sender_name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="Travline" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SMS broj pošiljaoca</label>
+              <input type="text" value={settings.sms_sender_number || ''} onChange={e => setSettings({ ...settings, sms_sender_number: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="+38761..." />
+            </div>
+          </div>
         </div>
 
         {/* Invoice Settings */}

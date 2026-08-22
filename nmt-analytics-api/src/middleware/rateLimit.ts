@@ -8,8 +8,8 @@ const rateLimitHandler = (message: string) => (req: any, res: any) => {
 
 // Stricter rate limiter for auth-related endpoints
 export const strictRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isDev ? 1000 : 10, // Relax in dev
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: isDev ? 1000 : 60, // Relax in dev
   handler: rateLimitHandler('Too many authentication attempts, please try again later.'),
   standardHeaders: true,
   legacyHeaders: false,
