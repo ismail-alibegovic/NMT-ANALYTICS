@@ -9,7 +9,12 @@ import type { DeparturePassenger,
 import {
   getAccommodationBuildings,
   assignPassengerToRoom,
-  unassignPassengerFromRoom
+  unassignPassengerFromRoom,
+  generateRoomingProposal,
+  applyRoomingProposal,
+  type RoomingProposal,
+  type RoomingProposalItem,
+  type RoomingGroupSummary,
 } from "../../api/departures";
 
 interface Props {
@@ -27,6 +32,46 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
   const [loading, setLoading] = useState(true);
   const [refetchKey, setRefetchKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [proposal, setProposal] = useState<RoomingProposal | null>(null);
+  const [proposalLoading, setProposalLoading] = useState(false);
+  const [showProposal, setShowProposal] = useState(false);
+  const [applying, setApplying] = useState(false);
+
+  const handleGenerateProposal = async () => {
+    setProposalLoading(true);
+    setError(null);
+    try {
+      const p = await generateRoomingProposal(departureId);
+      setProposal(p);
+      setShowProposal(true);
+    } catch (err: any) {
+      setError(err?.message || rm.proposalFailed || 'Failed to generate proposal');
+    } finally {
+      setProposalLoading(false);
+    }
+  };
+
+  const handleApplyProposal = async () => {
+    if (!proposal) return;
+    setApplying(true);
+    setError(null);
+    try {
+      await applyRoomingProposal(departureId, new Date().toISOString());
+      setShowProposal(false);
+      setProposal(null);
+      setRefetchKey((k) => k + 1);
+    } catch (err: any) {
+      if (err?.message?.includes('stale') || err?.message?.includes('changed')) {
+        setError(rm.proposalStale || 'State changed since proposal — please regenerate.');
+        setProposal(null);
+        setShowProposal(false);
+      } else {
+        setError(err?.message || rm.proposalApplyFailed || 'Failed to apply proposal');
+      }
+    } finally {
+      setApplying(false);
+    }
+  };
 
   const fetchBuildings = useCallback(async () => {
     setLoading(true);

@@ -285,3 +285,52 @@ export async function assignPassengerToRoom(
 export async function unassignPassengerFromRoom(assignmentId: string): Promise<void> {
   await del(`/accommodation/assignments/${assignmentId}`);
 }
+
+// ── Phase 6C: Auto-Rooming ──
+export interface RoomingProposalItem {
+  passengerId: string;
+  passengerName: string;
+  groupId: string | null;
+  groupName: string | null;
+  groupColor: string | null;
+  roomId: string;
+  roomNumber: string;
+  buildingName: string;
+  floorNumber: number;
+  floorLabel: string | null;
+}
+
+export interface RoomingGroupSummary {
+  groupId: string;
+  groupName: string | null;
+  groupColor: string | null;
+  status: 'together' | 'split' | 'partial' | 'unassigned';
+  memberCount: number;
+  assignedCount: number;
+  assignedRoomIds: string[];
+}
+
+export interface RoomingProposal {
+  assignments: RoomingProposalItem[];
+  groupResults: RoomingGroupSummary[];
+  unplaced: { id: string; fullName: string }[];
+  warnings: string[];
+  summary: {
+    totalPassengers: number;
+    passengersProposed: number;
+    groupsTogether: number;
+    groupsSplit: number;
+    unplacedCount: number;
+    remainingCapacity: number;
+  };
+}
+
+export async function generateRoomingProposal(departureId: string): Promise<RoomingProposal> {
+  const r = await post<RoomingProposal>(`/departures/${departureId}/rooming/proposal`, {});
+  return r.data;
+}
+
+export async function applyRoomingProposal(departureId: string, snapshot: string): Promise<{ applied: number }> {
+  const r = await post<{ applied: number }>(`/departures/${departureId}/rooming/apply`, { snapshot });
+  return r.data;
+}

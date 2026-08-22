@@ -44,6 +44,7 @@ import quotationRoutes from './quotations';
 import passengerGroupsRoutes from './passengerGroups';
 import accommodationRoutes from './accommodation';
 import departurePassengersRoutes from './departurePassengers';
+import roomingRoutes from './rooming';
 
 const router = Router();
 
@@ -100,5 +101,6 @@ router.use('/', aiRoutes);
 router.use('/', passengerGroupsRoutes);
 router.use('/', accommodationRoutes);
 router.use('/', departurePassengersRoutes);
+router.use('/', roomingRoutes);
 
 export default router;
