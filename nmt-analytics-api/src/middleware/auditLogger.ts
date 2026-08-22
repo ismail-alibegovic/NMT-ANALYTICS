@@ -38,6 +38,7 @@ export type AuditEntity =
   | 'fiscal_submission'
   | 'notification'
   | 'hotel_room'
+  | 'accommodation_assignment'
   | 'hotel_allocation'
   | 'onboarding'
   | 'pdf_template'

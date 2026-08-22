@@ -4,6 +4,7 @@ import { requireOrgContext } from '../middleware/requireOrgContext';
 import { requireMinimumRole } from '../middleware/requireRole';
 import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
 import { apiError } from '../lib/errors';
+import { logAuditEntry } from '../middleware/auditLogger';
 import { z } from 'zod';
 
 const router = Router();
@@ -302,23 +303,31 @@ router.delete(
 
       const { data: assignment } = await supabaseAdmin
         .from('accommodation_assignments')
-        .select('room_id, bed_label')
+        .select('id, room_id, bed_label, passenger_id, passenger_name, reservation_id')
         .eq('id', assignmentId)
         .eq('org_id', orgId)
         .single();
 
-      if (assignment?.bed_label) {
+      if (!assignment) {
+        return apiError(res, 404, 'NOT_FOUND', 'Accommodation assignment not found');
+      }
+
+      if (assignment.bed_label) {
         const { data: room } = await supabaseAdmin
           .from('accommodation_rooms')
           .select('beds')
           .eq('id', assignment.room_id)
+          .eq('org_id', orgId)
           .single();
 
         if (room?.beds) {
           const beds = (room.beds as any[]).map((b: any) =>
             b.label === assignment.bed_label ? { ...b, assignedPassengerId: null } : b
           );
-          await supabaseAdmin.from('accommodation_rooms').update({ beds }).eq('id', assignment.room_id);
+          await supabaseAdmin.from('accommodation_rooms')
+            .update({ beds })
+            .eq('id', assignment.room_id)
+            .eq('org_id', orgId);
         }
       }
 
@@ -329,6 +338,21 @@ router.delete(
         .eq('org_id', orgId);
 
       if (error) return handleSupabaseError(res, error, 'Failed to remove assignment');
+
+      logAuditEntry({
+        org_id: orgId,
+        user_id: req.user?.id || 'system',
+        action: 'DELETE',
+        entity: 'accommodation_assignment',
+        entity_id: assignmentId,
+        metadata: {
+          passenger_id: assignment.passenger_id,
+          passenger_name: assignment.passenger_name,
+          room_id: assignment.room_id,
+          reservation_id: assignment.reservation_id,
+        },
+      });
+
       return res.status(204).send();
     } catch (err) {
       console.error('DELETE /accommodation/assignments/:assignmentId:', err);
