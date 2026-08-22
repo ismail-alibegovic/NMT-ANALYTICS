@@ -81,7 +81,12 @@ router.post('/departure-passengers', authenticateToken, requireOrgContext, async
       .select()
       .single();
 
-    if (error) return handleSupabaseError(res, error, 'Failed to create passenger');
+    if (error) {
+      if (isSeatConflict(error)) {
+        return apiError(res, 409, 'SEAT_CONFLICT', 'That seat is already assigned to another passenger on this departure.');
+      }
+      return handleSupabaseError(res, error, 'Failed to create passenger');
+    }
     res.status(201).json(data);
   } catch (err) {
     console.error('POST /departure-passengers:', err);
@@ -109,12 +114,30 @@ router.patch('/departure-passengers/:id', authenticateToken, requireOrgContext, 
       .select()
       .single();
 
-    if (error) return handleSupabaseError(res, error, 'Failed to update passenger');
+    if (error) {
+      if (isSeatConflict(error)) {
+        return apiError(res, 409, 'SEAT_CONFLICT', 'That seat is already assigned to another passenger on this departure.');
+      }
+      return handleSupabaseError(res, error, 'Failed to update passenger');
+    }
     res.json(data);
   } catch (err) {
     console.error('PATCH /departure-passengers/:id:', err);
     apiError(res, 500, 'INTERNAL_ERROR', 'Failed to update passenger');
   }
 });
+
+function isSeatConflict(err: unknown): boolean {
+  if (err && typeof err === 'object' && 'code' in err && (err as any).code === '23505') {
+    const msg: string = (err as any).message ?? '';
+    const detail: string = (err as any).details ?? '';
+    return (
+      msg.includes('idx_departure_passengers_departure_seat_unique') ||
+      msg.includes('bus_seat_categories_unique') ||
+      detail.includes('seat_number')
+    );
+  }
+  return false;
+}
 
 export default router;
