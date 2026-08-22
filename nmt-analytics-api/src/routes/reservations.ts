@@ -50,6 +50,18 @@ const createReservationSchema = z.object({
   // --- Nova Prodaja wizard selections ---
   // Optional pre-tax price, breakdown, and structured selections come straight from the wizard
   options: z.record(z.string(), z.any()).optional(),
+  passengers: z.array(z.object({
+    full_name: z.string().min(1),
+    id_document_type: z.string().optional(),
+    id_document_number: z.string().optional(),
+    date_of_birth: z.string().optional(),
+    nationality: z.string().optional(),
+    phone: z.string().optional(),
+    email: z.string().optional(),
+    notes: z.string().optional(),
+  })).optional(),
+  create_passenger_group: z.boolean().optional(),
+  group_name: z.string().optional(),
   notes: z.string().optional().nullable(),
   // Voucher-friendly mirror fields (persisted on the reservation so the downloadable voucher PDF renders them)
   hotelName: z.string().optional().nullable(),
@@ -220,7 +232,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       return apiError(res, 400, "VALIDATION_ERROR", "Invalid request body", validationResult.error.issues);
     }
 
-    const { departureId, status, partySize, customerId, upsert, options, notes, hotelName, roomType, checkIn, checkOut, tourGuide, customerEmail, assignedTo, ...rest } = validationResult.data;
+    const { departureId, status, partySize, customerId, upsert, options, notes, hotelName, roomType, checkIn, checkOut, tourGuide, customerEmail, assignedTo, passengers, create_passenger_group, group_name, ...rest } = validationResult.data;
     const orgId = req.orgId!;
     let capacityRv: any = null;
 
@@ -332,6 +344,147 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       return handleSupabaseError(res, insertError, "Failed to create reservation");
     }
     reservation = created;
+
+    // Create departure_passengers if provided
+    let createdPassengers: any[] = [];
+    let createdGroupId: string | null = null;
+    if (passengers && passengers.length > 0 && departureId) {
+      try {
+        const passengerRows = passengers.map((p: any) => ({
+          org_id: orgId,
+          departure_id: departureId,
+          reservation_id: reservation.id,
+          full_name: p.full_name,
+          id_document_type: p.id_document_type || null,
+          id_document_number: p.id_document_number || null,
+          date_of_birth: p.date_of_birth || null,
+          nationality: p.nationality || null,
+          phone: p.phone || null,
+          email: p.email || null,
+          notes: p.notes || null,
+        }));
+
+        const { data: paxData, error: paxErr } = await supabaseAdmin
+          .from('departure_passengers')
+          .insert(passengerRows)
+          .select('id, full_name');
+
+        if (paxErr) {
+          console.error('Failed to create departure_passengers:', paxErr.message);
+          // Rollback the reservation
+          await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
+          if (departureId && status === 'confirmed') {
+            await supabaseAdmin
+              .from('departures')
+              .update({ booked: Math.max(0, (capacityRv?.data?.booked_after ?? partySize) - partySize) })
+              .eq('id', departureId);
+          }
+          return apiError(res, 500, "PASSENGER_CREATE_FAILED", "Failed to create passengers", paxErr.message);
+        }
+        createdPassengers = paxData || [];
+
+        // Create passenger group if requested
+        if (create_passenger_group && createdPassengers.length > 1) {
+          const groupColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+          const { data: groupData, error: grpErr } = await supabaseAdmin
+            .from('trip_passenger_groups')
+            .insert({
+              org_id: orgId,
+              departure_id: departureId,
+              reservation_id: reservation.id,
+              name: group_name || (rest.customerName ? rest.customerName + ' Grupa' : 'Grupa putnika'),
+              color: groupColor,
+              primary_passenger_name: createdPassengers[0]?.full_name || null,
+              locked: false,
+            })
+            .select('id')
+            .single();
+
+          if (!grpErr && groupData) {
+            createdGroupId = groupData.id;
+            const memberRows = createdPassengers.map((p: any) => ({
+              group_id: groupData.id,
+              passenger_id: p.id,
+            }));
+            await supabaseAdmin.from('trip_passenger_group_members').insert(memberRows);
+          }
+        }
+      } catch (paxError) {
+        console.error('Error creating passengers:', paxError);
+        // Cleanup reservation on failure
+        await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
+        if (departureId && status === 'confirmed') {
+          await supabaseAdmin
+            .from('departures')
+            .update({ booked: Math.max(0, (capacityRv?.data?.booked_after ?? partySize) - partySize) })
+            .eq('id', departureId);
+        }
+        return apiError(res, 500, "PASSENGER_ERROR", "Failed to create passengers", String(paxError));
+      }
+    }
+
+    // Snapshot selected services and accommodation into reservations.options
+    if (departureId) {
+      try {
+        const pkgId = capacityRv?.data?.package_id || null;
+        const effectivePkgId = pkgId || (await supabaseAdmin
+          .from('departures')
+          .select('package_id')
+          .eq('id', departureId)
+          .single()
+          .then(r => r.data?.package_id || null));
+
+        const snapshot: any = { version: 1, captured_at: new Date().toISOString() };
+
+        if (effectivePkgId) {
+          // Snapshot package services
+          const { data: services } = await supabaseAdmin
+            .from('package_services')
+            .select('id, service_type, provider_name, description, unit_price, currency, quantity, total_price, is_optional')
+            .eq('package_id', effectivePkgId)
+            .eq('org_id', orgId);
+          snapshot.services = (services || []).map((s: any) => ({
+            id: s.id,
+            type: s.service_type,
+            provider: s.provider_name,
+            description: s.description,
+            unitPrice: Number(s.unit_price || 0),
+            currency: s.currency || 'BAM',
+            quantity: Number(s.quantity || 1),
+            totalPrice: Number(s.total_price || 0),
+            isOptional: Boolean(s.is_optional),
+          }));
+
+          // Snapshot package hotels
+          const { data: hotels } = await supabaseAdmin
+            .from('package_hotels')
+            .select('id, hotel_id, room_type, rooms_booked, price_per_person, currency, notes, hotels(name, address)')
+            .eq('package_id', effectivePkgId)
+            .eq('org_id', orgId);
+          snapshot.accommodation = (hotels || []).map((h: any) => ({
+            packageHotelId: h.id,
+            hotelId: h.hotel_id,
+            hotelName: h.hotels?.name || null,
+            roomType: h.room_type,
+            roomsBooked: h.rooms_booked,
+            pricePerPerson: Number(h.price_per_person || 0),
+            currency: h.currency || 'BAM',
+            notes: h.notes,
+          }));
+        }
+
+        // Merge snapshot into options, preserving any wizard-selected options
+        const existingOptions = (options as any) || {};
+        await supabaseAdmin
+          .from('reservations')
+          .update({ options: { ...existingOptions, booking_snapshot: snapshot } })
+          .eq('id', reservation.id)
+          .eq('org_id', orgId);
+      } catch (snapErr) {
+        console.error('Failed to snapshot booking data:', snapErr);
+        // Non-fatal — reservation is still valid
+      }
+    }
 
     try {
       const createdReservation = Array.isArray(reservation) ? reservation[0] : reservation;

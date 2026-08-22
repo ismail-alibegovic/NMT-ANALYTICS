@@ -20,6 +20,7 @@ const Customers = lazy(() => import("./pages/admin/Customers"));
 const CustomerDetail = lazy(() => import("./pages/CustomerDetail"));
 const Packages = lazy(() => import("./pages/admin/Packages"));
 const Reservations = lazy(() => import("./pages/Reservations"));
+const ReservationDetail = lazy(() => import("./pages/ReservationDetail"));
 const Inquiries = lazy(() => import("./pages/Inquiries"));
 const Suppliers = lazy(() => import("./pages/Suppliers"));
 const Itineraries = lazy(() => import("./pages/Itineraries"));
@@ -102,6 +103,7 @@ export default function App() {
           <Route path="/customers/:id" element={<SuspenseWrapper><CustomerDetail /></SuspenseWrapper>} />
           <Route path="/packages" element={<SuspenseWrapper><Packages /></SuspenseWrapper>} />
           <Route path="/reservations" element={<SuspenseWrapper><Reservations /></SuspenseWrapper>} />
+          <Route path="/reservations/:id" element={<SuspenseWrapper><ReservationDetail /></SuspenseWrapper>} />
           <Route path="/inquiries" element={<SuspenseWrapper><Inquiries /></SuspenseWrapper>} />
           <Route path="/suppliers" element={<SuspenseWrapper><Suppliers /></SuspenseWrapper>} />
           <Route path="/itineraries" element={<SuspenseWrapper><Itineraries /></SuspenseWrapper>} />

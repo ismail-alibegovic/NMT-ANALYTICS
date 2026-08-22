@@ -7,7 +7,7 @@ import { auditDepartureCreate, auditDepartureUpdate, auditDepartureDelete } from
 import { formatListResponse, paginationQuerySchema, dateRangeQuerySchema, getPaginationParams, getDateRangeParams } from '../utils/pagination';
 import { apiError } from "../lib/errors";
 import { requireMinimumRole } from '../middleware/requireRole';
-import { getDepartureStatus } from '../utils/business';
+import { getDepartureStatus, resolveDepartureCapabilities } from '../utils/business';
 
 const router = Router();
 
@@ -44,7 +44,7 @@ const createDepartureSchema = z.object({
   status: z.enum(['active', 'cancelled', 'completed']).default('active'),
   booked: z.coerce.number().int().min(0).default(0),
   upsert: z.boolean().default(false),
-  transportType: z.enum(['bus', 'flight', 'none']).default('none'),
+  transportType: z.enum(['bus', 'flight', 'none']).optional(),
 }).refine((data) => new Date(data.returnAt) > new Date(data.departAt), {
   message: 'Return date must be after departure date',
   path: ['returnAt'],
@@ -186,7 +186,7 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
 
     const { data: packageData, error: packageError } = await supabaseAdmin
       .from('packages')
-      .select('id, name, destination')
+      .select('id, name, destination, transport_type')
       .eq('id', packageId)
       .eq('org_id', orgId)
       .single();
@@ -206,7 +206,7 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
         capacity: capacity,
         booked: booked,
         status: status,
-        transport_type: transportType || 'none',
+        transport_type: transportType || packageData.transport_type || 'none',
       }, {
         onConflict: upsert ? 'org_id,package_id,depart_at' : undefined,
         ignoreDuplicates: !upsert
@@ -252,7 +252,7 @@ router.put('/departures/:id', authenticateToken, requireOrgContext, auditDepartu
 
     const { data: packageData, error: packageError } = await supabaseAdmin
       .from('packages')
-      .select('id, name, destination')
+      .select('id, name, destination, transport_type')
       .eq('id', packageId)
       .eq('org_id', orgId)
       .single();
@@ -421,7 +421,10 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
           name,
           destination,
           base_price,
-          currency
+          currency,
+          transport_type,
+          trip_type,
+          country
         )
       `)
       .eq('id', id)
@@ -433,7 +436,90 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
       return;
     }
 
-    res.json(transformDeparture(departure));
+    const pkg = (departure as any).packages;
+    const packageId = (departure as any).package_id;
+
+    // Resolve package services (defaults from the package template)
+    let packageServices: any[] = [];
+    if (packageId) {
+      const { data: svc, error: svcErr } = await supabaseAdmin
+        .from('package_services')
+        .select('*')
+        .eq('package_id', packageId)
+        .eq('org_id', orgId);
+      if (svcErr) console.error('package_services fetch (non-fatal):', svcErr);
+      else packageServices = svc || [];
+    }
+
+    // Resolve package hotels (accommodation options from the template)
+    let packageHotels: any[] = [];
+    if (packageId) {
+      const { data: ph, error: phErr } = await supabaseAdmin
+        .from('package_hotels')
+        .select('*, hotels:hotel_id(id, name, country, city)')
+        .eq('package_id', packageId);
+      if (phErr) console.error('package_hotels fetch (non-fatal):', phErr);
+      else packageHotels = ph || [];
+    }
+
+    // Resolve hotel allocations (operational room assignments for this departure)
+    let hotelAllocations: any[] = [];
+    {
+      const { data: alloc, error: allocErr } = await supabaseAdmin
+        .from('hotel_allocations')
+        .select('*, hotels:hotel_id(id, name)')
+        .eq('departure_id', id)
+        .eq('org_id', orgId);
+      if (allocErr) console.error('hotel_allocations fetch (non-fatal):', allocErr);
+      else hotelAllocations = alloc || [];
+    }
+
+    // Resolve accommodation buildings/rooms for this departure
+    let accommodationBuildings: any[] = [];
+    {
+      const { data: bldg, error: bldgErr } = await supabaseAdmin
+        .from('accommodation_buildings')
+        .select('*, floors:accommodation_floors(*, rooms:accommodation_rooms(*))')
+        .eq('departure_id', id)
+        .eq('org_id', orgId);
+      if (bldgErr) console.error('accommodation_buildings fetch (non-fatal):', bldgErr);
+      else accommodationBuildings = bldg || [];
+    }
+
+    // Resolve passenger groups for this departure
+    let passengerGroups: any[] = [];
+    {
+      const { data: grp, error: grpErr } = await supabaseAdmin
+        .from('trip_passenger_groups')
+        .select('*')
+        .eq('departure_id', id)
+        .eq('org_id', orgId);
+      if (grpErr) console.error('passenger_groups fetch (non-fatal):', grpErr);
+      else passengerGroups = grp || [];
+    }
+
+    // Resolve capabilities based on package + departure context
+    const transportType = (departure as any).transport_type || (pkg as any)?.transport_type || 'none';
+    const hasAccommodation = packageServices.some((s: any) =>
+      ['hotel', 'accommodation', 'apartment', 'hostel'].includes(s.service_type?.toLowerCase?.() || '')
+    ) || packageHotels.length > 0 || hotelAllocations.length > 0 || accommodationBuildings.length > 0;
+
+    const capabilities = resolveDepartureCapabilities(
+      departure as any,
+      pkg as any,
+      hasAccommodation,
+    );
+
+    const base = transformDeparture(departure);
+    res.json({
+      ...base,
+      packageServices,
+      packageHotels,
+      hotelAllocations,
+      accommodationBuildings,
+      passengerGroups,
+      capabilities,
+    });
   } catch (error) {
     console.error('Error in GET /departures/:id:', error);
     apiError(res, 500, "INTERNAL_ERROR", "Internal server error");

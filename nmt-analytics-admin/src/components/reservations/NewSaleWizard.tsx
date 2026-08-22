@@ -5,7 +5,7 @@ import Input from "../form/input/InputField";
 import Label from "../form/Label";
 import { useToast } from "../../context/ToastContext";
 import { getPackages, Package } from "../../api/packages";
-import { getDepartures, Departure } from "../../api/departures";
+import { getDepartures, Departure, DepartureCapabilities } from "../../api/departures";
 import { getCustomers, Customer } from "../../api/customers";
 import { createReservation } from "../../api/reservations";
 
@@ -13,12 +13,22 @@ type Step = "arrangement" | "details" | "review";
 
 const STEPS: { key: Step; label: string }[] = [
   { key: "arrangement", label: "Aranžman" },
-  { key: "details", label: "Detalji" },
-  { key: "review", label: "Pregled" },
+  { key: "details", label: "Klijent i Putnici" },
+  { key: "review", label: "Pregled i Plaćanje" },
 ];
 
 type TransportRequest = "bus" | "flight" | "none";
 type Variant = { id: string; name: string; priceModifier?: number; accommodation?: string };
+
+interface PassengerEntry {
+  full_name: string;
+  id_document_type?: string;
+  id_document_number?: string;
+  date_of_birth?: string;
+  nationality?: string;
+}
+
+type PaymentPlan = "full" | "deposit" | "installments";
 
 interface Props {
   isOpen: boolean;
@@ -54,8 +64,19 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const [totalAmount, setTotalAmount] = useState("");
   const [notes, setNotes] = useState("");
 
+  // NEW: Passenger entries
+  const [passengers, setPassengers] = useState<PassengerEntry[]>([]);
+  const [createGroup, setCreateGroup] = useState(false);
+  const [groupName, setGroupName] = useState("");
+
+  // NEW: Payment plan
+  const [paymentPlan, setPaymentPlan] = useState<PaymentPlan>("full");
+  const [depositPct, setDepositPct] = useState(50);
+  const [installmentCount, setInstallmentCount] = useState(3);
+
   const selectedPackage = packages.find((p) => p.id === packageId);
   const selectedDeparture = departures.find((d) => d.id === departureId);
+  const capabilities: DepartureCapabilities | undefined = (selectedDeparture as any)?.capabilities;
 
   const variants: Variant[] = Array.isArray(selectedPackage?.variants)
     ? (selectedPackage!.variants as unknown as Variant[])
@@ -64,6 +85,20 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
   const activeDepartures = departures.filter((d) => d.status === "active" && d.booked < d.capacity);
 
+  // Sync passenger count with party size
+  useEffect(() => {
+    setPassengers((prev) => {
+      const diff = partySize - prev.length;
+      if (diff > 0) {
+        return [...prev, ...Array(diff).fill(null).map(() => ({ full_name: "" }))];
+      }
+      if (diff < 0) {
+        return prev.slice(0, partySize);
+      }
+      return prev;
+    });
+  }, [partySize]);
+
   function reset() {
     setStep("arrangement");
     setPackageId(""); setDepartureId(""); setVariantId("");
@@ -71,6 +106,8 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     setCustomerSearch(""); setSelectedCustomerId(null);
     setCustomerName(""); setCustomerPhone(""); setCustomerEmail("");
     setPartySize(1); setTotalAmount(""); setNotes("");
+    setPassengers([]); setCreateGroup(false); setGroupName("");
+    setPaymentPlan("full"); setDepositPct(50); setInstallmentCount(3);
     setShowAdvanced(false);
   }
 
@@ -115,7 +152,6 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       .then((r) => {
         const deps = r.data ?? [];
         setDepartures(deps);
-        // Express mode: auto-select if exactly 1 active departure and no variants
         const active = deps.filter((d) => d.status === "active" && d.booked < d.capacity);
         const pkg = packages.find((p) => p.id === packageId);
         const pkgVariants = Array.isArray(pkg?.variants) ? pkg!.variants : [];
@@ -176,30 +212,52 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     if (submitting) return;
     setSubmitting(true);
     try {
+      const filledPassengers = passengers.filter((p) => p.full_name.trim());
+      const total = totalAmount ? Number(totalAmount) : 0;
+      const depositAmount = paymentPlan === "deposit" ? Math.round(total * (depositPct / 100)) : 0;
+
+      // Build structured booking snapshot
+      const bookingSnapshot: any = {
+        booking_snapshot_version: 1,
+        package_id: packageId,
+        package_name: selectedPackage?.name,
+        departure_label: selectedDeparture
+          ? `${new Date(selectedDeparture.depart_at).toLocaleDateString("bs-BA")} → ${new Date(selectedDeparture.return_at).toLocaleDateString("bs-BA")}`
+          : undefined,
+        variant_id: variantId || undefined,
+        variant_name: variants.find((v) => v.id === variantId)?.name,
+        transport_request: transport,
+        accommodation,
+        payment_plan: paymentPlan,
+        deposit_pct: paymentPlan === "deposit" ? depositPct : undefined,
+        deposit_amount: depositAmount || undefined,
+        installment_count: paymentPlan === "installments" ? installmentCount : undefined,
+        total_at_booking: total,
+        passengers_snapshot: filledPassengers.map((p) => ({
+          full_name: p.full_name,
+          id_document_type: p.id_document_type,
+          id_document_number: p.id_document_number,
+        })),
+      };
+
       await createReservation({
         customerName,
         customerPhone,
+        customerEmail: customerEmail || undefined,
         partySize,
         reservationAt: new Date().toISOString(),
         departureId: departureId || undefined,
-        totalAmount: totalAmount ? Number(totalAmount) : undefined,
+        totalAmount: total || undefined,
         source: "agent",
         customerId: selectedCustomerId || undefined,
         status: "pending",
         notes: notes || undefined,
         hotelName: selectedPackage?.destination || undefined,
         roomType: accommodation || undefined,
-        options: {
-          package_id: packageId,
-          package_name: selectedPackage?.name,
-          departure_label: selectedDeparture
-            ? `${new Date(selectedDeparture.depart_at).toLocaleDateString("bs-BA")}`
-            : undefined,
-          variant_id: variantId || undefined,
-          variant_name: variants.find((v) => v.id === variantId)?.name,
-          transport_request: transport,
-          accommodation,
-        },
+        options: bookingSnapshot,
+        passengers: filledPassengers.length > 0 ? filledPassengers : undefined,
+        create_passenger_group: createGroup && filledPassengers.length > 1,
+        group_name: groupName || undefined,
       } as any);
       success("Rezervacija kreirana");
       onCreated?.();
@@ -215,7 +273,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="max-w-3xl" title="Nova prodaja">
-      {/* Stepper — 3 steps */}
+      {/* Stepper */}
       <div className="px-6 pt-5">
         <ol className="flex items-center gap-2 text-xs">
           {STEPS.map((s, i) => {
@@ -232,7 +290,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                       : "bg-gray-100 text-gray-400 dark:bg-gray-800"
                   }`}
                 >
-                  {done ? "✓" : i + 1}
+                  {done ? "\u2713" : i + 1}
                 </span>
                 <span className={active ? "font-medium text-gray-900 dark:text-white" : "text-gray-500"}>{s.label}</span>
                 {i < STEPS.length - 1 && <span className="text-gray-300 dark:text-gray-700">→</span>}
@@ -243,9 +301,9 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       </div>
 
       <div className="p-6 pt-4">
-        {loading && <p className="text-sm text-gray-500">Učitavanje... </p>}
+        {loading && <p className="text-sm text-gray-500">Učitavanje...</p>}
 
-        {/* Step 1: Arrangement + Departure (combined) */}
+        {/* Step 1: Arrangement + Departure */}
         {step === "arrangement" && (
           <div className="space-y-4">
             <div>
@@ -279,7 +337,6 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               </div>
             </div>
 
-            {/* Departures appear inline when package selected */}
             {packageId && (
               <div>
                 <Label>Termin / Polazak *</Label>
@@ -327,12 +384,75 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
           </div>
         )}
 
-        {/* Step 2: Details — variants + transport + client (combined) */}
+        {/* Step 2: Client + Passengers + Options */}
         {step === "details" && (
           <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
-            {/* Variants + transport (only if variants exist or advanced toggled) */}
+            {/* Client section */}
+            <div className="space-y-3">
+              <div>
+                <Label>Pretraga postojećeg klijenta</Label>
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Upiši ime ili telefon..."
+                    value={customerSearch}
+                    onChange={(e) => {
+                      setCustomerSearch(e.target.value);
+                      if (!e.target.value) setSelectedCustomerId(null);
+                    }}
+                  />
+                  {customerSearch && filteredCustomers.length > 0 && (
+                    <div className="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {filteredCustomers.slice(0, 10).map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-0"
+                          onClick={() => pickCustomer(c)}
+                        >
+                          <div className="font-medium">{c.full_name}</div>
+                          <div className="text-xs text-gray-500">{c.phone}{c.email ? ` • ${c.email}` : ""}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {selectedCustomerId && (
+                  <p className="text-xs text-green-600 mt-1">✓ Odabran postojeći: {customerName}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label>Ime i prezime klijenta *</Label>
+                  <Input
+                    type="text"
+                    placeholder="Npr. Ahmed Hodžić"
+                    value={customerName}
+                    onChange={(e) => { setCustomerName(e.target.value); setSelectedCustomerId(null); }}
+                  />
+                </div>
+                <div>
+                  <Label>Telefon *</Label>
+                  <Input
+                    type="tel"
+                    placeholder="+387 61 234 567"
+                    value={customerPhone}
+                    onChange={(e) => { setCustomerPhone(e.target.value); setSelectedCustomerId(null); }}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label>Email</Label>
+                <Input type="email" placeholder="klijent@email.com" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} />
+              </div>
+            </div>
+
+            <hr className="border-gray-100 dark:border-gray-800" />
+
+            {/* Options (variants, transport, accommodation) */}
             {(hasVariants || showAdvanced) && (
-              <div className="space-y-3 pb-4 border-b border-gray-100 dark:border-gray-800">
+              <div className="space-y-3">
                 {hasVariants && (
                   <div>
                     <Label>Opcija paketa</Label>
@@ -390,7 +510,6 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               </div>
             )}
 
-            {/* Advanced toggle (only if no variants) */}
             {!hasVariants && !showAdvanced && (
               <button
                 type="button"
@@ -401,74 +520,79 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               </button>
             )}
 
-            {/* Client section */}
-            <div className="space-y-3">
-              <div>
-                <Label>Pretraga postojećeg klijenta</Label>
-                <div className="relative">
-                  <Input
-                    type="text"
-                    placeholder="Upiši ime ili telefon..."
-                    value={customerSearch}
-                    onChange={(e) => {
-                      setCustomerSearch(e.target.value);
-                      if (!e.target.value) setSelectedCustomerId(null);
-                    }}
-                  />
-                  {customerSearch && filteredCustomers.length > 0 && (
-                    <div className="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {filteredCustomers.slice(0, 10).map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-0"
-                          onClick={() => pickCustomer(c)}
-                        >
-                          <div className="font-medium">{c.full_name}</div>
-                          <div className="text-xs text-gray-500">{c.phone}{c.email ? ` • ${c.email}` : ""}</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {selectedCustomerId && (
-                  <p className="text-xs text-green-600 mt-1">✓ Odabran postojeći: {customerName}</p>
-                )}
-              </div>
+            <hr className="border-gray-100 dark:border-gray-800" />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label>Ime i prezime *</Label>
-                  <Input
-                    type="text"
-                    placeholder="Npr. Ahmed Hodžić"
-                    value={customerName}
-                    onChange={(e) => { setCustomerName(e.target.value); setSelectedCustomerId(null); }}
-                  />
-                </div>
-                <div>
-                  <Label>Telefon *</Label>
-                  <Input
-                    type="tel"
-                    placeholder="+387 61 234 567"
-                    value={customerPhone}
-                    onChange={(e) => { setCustomerPhone(e.target.value); setSelectedCustomerId(null); }}
-                  />
+            {/* Passenger entries */}
+            <div>
+              <div className="flex items-center justify-between">
+                <Label>Putnici ({partySize})</Label>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <span>Broj putnika:</span>
+                  <Input type="number" min="1" max="50" value={String(partySize)} onChange={(e) => setPartySize(Math.max(1, parseInt(e.target.value) || 1))} className="w-20 !py-1.5 !text-xs" />
                 </div>
               </div>
+              <p className="text-xs text-gray-500 -mt-1 mb-2">Klijent/booking holder može biti i jedan od putnika.</p>
+              <div className="space-y-2 max-h-[180px] overflow-y-auto">
+                {passengers.map((p, i) => (
+                  <div key={i} className="flex items-center gap-2 p-2 rounded-lg border border-gray-100 dark:border-gray-800">
+                    <span className="text-xs font-medium text-gray-400 w-5">{i + 1}.</span>
+                    <Input
+                      type="text"
+                      placeholder={`Putnik ${i + 1} - puno ime`}
+                      value={p.full_name}
+                      onChange={(e) => {
+                        setPassengers((prev) => {
+                          const next = [...prev];
+                          next[i] = { ...next[i], full_name: e.target.value };
+                          return next;
+                        });
+                      }}
+                      className="flex-1 !py-1.5 !text-sm"
+                    />
+                    {capabilities?.hasFlight && (
+                      <>
+                        <Input
+                          type="text"
+                          placeholder="Pas. br."
+                          value={p.id_document_number || ""}
+                          onChange={(e) => {
+                            setPassengers((prev) => {
+                              const next = [...prev];
+                              next[i] = { ...next[i], id_document_number: e.target.value, id_document_type: "passport" };
+                              return next;
+                            });
+                          }}
+                          className="w-28 !py-1.5 !text-sm"
+                        />
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {passengers.length > 1 && (
+                <label className="flex items-center gap-2 mt-3 text-sm cursor-pointer">
+                  <input type="checkbox" checked={createGroup} onChange={(e) => setCreateGroup(e.target.checked)} className="rounded" />
+                  Putnici putuju zajedno (grupa)
+                </label>
+              )}
+              {createGroup && (
+                <Input
+                  type="text"
+                  placeholder="Naziv grupe (opcionalno)"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  className="mt-2 !py-1.5 !text-sm"
+                />
+              )}
+            </div>
+
+            <hr className="border-gray-100 dark:border-gray-800" />
+
+            {/* Price + Notes */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <Label>Email</Label>
-                <Input type="email" placeholder="klijent@email.com" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <Label>Osoba</Label>
-                  <Input type="number" min="1" value={String(partySize)} onChange={(e) => setPartySize(Math.max(1, parseInt(e.target.value) || 1))} />
-                </div>
-                <div className="col-span-2">
-                  <Label>Ukupan iznos (BAM)</Label>
-                  <Input type="number" min="0" placeholder="0.00" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} />
-                </div>
+                <Label>Ukupan iznos (BAM)</Label>
+                <Input type="number" min="0" placeholder="0.00" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} />
               </div>
               <div>
                 <Label>Napomena</Label>
@@ -478,9 +602,9 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
           </div>
         )}
 
-        {/* Step 3: Review */}
+        {/* Step 3: Review + Payment */}
         {step === "review" && (
-          <div className="space-y-3">
+          <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
             <h3 className="font-semibold text-gray-900 dark:text-white">Pregled prodaje</h3>
             <dl className="rounded-xl border border-gray-200 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800 text-sm">
               <Row label="Klijent" value={customerName} />
@@ -489,14 +613,56 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               <Row label="Aranžman" value={selectedPackage?.name ?? "—"} />
               <Row label="Termin" value={selectedDeparture ? `${new Date(selectedDeparture.depart_at).toLocaleDateString("bs-BA")} → ${new Date(selectedDeparture.return_at).toLocaleDateString("bs-BA")}` : "—"} />
               {variantId ? <Row label="Opcija" value={variants.find((v) => v.id === variantId)?.name ?? "—"} /> : null}
-              {showAdvanced || hasVariants ? <>
-                <Row label="Prijevoz" value={transport === "flight" ? "Avion" : transport === "bus" ? "Autobus" : "Bez prijevoza"} />
-                <Row label="Smještaj" value={accommodation || "—"} />
-              </> : null}
-              <Row label="Osobe" value={String(partySize)} />
+              {(showAdvanced || hasVariants) && (
+                <>
+                  <Row label="Prijevoz" value={transport === "flight" ? "Avion" : transport === "bus" ? "Autobus" : "Bez prijevoza"} />
+                  <Row label="Smještaj" value={accommodation || "—"} />
+                </>
+              )}
+              <Row label="Putnici" value={`${partySize} ${passengers.filter((p) => p.full_name.trim()).length > 0 ? `(${passengers.filter((p) => p.full_name.trim()).map((p) => p.full_name).join(", ")})` : ""}`} />
+              {createGroup ? <Row label="Grupa" value={groupName || "Da"} /> : null}
               <Row label="Ukupno" value={`${totalAmount || "0"} BAM`} />
               {notes ? <Row label="Napomena" value={notes} /> : null}
             </dl>
+
+            {/* Payment plan */}
+            <div>
+              <Label>Način plaćanja</Label>
+              <div className="flex gap-2 mt-2 flex-wrap">
+                {(["full", "deposit", "installments"] as PaymentPlan[]).map((plan) => (
+                  <button
+                    key={plan}
+                    type="button"
+                    onClick={() => setPaymentPlan(plan)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                      paymentPlan === plan
+                        ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300"
+                        : "border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-400"
+                    }`}
+                  >
+                    {plan === "full" ? "Puna uplata" : plan === "deposit" ? "Depozit + ostatak" : "Rate"}
+                  </button>
+                ))}
+              </div>
+              {paymentPlan === "deposit" && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Label className="!m-0">Depozit %</Label>
+                  <Input type="number" min={1} max={99} value={String(depositPct)} onChange={(e) => setDepositPct(Math.min(99, Math.max(1, parseInt(e.target.value) || 10)))} className="w-20 !py-1.5 !text-sm" />
+                  <span className="text-xs text-gray-500">
+                    = {Math.round((totalAmount ? Number(totalAmount) : 0) * (depositPct / 100))} BAM
+                  </span>
+                </div>
+              )}
+              {paymentPlan === "installments" && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Label className="!m-0">Broj rata</Label>
+                  <Input type="number" min={2} max={24} value={String(installmentCount)} onChange={(e) => setInstallmentCount(Math.min(24, Math.max(2, parseInt(e.target.value) || 2)))} className="w-20 !py-1.5 !text-sm" />
+                  <span className="text-xs text-gray-500">
+                    ≈ {totalAmount ? Math.round(Number(totalAmount) / installmentCount) : 0} BAM / rata
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

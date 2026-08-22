@@ -24,6 +24,7 @@ import {
   getDeparturePassengers,
   getDepartureGroups,
   Departure,
+  DepartureCapabilities,
   DeparturePassenger,
   DepartureManifest,
   DepartureGroup,
@@ -143,7 +144,8 @@ export default function DepartureDetail() {
   const totalPaid = manifest?.summary.totalPaid ?? 0;
   const currency = manifest?.summary.currency || departure?.packages?.currency || "EUR";
   const allocations = manifest?.summary.allocations || [];
-  const transportConfigured = departure?.transport_type && departure.transport_type !== "none";
+  const capabilities: DepartureCapabilities | undefined = (departure as any)?.capabilities;
+  const transportConfigured = capabilities?.hasBusTransport || capabilities?.hasFlight || false;
   const readinessItems = departure ? [
     {
       label: "Kapacitet i putnička lista",
@@ -167,7 +169,7 @@ export default function DepartureDetail() {
       ready: totalGuests > 0 && totalDebt <= 0,
       action: () => navigate("/payments"),
     },
-    {
+    ...(capabilities?.hasAccommodation ? [{
       label: "Smještaj",
       detail: allocations.length > 0
         ? `${allocations.length} aktivnih hotelskih alokacija`
@@ -176,15 +178,15 @@ export default function DepartureDetail() {
           : "Smještaj nije dodijeljen",
       ready: allocations.length > 0,
       action: () => setActiveTab("hotels"),
-    },
-    {
+    }] : []),
+    ...(transportConfigured ? [{
       label: "Transport",
       detail: transportConfigured
         ? `${departure.transport_type === "flight" ? "Avionski" : "Autobuski"} prevoz · kapacitet ${departure.transport_capacity || departure.capacity}`
         : "Transport nije konfigurisan",
       ready: Boolean(transportConfigured),
       action: () => setActiveTab("passengers"),
-    },
+    }] : []),
   ] : [];
   const readyCount = readinessItems.filter((item) => item.ready).length;
   const readinessPct = readinessItems.length > 0 ? Math.round((readyCount / readinessItems.length) * 100) : 0;
@@ -229,7 +231,7 @@ export default function DepartureDetail() {
     { key: "overview", label: "Pregled" },
     { key: "passengers", label: "Putnici", count: totalGuests },
     { key: "groups", label: "Grupe", count: (groupBy === "hotel" ? groups?.byHotel : groups?.byAgent)?.length },
-    { key: "hotels", label: "Hoteli", count: hotelGroups.length },
+    ...(capabilities?.hasAccommodation ? [{ key: "hotels" as Tab, label: "Hoteli", count: hotelGroups.length }] : []),
   ];
 
   const currentGroups = groupBy === "hotel" ? groups?.byHotel || [] : groups?.byAgent || [];
@@ -264,7 +266,7 @@ export default function DepartureDetail() {
                 </span>
                 <span className="inline-flex items-center gap-2">
                   <PlugInIcon className="size-4 text-gray-400" aria-hidden="true" />
-                  {transportConfigured ? (departure.transport_type === "flight" ? "Avionski prevoz" : "Autobuski prevoz") : "Transport nije definisan"}
+                  {capabilities?.hasFlight ? "Avionski prevoz" : capabilities?.hasBusTransport ? "Autobuski prevoz" : "Transport nije definisan"}
                 </span>
               </div>
             </div>
@@ -281,7 +283,7 @@ export default function DepartureDetail() {
           <div className="grid border-t border-gray-200 dark:border-gray-800 sm:grid-cols-2 xl:grid-cols-4">
             <WorkspaceMetric icon={GroupIcon} label="Putnici" value={`${totalGuests}`} detail={`${confirmedGuests} potvrđeno`} />
             <WorkspaceMetric icon={DollarLineIcon} label="Naplaćeno" value={formatCurrency(totalPaid, currency)} detail={totalDebt > 0 ? `${formatCurrency(totalDebt, currency)} duga` : "Bez duga"} attention={totalDebt > 0} />
-            <WorkspaceMetric icon={BoxIcon} label="Smještaj" value={`${hotelGroups.length}`} detail={allocations.length > 0 ? `${allocations.length} alokacija` : "Bez alokacije"} attention={allocations.length === 0} />
+            {capabilities?.hasAccommodation && <WorkspaceMetric icon={BoxIcon} label="Smještaj" value={`${hotelGroups.length}`} detail={allocations.length > 0 ? `${allocations.length} alokacija` : "Bez alokacije"} attention={allocations.length === 0} />}
             <WorkspaceMetric icon={ListIcon} label="Operativna spremnost" value={`${readinessPct}%`} detail={`${readyCount} od ${readinessItems.length} stavki spremno`} attention={readinessPct < 100} />
           </div>
         </section>
@@ -360,7 +362,7 @@ export default function DepartureDetail() {
         {/* PASSENGERS TAB */}
         {activeTab === "passengers" && (
           <div className="space-y-6">
-            {(departure.transport_type === "bus" || departure.transport_type === "flight") && departure.capacity > 0 && passengers.length > 0 && (
+            {capabilities?.hasManagedSeatLayout && departure.capacity > 0 && passengers.length > 0 && (
               <SeatMap
                 passengers={normPax}
                 capacity={departure.capacity}

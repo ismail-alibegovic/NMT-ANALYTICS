@@ -70,6 +70,11 @@ export async function getPackages(filters: PackageFilters = {}, config?: any): P
   };
 }
 
+
+export async function getPackageById(id: string): Promise<Package & { services?: any[]; hotels?: any[]; departures?: any[] }> {
+  const { data } = await get<Package & { services?: any[]; hotels?: any[]; departures?: any[] }>(`/packages/${id}`);
+  return data;
+}
 export async function createPackage(data: any): Promise<Package> {
   const { data: result } = await post<Package>('/packages', data);
   return result;

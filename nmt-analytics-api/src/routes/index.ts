@@ -43,6 +43,7 @@ import itineraryRoutes from './itineraries';
 import quotationRoutes from './quotations';
 import passengerGroupsRoutes from './passengerGroups';
 import accommodationRoutes from './accommodation';
+import departurePassengersRoutes from './departurePassengers';
 
 const router = Router();
 
@@ -98,5 +99,6 @@ router.use('/admin', adminRoutes);
 router.use('/', aiRoutes);
 router.use('/', passengerGroupsRoutes);
 router.use('/', accommodationRoutes);
+router.use('/', departurePassengersRoutes);
 
 export default router;

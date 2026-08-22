@@ -341,4 +341,39 @@ router.get('/packages/export', authenticateToken, requireOrgContext, async (req:
   }
 });
 
+router.get('/packages/:id', authenticateToken, requireOrgContext, async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const orgId = req.user?.orgId;
+
+    const { data: pkg, error: pkgErr } = await supabaseAdmin
+      .from('packages')
+      .select('*')
+      .eq('id', id)
+      .eq('org_id', orgId)
+      .single();
+
+    if (pkgErr || !pkg) {
+      apiError(res, 404, 'NOT_FOUND', 'Package not found', 'The specified package does not exist or does not belong to your organization');
+      return;
+    }
+
+    const [servicesRes, hotelsRes, departuresRes] = await Promise.all([
+      supabaseAdmin.from('package_services').select('*').eq('package_id', id).eq('org_id', orgId),
+      supabaseAdmin.from('package_hotels').select('*, hotels!inner(id, name)').eq('package_id', id).eq('org_id', orgId),
+      supabaseAdmin.from('departures').select('id, depart_at, return_at, status, capacity, booked, transport_type').eq('package_id', id).eq('org_id', orgId).limit(100),
+    ]);
+
+    res.json(createSuccessResponse({
+      ...pkg,
+      package_services: servicesRes.data || [],
+      hotels: hotelsRes.data?.map((h: any) => ({ ...h, hotel_name: h.hotels?.name })) || [],
+      departures: departuresRes.data || [],
+    }, 'Package retrieved successfully'));
+  } catch (error) {
+    console.error('Error in GET /packages/:id:', error);
+    apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(error));
+  }
+});
+
 export default router;

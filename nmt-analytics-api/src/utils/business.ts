@@ -67,3 +67,50 @@ export function safeDate(dateString: any): string | null {
     const date = new Date(dateString);
     return isNaN(date.getTime()) ? null : date.toISOString();
 }
+
+/**
+ * Departure operational capabilities resolved from the departure row
+ * plus its joined package context. Used to drive conditional UI (tabs,
+ * warnings, controls) and to constrain operational workflows to the
+ * transport type, accommodation, and document rules that actually apply.
+ */
+export interface DepartureCapabilities {
+  transportType: 'bus' | 'flight' | 'none';
+  hasBusTransport: boolean;
+  hasFlight: boolean;
+  hasManagedSeatLayout: boolean;
+  hasAccommodation: boolean;
+}
+
+/**
+ * Resolve departure capabilities from a departure row (with joined packages).
+ *
+ * - departure-level transport_type overrides package-level transport_type.
+ * - hasAccommodation is true when the package has hotel-type services or
+ *   package_hotels links.
+ * - hasManagedSeatLayout is true only for bus transport (flight seat maps
+ *   are visual reference only; airline seat assignments are not managed).
+ */
+export function resolveDepartureCapabilities(
+  departure: { transport_type?: string | null; package_id?: string | null },
+  pkg?: { transport_type?: string | null; trip_type?: string | null; destination?: string | null } | null,
+  packageHasAccommodation = false,
+): DepartureCapabilities {
+  const effectiveTransportType =
+    (departure.transport_type && departure.transport_type !== 'none'
+      ? departure.transport_type
+      : pkg?.transport_type && pkg.transport_type !== 'none'
+        ? pkg.transport_type
+        : 'none') as 'bus' | 'flight' | 'none';
+
+  const isBus = effectiveTransportType === 'bus';
+  const isFlight = effectiveTransportType === 'flight';
+
+  return {
+    transportType: isBus ? 'bus' : isFlight ? 'flight' : 'none',
+    hasBusTransport: isBus,
+    hasFlight: isFlight,
+    hasManagedSeatLayout: isBus,
+    hasAccommodation: packageHasAccommodation,
+  };
+}

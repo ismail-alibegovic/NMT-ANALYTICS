@@ -183,3 +183,43 @@ export async function generateDocument(templateKey: string, entityType: string, 
   });
   return data;
 }
+
+
+export interface ReservationPassenger {
+  id: string;
+  reservation_id: string;
+  departure_id: string;
+  org_id: string;
+  full_name: string;
+  id_document?: string;
+  birth_date?: string;
+  nationality?: string;
+  created_at: string;
+}
+
+export interface ReservationInstallment {
+  id: string;
+  reservation_id: string;
+  installment_number: number;
+  amount: number;
+  due_date?: string;
+  status: string;
+  created_at: string;
+}
+
+export function formatReservationCurrency(amount: number, currency: string = 'BAM') {
+  return new Intl.NumberFormat('bs-BA', { style: 'currency', currency }).format(amount || 0);
+}
+
+export function formatReservationDate(dateStr?: string) {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString('bs-BA', { year: 'numeric', month: '2-digit', day: '2-digit' });
+}
+
+export function reservationPaymentStatusBadge(reservation: Reservation) {
+  const paid = Number(reservation.paidAmount ?? 0);
+  const total = Number(reservation.totalAmount ?? 0);
+  if (paid >= total && total > 0) return 'Paid';
+  if (paid > 0) return 'Partial';
+  return 'Unpaid';
+}

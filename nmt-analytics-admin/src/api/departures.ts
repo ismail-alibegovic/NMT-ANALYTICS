@@ -1,5 +1,13 @@
 import { get, post, patch, del } from './client';
 
+export interface DepartureCapabilities {
+  transportType: "bus" | "flight" | "none";
+  hasBusTransport: boolean;
+  hasFlight: boolean;
+  hasManagedSeatLayout: boolean;
+  hasAccommodation: boolean;
+}
+
 export interface Departure {
   id: string;
   package_id: string;
@@ -22,6 +30,13 @@ export interface Departure {
   // --- Nova Prodaja wizard support (migration 036) ---
   transport_type?: 'bus' | 'flight' | 'none';
   transport_capacity?: number | null;
+  // --- Phase 1 domain wiring ---
+  capabilities?: DepartureCapabilities;
+  packageServices?: any[];
+  packageHotels?: any[];
+  hotelAllocations?: any[];
+  accommodationBuildings?: any[];
+  passengerGroups?: any[];
 }
 
 export interface CreateDepartureData {
