@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useT } from "../../context/TranslationContext";
+import { useT } from "../../lib/i18n/context";
 import Button from "../ui/button/Button";
 import Badge from "../ui/badge/Badge";
 import type { DeparturePassenger,
@@ -110,7 +110,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     return (
       <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
         <div className="text-center text-gray-500">
-          {/* <Buildings */}<span className="mx-auto mb-3 size-10 opacity-30 />
+          {/* <Buildings */}<span className="mx-auto mb-3 size-10 opacity-30" />
           <p className="font-medium">Accommodation data unavailable</p>
           <p className="text-sm mt-1">{error}</p>
         </div>
@@ -122,7 +122,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     return (
       <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
         <div className="text-center text-gray-500">
-          {/* <Buildings */}<span className="mx-auto mb-3 size-10 opacity-30 />
+          {/* <Buildings */}<span className="mx-auto mb-3 size-10 opacity-30" />
           <p className="font-medium">No accommodation buildings</p>
           <p className="text-sm mt-1">Add accommodation buildings to start rooming passengers.</p>
         </div>
@@ -134,7 +134,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
       <div className="xl:col-span-1 space-y-3">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          {/* <User */}<span className="size-4 />
+          {/* <User */}<span className="size-4" />
           Unassigned passengers
           <Badge color="warning" size="sm">{unassignedPax.length}</Badge>
         </h3>
@@ -184,7 +184,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
 
       <div className="xl:col-span-2 space-y-3">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          {/* <Buildings */}<span className="size-4 />
+          {/* <Buildings */}<span className="size-4" />
           Accommodation
         </h3>
         <div className="space-y-4 max-h-[calc(100vh-300px)] overflow-y-auto">
@@ -254,7 +254,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
                                       className="text-gray-400 hover:text-red-500 transition-colors"
                                       title="Unassign"
                                     >
-                                      {/* <X */}<span className="size-3.5 />
+                                      {/* <X */}<span className="size-3.5" />
                                     </button>
                                   </div>
                                 );
