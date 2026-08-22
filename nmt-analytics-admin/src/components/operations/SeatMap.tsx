@@ -10,16 +10,7 @@ export interface SeatMapProps {
   onSeatChanged?: (passengerId: string, newSeat: number | null) => void;
 }
 
-const GROUP_PALETTE = [
-  "bg-rose-500 text-white border-rose-500",
-  "bg-sky-500 text-white border-sky-500",
-  "bg-amber-500 text-white border-amber-500",
-  "bg-emerald-500 text-white border-emerald-500",
-  "bg-violet-500 text-white border-violet-500",
-  "bg-cyan-500 text-white border-cyan-500",
-  "bg-orange-500 text-white border-orange-500",
-  "bg-pink-500 text-white border-pink-500",
-];
+
 const PALETTE = {
   free: "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700",
   occupied: "bg-primary text-white border-primary",
@@ -60,7 +51,7 @@ export default function SeatMap({
   const groupMap = useMemo(() => {
     const map = new Map<string, DeparturePassenger[]>();
     for (const p of passengers) {
-      const gid = p.groupId || p.groupName;
+      const gid = p.groupId;
       if (gid) {
         if (!map.has(gid)) map.set(gid, []);
         map.get(gid)!.push(p);
@@ -73,7 +64,7 @@ export default function SeatMap({
     const groups: { id: string; name: string; color: string; members: DeparturePassenger[] }[] = [];
     const seen = new Set<string>();
     for (const p of unassigned) {
-      const gid = p.groupId || p.groupName;
+      const gid = p.groupId;
       if (gid && !seen.has(gid)) {
         seen.add(gid);
         const members = groupMap.get(gid) || [p];
@@ -89,7 +80,7 @@ export default function SeatMap({
   }, [unassigned, groupMap]);
 
   const soloUnassigned = useMemo(
-    () => unassigned.filter((p) => !p.groupId && !p.groupName),
+    () => unassigned.filter((p) => !p.groupId),
     [unassigned]
   );
 
@@ -395,7 +386,7 @@ function Seat({
   const occupied = Boolean(passenger);
   const disabled = busy || (occupied && !editable);
 
-  const groupId = passenger?.groupId || passenger?.groupName || null;
+  const groupId = passenger?.groupId || null;
   const isHighlighted = highlightedGroupId && groupId === highlightedGroupId;
   const otherHighlighted = highlightedGroupId && groupId && groupId !== highlightedGroupId;
 
@@ -406,12 +397,6 @@ function Seat({
   if (occupied && passenger) {
     if (passenger.groupColor) {
       colorClass = `${passenger.groupColor} text-white border-transparent`;
-      if (otherHighlighted) colorClass += " opacity-30";
-      if (isHighlighted) colorClass += " ring-2 ring-white shadow-lg scale-110 z-10";
-    } else if (passenger.groupId || passenger.groupName) {
-      const hash = [...(groupId || "")].reduce((a, c) => a + c.charCodeAt(0), 0);
-      const idx = hash % GROUP_PALETTE.length;
-      colorClass = GROUP_PALETTE[idx];
       if (otherHighlighted) colorClass += " opacity-30";
       if (isHighlighted) colorClass += " ring-2 ring-white shadow-lg scale-110 z-10";
     } else {
