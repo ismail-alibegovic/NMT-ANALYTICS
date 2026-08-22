@@ -173,72 +173,30 @@ router.post(
         return apiError(res, 409, 'STALE_PROPOSAL', 'No matching passengers to assign — state may have changed');
       }
 
-      // Apply each assignment — use the existing assign endpoint logic
-      const applied: any[] = [];
-      const failures: string[] = [];
+      // Atomic apply via RPC — single Postgres transaction validates + inserts all assignments
+      const assignmentPayload = toApply.map(a => ({
+        passengerId: a.passengerId,
+        roomId: a.roomId,
+        passengerName: a.passengerName,
+      }));
 
-      for (const a of toApply) {
-        // Re-check room capacity
-        const { data: room } = await supabaseAdmin
-          .from('accommodation_rooms')
-          .select('id, capacity, beds')
-          .eq('id', a.roomId)
-          .eq('org_id', orgId)
-          .single();
+      const { data: rpcResult, error: rpcError } = await supabaseAdmin
+        .rpc('apply_accommodation_assignments_atomic', {
+          p_departure_id: departureId,
+          p_org_id: orgId,
+          p_assignments: assignmentPayload,
+        });
 
-        if (!room) { failures.push(`Room ${a.roomId} not found`); continue; }
-
-        const { count } = await supabaseAdmin
-          .from('accommodation_assignments')
-          .select('*', { count: 'exact', head: true })
-          .eq('room_id', a.roomId);
-        const occupied = count || 0;
-
-        if (occupied >= room.capacity) {
-          failures.push(`Room ${a.roomNumber} is full`);
-          continue;
-        }
-
-        // Check passenger still unassigned
-        const { data: existing } = await supabaseAdmin
-          .from('accommodation_assignments')
-          .select('id')
-          .eq('passenger_id', a.passengerId)
-          .maybeSingle();
-
-        if (existing) {
-          failures.push(`Passenger ${a.passengerName} already assigned`);
-          continue;
-        }
-
-        const { data: assignment, error } = await supabaseAdmin
-          .from('accommodation_assignments')
-          .insert({
-            org_id: orgId,
-            room_id: a.roomId,
-            passenger_id: a.passengerId,
-            passenger_name: a.passengerName,
-            assigned_by: req.user?.id,
-          })
-          .select().single();
-
-        if (error) {
-          if (error.code === '23505') {
-            failures.push(`Passenger ${a.passengerName} already in another room`);
-          } else {
-            failures.push(`Failed to assign ${a.passengerName}: ${error.message}`);
-          }
-          continue;
-        }
-
-        applied.push(assignment);
+      if (rpcError) {
+        return apiError(res, 409, 'CONFLICT', rpcError.message || 'Assignment conflict — regenerate proposal');
       }
 
-      if (failures.length === toApply.length && applied.length === 0) {
-        return apiError(res, 409, 'CONFLICT', 'All assignments failed — state may have changed since proposal', failures);
-      }
-
-      return res.json({ applied: applied.length, failed: failures.length, failures: failures.length > 0 ? failures : undefined });
+      const result = rpcResult?.[0] || { applied_count: 0, error_detail: '' };
+      return res.json({
+        applied: result.applied_count,
+        failed: toApply.length - (result.applied_count || 0),
+        error: result.error_detail || undefined,
+      });
     } catch (err) {
       console.error('POST /departures/:departureId/rooming/apply:', err);
       return apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err));
