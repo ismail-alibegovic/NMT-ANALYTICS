@@ -10,6 +10,7 @@ import {
   getAccommodationBuildings,
   assignPassengerToRoom,
   unassignPassengerFromRoom
+} from "../../api/departures";
 
 
 interface Props {
