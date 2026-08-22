@@ -319,10 +319,15 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
 
       {/* RIGHT — Accommodation */}
       <div className="xl:col-span-2 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          <span className="size-4" />
-          {rm.accommodation}
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <span className="size-4" />
+            {rm.accommodation}
+          </h3>
+          <Button size="sm" variant="outline" onClick={handleGenerateProposal} loading={proposalLoading}>
+            {rm.autoRoom || 'Automatski rasporedi'}
+          </Button>
+        </div>
         <div className="space-y-4 max-h-[calc(100vh-300px)] overflow-y-auto">
           {buildings.map((b) => (
             <div
@@ -409,6 +414,75 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
           ))}
         </div>
       </div>
+
+      {/* PROPOSAL MODAL */}
+      {showProposal && proposal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowProposal(false)}>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{rm.proposalTitle || 'Prijedlog rasporeda'}</h3>
+              <button onClick={() => setShowProposal(false)} className="text-gray-400 hover:text-gray-600">
+                <span className="size-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {proposal.items && proposal.items.length > 0 ? (
+                <>
+                  {/* Summary */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                    {proposal.placedCount != null && <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 text-center"><p className="text-2xl font-bold text-gray-900 dark:text-white">{proposal.placedCount}</p><p className="text-xs text-gray-500">{rm.placed || 'Raspoređeno'}</p></div>}
+                    {proposal.unplacedCount != null && proposal.unplacedCount > 0 && <div className="rounded-lg border border-amber-200 dark:border-amber-800 p-3 text-center"><p className="text-2xl font-bold text-amber-600">{proposal.unplacedCount}</p><p className="text-xs text-gray-500">{rm.unplaced || 'Nije raspoređeno'}</p></div>}
+                    {proposal.groupsKeptTogether != null && <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 text-center"><p className="text-2xl font-bold text-green-600">{proposal.groupsKeptTogether}</p><p className="text-xs text-gray-500">{rm.groupsKeptTogether || 'Grupe zajedno'}</p></div>}
+                    {proposal.groupsSplit != null && proposal.groupsSplit > 0 && <div className="rounded-lg border border-amber-200 dark:border-amber-800 p-3 text-center"><p className="text-2xl font-bold text-amber-600">{proposal.groupsSplit}</p><p className="text-xs text-gray-500">{rm.groupsSplit || 'Grupe razdvojene'}</p></div>}
+                  </div>
+                  {/* Group summaries */}
+                  {proposal.groups && proposal.groups.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-gray-500">{rm.groups || 'Grupe'}</p>
+                      {proposal.groups.map((g: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-800 p-3 text-sm">
+                          <div className="flex items-center gap-2">
+                            {g.color && <span className="size-3 rounded-full" style={{ background: g.color }} />}
+                            <span className="font-medium text-gray-900 dark:text-white">{g.name || g.id}</span>
+                          </div>
+                          <span className="text-xs text-gray-500">{(rm as any).groupStatus?.[g.status] || g.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* Items */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-gray-500">{rm.passengers || 'Putnici'}</p>
+                    {proposal.items.map((item: RoomingProposalItem, i: number) => (
+                      <div key={i} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-800 p-3 text-sm">
+                        <span className="font-medium text-gray-900 dark:text-white">{item.passenger_name}</span>
+                        <span className="text-xs text-gray-500">{item.room ?? '—'}{item.bed_label ? ' · ' + item.bed_label : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Warnings */}
+                  {proposal.warnings && proposal.warnings.length > 0 && (
+                    <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10 p-3">
+                      <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-2">{rm.warnings || 'Upozorenja'}</p>
+                      {proposal.warnings.map((w: any, i: number) => (
+                        <p key={i} className="text-xs text-amber-600 dark:text-amber-300">{w.type ? w.type + ': ' : ''}{w.message}</p>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-8">{rm.noProposal || 'Nema prijedloga'}</p>
+              )}
+            </div>
+            <div className="p-4 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setShowProposal(false)}>{rm.cancel || 'Otkaži'}</Button>
+              {proposal.items && proposal.items.length > 0 && (
+                <Button onClick={handleApplyProposal} loading={applying} disabled={applying}>{rm.apply || 'Primijeni'}</Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
