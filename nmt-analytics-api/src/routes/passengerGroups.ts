@@ -96,17 +96,26 @@ router.post(
         return apiError(res, 400, 'VALIDATION_ERROR', 'All passengers must belong to the same departure and organization');
       }
 
-      // Check for duplicate group membership
-      const { data: existingMembers } = await supabaseAdmin
-        .from('trip_passenger_group_members')
-        .select('passenger_id')
-        .eq('group_id', departureId)  // this won't work for filtering — let's check per-passenger
-        .in('passenger_id', memberIds)
-        .limit(memberIds.length);
+      // Check for duplicate group membership — fetch all groups for this departure, then check across them
+      const { data: departureGroups } = await supabaseAdmin
+        .from('trip_passenger_groups')
+        .select('id')
+        .eq('org_id', orgId)
+        .eq('departure_id', departureId);
 
-      if (existingMembers && existingMembers.length > 0) {
-        const alreadyGrouped = existingMembers.map((m: any) => m.passenger_id);
-        return apiError(res, 400, 'VALIDATION_ERROR', 'Some passengers are already members of another group', { alreadyGrouped });
+      const existingGroupIds = (departureGroups || []).map((g: any) => g.id);
+      if (existingGroupIds.length > 0) {
+        const { data: existingMembers } = await supabaseAdmin
+          .from('trip_passenger_group_members')
+          .select('passenger_id, group_id')
+          .in('group_id', existingGroupIds)
+          .in('passenger_id', memberIds)
+          .limit(memberIds.length);
+
+        if (existingMembers && existingMembers.length > 0) {
+          const alreadyGrouped = existingMembers.map((m: any) => m.passenger_id);
+          return apiError(res, 400, 'DUPLICATE_GROUP_MEMBERSHIP', 'Some passengers are already members of another group in this departure', { alreadyGrouped });
+        }
       }
 
       // All clear — create the group and members atomically
@@ -246,6 +255,27 @@ router.post(
         .single();
 
       if (!group) return apiError(res, 404, 'NOT_FOUND', 'Group not found');
+
+      // Check if passenger is already in any group for this departure
+      const { data: existingDepartureGroups } = await supabaseAdmin
+        .from('trip_passenger_groups')
+        .select('id')
+        .eq('org_id', orgId)
+        .eq('departure_id', group.departure_id);
+
+      const depGroupIds = (existingDepartureGroups || []).map((g: any) => g.id);
+      if (depGroupIds.length > 0) {
+        const { data: existingMember } = await supabaseAdmin
+          .from('trip_passenger_group_members')
+          .select('id')
+          .in('group_id', depGroupIds)
+          .eq('passenger_id', r.data.passengerId)
+          .limit(1);
+
+        if (existingMember && existingMember.length > 0) {
+          return apiError(res, 400, 'DUPLICATE_GROUP_MEMBERSHIP', 'Passenger is already a member of another group in this departure');
+        }
+      }
 
       // Validate passenger belongs to the same departure
       const { data: passenger } = await supabaseAdmin
