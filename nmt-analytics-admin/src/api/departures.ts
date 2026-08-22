@@ -213,3 +213,75 @@ export async function getDepartureGroups(id: string): Promise<{ byHotel: Departu
   const { data } = await get<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] }>(`/departures/${id}/groups`);
   return data;
 }
+
+
+// ─── Accommodation Rooming API ─────────────────────────────────────────────
+
+export interface AccommodationBuilding {
+  id: string;
+  name: string;
+  type: 'hotel' | 'hostel' | 'dormitory' | 'apartment' | 'other';
+  departure_id: string;
+  org_id: string;
+  address?: string;
+  contact?: string;
+  notes?: string;
+  floors?: AccommodationFloor[];
+}
+
+export interface AccommodationFloor {
+  id: string;
+  building_id: string;
+  floor_number: number;
+  label?: string;
+  rooms?: AccommodationRoom[];
+}
+
+export interface AccommodationRoom {
+  id: string;
+  floor_id: string;
+  building_id: string;
+  room_number: string;
+  type: 'single' | 'double' | 'triple' | 'quadruple' | 'custom';
+  capacity: number;
+  beds?: AccommodationBed[];
+  notes?: string;
+  assignments?: AccommodationAssignment[];
+}
+
+export interface AccommodationBed {
+  label: string;
+  assignedPassengerId?: string | null;
+}
+
+export interface AccommodationAssignment {
+  id: string;
+  room_id: string;
+  passenger_id: string | null;
+  passenger_name: string;
+  bed_label?: string | null;
+  reservation_id?: string | null;
+  assigned_by?: string | null;
+}
+
+export async function getAccommodationBuildings(departureId: string): Promise<AccommodationBuilding[]> {
+  const res = await get(`/departures/${departureId}/accommodation`);
+  return res.data ?? [];
+}
+
+export async function assignPassengerToRoom(
+  roomId: string,
+  passengerId: string,
+  passengerName: string,
+  reservationId: string,
+  bedLabel?: string | null
+): Promise<AccommodationAssignment> {
+  const res = await post(`/accommodation/rooms/${roomId}/assign`, {
+    roomId, passengerId, passengerName, reservationId, bedLabel: bedLabel || null,
+  });
+  return res.data;
+}
+
+export async function unassignPassengerFromRoom(assignmentId: string): Promise<void> {
+  await del(`/accommodation/assignments/${assignmentId}`);
+}

@@ -6,6 +6,7 @@ import Button from "../components/ui/button/Button";
 import EmptyState from "../components/ui/EmptyState";
 import { DataTable, Column } from "../components/ui/DataTable";
 import SeatMap from "../components/operations/SeatMap";
+import RoomingWorkspace from "../components/operations/RoomingWorkspace";
 import { useToast } from "../context/ToastContext";
 import {
   AlertIcon,
@@ -442,44 +443,23 @@ export default function DepartureDetail() {
           </div>
         )}
 
-        {/* HOTELS TAB */}
-        {activeTab === "hotels" && (
-          <div className="space-y-4">
-            {hotelGroups.length > 0 ? (
-              hotelGroups.map((h, idx) => (
-                <div key={idx} className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
-                  <div className="flex items-center justify-between px-6 py-4 bg-gray-50 dark:bg-white/[0.02] border-b border-gray-200 dark:border-gray-800">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-gray-900 dark:text-white">{h.label}</h4>
-                        {h.roomTypes.length > 0 && (
-                          <span className="text-xs text-gray-500">
-                            · {h.roomTypes.join(", ")}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {h.count} putnik{h.count !== 1 ? "a" : ""} ·
-                        {h.checkIn && h.checkOut ? ` ${formatDate(h.checkIn)} → ${formatDate(h.checkOut)}` : ""}
-                        {h.guides.length > 0 ? ` · Vodiči: ${h.guides.join(", ")}` : ""}
-                      </p>
-                    </div>
-                    <Badge color="primary" size="sm">{h.count}</Badge>
-                  </div>
-                  <div className="p-4">
-                    <DataTable data={h.passengers} columns={passengerCols.slice(0, 6)} />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
-                <EmptyState
-                  title="Nema dodijeljenih hotela"
-                  description="Putnici još nemaju dodijeljene hotele. Dodijelite hotele iz rezervacija da se pojave ovdje."
-                  action={{ label: "Idi na hotele", onClick: () => navigate("/operations/hotels") }}
-                />
-              </div>
-            )}
+        {/* HOTELS TAB — Rooming Workspace */}
+        {activeTab === "hotels" && capabilities?.hasAccommodation && (
+          <RoomingWorkspace
+            departureId={departure.id}
+            passengers={normPax}
+            departure={{
+              hasBusTransport: capabilities.hasBusTransport,
+              transportType: capabilities.transportType,
+            }}
+          />
+        )}
+        {activeTab === "hotels" && !capabilities?.hasAccommodation && (
+          <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
+            <EmptyState
+              title="Nema smještaja"
+              description="Ovaj polazak ne uključuje smještaj."
+            />
           </div>
         )}
       </div>

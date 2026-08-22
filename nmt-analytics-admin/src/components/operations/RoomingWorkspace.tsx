@@ -1,0 +1,277 @@
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useT } from "../../context/TranslationContext";
+import Button from "../ui/button/Button";
+import Badge from "../ui/badge/Badge";
+import type { DeparturePassenger,
+  AccommodationBuilding,
+  AccommodationFloor,
+  AccommodationAssignment } from "../../api/departures";
+import {
+  getAccommodationBuildings,
+  assignPassengerToRoom,
+  unassignPassengerFromRoom
+
+
+interface Props {
+  departureId: string;
+  passengers: DeparturePassenger[];
+  orgId?: string;
+}
+
+export default function RoomingWorkspace({ departureId, passengers }: Props) {
+  const { t } = useT();
+  const [buildings, setBuildings] = useState<AccommodationBuilding[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refetchKey, setRefetchKey] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchBuildings = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getAccommodationBuildings(departureId);
+      setBuildings(data || []);
+    } catch (err: any) {
+      setError(err?.message || "Failed to load accommodation data");
+    } finally {
+      setLoading(false);
+    }
+  }, [departureId, refetchKey]);
+
+  useEffect(() => { fetchBuildings(); }, [fetchBuildings]);
+
+  const assignedPaxIds = useMemo(() => {
+    const ids = new Set<string>();
+    buildings.forEach((b) =>
+      b.floors.forEach((f: AccommodationFloor) =>
+        f.rooms.forEach((r) => {
+          if (r.assignments) {
+            r.assignments.forEach((a: AccommodationAssignment) => {
+              if (a.passenger_id) ids.add(a.passenger_id);
+            });
+          }
+          if (r.beds) {
+            r.beds.forEach((bed) => {
+              if (bed.assignedPassengerId) ids.add(bed.assignedPassengerId);
+            });
+          }
+        })
+      )
+    );
+    return ids;
+  }, [buildings]);
+
+  const unassignedPax = useMemo(
+    () => passengers.filter((p) => !assignedPaxIds.has(p.passengerId ?? "")),
+    [passengers, assignedPaxIds]
+  );
+
+  const findAssignment = (passengerId: string): AccommodationAssignment | null => {
+    for (const b of buildings) {
+      for (const f of b.floors) {
+        for (const r of f.rooms) {
+          if (r.assignments) {
+            for (const a of r.assignments) {
+              if (a.passenger_id === passengerId) return a;
+            }
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  const handleAssign = async (passengerId: string, fullName: string, roomId: string, reservationId: string) => {
+    try {
+      await assignPassengerToRoom(roomId, passengerId, fullName, reservationId, null);
+      setRefetchKey((k) => k + 1);
+    } catch (err: any) {
+      setError(err?.message || "Assign failed");
+    }
+  };
+
+  const handleUnassign = async (passengerId: string) => {
+    const a = findAssignment(passengerId);
+    if (!a) return;
+    try {
+      await unassignPassengerFromRoom(a.id);
+      setRefetchKey((k) => k + 1);
+    } catch (err: any) {
+      setError(err?.message || "Unassign failed");
+    }
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center p-12 text-gray-400">Loading accommodation…</div>;
+  }
+
+  if (error && buildings.length === 0) {
+    return (
+      <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
+        <div className="text-center text-gray-500">
+          {/* <Buildings */}<span className="mx-auto mb-3 size-10 opacity-30 />
+          <p className="font-medium">Accommodation data unavailable</p>
+          <p className="text-sm mt-1">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (buildings.length === 0) {
+    return (
+      <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
+        <div className="text-center text-gray-500">
+          {/* <Buildings */}<span className="mx-auto mb-3 size-10 opacity-30 />
+          <p className="font-medium">No accommodation buildings</p>
+          <p className="text-sm mt-1">Add accommodation buildings to start rooming passengers.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="xl:col-span-1 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          {/* <User */}<span className="size-4 />
+          Unassigned passengers
+          <Badge color="warning" size="sm">{unassignedPax.length}</Badge>
+        </h3>
+        {unassignedPax.length === 0 ? (
+          <p className="text-sm text-gray-400">All passengers assigned.</p>
+        ) : (
+          <div className="space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
+            {unassignedPax.map((p) => (
+              <div
+                key={p.passengerId ?? p.id ?? Math.random()}
+                className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-3"
+              >
+                <div
+                  className="size-3 rounded-full shrink-0"
+                  style={{ background: p.groupColor || "#9ca3af" }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                    {p.fullName}
+                  </p>
+                  {p.groupName && (
+                    <p className="text-xs text-gray-500">{p.groupName}</p>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const firstRoom = buildings[0]?.floors[0]?.rooms[0];
+                    if (firstRoom) {
+                      handleAssign(
+                        p.passengerId ?? p.id ?? "",
+                        p.fullName,
+                        firstRoom.id,
+                        p.reservationId ?? ""
+                      );
+                    }
+                  }}
+                >
+                  Assign
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="xl:col-span-2 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          {/* <Buildings */}<span className="size-4 />
+          Accommodation
+        </h3>
+        <div className="space-y-4 max-h-[calc(100vh-300px)] overflow-y-auto">
+          {buildings.map((b) => (
+            <div
+              key={b.id}
+              className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] overflow-hidden"
+            >
+              <div className="px-5 py-3 bg-gray-50 dark:bg-white/[0.02] border-b border-gray-200 dark:border-gray-800">
+                <h4 className="font-semibold text-gray-900 dark:text-white">{b.name}</h4>
+                <p className="text-xs text-gray-500">
+                  {b.type} · {b.floors?.length ?? 0} floor{(b.floors?.length ?? 0) !== 1 ? "s" : ""}
+                </p>
+              </div>
+              {b.floors?.map((f: AccommodationFloor) => (
+                <div key={f.id} className="p-4 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-3">Floor {f.floor_number}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {f.rooms?.map((r) => {
+                      const capacity = r.capacity ?? 0;
+                      const occupiedCount = r.assignments?.length ?? 0;
+                      const isFull = capacity > 0 && occupiedCount >= capacity;
+                      return (
+                        <div
+                          key={r.id}
+                          className={`rounded-lg border p-3 ${
+                            isFull
+                              ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/10"
+                              : "border-gray-200 dark:border-gray-800"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                Room {r.room_number}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {r.type ?? "Room"} · {occupiedCount}/{capacity}
+                                {isFull && <span className="ml-1 text-amber-600 dark:text-amber-400 font-medium">Full</span>}
+                              </p>
+                            </div>
+                            <Badge color={isFull ? "warning" : "success"} size="sm">
+                              {capacity - occupiedCount} free
+                            </Badge>
+                          </div>
+                          {r.assignments && r.assignments.length > 0 ? (
+                            <div className="space-y-1.5">
+                              {r.assignments.map((a: AccommodationAssignment) => {
+                                const pax = passengers.find((p) => p.passengerId === a.passenger_id);
+                                return (
+                                  <div
+                                    key={a.id}
+                                    className="flex items-center gap-2 rounded-md bg-gray-50 dark:bg-white/[0.04] px-2.5 py-1.5"
+                                  >
+                                    <div
+                                      className="size-2.5 rounded-full shrink-0"
+                                      style={{ background: pax?.groupColor || "#9ca3af" }}
+                                    />
+                                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate flex-1">
+                                      {a.passenger_name}
+                                    </span>
+                                    {a.bed_label && (
+                                      <span className="text-xs text-gray-400 font-mono">{a.bed_label}</span>
+                                    )}
+                                    <button
+                                      onClick={() => handleUnassign(a.passenger_id!)}
+                                      className="text-gray-400 hover:text-red-500 transition-colors"
+                                      title="Unassign"
+                                    >
+                                      {/* <X */}<span className="size-3.5 />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400">No passengers assigned</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
