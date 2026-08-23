@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, type ComponentType, type SVGProps } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
+import { useT } from "../lib/i18n/context";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
@@ -29,6 +30,8 @@ import {
   DeparturePassenger,
   DepartureManifest,
   DepartureGroup,
+  updateDeparturePassenger,
+  type PassengerDocumentStatus,
 } from "../api/departures";
 
 const formatCurrency = (amount: number, currency = "BAM") =>
@@ -71,6 +74,7 @@ export default function DepartureDetail() {
   const [groups, setGroups] = useState<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [docFilter, setDocFilter] = useState<"all" | "ready" | "attention">("all");
   const [searchParams] = useSearchParams();
   // Deep-link support: /departures/:id?tab=passengers opens straight to the seat map.
   useEffect(() => {
@@ -147,6 +151,7 @@ export default function DepartureDetail() {
   const allocations = manifest?.summary.allocations || [];
   const capabilities: DepartureCapabilities | undefined = (departure as any)?.capabilities;
   const transportConfigured = capabilities?.hasBusTransport || capabilities?.hasFlight || false;
+  const t = useT();
   const readinessItems = departure ? [
     {
       label: "Kapacitet i putnička lista",
@@ -188,6 +193,14 @@ export default function DepartureDetail() {
       ready: Boolean(transportConfigured),
       action: () => setActiveTab("passengers"),
     }] : []),
+    ...(capabilities?.needTravelDocuments ? [{
+      label: t("departure.documents"),
+      detail: departure?.documentReadiness?.attentionPassengerCount
+        ? `${departure.documentReadiness.attentionPassengerCount} putnika zahtijeva pažnju`
+        : "Svi putnici imaju ispravne dokumente",
+      ready: !(departure?.documentReadiness?.attentionPassengerCount),
+      action: () => { setActiveTab("passengers"); setDocFilter("attention"); },
+    }] : []),
   ] : [];
   const readyCount = readinessItems.filter((item) => item.ready).length;
   const readinessPct = readinessItems.length > 0 ? Math.round((readyCount / readinessItems.length) * 100) : 0;
@@ -203,6 +216,34 @@ export default function DepartureDetail() {
     { key: "debtAmount", header: "Dug", render: (v) => Number(v) > 0 ? <span className="text-error-600 font-semibold">{formatCurrency(Number(v), "EUR")}</span> : <span className="text-gray-400">—</span> },
     { key: "status", header: "Status", render: (v) => statusBadge(String(v)) },
   ];
+
+
+  const docStatusCol: Column<DeparturePassenger> = {
+    key: "documentReadinessStatus",
+    header: t("departure.documents"),
+    render: (v) => {
+      const s = String(v);
+      const label = t(`departure.documentStatus.${s}`) || s;
+      if (s === "ready") return <span className="text-success-600 dark:text-success-400 text-xs font-medium">{label}</span>;
+      if (s === "missing") return <span className="text-warning-600 dark:text-warning-400 text-xs font-medium">{label}</span>;
+      if (s === "expired_before_departure" || s === "expired_before_return") return <span className="text-error-600 dark:text-error-400 text-xs font-medium">{label}</span>;
+      if (s === "not_required") return <span className="text-gray-400 text-xs">{label}</span>;
+      return <span className="text-gray-400">—</span>;
+    },
+  };
+
+  const allPassengerCols = capabilities?.needTravelDocuments
+    ? [...passengerCols, docStatusCol]
+    : passengerCols;
+
+  const filteredPassengers = useMemo(() => {
+    if (!capabilities?.needTravelDocuments || docFilter === "all") return passengers;
+    const needsAttention = (p: DeparturePassenger) =>
+      !p.documentReadinessStatus || (p.documentReadinessStatus !== "ready" && p.documentReadinessStatus !== "not_required");
+    if (docFilter === "ready") return passengers.filter((p) => p.documentReadinessStatus === "ready");
+    if (docFilter === "attention") return passengers.filter(needsAttention);
+    return passengers;
+  }, [passengers, docFilter, capabilities?.needTravelDocuments]);
 
   if (loading) {
     return (
@@ -381,8 +422,27 @@ export default function DepartureDetail() {
               />
             )}
             <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
+              {capabilities?.needTravelDocuments && (
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("departure.documentReadiness")}:</span>
+                  {(["all", "ready", "attention"] as const).map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setDocFilter(f)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                        docFilter === f
+                          ? "bg-brand-500 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      {t(`departure.docFilter.${f === "all" ? "all" : f === "ready" ? "ready" : "attention"}`)}
+                    </button>
+                  ))}
+                </div>
+              )}
               {passengers.length > 0 ? (
-                <DataTable data={normPax} columns={passengerCols} />
+                <DataTable data={filteredPassengers} columns={allPassengerCols} />
               ) : (
                 <EmptyState
                   title="Nema putnika"
