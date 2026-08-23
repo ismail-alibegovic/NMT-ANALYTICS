@@ -28,8 +28,9 @@ interface SmtpSettings {
   port: string;
   user: string;
   pass: string;
-  from_email: string;
-  from_name: string;
+  secure: boolean;
+  fromEmail: string;
+  fromName: string;
 }
 
 interface BrandingSettings {
@@ -87,7 +88,7 @@ export default function Settings() {
 
   const [showSmtpForm, setShowSmtpForm] = useState(false);
   const [smtpSettings, setSmtpSettings] = useState<SmtpSettings>({
-    host: '', port: '587', user: '', pass: '', from_email: '', from_name: ''
+    host: '', port: '587', secure: false, user: '', pass: '', fromEmail: '', fromName: ''
   });
   const [smtpSaving, setSmtpSaving] = useState(false);
   const [smtpMessage, setSmtpMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -193,8 +194,8 @@ export default function Settings() {
     try {
       const { data } = await api.get<SmtpSettings>('/settings/email');
       if (data) setSmtpSettings({
-        host: data.host || '', port: data.port || '587', user: data.user || '',
-        pass: '', from_email: data.from_email || '', from_name: data.from_name || ''
+        host: data.host || '', port: String(data.port || '587'), secure: !!data.secure, user: data.user || '',
+        pass: '', fromEmail: data.fromEmail || '', fromName: data.fromName || ''
       });
     } catch (error) { console.error('Failed to fetch SMTP settings:', error); }
   };
@@ -231,16 +232,21 @@ export default function Settings() {
     } finally { setBrandingSaving(false); }
   };
 
+  const smtpPayload = () => ({
+    ...smtpSettings,
+    port: Number(smtpSettings.port),
+  });
+
   const handleSaveSmtp = async () => {
     setSmtpSaving(true);
-    try { await api.post('/settings/email', smtpSettings); setShowSmtpForm(false); showSmtpMessage(t.settings.smtpSaved, 'success'); }
+    try { await api.post('/settings/email', smtpPayload()); setShowSmtpForm(false); showSmtpMessage(t.settings.smtpSaved, 'success'); }
     catch (e: any) { showSmtpMessage(e.message || t.errors.generic, 'error'); }
     finally { setSmtpSaving(false); }
   };
 
   const handleTestEmail = async () => {
     setTesting(true);
-    try { await api.post('/settings/email/test', { to: testEmail }); showSmtpMessage(t.settings.testEmailSent, 'success'); }
+    try { await api.post('/settings/email/test', { to: testEmail || undefined }); showSmtpMessage(t.settings.testEmailSent, 'success'); }
     catch (e: any) { showSmtpMessage(e.message || t.errors.generic, 'error'); }
     finally { setTesting(false); }
   };
@@ -405,12 +411,12 @@ export default function Settings() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.smtpFromEmail}</label>
-                  <input type="email" value={smtpSettings.from_email} onChange={(e) => setSmtpSettings({...smtpSettings, from_email: e.target.value})}
+                  <input type="email" value={smtpSettings.fromEmail} onChange={(e) => setSmtpSettings({...smtpSettings, fromEmail: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="noreply@kompanija.ba" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.smtpFromName}</label>
-                  <input type="text" value={smtpSettings.from_name} onChange={(e) => setSmtpSettings({...smtpSettings, from_name: e.target.value})}
+                  <input type="text" value={smtpSettings.fromName} onChange={(e) => setSmtpSettings({...smtpSettings, fromName: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="Travline" />
                 </div>
               </div>
