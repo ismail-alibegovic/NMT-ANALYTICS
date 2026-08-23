@@ -330,7 +330,7 @@ export async function generateRoomingProposal(departureId: string): Promise<Room
   return r.data;
 }
 
-export async function applyRoomingProposal(departureId: string, snapshot: string): Promise<{ applied: number }> {
-  const r = await post<{ applied: number }>(`/departures/${departureId}/rooming/apply`, { snapshot });
+export async function applyRoomingProposal(departureId: string, assignmentIds: string[]): Promise<{ applied: number }> {
+  const r = await post<{ applied: number }>(`/departures/${departureId}/rooming/apply`, { assignmentIds });
   return r.data;
 }

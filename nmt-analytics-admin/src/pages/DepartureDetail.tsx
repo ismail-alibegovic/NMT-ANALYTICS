@@ -60,7 +60,7 @@ const statusBadge = (status: string) => {
   return <Badge color={colors[status] || "light"} size="sm">{status.toUpperCase()}</Badge>;
 };
 
-type Tab = "overview" | "passengers" | "groups" | "hotels";
+type Tab = "overview" | "passengers" | "razvrstavanje" | "drustva" | "hotels";
 
 export default function DepartureDetail() {
   const { id } = useParams<{ id: string }>();
@@ -75,7 +75,7 @@ export default function DepartureDetail() {
   // Deep-link support: /departures/:id?tab=passengers opens straight to the seat map.
   useEffect(() => {
     const t = searchParams.get("tab");
-    if (t === "passengers" || t === "groups" || t === "hotels" || t === "overview") {
+    if (t === "passengers" || t === "razvrstavanje" || t === "drustva" || t === "hotels" || t === "overview") {
       setActiveTab(t as Tab);
     }
   }, [searchParams]);
@@ -231,7 +231,8 @@ export default function DepartureDetail() {
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: "overview", label: "Pregled" },
     { key: "passengers", label: "Putnici", count: totalGuests },
-    { key: "groups", label: "Grupe", count: (groupBy === "hotel" ? groups?.byHotel : groups?.byAgent)?.length },
+    { key: "razvrstavanje", label: "Razvrstavanje", count: (groupBy === "hotel" ? groups?.byHotel : groups?.byAgent)?.length },
+    { key: "drustva", label: "Društva" },
     ...(capabilities?.hasAccommodation ? [{ key: "hotels" as Tab, label: "Hoteli", count: hotelGroups.length }] : []),
   ];
 
@@ -393,8 +394,8 @@ export default function DepartureDetail() {
           </div>
         )}
 
-        {/* GROUPS TAB */}
-        {activeTab === "groups" && (
+        {/* RAZVRSTAVANJE TAB */}
+        {activeTab === "razvrstavanje" && (
           <div>
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -440,6 +441,24 @@ export default function DepartureDetail() {
                 <EmptyState title="Nema grupa" description={`Nema podataka za grupisanje po ${groupBy === "hotel" ? "hotelu" : "agentu"}.`} />
               </div>
             )}
+          </div>
+        )}
+
+        {/* DRUSTVA TAB */}
+        {activeTab === "drustva" && (manifest as any)?.passengerGroups && (
+          <DrustvaTab
+            groups={(manifest as any).passengerGroups}
+            passengers={normPax}
+            groupMembers={(manifest as any).groupMembers || []}
+            groupById={(manifest as any).groupById || {}}
+          />
+        )}
+        {activeTab === "drustva" && !(manifest as any)?.passengerGroups && (
+          <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
+            <EmptyState
+              title="Nema društava"
+              description="Za ovaj polazak još nisu formirana putnička društva."
+            />
           </div>
         )}
 
