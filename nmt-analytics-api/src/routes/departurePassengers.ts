@@ -9,6 +9,21 @@ import { formatListResponse, paginationQuerySchema, getPaginationParams } from '
 
 const router = Router();
 
+const VALID_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isValidCalendarDate(v: string): boolean {
+  const d = new Date(v + "T00:00:00Z");
+  if (isNaN(d.getTime())) return false;
+  const [y, m, day] = v.split("-").map(Number);
+  return d.getUTCFullYear() === y && d.getUTCMonth() + 1 === m && d.getUTCDate() === day;
+}
+
+const dateStringNullable = z
+  .string()
+  .regex(VALID_DATE, "Must be YYYY-MM-DD")
+  .refine(isValidCalendarDate, "Invalid calendar date")
+  .nullable();
+
 const createSchema = z.object({
   reservation_id: z.string().uuid(),
   departure_id: z.string().uuid(),
@@ -19,7 +34,7 @@ const createSchema = z.object({
   id_document_type: z.enum(['passport', 'id_card', 'none']).optional(),
   nationality: z.string().optional(),
   date_of_birth: z.string().optional(),
-  id_document_expiry: z.string().optional().nullable(),
+  id_document_expiry: dateStringNullable.optional(),
   seat_number: z.number().int().optional(),
   notes: z.string().optional(),
 });
@@ -33,7 +48,7 @@ const updateSchema = z.object({
   id_document_type: z.enum(['passport', 'id_card', 'none']).optional(),
   nationality: z.string().optional(),
   date_of_birth: z.string().optional(),
-  id_document_expiry: z.string().optional().nullable(),
+  id_document_expiry: dateStringNullable.optional(),
   notes: z.string().optional(),
 });
 
