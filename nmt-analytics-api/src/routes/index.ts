@@ -18,6 +18,7 @@ import aiRoutes from './ai';
 import settingsRoutes from './settings';
 import notificationsRoutes from './notifications';
 import emailSettingsRoutes from './emailSettings';
+import smsSettingsRoutes from './smsSettings';
 import paylinksRoutes from './paylinks';
 import publicRoutes from './public';
 import signupRoutes from './signup';
@@ -75,6 +76,7 @@ router.use('/', quotationRoutes);
 router.use('/', paymentsRoutes);
 router.use('/', notificationsRoutes);
 router.use('/settings/email', emailSettingsRoutes);
+router.use('/settings/sms', smsSettingsRoutes);
 router.use('/paylinks', paylinksRoutes);
 router.use('/settings', settingsRoutes);
 
