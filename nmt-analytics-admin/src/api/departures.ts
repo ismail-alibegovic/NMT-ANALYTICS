@@ -4,8 +4,20 @@ export interface DepartureCapabilities {
   transportType: "bus" | "flight" | "none";
   hasBusTransport: boolean;
   hasFlight: boolean;
+  flightConfigured?: boolean;
   hasManagedSeatLayout: boolean;
   hasAccommodation: boolean;
+  needTravelDocuments?: boolean;
+}
+
+export interface LinkedFlight {
+  id: string;
+  airline: string;
+  flight_number: string;
+  departure_airport: string;
+  arrival_airport: string;
+  departure_time: string;
+  arrival_time: string;
 }
 
 export interface Departure {
@@ -32,6 +44,14 @@ export interface Departure {
   transport_capacity?: number | null;
   // --- Phase 1 domain wiring ---
   capabilities?: DepartureCapabilities;
+  linkedFlight?: LinkedFlight | null;
+  documentReadiness?: {
+    totalRequiredPassengers: number;
+    readyPassengerCount: number;
+    attentionPassengerCount: number;
+    missingPassengerCount: number;
+    expiredPassengerCount: number;
+  };
   packageServices?: any[];
   packageHotels?: any[];
   hotelAllocations?: any[];
@@ -57,6 +77,7 @@ export interface UpdateDepartureData {
   booked?: number;
   status?: 'active' | 'cancelled' | 'completed';
   transportType?: 'bus' | 'flight' | 'none';
+  flight_id?: string | null;
 }
 
 export interface DepartureFilters {

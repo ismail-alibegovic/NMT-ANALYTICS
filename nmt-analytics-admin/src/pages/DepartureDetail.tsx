@@ -29,6 +29,7 @@ import {
   getDeparture,
   getDeparturePassengers,
   getDepartureGroups,
+  updateDeparture,
   Departure,
   DepartureCapabilities,
   DeparturePassenger,
@@ -37,6 +38,7 @@ import {
   updateDeparturePassenger,
   type PassengerDocumentStatus,
 } from "../api/departures";
+import { getFlights, type Flight } from "../api/flights";
 
 const formatCurrency = (amount: number, currency = "BAM") =>
   new Intl.NumberFormat("bs-BA", { style: "currency", currency }).format(amount || 0);
@@ -94,6 +96,11 @@ export default function DepartureDetail() {
   const [docForm, setDocForm] = useState<Record<string, string>>({});
   const [docSaving, setDocSaving] = useState(false);
   const [docError, setDocError] = useState<string | null>(null);
+  const [flightModalOpen, setFlightModalOpen] = useState(false);
+  const [flights, setFlights] = useState<Flight[]>([]);
+  const [flightsLoading, setFlightsLoading] = useState(false);
+  const [flightSaving, setFlightSaving] = useState(false);
+  const [flightError, setFlightError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -181,12 +188,46 @@ export default function DepartureDetail() {
       setDeparture(freshDep);
       setEditingPassenger(null);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || t("common.error");
+      const msg = err?.response?.data?.message || err?.message || t.common.error;
       setDocError(msg);
     } finally {
       setDocSaving(false);
     }
   };
+
+  const openFlightSelector = async () => {
+    setFlightModalOpen(true);
+    setFlightError(null);
+    setFlightsLoading(true);
+    try {
+      const result = await getFlights({ active: "true", limit: 100 });
+      setFlights(result.data || []);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || t.departure.loadFlightsError;
+      setFlightError(msg);
+    } finally {
+      setFlightsLoading(false);
+    }
+  };
+
+  const handleLinkFlight = async (flightId: string | null) => {
+    if (!id) return;
+    setFlightSaving(true);
+    setFlightError(null);
+    try {
+      await updateDeparture(id, { flight_id: flightId });
+      const freshDep = await getDeparture(id);
+      setDeparture(freshDep);
+      setFlightModalOpen(false);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || t.departure.saveFlightError;
+      setFlightError(msg);
+    } finally {
+      setFlightSaving(false);
+    }
+  };
+
+  const handleUnlinkFlight = () => handleLinkFlight(null);
 
   const totalGuests = manifest?.summary.totalGuests ?? departure?.booked ?? 0;
   const occupancyPct = departure && departure.capacity > 0
@@ -241,6 +282,12 @@ export default function DepartureDetail() {
         : "Transport nije konfigurisan",
       ready: Boolean(transportConfigured),
       action: () => setActiveTab("passengers"),
+    }] : []),
+    ...(capabilities?.hasFlight && !capabilities?.flightConfigured ? [{
+      label: t.departure.flightNotConfigured,
+      detail: t.departure.flightNotConfiguredDetail,
+      ready: false,
+      action: openFlightSelector,
     }] : []),
     ...(capabilities?.needTravelDocuments ? [{
       label: t.departure.documents,
@@ -435,6 +482,50 @@ export default function DepartureDetail() {
                   </div>
                 </div>
               </div>
+              {capabilities?.hasFlight && (
+                <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
+                  <div className={`rounded-xl border p-4 ${
+                    departure.linkedFlight
+                      ? "border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-white/[0.02]"
+                      : "border-warning-200 bg-warning-50 dark:border-warning-500/30 dark:bg-warning-500/10"
+                  }`}>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{t.departure.flightContext}</p>
+                        {departure.linkedFlight ? (
+                          <>
+                            <h3 className="mt-1 text-sm font-semibold text-gray-950 dark:text-white">
+                              {departure.linkedFlight.airline} {departure.linkedFlight.flight_number}
+                            </h3>
+                            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                              {departure.linkedFlight.departure_airport} → {departure.linkedFlight.arrival_airport}
+                            </p>
+                            <div className="mt-3 grid gap-2 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-2">
+                              <span>{t.departure.departureTime}: {formatDateTime(departure.linkedFlight.departure_time)}</span>
+                              <span>{t.departure.arrivalTime}: {formatDateTime(departure.linkedFlight.arrival_time)}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <h3 className="mt-1 text-sm font-semibold text-warning-700 dark:text-warning-400">{t.departure.flightNotConfigured}</h3>
+                            <p className="mt-1 max-w-2xl text-sm text-warning-700/90 dark:text-warning-300">{t.departure.flightNotConfiguredDetail}</p>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                        <Button variant="outline" size="sm" onClick={openFlightSelector} className="justify-center">
+                          {departure.linkedFlight ? t.departure.changeFlight : t.departure.linkFlight}
+                        </Button>
+                        {departure.linkedFlight && (
+                          <Button variant="outline" size="sm" onClick={handleUnlinkFlight} disabled={flightSaving} className="justify-center">
+                            {t.departure.unlinkFlight}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
                 {readinessItems.map((item) => (
                   <button
@@ -694,10 +785,92 @@ export default function DepartureDetail() {
 
           <div className="mt-6 flex justify-end gap-3">
             <Button variant="outline" onClick={() => setEditingPassenger(null)} disabled={docSaving}>
-              {t("common.cancel")}
+              {t.common.cancel}
             </Button>
             <Button onClick={handleDocSave} disabled={docSaving}>
-              {docSaving ? t("common.saving") : t("common.save")}
+              {docSaving ? t.common.saving : t.common.save}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={flightModalOpen}
+        onClose={() => setFlightModalOpen(false)}
+        className="max-w-2xl"
+      >
+        <div className="p-5 sm:p-6">
+          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">{t.departure.selectFlight}</h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t.departure.flightNotConfiguredDetail}</p>
+            </div>
+            {departure?.linkedFlight && (
+              <Button variant="outline" size="sm" onClick={handleUnlinkFlight} disabled={flightSaving} className="justify-center">
+                {t.departure.unlinkFlight}
+              </Button>
+            )}
+          </div>
+
+          {flightError && (
+            <div className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-500/10 dark:text-error-400">
+              {flightError}
+            </div>
+          )}
+
+          {flightsLoading ? (
+            <div className="space-y-3">
+              {[0, 1, 2].map((item) => (
+                <div key={item} className="h-20 animate-pulse rounded-xl bg-gray-100 dark:bg-white/[0.04]" />
+              ))}
+            </div>
+          ) : flights.length > 0 ? (
+            <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+              {flights.map((flight) => {
+                const selected = departure?.linkedFlight?.id === flight.id;
+                return (
+                  <div
+                    key={flight.id}
+                    className={`rounded-xl border p-4 ${
+                      selected
+                        ? "border-brand-300 bg-brand-50 dark:border-brand-500/40 dark:bg-brand-500/10"
+                        : "border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.02]"
+                    }`}
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-semibold text-gray-950 dark:text-white">
+                          {flight.airline} {flight.flightNumber}
+                        </h3>
+                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                          {flight.departureAirport} → {flight.arrivalAirport}
+                        </p>
+                        <div className="mt-3 grid gap-2 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-2">
+                          <span>{t.departure.departureTime}: {formatDateTime(flight.departureTime)}</span>
+                          <span>{t.departure.arrivalTime}: {formatDateTime(flight.arrivalTime)}</span>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={selected ? "outline" : "primary"}
+                        onClick={() => handleLinkFlight(flight.id)}
+                        disabled={flightSaving || selected}
+                        className="justify-center"
+                      >
+                        {selected ? t.departure.flightReady : t.departure.linkFlight}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState title={t.departure.noFlights} description={t.departure.flightNotConfiguredDetail} />
+          )}
+
+          <div className="mt-6 flex justify-end">
+            <Button variant="outline" onClick={() => setFlightModalOpen(false)} disabled={flightSaving}>
+              {t.common.cancel}
             </Button>
           </div>
         </div>
