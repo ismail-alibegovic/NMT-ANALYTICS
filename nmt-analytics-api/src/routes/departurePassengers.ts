@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
 import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
+import { logAuditEntry } from '../middleware/auditLogger';
 import { z } from 'zod';
 import { apiError } from '../lib/errors';
 import { formatListResponse, paginationQuerySchema, getPaginationParams } from '../utils/pagination';
@@ -35,6 +36,15 @@ const updateSchema = z.object({
   id_document_expiry: z.string().optional().nullable(),
   notes: z.string().optional(),
 });
+
+/** Which PATCH fields carry document data (for audit). */
+const DOCUMENT_FIELDS = new Set([
+  'id_document_number',
+  'id_document_type',
+  'nationality',
+  'date_of_birth',
+  'id_document_expiry',
+]);
 
 /**
  * GET /api/departure-passengers
@@ -108,6 +118,7 @@ router.patch('/departure-passengers/:id', authenticateToken, requireOrgContext, 
     }
 
     const orgId = req.orgId!;
+
     const { data, error } = await supabaseAdmin
       .from('departure_passengers')
       .update(parsed.data)
@@ -122,6 +133,26 @@ router.patch('/departure-passengers/:id', authenticateToken, requireOrgContext, 
       }
       return handleSupabaseError(res, error, 'Failed to update passenger');
     }
+
+    // Audit: log when document fields changed, but do NOT copy the actual
+    // document number/value into the audit detail (privacy).
+    const changedDocFields = Object.keys(parsed.data).filter((k) => DOCUMENT_FIELDS.has(k));
+    if (changedDocFields.length > 0 && req.user!.id) {
+      await logAuditEntry({
+        org_id: orgId,
+        user_id: req.user!.id,
+        action: 'UPDATE',
+        entity: 'departure_passenger',
+        entity_id: id,
+        metadata: {
+          changed_document_fields: changedDocFields,
+          note: 'Passenger travel-document data updated.',
+        },
+      }).catch((auditErr) => {
+        console.warn('PATCH passenger audit log failed:', auditErr);
+      });
+    }
+
     res.json(data);
   } catch (err) {
     console.error('PATCH /departure-passengers/:id:', err);

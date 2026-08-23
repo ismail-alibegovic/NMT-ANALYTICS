@@ -80,6 +80,12 @@ export interface DepartureCapabilities {
   hasFlight: boolean;
   hasManagedSeatLayout: boolean;
   hasAccommodation: boolean;
+  /** Travel-document readiness applies to this departure (flight OR explicit flag). */
+  needTravelDocuments: boolean;
+  /** Raw opt-in flag from the departures row. */
+  documentReadinessRequired: boolean;
+  /** Flight departure has a linked flight configured. null for non-flight departures. */
+  flightConfigured: boolean | null;
 }
 
 /**
@@ -92,7 +98,12 @@ export interface DepartureCapabilities {
  *   are visual reference only; airline seat assignments are not managed).
  */
 export function resolveDepartureCapabilities(
-  departure: { transport_type?: string | null; package_id?: string | null },
+  departure: {
+    transport_type?: string | null;
+    package_id?: string | null;
+    document_readiness_required?: boolean | null;
+    flight_id?: string | null;
+  },
   pkg?: { transport_type?: string | null; trip_type?: string | null; destination?: string | null } | null,
   packageHasAccommodation = false,
 ): DepartureCapabilities {
@@ -105,6 +116,7 @@ export function resolveDepartureCapabilities(
 
   const isBus = effectiveTransportType === 'bus';
   const isFlight = effectiveTransportType === 'flight';
+  const documentReadinessRequired = departure.document_readiness_required === true;
 
   return {
     transportType: isBus ? 'bus' : isFlight ? 'flight' : 'none',
@@ -112,5 +124,8 @@ export function resolveDepartureCapabilities(
     hasFlight: isFlight,
     hasManagedSeatLayout: isBus,
     hasAccommodation: packageHasAccommodation,
+    needTravelDocuments: isFlight || documentReadinessRequired,
+    documentReadinessRequired,
+    flightConfigured: isFlight ? departure.flight_id != null : null,
   };
 }

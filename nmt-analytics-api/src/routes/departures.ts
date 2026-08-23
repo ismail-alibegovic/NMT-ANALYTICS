@@ -8,6 +8,7 @@ import { formatListResponse, paginationQuerySchema, dateRangeQuerySchema, getPag
 import { apiError } from "../lib/errors";
 import { requireMinimumRole } from '../middleware/requireRole';
 import { getDepartureStatus, resolveDepartureCapabilities } from '../utils/business';
+import { computePassengerDocumentReadiness, summarizeDocumentReadiness, toTravelDateKey } from '../lib/documentReadiness';
 
 const router = Router();
 
@@ -58,6 +59,8 @@ const putDepartureSchema = z.object({
   status: z.enum(['active', 'cancelled', 'completed']).default('active'),
   booked: z.coerce.number().int().min(0).optional(),
   transportType: z.enum(['bus', 'flight', 'none']).optional(),
+  flight_id: z.string().uuid().nullable().optional(),
+  document_readiness_required: z.boolean().optional(),
 }).transform((data) => ({
   ...data,
   departAt: data.departAt.includes('Z') ? data.departAt : data.departAt.endsWith(':00') ? data.departAt + 'Z' : data.departAt + ':00Z',
@@ -249,7 +252,7 @@ router.put('/departures/:id', authenticateToken, requireOrgContext, auditDepartu
       return;
     }
 
-    const { packageId, departAt, returnAt, capacity, status, booked, transportType } = validationResult.data;
+    const { packageId, departAt, returnAt, capacity, status, booked, transportType, flight_id, document_readiness_required } = validationResult.data;
     const orgId = req.orgId!;
 
     const { data: packageData, error: packageError } = await supabaseAdmin
@@ -274,6 +277,8 @@ router.put('/departures/:id', authenticateToken, requireOrgContext, auditDepartu
         status: status,
         transport_type: transportType || undefined,
         ...(booked !== undefined ? { booked } : {}),
+        ...(flight_id !== undefined ? { flight_id } : {}),
+        ...(document_readiness_required !== undefined ? { document_readiness_required } : {}),
       })
       .eq('id', id)
       .eq('org_id', orgId)
@@ -317,7 +322,7 @@ router.patch('/departures/:id', authenticateToken, requireOrgContext, auditDepar
       return;
     }
 
-    const { packageId, departAt, returnAt, capacity, status, booked, transportType } = validationResult.data;
+    const { packageId, departAt, returnAt, capacity, status, booked, transportType, flight_id, document_readiness_required } = validationResult.data;
     const orgId = req.orgId!;
 
     if (packageId) {
@@ -342,6 +347,8 @@ router.patch('/departures/:id', authenticateToken, requireOrgContext, auditDepar
     if (status !== undefined) updateData.status = status;
     if (booked !== undefined) updateData.booked = booked;
     if (transportType !== undefined) updateData.transport_type = transportType;
+    if (flight_id !== undefined) updateData.flight_id = flight_id;
+    if (document_readiness_required !== undefined) updateData.document_readiness_required = document_readiness_required;
 
     const { data: departure, error } = await supabaseAdmin
       .from('departures')
@@ -541,7 +548,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
     // Verify departure exists + belongs to org
     const { data: departure, error: depErr } = await supabaseAdmin
       .from('departures')
-      .select('id, depart_at, return_at, capacity, booked, package_id, packages(id, name, destination, currency)')
+      .select('id, depart_at, return_at, capacity, booked, package_id, transport_type, flight_id, document_readiness_required, packages(id, name, destination, currency, transport_type)')
       .eq('id', id)
       .eq('org_id', orgId)
       .single();
@@ -609,7 +616,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
     if (reservationIds.length > 0) {
       const { data: passRows, error: passErr } = await supabaseAdmin
         .from('departure_passengers')
-        .select('id, reservation_id, full_name, seat_number, notes')
+        .select('id, reservation_id, full_name, seat_number, notes, id_document_type, id_document_number, id_document_expiry, nationality, date_of_birth')
         .eq('departure_id', id)
         .eq('org_id', orgId)
         .order('seat_number', { ascending: true, nullsFirst: false });
@@ -750,6 +757,25 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
       }
     }
 
+    // Document readiness — server-side derivation from canonical departure_passengers rows.
+    const depCaps = resolveDepartureCapabilities(departure as any, (departure as any).packages as any);
+    const readinessCtx = {
+      needTravelDocuments: depCaps.needTravelDocuments,
+      departDateKey: toTravelDateKey((departure as any).depart_at),
+      returnDateKey: toTravelDateKey((departure as any).return_at),
+    };
+    const passengerById = new Map<string, any>((passengers || []).map((p: any) => [p.id, p]));
+    const readinessEntries: Array<[string, ReturnType<typeof computePassengerDocumentReadiness>]> = [];
+    for (const m of manifest) {
+      if (!m.passengerId) continue;
+      const row = passengerById.get(m.passengerId);
+      if (!row) continue;
+      const status = computePassengerDocumentReadiness(row as any, readinessCtx);
+      m.documentReadinessStatus = status;
+      readinessEntries.push([m.passengerId, status]);
+    }
+    const documentReadiness = summarizeDocumentReadiness(depCaps.needTravelDocuments, readinessEntries);
+
     // Summary stats
     const totalGuests = manifest.reduce((s, m) => s + (m.passengerId ? 1 : (m.partySize || 1)), 0);
     const totalBooked = (reservations || []).reduce((s, r) => s + r.party_size, 0);
@@ -783,6 +809,8 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
         hotels: hotelsOnTrip,
         allocations: allocations || [],
       },
+      capabilities: depCaps,
+      documentReadiness,
       manifest,
     });
   } catch (error) {
