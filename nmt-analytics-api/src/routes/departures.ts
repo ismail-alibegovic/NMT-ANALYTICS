@@ -446,8 +446,7 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
           base_price,
           currency,
           transport_type,
-          trip_type,
-          country
+          trip_type
         )
       `)
       .eq('id', id)
