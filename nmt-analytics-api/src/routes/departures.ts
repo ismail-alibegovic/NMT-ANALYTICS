@@ -75,6 +75,8 @@ const updateDepartureSchema = z.object({
   status: z.enum(['active', 'cancelled', 'completed']).optional(),
   booked: z.coerce.number().int().min(0).optional(),
   transportType: z.enum(['bus', 'flight', 'none']).optional(),
+  flight_id: z.string().uuid().nullable().optional(),
+  document_readiness_required: z.boolean().optional(),
 }).transform((data) => {
   const result: any = { ...data };
   if (data.departAt) {

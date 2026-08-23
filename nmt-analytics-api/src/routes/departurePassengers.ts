@@ -18,6 +18,7 @@ const createSchema = z.object({
   id_document_type: z.enum(['passport', 'id_card', 'none']).optional(),
   nationality: z.string().optional(),
   date_of_birth: z.string().optional(),
+  id_document_expiry: z.string().optional().nullable(),
   seat_number: z.number().int().optional(),
   notes: z.string().optional(),
 });
@@ -31,6 +32,7 @@ const updateSchema = z.object({
   id_document_type: z.enum(['passport', 'id_card', 'none']).optional(),
   nationality: z.string().optional(),
   date_of_birth: z.string().optional(),
+  id_document_expiry: z.string().optional().nullable(),
   notes: z.string().optional(),
 });
 
