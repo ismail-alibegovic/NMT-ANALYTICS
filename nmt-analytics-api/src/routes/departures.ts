@@ -325,6 +325,20 @@ router.patch('/departures/:id', authenticateToken, requireOrgContext, auditDepar
     const { packageId, departAt, returnAt, capacity, status, booked, transportType, flight_id, document_readiness_required } = validationResult.data;
     const orgId = req.orgId!;
 
+    // Validate flight_id: must be null or a real same-org flight
+    if (flight_id) {
+      const { data: flight, error: flightErr } = await supabaseAdmin
+        .from('flights')
+        .select('id')
+        .eq('id', flight_id)
+        .eq('org_id', orgId)
+        .single();
+      if (flightErr || !flight) {
+        apiError(res, 400, 'VALIDATION_ERROR', 'Flight not found or does not belong to this organization');
+        return;
+      }
+    }
+
     if (packageId) {
       const { data: packageData, error: packageError } = await supabaseAdmin
         .from('packages')
@@ -519,9 +533,22 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
       hasAccommodation,
     );
 
+    // Resolve linked flight details
+    let linkedFlight = null;
+    if ((departure as any).flight_id) {
+      const { data: fl, error: flErr } = await supabaseAdmin
+        .from('flights')
+        .select('id, airline, flight_number, departure_airport, arrival_airport, departure_time, arrival_time')
+        .eq('id', (departure as any).flight_id)
+        .eq('org_id', orgId)
+        .single();
+      if (!flErr && fl) linkedFlight = fl;
+    }
+
     const base = transformDeparture(departure);
     res.json({
       ...base,
+      linkedFlight,
       packageServices,
       packageHotels,
       hotelAllocations,
