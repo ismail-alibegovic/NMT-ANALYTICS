@@ -124,7 +124,15 @@ export async function deleteDeparture(id: string): Promise<void> {
   await del(`/departures/${id}`);
 }
 
+export type PassengerDocumentStatus =
+  | "not_required"
+  | "ready"
+  | "missing"
+  | "expired_before_departure"
+  | "expired_before_return";
+
 export interface DeparturePassenger {
+  id?: string | null;
   passengerId?: string | null;
   reservationId: string;
   customerId?: string | null;
@@ -158,6 +166,13 @@ export interface DeparturePassenger {
   currency?: string;
   payments?: any[];
   notes?: string | null;
+  // Document fields
+  id_document_type?: string | null;
+  id_document_number?: string | null;
+  id_document_expiry?: string | null;
+  nationality?: string | null;
+  date_of_birth?: string | null;
+  documentReadinessStatus?: string | null;
 }
 
 export interface DepartureManifest {
@@ -212,6 +227,19 @@ export async function updatePassengerSeat(passengerId: string, seatNumber: numbe
 export async function getDepartureGroups(id: string): Promise<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] }> {
   const { data } = await get<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] }>(`/departures/${id}/groups`);
   return data;
+}
+
+export interface UpdatePassengerDocumentData {
+  id_document_type?: string | null;
+  id_document_number?: string | null;
+  id_document_expiry?: string | null;
+  nationality?: string | null;
+  date_of_birth?: string | null;
+}
+
+export async function updateDeparturePassenger(passengerId: string, data: UpdatePassengerDocumentData) {
+  const { data: result } = await patch(`/departure-passengers/${passengerId}`, data);
+  return result;
 }
 
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, type ComponentType, type SVGProps } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
-import { useT } from "../lib/i18n/context";
+import { useTranslation } from "../lib/i18n/context";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
@@ -9,6 +9,10 @@ import { DataTable, Column } from "../components/ui/DataTable";
 import SeatMap from "../components/operations/SeatMap";
 import RoomingWorkspace from "../components/operations/RoomingWorkspace";
 import { useToast } from "../context/ToastContext";
+import { Modal } from "../components/ui/modal";
+import Input from "../components/form/input/InputField";
+import Label from "../components/form/Label";
+import Select from "../components/form/Select";
 import {
   AlertIcon,
   AngleRightIcon,
@@ -85,6 +89,12 @@ export default function DepartureDetail() {
   }, [searchParams]);
   const [groupBy, setGroupBy] = useState<"hotel" | "agent">("hotel");
 
+  // Document edit modal state
+  const [editingPassenger, setEditingPassenger] = useState<DeparturePassenger | null>(null);
+  const [docForm, setDocForm] = useState<Record<string, string>>({});
+  const [docSaving, setDocSaving] = useState(false);
+  const [docError, setDocError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!id) return;
     (async () => {
@@ -139,6 +149,45 @@ export default function DepartureDetail() {
     }));
   }, [normPax]);
 
+  // Open document editor for a passenger
+  const openDocEditor = (p: DeparturePassenger) => {
+    setEditingPassenger(p);
+    setDocForm({
+      id_document_type: p.id_document_type || "",
+      id_document_number: p.id_document_number || "",
+      id_document_expiry: p.id_document_expiry || "",
+      nationality: p.nationality || "",
+      date_of_birth: p.date_of_birth || "",
+    });
+    setDocError(null);
+  };
+
+  // Save passenger document data
+  const handleDocSave = async () => {
+    if (!editingPassenger?.id) return;
+    setDocSaving(true);
+    setDocError(null);
+    try {
+      const body: Record<string, string | null> = {};
+      for (const [k, v] of Object.entries(docForm)) {
+        body[k] = v === "" ? null : v;
+      }
+      await updateDeparturePassenger(editingPassenger.id, body);
+      const [freshMani, freshDep] = await Promise.all([
+        getDeparturePassengers(id!),
+        getDeparture(id!),
+      ]);
+      setManifest(freshMani);
+      setDeparture(freshDep);
+      setEditingPassenger(null);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || t("common.error");
+      setDocError(msg);
+    } finally {
+      setDocSaving(false);
+    }
+  };
+
   const totalGuests = manifest?.summary.totalGuests ?? departure?.booked ?? 0;
   const occupancyPct = departure && departure.capacity > 0
     ? Math.round((totalGuests / departure.capacity) * 100)
@@ -151,7 +200,7 @@ export default function DepartureDetail() {
   const allocations = manifest?.summary.allocations || [];
   const capabilities: DepartureCapabilities | undefined = (departure as any)?.capabilities;
   const transportConfigured = capabilities?.hasBusTransport || capabilities?.hasFlight || false;
-  const t = useT();
+  const t = useTranslation();
   const readinessItems = departure ? [
     {
       label: "Kapacitet i putnička lista",
@@ -194,10 +243,10 @@ export default function DepartureDetail() {
       action: () => setActiveTab("passengers"),
     }] : []),
     ...(capabilities?.needTravelDocuments ? [{
-      label: t("departure.documents"),
+      label: t.departure.documents,
       detail: departure?.documentReadiness?.attentionPassengerCount
-        ? `${departure.documentReadiness.attentionPassengerCount} putnika zahtijeva pažnju`
-        : "Svi putnici imaju ispravne dokumente",
+        ? t.departure.attentionCount.replace("{count}", String(departure.documentReadiness.attentionPassengerCount))
+        : t.departure.allPassengersReady,
       ready: !(departure?.documentReadiness?.attentionPassengerCount),
       action: () => { setActiveTab("passengers"); setDocFilter("attention"); },
     }] : []),
@@ -220,10 +269,10 @@ export default function DepartureDetail() {
 
   const docStatusCol: Column<DeparturePassenger> = {
     key: "documentReadinessStatus",
-    header: t("departure.documents"),
+    header: t.departure.documents,
     render: (v) => {
       const s = String(v);
-      const label = t(`departure.documentStatus.${s}`) || s;
+      const label = (t.departure.documentStatus as Record<string, string>)[s] || s;
       if (s === "ready") return <span className="text-success-600 dark:text-success-400 text-xs font-medium">{label}</span>;
       if (s === "missing") return <span className="text-warning-600 dark:text-warning-400 text-xs font-medium">{label}</span>;
       if (s === "expired_before_departure" || s === "expired_before_return") return <span className="text-error-600 dark:text-error-400 text-xs font-medium">{label}</span>;
@@ -232,8 +281,30 @@ export default function DepartureDetail() {
     },
   };
 
+  // Document edit action column for passengers tab
+  const docEditCol: Column<DeparturePassenger> | null = capabilities?.needTravelDocuments
+    ? {
+        key: "docEdit",
+        header: "",
+        render: (_v: any, item: DeparturePassenger) => (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); openDocEditor(item); }}
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-white/[0.06] dark:hover:text-brand-400"
+            title={t.departure.editDocuments}
+          >
+            <svg className="size-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+            </svg>
+          </button>
+        ),
+      }
+    : null;
+
   const allPassengerCols = capabilities?.needTravelDocuments
-    ? [...passengerCols, docStatusCol]
+    ? docEditCol
+      ? [...passengerCols, docStatusCol, docEditCol]
+      : [...passengerCols, docStatusCol]
     : passengerCols;
 
   const filteredPassengers = useMemo(() => {
@@ -424,7 +495,7 @@ export default function DepartureDetail() {
             <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
               {capabilities?.needTravelDocuments && (
                 <div className="mb-4 flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("departure.documentReadiness")}:</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t.departure.documentReadiness}:</span>
                   {(["all", "ready", "attention"] as const).map((f) => (
                     <button
                       key={f}
@@ -436,7 +507,7 @@ export default function DepartureDetail() {
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                       }`}
                     >
-                      {t(`departure.docFilter.${f === "all" ? "all" : f === "ready" ? "ready" : "attention"}`)}
+                      {(t.departure.docFilter as Record<string, string>)[f === "all" ? "all" : f === "ready" ? "ready" : "attention"]}
                     </button>
                   ))}
                 </div>
@@ -542,6 +613,95 @@ export default function DepartureDetail() {
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={!!editingPassenger}
+        onClose={() => setEditingPassenger(null)}
+        className="max-w-lg"
+      >
+        <div className="p-6">
+          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">{t.departure.editDocuments}</h2>
+          {editingPassenger && (
+            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+              <span className="font-medium text-gray-700 dark:text-gray-200">{editingPassenger.fullName}</span>
+              {editingPassenger.passport_number && <span className="ml-2">· {editingPassenger.passport_number}</span>}
+            </p>
+          )}
+
+          {docError && (
+            <div className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-500/10 dark:text-error-400">
+              {docError}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="doc-type">{t.departure.documentType}</Label>
+              <Select
+                options={[
+                  { value: "", label: t.departure.noDocument },
+                  { value: "passport", label: t.departure.passport },
+                  { value: "id_card", label: t.departure.idCard },
+                  { value: "none", label: t.departure.none },
+                ]}
+                defaultValue={docForm.id_document_type || ""}
+                onChange={(value: string) => setDocForm((prev) => ({ ...prev, id_document_type: value }))}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="doc-number">{t.departure.documentNumber}</Label>
+              <Input
+                type="text"
+                id="doc-number"
+                value={docForm.id_document_number || ""}
+                onChange={(e) => setDocForm((prev) => ({ ...prev, id_document_number: e.target.value }))}
+                placeholder={t.departure.documentNumberPlaceholder}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="doc-expiry">{t.departure.documentExpiry}</Label>
+              <Input
+                type="date"
+                id="doc-expiry"
+                value={docForm.id_document_expiry || ""}
+                onChange={(e) => setDocForm((prev) => ({ ...prev, id_document_expiry: e.target.value }))}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="doc-nationality">{t.departure.nationality}</Label>
+                <Input
+                  type="text"
+                  id="doc-nationality"
+                  value={docForm.nationality || ""}
+                  onChange={(e) => setDocForm((prev) => ({ ...prev, nationality: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="doc-dob">{t.departure.dateOfBirth}</Label>
+                <Input
+                  type="date"
+                  id="doc-dob"
+                  value={docForm.date_of_birth || ""}
+                  onChange={(e) => setDocForm((prev) => ({ ...prev, date_of_birth: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setEditingPassenger(null)} disabled={docSaving}>
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={handleDocSave} disabled={docSaving}>
+              {docSaving ? t("common.saving") : t("common.save")}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }
