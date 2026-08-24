@@ -14,4 +14,6 @@ export async function createItinerary(payload: CreateItinerary) { const { data }
 export async function updateItinerary(id: string, payload: Partial<CreateItinerary>) { const { data } = await patch<Itinerary>(`/itineraries/${id}`, payload); return data; }
 export async function createItineraryVersion(id: string, name?: string) { const { data } = await post<ItineraryVersion>(`/itineraries/${id}/versions`, { name }); return data; }
 export async function createItineraryItem(id: string, payload: CreateItineraryItem) { const { data } = await post<ItineraryItem>(`/itineraries/${id}/items`, payload); return data; }
+export async function updateItineraryItem(id: string, payload: Partial<Pick<ItineraryItem, "quantity" | "netUnitPrice" | "markupPercent" | "title" | "description" | "dayNumber" | "startTime" | "location" | "category" | "included">>) { const { data } = await patch<ItineraryItem>(`/itinerary-items/${id}`, payload); return data; }
+
 export async function deleteItineraryItem(id: string) { await del(`/itinerary-items/${id}`); }

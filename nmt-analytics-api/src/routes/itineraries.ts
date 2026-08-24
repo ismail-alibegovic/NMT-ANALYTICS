@@ -162,10 +162,30 @@ router.post('/itineraries/:id/items', authenticateToken, requireOrgContext, requ
   return res.status(201).json(itemOut(data));
 });
 
+
+const itemUpdateSchema = z.object({
+  quantity: z.number().positive().optional(), netUnitPrice: z.number().min(0).optional(),
+  markupPercent: z.number().min(0).max(1000).optional(), title: z.string().trim().min(1).max(200).optional(),
+  description: z.string().max(4000).optional().nullable(), dayNumber: z.number().int().min(1).optional(),
+  startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional().nullable(),
+  location: z.string().trim().max(180).optional().nullable(), category: z.enum(categories).optional(),
+  included: z.boolean().optional(),
+});
 router.delete('/itinerary-items/:id', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditLog('DELETE', 'itinerary_item', (req) => req.params.id), async (req, res: Response) => {
   const { error } = await supabaseAdmin.from('itinerary_items').delete().eq('id', req.params.id).eq('org_id', req.orgId!);
   if (error) return handleSupabaseError(res, error, 'Failed to delete itinerary item');
   return res.status(204).send();
 });
 
+
+router.patch('/itinerary-items/:id', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditLog('UPDATE', 'itinerary_item', (req) => req.params.id), async (req, res: Response) => {
+  const parsed = itemUpdateSchema.safeParse(req.body);
+  if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid itinerary item update', parsed.error.issues);
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const fieldMap: Record<string, string> = { netUnitPrice: 'net_unit_price', markupPercent: 'markup_percent', dayNumber: 'day_number', startTime: 'start_time' };
+  for (const [key, value] of Object.entries(parsed.data)) updates[fieldMap[key] || key] = value;
+  const { data, error } = await supabaseAdmin.from('itinerary_items').update(updates).eq('id', req.params.id).eq('org_id', req.orgId!).select('*').single();
+  if (error) return handleSupabaseError(res, error, 'Failed to update itinerary item');
+  return res.json(itemOut(data));
+});
 export default router;
