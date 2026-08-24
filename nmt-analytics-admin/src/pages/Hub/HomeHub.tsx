@@ -350,7 +350,6 @@ const HomeHub: React.FC = () => {
   const paidCount = overview?.paid_count || 0;
 
   const workspaces = [
-    { label: hub.opsTitle, href: "/operations", icon: BoxIconLine, minRole: "agent" as UserRole },
     { label: hub.finTitle, href: "/payments", icon: PieChartIcon, minRole: "manager" as UserRole },
     { label: hub.sysTitle, href: "/admin/audit-logs", icon: LockIcon, minRole: "director" as UserRole },
   ].filter((s) => hasAccess(s.minRole, role));
