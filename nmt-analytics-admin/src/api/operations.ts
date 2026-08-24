@@ -156,9 +156,55 @@ export interface HotelAllocation {
   pricePerNight: number;
 }
 
+function normalizeHotelRoom(row: any): HotelRoom {
+  return {
+    id: row.id,
+    hotelId: row.hotelId ?? row.hotel_id,
+    roomType: row.roomType ?? row.room_type,
+    capacity: row.capacity,
+    basePrice: row.basePrice ?? row.base_price,
+    currency: row.currency,
+    available: row.available,
+    total: row.total,
+  };
+}
+
+function normalizeHotelAllocation(row: any): HotelAllocation {
+  return {
+    id: row.id,
+    departureId: row.departureId ?? row.departure_id,
+    hotelId: row.hotelId ?? row.hotel_id,
+    roomType: row.roomType ?? row.room_type,
+    roomsReserved: row.roomsReserved ?? row.rooms_reserved,
+    checkIn: row.checkIn ?? row.check_in,
+    checkOut: row.checkOut ?? row.check_out,
+    pricePerNight: row.pricePerNight ?? row.price_per_night,
+  };
+}
+
+function normalizeHotel(row: any): Hotel {
+  return {
+    id: row.id,
+    orgId: row.orgId ?? row.org_id,
+    name: row.name,
+    destination: row.destination,
+    address: row.address,
+    contact: row.contact,
+    totalRooms: row.totalRooms ?? row.total_rooms,
+    createdAt: row.createdAt ?? row.created_at,
+    stars: row.stars ?? null,
+    description: row.description ?? null,
+    amenities: row.amenities ?? null,
+    email: row.email ?? null,
+    website: row.website ?? null,
+    rooms: (row.rooms ?? row.hotel_rooms ?? []).map(normalizeHotelRoom),
+    allocations: (row.allocations ?? row.hotel_allocations ?? []).map(normalizeHotelAllocation),
+  };
+}
+
 export async function getHotels(): Promise<Hotel[]> {
   const { data } = await get<{ data: Hotel[] }>('/hotels');
-  return data.data || [];
+  return (data.data || []).map((row: any) => normalizeHotel(row));
 }
 
 export async function createHotel(payload: {
@@ -188,7 +234,8 @@ export async function deleteHotel(id: string): Promise<void> {
 
 export async function getHotelRooms(hotelId: string): Promise<HotelRoom[]> {
   const { data } = await get<{ data: HotelRoom[] }>(`/hotels/${hotelId}/rooms`);
-  return data.data || [];
+  const rows = Array.isArray(data) ? data : data.data || [];
+  return rows.map((row: any) => normalizeHotelRoom(row));
 }
 
 export async function createHotelRoom(hotelId: string, payload: {

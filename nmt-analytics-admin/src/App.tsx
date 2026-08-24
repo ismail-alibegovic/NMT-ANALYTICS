@@ -46,6 +46,7 @@ const SubAgentsPage = lazy(() => import("./pages/operations/SubAgents"));
 const CommissionRulesPage = lazy(() => import("./pages/operations/CommissionRules"));
 const ExcursionsPage = lazy(() => import("./pages/operations/Excursions"));
 const HotelsPage = lazy(() => import("./pages/operations/Hotels"));
+const HotelDetail = lazy(() => import("./pages/HotelDetail"));
 const FlightsPage = lazy(() => import("./pages/operations/Flights"));
 const AvailabilityPage = lazy(() => import("./pages/operations/Availability"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -131,6 +132,7 @@ export default function App() {
           <Route path="/operations/excursions" element={<SuspenseWrapper><ModuleGuard moduleKey="travel_core" fallback={<NotFoundClientOnly />}><ExcursionsPage /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/operations/flights" element={<SuspenseWrapper><ModuleGuard moduleKey="travel_core" fallback={<NotFoundClientOnly />}><FlightsPage /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/operations/hotels" element={<SuspenseWrapper><ModuleGuard moduleKey="travel_core" fallback={<NotFoundClientOnly />}><HotelsPage /></ModuleGuard></SuspenseWrapper>} />
+          <Route path="/operations/hotels/:id" element={<SuspenseWrapper><ModuleGuard moduleKey="travel_core" fallback={<NotFoundClientOnly />}><HotelDetail /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/operations/availability" element={<SuspenseWrapper><ModuleGuard moduleKey="travel_core" fallback={<NotFoundClientOnly />}><AvailabilityPage /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/profile" element={<SuspenseWrapper><Profile /></SuspenseWrapper>} />
         </Route>

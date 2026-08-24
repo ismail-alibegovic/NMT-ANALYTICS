@@ -68,8 +68,8 @@ function transformHotel(h: any) {
     website: h.website,
     slug: h.slug,
     createdAt: h.created_at,
-    rooms: h.rooms,
-    allocations: h.allocations,
+    rooms: h.rooms || h.hotel_rooms,
+    allocations: h.allocations || h.hotel_allocations,
   };
 }
 

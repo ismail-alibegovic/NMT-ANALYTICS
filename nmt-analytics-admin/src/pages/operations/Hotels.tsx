@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import PageToolbar from "../../components/ui/PageToolbar";
 import Button from "../../components/ui/button/Button";
@@ -25,6 +25,7 @@ const starOptions = Array.from({ length: 5 }, (_, i) => ({ value: String(i + 1),
 const currencyOptions = [{ value: "BAM", label: "BAM" }, { value: "EUR", label: "EUR" }, { value: "USD", label: "USD" }];
 
 export default function Hotels() {
+  const navigate = useNavigate();
   const { success: showSuccess, error: showError } = useToast();
   const { user, loading: authLoading } = useApp();
   const { t } = useT();
@@ -176,6 +177,7 @@ export default function Hotels() {
     { key: "contact", header: tr.contact || "Contact", render: (v) => <span className="text-xs text-gray-500 dark:text-gray-400">{(v as string) || "—"}</span> },
     { key: "actions", header: tr.actions || "Actions", render: (_, h) => (
       <div className="flex gap-2">
+        <Button size="sm" variant="outline" onClick={() => navigate(`/operations/hotels/${(h as Hotel).id}`)} className="p-2">{tr.open || "Open"}</Button>
         <Button size="sm" variant="outline" onClick={() => { setSelectedHotel(h as Hotel); setRoomModalOpen(true); }} title="Room types" className="p-2 text-blue-600"><EyeIcon className="w-4 h-4" /></Button>
         <Button size="sm" variant="outline" onClick={() => { setSelectedHotel(h as Hotel); setAllocModalOpen(true); }} title="Allocate" className="p-2 text-purple-600"><TableIcon className="w-4 h-4" /></Button>
         <Button size="sm" variant="outline" onClick={() => handleDeleteHotel(h as Hotel)} title="Delete" className="p-2 text-red-600"><TrashBinIcon className="w-4 h-4" /></Button>

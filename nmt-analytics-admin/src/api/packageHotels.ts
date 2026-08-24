@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { get, post, patch, del } from './client';
 
 export interface RoomOption {
   type: string;
@@ -31,25 +31,25 @@ export interface HotelPackage {
 }
 
 export async function getPackageHotels(packageId: string): Promise<PackageHotel[]> {
-  const { data } = await apiClient.get(`/packages/${packageId}/hotels`);
+  const { data } = await get<{ data: PackageHotel[] }>(`/packages/${packageId}/hotels`);
   return data?.data || [];
 }
 
 export async function linkHotelToPackage(packageId: string, body: { hotel_id: string; room_options?: RoomOption[]; price_modifier?: number; sort_order?: number }): Promise<PackageHotel> {
-  const { data } = await apiClient.post(`/packages/${packageId}/hotels`, body);
+  const { data } = await post<PackageHotel>(`/packages/${packageId}/hotels`, body);
   return data;
 }
 
 export async function updatePackageHotel(id: string, body: { room_options?: RoomOption[]; price_modifier?: number; sort_order?: number }): Promise<PackageHotel> {
-  const { data } = await apiClient.patch(`/package-hotels/${id}`, body);
+  const { data } = await patch<PackageHotel>(`/package-hotels/${id}`, body);
   return data;
 }
 
 export async function unlinkHotelFromPackage(id: string): Promise<void> {
-  await apiClient.delete(`/package-hotels/${id}`);
+  await del(`/package-hotels/${id}`);
 }
 
 export async function getHotelPackages(hotelId: string): Promise<HotelPackage[]> {
-  const { data } = await apiClient.get(`/hotels/${hotelId}/packages`);
+  const { data } = await get<{ data: HotelPackage[] }>(`/hotels/${hotelId}/packages`);
   return data?.data || [];
 }
