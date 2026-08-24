@@ -5,6 +5,7 @@ import { DocsIcon } from "../../icons";
 import api from "../../lib/apiClient";
 import { useT } from "../../lib/i18n/context";
 import { useApp } from "../../context/AppContext";
+import { archiveMessageTemplate, createMessageTemplate, getMessageTemplates, updateMessageTemplate, type MessageTemplate, type MessageTemplateChannel } from "../../api/messageTemplates";
 
 interface OrgSettings {
   name: string;
@@ -63,6 +64,15 @@ interface AgencyProfileResponse {
   configured: boolean;
 }
 
+interface TemplateFormState {
+  id?: string;
+  name: string;
+  channel: MessageTemplateChannel;
+  subject: string;
+  body: string;
+  is_active: boolean;
+}
+
 export default function Settings() {
   const { t } = useT();
   const { refreshUserContext } = useApp();
@@ -111,6 +121,16 @@ export default function Settings() {
   const [agencyProfileSaving, setAgencyProfileSaving] = useState(false);
   const [agencyProfileMigrationPending, setAgencyProfileMigrationPending] = useState(false);
   const [agencyProfileMessage, setAgencyProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const [templateMessage, setTemplateMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [templateForm, setTemplateForm] = useState<TemplateFormState>({
+    name: '',
+    channel: 'email',
+    subject: '',
+    body: '',
+    is_active: true,
+  });
 
   const showPlanMessage = (text: string, type: 'success' | 'error') => {
     setPlanMessage({ type, text });
@@ -122,7 +142,12 @@ export default function Settings() {
     setTimeout(() => setSmtpMessage(null), 5000);
   };
 
-  useEffect(() => { fetchSettings(); fetchSmtpSettings(); fetchBranding(); fetchPlan(); fetchAgencyProfile(); }, []);
+  const showTemplateMessage = (text: string, type: 'success' | 'error') => {
+    setTemplateMessage({ type, text });
+    setTimeout(() => setTemplateMessage(null), 5000);
+  };
+
+  useEffect(() => { fetchSettings(); fetchSmtpSettings(); fetchBranding(); fetchPlan(); fetchAgencyProfile(); fetchTemplates(); }, []);
 
   const fetchAgencyProfile = async () => {
     try {
@@ -222,6 +247,14 @@ export default function Settings() {
     }
   };
 
+  const fetchTemplates = async () => {
+    try {
+      setTemplates(await getMessageTemplates());
+    } catch (error: any) {
+      showTemplateMessage(error?.message || 'Failed to load templates', 'error');
+    }
+  };
+
   const handleSaveBranding = async () => {
     setBrandingSaving(true); setBrandingMessage(null);
     try {
@@ -270,6 +303,68 @@ export default function Settings() {
       showPlanMessage(msg, 'error');
       if (error?.response?.data?.code === 'MIGRATION_PENDING') setPlanMigrationPending(true);
     } finally { setPlanSaving(false); }
+  };
+
+  const resetTemplateForm = () => {
+    setTemplateForm({
+      name: '',
+      channel: 'email',
+      subject: '',
+      body: '',
+      is_active: true,
+    });
+  };
+
+  const handleSaveTemplate = async () => {
+    setTemplateSaving(true);
+    try {
+      const payload = {
+        name: templateForm.name,
+        channel: templateForm.channel,
+        subject: templateForm.channel === 'email' ? templateForm.subject : null,
+        body: templateForm.body,
+        is_active: templateForm.is_active,
+      };
+
+      if (templateForm.id) {
+        await updateMessageTemplate(templateForm.id, payload);
+      } else {
+        await createMessageTemplate(payload);
+      }
+
+      await fetchTemplates();
+      resetTemplateForm();
+      showTemplateMessage('Template saved', 'success');
+    } catch (error: any) {
+      showTemplateMessage(error?.response?.data?.message || error?.message || 'Failed to save template', 'error');
+    } finally {
+      setTemplateSaving(false);
+    }
+  };
+
+  const handleEditTemplate = (template: MessageTemplate) => {
+    setTemplateForm({
+      id: template.id,
+      name: template.name,
+      channel: template.channel,
+      subject: template.subject || '',
+      body: template.body,
+      is_active: template.is_active,
+    });
+  };
+
+  const handleArchiveTemplate = async (id: string) => {
+    setTemplateSaving(true);
+    try {
+      await archiveMessageTemplate(id);
+      await fetchTemplates();
+      if (templateForm.id === id) resetTemplateForm();
+      showTemplateMessage('Template archived', 'success');
+    } catch (error: any) {
+      showTemplateMessage(error?.response?.data?.message || error?.message || 'Failed to archive template', 'error');
+    } finally {
+      setTemplateSaving(false);
+    }
   };
 
   if (loading) return <div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
@@ -461,6 +556,126 @@ export default function Settings() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SMS broj pošiljaoca</label>
               <input type="text" value={settings.sms_sender_number || ''} onChange={e => setSettings({ ...settings, sms_sender_number: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="+38761..." />
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="mb-4">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Message templates</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Plain-text reusable email and SMS content for manual messaging.</p>
+          </div>
+
+          {templateMessage && (
+            <div className={`mb-4 p-3 rounded-lg text-sm ${templateMessage.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400'}`}>
+              {templateMessage.text}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={templateForm.name}
+                  onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Channel</label>
+                <select
+                  value={templateForm.channel}
+                  onChange={(e) => setTemplateForm({ ...templateForm, channel: e.target.value as MessageTemplateChannel, subject: e.target.value === 'sms' ? '' : templateForm.subject })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="email">Email</option>
+                  <option value="sms">SMS</option>
+                </select>
+              </div>
+              {templateForm.channel === 'email' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
+                  <input
+                    type="text"
+                    value={templateForm.subject}
+                    onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Body</label>
+                <textarea
+                  value={templateForm.body}
+                  onChange={(e) => setTemplateForm({ ...templateForm, body: e.target.value })}
+                  rows={6}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleSaveTemplate}
+                  disabled={templateSaving}
+                  className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {templateSaving ? t.common.saving : templateForm.id ? 'Update template' : 'Create template'}
+                </button>
+                {templateForm.id && (
+                  <button
+                    onClick={resetTemplateForm}
+                    type="button"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200"
+                  >
+                    Cancel edit
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {templates.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-4 text-sm text-gray-500 dark:text-gray-400">
+                  No templates yet.
+                </div>
+              ) : templates.map((template) => (
+                <div key={template.id} className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-900 dark:text-white">{template.name}</p>
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300">{template.channel.toUpperCase()}</span>
+                        {!template.is_active && (
+                          <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400">
+                            Archived
+                          </span>
+                        )}
+                      </div>
+                      {template.subject ? <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{template.subject}</p> : null}
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">{template.body}</p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        onClick={() => handleEditTemplate(template)}
+                        type="button"
+                        className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200"
+                      >
+                        Edit
+                      </button>
+                      {template.is_active && (
+                        <button
+                          onClick={() => void handleArchiveTemplate(template.id)}
+                          type="button"
+                          className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300"
+                        >
+                          Archive
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

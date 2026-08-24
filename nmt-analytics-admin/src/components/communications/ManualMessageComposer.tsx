@@ -3,6 +3,7 @@ import Button from '../ui/button/Button';
 import Input from '../form/input/InputField';
 import Label from '../form/Label';
 import Select from '../form/Select';
+import { getMessageTemplates, type MessageTemplate } from '../../api/messageTemplates';
 
 type ManualMessagePayload =
   | {
@@ -37,6 +38,8 @@ export default function ManualMessageComposer({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
 
   const recipientDefaults = useMemo(
     () => ({
@@ -48,7 +51,31 @@ export default function ManualMessageComposer({
 
   useEffect(() => {
     setRecipient(recipientDefaults[channel]);
+    setSelectedTemplateId('');
   }, [channel, recipientDefaults]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await getMessageTemplates({ channel, activeOnly: true });
+        if (mounted) setTemplates(data);
+      } catch {
+        if (mounted) setTemplates([]);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [channel]);
+
+  const applyTemplate = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    const template = templates.find((item) => item.id === templateId);
+    if (!template) return;
+    if (channel === 'email') setSubject(template.subject || '');
+    setBody(template.body || '');
+  };
 
   const submit = async () => {
     setSending(true);
@@ -86,7 +113,7 @@ export default function ManualMessageComposer({
                 { value: 'email', label: 'Email' },
                 { value: 'sms', label: 'SMS' },
               ]}
-              defaultValue={channel}
+              value={channel}
               onChange={(value: string) => setChannel((value as 'email' | 'sms') || 'email')}
             />
           </div>
@@ -94,6 +121,18 @@ export default function ManualMessageComposer({
             <Label>Primaoc</Label>
             <Input value={recipient} onChange={(e) => setRecipient(e.target.value)} />
           </div>
+        </div>
+
+        <div>
+          <Label>Template</Label>
+          <Select
+            options={[
+              { value: '', label: 'No template' },
+              ...templates.map((template) => ({ value: template.id, label: template.name })),
+            ]}
+            value={selectedTemplateId}
+            onChange={applyTemplate}
+          />
         </div>
 
         {channel === 'email' && (
