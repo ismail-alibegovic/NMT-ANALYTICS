@@ -6,7 +6,7 @@ import { requireMinimumRole } from '../middleware/requireRole';
 import { auditLog } from '../middleware/auditLogger';
 import { supabaseAdmin } from '../lib/supabase';
 import { apiError } from '../lib/errors';
-import { MockSmsProvider, SmsProviderConfig, SmsService } from '../lib/sms/SmsService';
+import { createSmsProvider, SmsProviderConfig, SmsService } from '../lib/sms/SmsService';
 
 const router = Router();
 
@@ -27,14 +27,6 @@ const smsTestSchema = z.object({
 
 function isMissingColumnError(error: unknown): boolean {
   return Boolean(error && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === '42703');
-}
-
-function createSmsProvider(config: SmsProviderConfig) {
-  if (config.provider === 'mock') {
-    return new MockSmsProvider();
-  }
-
-  throw new Error(`Unsupported SMS provider: ${(config as { provider?: string }).provider}`);
 }
 
 async function getSavedSmsConfig(orgId: string) {

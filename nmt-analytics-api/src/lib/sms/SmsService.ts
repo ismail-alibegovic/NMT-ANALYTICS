@@ -13,6 +13,14 @@ export interface SmsProviderConfig {
   provider: 'mock';
 }
 
+export function createSmsProvider(config: SmsProviderConfig): SmsProvider {
+  if (config.provider === 'mock') {
+    return new MockSmsProvider();
+  }
+
+  throw new Error(`Unsupported SMS provider: ${(config as { provider?: string }).provider}`);
+}
+
 export class MockSmsProvider implements SmsProvider {
   async sendSms(options: SmsOptions): Promise<void> {
     console.log(`[MOCK SMS] To: ${options.to}`);

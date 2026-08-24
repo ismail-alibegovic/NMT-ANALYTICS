@@ -8,24 +8,23 @@
  * Schedule via cron: 0 8 * * * (daily at 8 AM)
  */
 
-import { supabaseAdmin } from '../lib/supabase';
+import { runUpcomingDepartureReminderDelivery } from '../lib/reminderDelivery';
 
 async function runDepartureReminders() {
   console.log('[DepartureReminders] Starting...');
 
   try {
-    const { data, error } = await supabaseAdmin.rpc('notify_upcoming_departures');
+    const summary = await runUpcomingDepartureReminderDelivery();
 
-    if (error) {
-      console.error('[DepartureReminders] Error calling RPC:', error.message);
-      process.exit(1);
-    }
+    console.log(`[DepartureReminders] Created ${summary.createdCount} departure reminder notification(s)`);
+    console.log(
+      `[DepartureReminders] Delivery summary: ` +
+      `email sent=${summary.emailSent}, skipped=${summary.emailSkipped}, failed=${summary.emailFailed}; ` +
+      `sms sent=${summary.smsSent}, skipped=${summary.smsSkipped}, failed=${summary.smsFailed}`
+    );
 
-    const count = data?.length ?? 0;
-    console.log(`[DepartureReminders] Created ${count} departure reminder notification(s)`);
-    
-    if (count > 0) {
-      console.log('[DepartureReminders] Details:', JSON.stringify(data, null, 2));
+    if (summary.results.length > 0) {
+      console.log('[DepartureReminders] Details:', JSON.stringify(summary.results, null, 2));
     }
   } catch (err) {
     console.error('[DepartureReminders] Unexpected error:', err);

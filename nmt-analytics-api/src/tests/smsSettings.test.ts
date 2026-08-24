@@ -34,6 +34,7 @@ vi.mock('../lib/sms/SmsService', () => ({
   MockSmsProvider: class {
     sendSms = sendSms;
   },
+  createSmsProvider: vi.fn(() => ({ sendSms })),
   SmsService: {
     setProvider: (provider: any) => setProvider(provider),
     sendSms: (options: any) => sendSms(options),
