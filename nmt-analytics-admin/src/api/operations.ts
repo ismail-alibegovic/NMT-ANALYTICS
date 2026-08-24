@@ -395,6 +395,15 @@ export interface Flight {
   notes: string | null;
   active: boolean;
   createdAt: string;
+  linkedDepartureCount?: number;
+  linkedDepartures?: Array<{
+    id: string;
+    departAt: string;
+    returnAt: string;
+    status: 'active' | 'cancelled' | 'completed';
+    packageName: string;
+    destination: string;
+  }>;
 }
 
 export async function getFlights(params?: { search?: string; active?: string }): Promise<Flight[]> {

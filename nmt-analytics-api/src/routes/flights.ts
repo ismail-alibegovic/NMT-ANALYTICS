@@ -67,6 +67,8 @@ function transformFlight(f: any) {
     notes: f.notes,
     active: f.active,
     createdAt: f.created_at,
+    linkedDepartureCount: f.linked_departure_count ?? 0,
+    linkedDepartures: f.linked_departures ?? [],
   };
 }
 
@@ -94,8 +96,53 @@ router.get('/flights', authenticateToken, requireOrgContext, requireMinimumRole(
     const { data, error, count } = await query;
     if (error) throw error;
 
+    const flights = data || [];
+    const flightIds = flights.map((flight) => flight.id);
+    const linkedDeparturesByFlight = new Map<string, any[]>();
+
+    if (flightIds.length > 0) {
+      const { data: linkedDepartures, error: linkedDeparturesError } = await supabaseAdmin
+        .from('departures')
+        .select(`
+          id,
+          flight_id,
+          depart_at,
+          return_at,
+          status,
+          packages (
+            id,
+            name,
+            destination
+          )
+        `)
+        .eq('org_id', orgId)
+        .in('flight_id', flightIds)
+        .order('depart_at', { ascending: false });
+
+      if (linkedDeparturesError) throw linkedDeparturesError;
+
+      for (const departure of linkedDepartures || []) {
+        const flightId = departure.flight_id;
+        if (!flightId) continue;
+        const current = linkedDeparturesByFlight.get(flightId) || [];
+        current.push({
+          id: departure.id,
+          departAt: departure.depart_at,
+          returnAt: departure.return_at,
+          status: departure.status,
+          packageName: departure.packages?.name || '-',
+          destination: departure.packages?.destination || '-',
+        });
+        linkedDeparturesByFlight.set(flightId, current);
+      }
+    }
+
     return res.json({
-      data: (data || []).map(transformFlight),
+      data: flights.map((flight) => transformFlight({
+        ...flight,
+        linked_departure_count: (linkedDeparturesByFlight.get(flight.id) || []).length,
+        linked_departures: linkedDeparturesByFlight.get(flight.id) || [],
+      })),
       pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
     });
   } catch (err) { next(err); }
