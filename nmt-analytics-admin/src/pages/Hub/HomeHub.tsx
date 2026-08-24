@@ -10,7 +10,8 @@ import {
   type RevenueSeriesDataPoint,
 } from "../../api/analytics";
 import { getDepartures } from "../../api/departures";
-import { getReservations } from "../../api/reservations";
+import { getReservations, type Reservation } from "../../api/reservations";
+import { getPaymentDashboard, type PaymentDashboardMetric } from "../../api/payments";
 import {
   ArrowRightIcon,
   PlusIcon,
@@ -247,6 +248,9 @@ const HomeHub: React.FC = () => {
   const [revenue, setRevenue] = useState<RevenueSeriesDataPoint[]>([]);
   const [watchPayments, setWatchPayments] = useState<PaymentRow[]>([]);
   const [pendingReservations, setPendingReservations] = useState(0);
+  const [pendingReservationRows, setPendingReservationRows] = useState<Reservation[]>([]);
+  const [overdueCount, setOverdueCount] = useState(0);
+  const [overdueReservations, setOverdueReservations] = useState<PaymentDashboardMetric[]>([]);
   const [queueError, setQueueError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [bookingsTab, setBookingsTab] = useState<"upcoming" | "past">("upcoming");
@@ -275,30 +279,40 @@ const HomeHub: React.FC = () => {
         const todayISO = today.toISOString().split("T")[0];
         const fortnightAgo = new Date(today.getTime() - 14 * 86_400_000).toISOString().split("T")[0];
 
-        const [ov, deps, rev, pays, pending] = await Promise.allSettled([
+        const [ov, deps, rev, paymentsDashboard, pending] = await Promise.allSettled([
           getAnalyticsOverviewV2({ from: fortnightAgo, to: todayISO }),
           getDepartures({ status: "active", dateFrom: todayISO, limit: 12 }),
           getRevenueSeries({ from: fortnightAgo, to: todayISO, bucket: "daily" }),
-          showFinance ? getReservations({ status: "confirmed", limit: 12 }) : Promise.resolve(null),
-          getReservations({ status: "pending", limit: 1 }),
+          showFinance ? getPaymentDashboard() : Promise.resolve(null),
+          getReservations({ status: "pending", limit: 3 }),
         ]);
 
         if (!active) return;
         if (ov.status === "fulfilled") setOverview(ov.value);
         if (deps.status === "fulfilled") setDepartures((deps.value as any)?.data || []);
         if (rev.status === "fulfilled") setRevenue(rev.value || []);
-        if (pending.status === "fulfilled") setPendingReservations(pending.value.total);
-        setQueueError(deps.status === "rejected" || pending.status === "rejected" || (showFinance && ov.status === "rejected"));
-        [ov, deps, rev, pays, pending].forEach((result) => {
+        if (pending.status === "fulfilled") {
+          setPendingReservations(pending.value.total);
+          setPendingReservationRows(pending.value.data || []);
+        }
+        setQueueError(
+          deps.status === "rejected" ||
+          pending.status === "rejected" ||
+          (showFinance && paymentsDashboard.status === "rejected")
+        );
+        [ov, deps, rev, paymentsDashboard, pending].forEach((result) => {
           if (result.status === "rejected") logger.error("[HomeHub] partial load failed", result.reason);
         });
-        if (pays.status === "fulfilled" && pays.value) {
-          const rows = (pays.value.data || [])
-            .filter((r) => r.balanceDue > 0)
+        if (paymentsDashboard.status === "fulfilled" && paymentsDashboard.value) {
+          setOverdueCount(paymentsDashboard.value.metrics.overdueCount || 0);
+          setOverdueReservations(paymentsDashboard.value.overdueReservations || []);
+          const rows = (paymentsDashboard.value.overdueReservations || [])
             .slice(0, 4)
             .map((r) => {
-              const created = new Date(r.bookingDate || r.createdAt);
-              const daysOpen = Math.max(0, Math.round((Date.now() - created.getTime()) / 86_400_000));
+              const departureDate = new Date(r.departureDate);
+              const daysOpen = Number.isNaN(departureDate.getTime())
+                ? 0
+                : Math.max(0, Math.round((Date.now() - departureDate.getTime()) / 86_400_000));
               return {
                 id: r.id,
                 customerName: r.customerName,
@@ -364,58 +378,53 @@ const HomeHub: React.FC = () => {
   ].filter((s) => !s.minRole || hasAccess(s.minRole, role));
 
   const bookingsList = bookingsTab === "upcoming" ? upcoming : past;
+  const nearDepartures = useMemo(
+    () =>
+      allDepartures.filter((departure) => {
+        const departureTime = new Date(departure.departAt).getTime();
+        const nowTime = Date.now();
+        return departureTime >= nowTime - 86_400_000 && departureTime <= nowTime + 7 * 86_400_000;
+      }),
+    [allDepartures]
+  );
 
   const todayWork = useMemo<TodayWorkItem[]>(() => {
     if (loading) return [];
     const items: TodayWorkItem[] = [];
-    if (pendingReservations > 0) {
+    pendingReservationRows.slice(0, 2).forEach((reservation) => {
       items.push({
-        id: "pending-reservations",
-        title: hub.todayPendingReservations,
-        detail: hub.todayPendingReservationsDetail.replace("{count}", fmtNumber(pendingReservations, lang)),
-        href: "/reservations?status=pending",
+        id: `pending-${reservation.id}`,
+        title: reservation.customerName,
+        detail: reservation.packageName || hub.todayPendingReservations,
+        href: `/reservations/${reservation.id}`,
         kind: "reservation",
         urgency: "urgent",
       });
-    }
-    const sevenDaysFromNow = Date.now() + 7 * 86_400_000;
-    const nearDepartures = allDepartures.filter((departure) => {
-      const departureTime = new Date(departure.departAt).getTime();
-      return departureTime >= Date.now() - 86_400_000 && departureTime <= sevenDaysFromNow;
     });
-    if (nearDepartures.length > 0) {
+    if (showFinance) {
+      overdueReservations.slice(0, 2).forEach((reservation) => {
+        items.push({
+          id: `overdue-${reservation.id}`,
+          title: reservation.customerName,
+          detail: `${reservation.packageName} · ${fmtCurrency(reservation.balanceDue, lang)}`,
+          href: `/reservations/${reservation.id}`,
+          kind: "payment",
+          urgency: "attention",
+        });
+      });
+    }
+    nearDepartures.slice(0, 2).forEach((departure) => {
       items.push({
-        id: "near-departures",
-        title: hub.todayNearDepartures,
-        detail: hub.todayNearDeparturesDetail.replace("{count}", fmtNumber(nearDepartures.length, lang)),
-        href: "/operations/calendar",
+        id: `departure-${departure.id}`,
+        title: departure.label,
+        detail: relativeDayLabel(departure.departAt, lang),
+        href: `/departures/${departure.id}`,
         kind: "departure",
-        urgency: "attention",
-      });
-    }
-    const lowOccupancy = allDepartures.filter((departure) => departure.seats > 0 && departure.booked / departure.seats < 0.3);
-    if (lowOccupancy.length > 0) {
-      items.push({
-        id: "low-occupancy",
-        title: hub.attentionLowOccupancy,
-        detail: hub.todayLowOccupancyDetail.replace("{count}", fmtNumber(lowOccupancy.length, lang)),
-        href: "/departures",
-        kind: "occupancy",
-        urgency: "attention",
-      });
-    }
-    if (showFinance && openBalance > 0) {
-      items.push({
-        id: "outstanding-balance",
-        title: hub.attentionOutstanding,
-        detail: fmtCurrency(openBalance, lang),
-        href: "/payments",
-        kind: "payment",
         urgency: "normal",
       });
-    }
-    return items.slice(0, 4);
-  }, [allDepartures, hub, lang, loading, openBalance, pendingReservations, showFinance]);
+    });
+    return items.slice(0, 6);
+  }, [hub.todayPendingReservations, lang, loading, nearDepartures, overdueReservations, pendingReservationRows, showFinance]);
   const isNewOrg = !loading && overview?.reservations_count === 0 && departures.length === 0;
   return (
     <>
@@ -466,8 +475,8 @@ const HomeHub: React.FC = () => {
               <Panel className="flex shrink-0 flex-col overflow-hidden p-5">
                 <div className="mb-3 flex items-start justify-between gap-4">
                   <div>
-                    <SectionLabel>{hub.todayQueueTitle}</SectionLabel>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{hub.todayQueueSubtitle}</p>
+                    <SectionLabel>{hub.needsAttentionTitle || hub.todayQueueTitle}</SectionLabel>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{hub.needsAttentionSubtitle || hub.todayQueueSubtitle}</p>
                   </div>
                   {!loading && !queueError && (
                     <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold tabular-nums text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
@@ -475,20 +484,35 @@ const HomeHub: React.FC = () => {
                     </span>
                   )}
                 </div>
+                {!loading && !queueError && (
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    <Link to="/reservations?status=pending" className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                      {hub.todayPendingReservations}: {fmtNumber(pendingReservations, lang)}
+                    </Link>
+                    {showFinance && (
+                      <Link to="/payments" className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
+                        {hub.attentionOutstanding}: {fmtNumber(overdueCount, lang)}
+                      </Link>
+                    )}
+                    <Link to="/operations/calendar" className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+                      {hub.todayNearDepartures}: {fmtNumber(nearDepartures.length, lang)}
+                    </Link>
+                  </div>
+                )}
                 {loading ? (
                   <div className="space-y-2">
                     {[0, 1, 2].map((item) => <div key={item} className="h-12 animate-pulse rounded-lg bg-gray-100 dark:bg-white/[0.04]" />)}
                   </div>
                 ) : queueError ? (
                   <div className="flex min-h-[116px] items-center rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
-                    {hub.todayQueueError}
+                    {hub.needsAttentionError || hub.todayQueueError}
                   </div>
                 ) : todayWork.length === 0 ? (
                   <div className="flex min-h-[116px] items-center gap-3 rounded-lg bg-emerald-50 px-4 dark:bg-emerald-500/10">
                     <CheckCircleIcon className="size-5 text-emerald-500" />
                     <div>
-                      <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">{hub.todayQueueClear}</p>
-                      <p className="mt-0.5 text-xs text-emerald-600 dark:text-emerald-400">{hub.todayQueueClearDetail}</p>
+                      <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">{hub.needsAttentionClear || hub.todayQueueClear}</p>
+                      <p className="mt-0.5 text-xs text-emerald-600 dark:text-emerald-400">{hub.needsAttentionClearDetail || hub.todayQueueClearDetail}</p>
                     </div>
                   </div>
                 ) : (
