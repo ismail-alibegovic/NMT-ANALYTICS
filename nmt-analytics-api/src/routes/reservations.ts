@@ -114,9 +114,13 @@ function transformReservation(reservation: any) {
     orgId: reservation.org_id,
     customerId: reservation.customer_id,
     customerName: reservation.customer_name || customer?.full_name || '-',
+    customerPhone: reservation.customer_phone || customer?.phone || null,
     departureId: reservation.departure_id,
+    departureName: departure?.depart_at || null,
+    packageId: pkg?.id || null,
     packageName: pkg?.name || '-',
     bookingDate: reservation.reservation_at,
+    reservationAt: reservation.reservation_at,
     totalAmount: totalAmount,
     paidAmount: paidAmount,
     balanceDue: balanceDue, // DB-calculated: total_amount - paid_amount
@@ -124,9 +128,13 @@ function transformReservation(reservation: any) {
     paymentStatus: reservation.payment_status || 'unpaid', // DB-calculated: unpaid|partially_paid|paid|refunded
     currency: reservation.currency || 'BAM',
     participants: safeNumber(reservation.party_size),
+    partySize: safeNumber(reservation.party_size),
     status: reservation.status,
     source: reservation.source,
+    notes: reservation.notes || null,
+    options: reservation.options || {},
     createdAt: reservation.created_at,
+    updatedAt: reservation.updated_at || reservation.created_at,
     assignedTo: reservation.assigned_to || null,
     // Include nested objects if needed by some parts of the UI
     customer: customer,
@@ -179,6 +187,8 @@ router.get('/reservations', authenticateToken, requireOrgContext, async (req, re
         payment_status,
         currency,
         source,
+        notes,
+        options,
         created_at,
         assigned_to,
         customers (id, full_name, phone, email),
@@ -219,6 +229,59 @@ router.get('/reservations', authenticateToken, requireOrgContext, async (req, re
     return res.json(formatListResponse(transformedData, count || 0, page, limit));
   } catch (error) {
     next(error);
+  }
+});
+
+/**
+ * GET /api/reservations/:id
+ */
+router.get('/reservations/:id', authenticateToken, requireOrgContext, async (req, res: Response) => {
+  try {
+    const { id } = req.params;
+    const orgId = req.orgId!;
+
+    const { data: reservation, error } = await supabaseAdmin
+      .from('reservations')
+      .select(`
+        id,
+        org_id,
+        customer_id,
+        departure_id,
+        customer_name,
+        customer_phone,
+        party_size,
+        reservation_at,
+        status,
+        total_amount,
+        paid_amount,
+        balance_due,
+        payment_status,
+        currency,
+        source,
+        notes,
+        options,
+        created_at,
+        assigned_to,
+        customers (id, full_name, phone, email),
+        departures (
+          id,
+          depart_at,
+          return_at,
+          packages (id, name, destination)
+        )
+      `)
+      .eq('id', id)
+      .eq('org_id', orgId)
+      .single();
+
+    if (error || !reservation) {
+      return apiError(res, 404, "NOT_FOUND", "Reservation not found");
+    }
+
+    return res.json(transformReservation(reservation));
+  } catch (error) {
+    console.error('Error in GET /reservations/:id:', error);
+    apiError(res, 500, "INTERNAL_ERROR", "Internal server error", String(error));
   }
 });
 

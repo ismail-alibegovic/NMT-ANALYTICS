@@ -21,6 +21,7 @@ export interface Reservation {
   bookingDate: string;
   reservationAt?: string;
   notes?: string;
+  options?: Record<string, any>;
   source?: string;
   createdAt: string;
   updatedAt: string;

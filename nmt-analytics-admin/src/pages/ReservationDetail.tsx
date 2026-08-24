@@ -50,23 +50,33 @@ export default function ReservationDetail() {
     if (!id) return;
     (async () => {
       try {
-        const [res, pax, inst] = await Promise.all([
-          getReservation(id),
-          import("../api/departures").then(async (m) => {
-            try {
-              const dp = await m.getDeparturePassengers((res as any).departureId || "");
-              return dp.filter((p: any) => p.reservation_id === id);
-            } catch { return []; }
-          }),
-          import("../api/departures").then(async (m) => {
-            try {
-              const grp = await m.getDepartureGroups((res as any).departureId || "");
-              return grp?.byAgent || [];
-            } catch { return []; }
-          }),
-        ]);
+        const res = await getReservation(id);
+        const departureId = res.departureId;
+        const [pax, inst] = departureId
+          ? await Promise.all([
+              import("../api/departures").then(async (m) => {
+                try {
+                  const manifest = await m.getDeparturePassengers(departureId);
+                  return (manifest.manifest || []).filter(
+                    (p: any) => p.reservationId === id || p.reservation_id === id
+                  );
+                } catch {
+                  return [];
+                }
+              }),
+              import("../api/departures").then(async (m) => {
+                try {
+                  const grp = await m.getDepartureGroups(departureId);
+                  return grp?.byAgent || [];
+                } catch {
+                  return [];
+                }
+              }),
+            ])
+          : [[], []];
         setReservation(res);
         setPassengers(pax);
+        setInstallments(inst as ReservationInstallment[]);
       } catch (err: any) {
         showError(err?.message || "Failed to load reservation");
         navigate(-1);
@@ -74,7 +84,7 @@ export default function ReservationDetail() {
         setLoading(false);
       }
     })();
-  }, [id]);
+  }, [id, navigate, showError]);
 
   const handleDownloadVoucher = async () => {
     if (!id) return;
@@ -122,9 +132,22 @@ export default function ReservationDetail() {
   const reservationShortId = reservation.id ? reservation.id.slice(0, 8) : "—";
 
   const paxColumns: Column<ReservationPassenger>[] = [
-    { key: "full_name", header: "Ime i prezime", render: (v) => String(v ?? "—") },
-    { key: "id_document", header: "Dokument", render: (v) => String(v ?? "—") },
-    { key: "nationality", header: "Nacionalnost", render: (v) => String(v ?? "—") },
+    {
+      key: "fullName",
+      header: "Ime i prezime",
+      render: (_v, item) => String((item as any).fullName ?? (item as any).full_name ?? "—"),
+    },
+    {
+      key: "idDocument",
+      header: "Dokument",
+      render: (_v, item) =>
+        String((item as any).idDocument ?? (item as any).id_document ?? (item as any).id_document_number ?? "—"),
+    },
+    {
+      key: "nationality",
+      header: "Nacionalnost",
+      render: (_v, item) => String((item as any).nationality ?? "—"),
+    },
   ];
 
   return (
@@ -204,7 +227,7 @@ export default function ReservationDetail() {
             {passengers.length === 0 ? (
               <EmptyState icon={GroupIcon} title="Nema putnika" description="Ova rezervacija nema zasebne putničke zapise." />
             ) : (
-              <DataTable columns={paxColumns} rows={passengers} rowKey="id" />
+              <DataTable columns={paxColumns} data={passengers} />
             )}
           </div>
         )}
