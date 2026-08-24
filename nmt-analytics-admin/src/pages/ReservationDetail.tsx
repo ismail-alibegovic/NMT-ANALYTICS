@@ -119,6 +119,7 @@ export default function ReservationDetail() {
   const total = Number(reservation.totalAmount ?? 0);
   const remaining = Math.max(0, total - paid);
   const paidPct = total > 0 ? Math.round((paid / total) * 100) : 0;
+  const reservationShortId = reservation.id ? reservation.id.slice(0, 8) : "—";
 
   const paxColumns: Column<ReservationPassenger>[] = [
     { key: "full_name", header: "Ime i prezime", render: (v) => String(v ?? "—") },
@@ -128,14 +129,14 @@ export default function ReservationDetail() {
 
   return (
     <>
-      <PageMeta title={`Rezervacija ${reservation.id.slice(0, 8)}`} description="" />
+      <PageMeta title={`Rezervacija ${reservationShortId}`} description="" />
       <div className="p-4 sm:p-6 space-y-6">
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
             <ChevronLeftIcon className="size-4" />
           </Button>
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Rezervacija {reservation.id.slice(0, 8)}
+            Rezervacija {reservationShortId}
           </h1>
           <Badge color={reservation.status === "confirmed" ? "success" : reservation.status === "cancelled" ? "error" : reservation.status === "completed" ? "info" : "warning"} size="sm">
             {reservation.status.toUpperCase()}
