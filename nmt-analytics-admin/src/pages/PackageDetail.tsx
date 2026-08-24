@@ -226,6 +226,14 @@ export default function PackageDetail() {
               <p className="text-sm leading-6 text-gray-600 dark:text-gray-300">{pkg.description || t.packages.noDescription}</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+              {(pkg as any).itinerary_id && (
+                <div className="rounded-lg border border-brand-100 bg-brand-50/60 p-3 dark:border-brand-500/20 dark:bg-brand-500/[0.05]">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t.packages.sourceItinerary || "Source itinerary"}</p>
+                  <a href={`/itineraries/${(pkg as any).itinerary_id}`} className="mt-1 inline-block text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400">
+                    {t.packages.viewItinerary || "View itinerary"} →
+                  </a>
+                </div>
+              )}
                   <p className="text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">{t.packages.basePrice}</p>
                   <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{formatCurrency(pkg.price ?? pkg.base_price, pkg.currency)}</p>
                 </div>

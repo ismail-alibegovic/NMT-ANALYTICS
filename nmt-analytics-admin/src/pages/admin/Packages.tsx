@@ -39,6 +39,8 @@ export default function Packages() {
   const [modalOpen, setModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
+  const [itineraryId, setItineraryId] = useState<string | undefined>();
+  const [itineraryPrefill, setItineraryPrefill] = useState<{ name?: string; destination?: string; currency?: string; maxParticipants?: number } | undefined>();
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
@@ -84,13 +86,18 @@ export default function Packages() {
 
   useEffect(() => {
     if (!user || authLoading || modalOpen) return;
-    const packageId = searchParams.get('packageId');
-    if (!packageId) return;
-    const pkg = packages.find((item) => item.id === packageId);
-    if (!pkg) return;
-    setEditingPackage(pkg);
+    const itineraryParam = searchParams.get('createFromItinerary');
+    if (!itineraryParam) return;
+    setItineraryId(itineraryParam);
+    setItineraryPrefill({
+      name: searchParams.get('itineraryTitle') || undefined,
+      destination: searchParams.get('itineraryDestination') || undefined,
+      currency: searchParams.get('itineraryCurrency') || undefined,
+      maxParticipants: searchParams.get('itineraryTravelers') ? Number(searchParams.get('itineraryTravelers')) : undefined,
+    });
+    setEditingPackage(null);
     setModalOpen(true);
-  }, [user, authLoading, modalOpen, searchParams, packages]);
+  }, [user, authLoading, modalOpen, searchParams]);
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
@@ -115,9 +122,17 @@ export default function Packages() {
   const handleCloseModal = () => {
     setModalOpen(false);
     setEditingPackage(null);
-    if (searchParams.get('packageId')) {
-      const next = new URLSearchParams(searchParams);
+    setItineraryId(undefined);
+    setItineraryPrefill(undefined);
+    const next = new URLSearchParams(searchParams);
+    const dirty = false;
+    if (next.get('packageId') || next.get('createFromItinerary')) {
       next.delete('packageId');
+      next.delete('createFromItinerary');
+      next.delete('itineraryTitle');
+      next.delete('itineraryDestination');
+      next.delete('itineraryCurrency');
+      next.delete('itineraryTravelers');
       setSearchParams(next, { replace: true });
     }
   };
@@ -250,6 +265,8 @@ export default function Packages() {
           fetchPackages(currentPage, searchTerm);
         }}
         initial={editingPackage ?? undefined}
+        itineraryId={itineraryId}
+        initialValues={itineraryPrefill}
       />
     </>
   );

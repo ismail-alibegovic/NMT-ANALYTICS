@@ -39,9 +39,11 @@ type Props = {
   onClose: () => void;
   onSaved: () => void;
   initial?: Package;
+  itineraryId?: string;
+  initialValues?: { name?: string; destination?: string; currency?: string; maxParticipants?: number };
 };
 
-export default function PackageEditorModal({ isOpen, onClose, onSaved, initial }: Props) {
+export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, itineraryId, initialValues }: Props) {
   const { success, error } = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [name, setName] = useState("");
@@ -62,29 +64,41 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial }
       setName(initial.name || "");
       setDestination(initial.destination || "");
       setDescription(initial.description || "");
-      const price = (initial as any).base_price ?? initial.price;
-      setBasePrice(typeof price === "number" ? price : "");
+      setBasePrice(initial.basePrice ?? "");
       setCurrency(initial.currency || "BAM");
-      setDurationDays((initial as any).duration_days ?? initial.durationDays ?? "");
-      setActive((initial as any).is_active ?? initial.active ?? true);
-      const t = (initial as any).transport_mode || "none";
-      setTransportMode((["none", "bus", "flight"].includes(t) ? t : "none") as TransportMode);
-      setTripType((initial as any).trip_type ?? (initial as any).tripType ?? "");
-      setTransportCapacity((initial as any).transport_capacity ?? "");
-      const v = (initial as any).variants;
-      setVariants(Array.isArray(v) ? v.map((x: any) => ({
-        id: x.id,
-        name: x.name || "",
-        tier: (["standard", "premium", "deluxe", "custom"].includes(x.tier) ? x.tier : "custom") as VariantTier,
-        accommodation: (["hotel", "student", "apartment", "none"].includes(x.accommodation) ? x.accommodation : "hotel") as Variant["accommodation"],
-        price: Number(x.price) || 0,
-        capacity: Number(x.capacity) || 0,
-      })) : []);
+      setActive(initial.active ?? true);
+      setDurationDays(initial.durationDays ?? "");
+      setTransportMode(initial.transportMode || "none");
+      setTripType(initial.tripType || null);
+      setTransportCapacity(initial.transportCapacity ?? "");
+      setVariants(initial.variants ?? []);
+    } else if (initialValues) {
+      setName(initialValues.name || "");
+      setDestination(initialValues.destination || "");
+      setCurrency(initialValues.currency || "BAM");
+      setDescription("");
+      setBasePrice("");
+      setActive(true);
+      setDurationDays("");
+      setTransportMode("none");
+      setTripType(null);
+      setTransportCapacity("");
+      setVariants([]);
     } else {
-      setName(""); setDestination(""); setDescription(""); setBasePrice(""); setCurrency("BAM");
-      setDurationDays(""); setActive(true); setTransportMode("none"); setTransportCapacity(""); setVariants([]); setTripType("");
+      setName("");
+      setDestination("");
+      setDescription("");
+      setBasePrice("");
+      setCurrency("BAM");
+      setActive(true);
+      setDurationDays("");
+      setTransportMode("none");
+      setTripType(null);
+      setTransportCapacity("");
+      setVariants([]);
     }
-  }, [initial, isOpen]);
+    setSubmitting(false);
+  }, [isOpen, initial, initialValues]);
 
   const dirty = useMemo(() => {
     if (!name.trim() || !destination.trim()) return true;
@@ -152,7 +166,9 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial }
         await updatePackage(initial.id, payload as any);
         success("Paket ažuriran.");
       } else {
-        await createPackage(payload as any);
+        const createPayload: any = { ...payload };
+        if (itineraryId) createPayload.itineraryId = itineraryId;
+        await createPackage(createPayload);
         success("Paket kreiran.");
       }
       onSaved();

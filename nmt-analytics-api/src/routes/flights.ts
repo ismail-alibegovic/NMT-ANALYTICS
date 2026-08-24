@@ -130,8 +130,8 @@ router.get('/flights', authenticateToken, requireOrgContext, requireMinimumRole(
           departAt: departure.depart_at,
           returnAt: departure.return_at,
           status: departure.status,
-          packageName: departure.packages?.name || '-',
-          destination: departure.packages?.destination || '-',
+          packageName: departure.packages?.[0]?.name || '-',
+          destination: departure.packages?.[0]?.destination || '-',
         });
         linkedDeparturesByFlight.set(flightId, current);
       }

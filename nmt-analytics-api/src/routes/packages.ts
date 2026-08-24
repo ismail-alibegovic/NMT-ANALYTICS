@@ -22,6 +22,7 @@ const getPackagesQuerySchema = z.object({
 }));
 
 const createPackageSchema = z.object({
+  itineraryId: z.string().uuid().optional().nullable(),
   name: z.string().min(1, 'Name is required'),
   destination: z.string().min(1, 'Destination is required'),
   price: z.number().min(0, 'Price must be non-negative'),
@@ -136,6 +137,18 @@ router.post('/packages', authenticateToken, requireOrgContext, auditPackageCreat
     const validated = validationResult.data;
     const orgId = req.orgId!;
 
+    if (validated.itineraryId) {
+      const { data: itinerary, error: itineraryErr } = await supabaseAdmin
+        .from('itineraries')
+        .select('id')
+        .eq('id', validated.itineraryId)
+        .eq('org_id', orgId)
+        .single();
+      if (itineraryErr || !itinerary) {
+        return apiError(res, 400, 'VALIDATION_ERROR', 'Itinerary not found or belongs to a different organization');
+      }
+    }
+
     const { data: packageData, error } = await supabaseAdmin
       .from('packages')
       .insert({
@@ -155,11 +168,44 @@ router.post('/packages', authenticateToken, requireOrgContext, auditPackageCreat
         variants: validated.variants ?? null,
         trip_type: validated.tripType ?? null,
         tags: validated.tags ?? null,
+        itinerary_id: validated.itineraryId ?? null,
       })
       .select()
       .single();
 
     if (error) return handleSupabaseError(res, error, "Failed to create package");
+
+    if (validated.itineraryId && packageData) {
+      const { data: versions } = await supabaseAdmin
+        .from('itinerary_versions')
+        .select('id')
+        .eq('itinerary_id', validated.itineraryId)
+        .eq('org_id', orgId)
+        .order('version_number', { ascending: false });
+      const currentVersion = (versions || [])[0];
+      if (currentVersion) {
+        const { data: items } = await supabaseAdmin
+          .from('itinerary_items')
+          .select('*')
+          .eq('itinerary_version_id', currentVersion.id)
+          .eq('org_id', orgId);
+        const serviceRows = (items || [])
+          .filter((item: any) => item.supplier_service_id)
+          .map((item: any) => ({
+            package_id: packageData.id,
+            org_id: orgId,
+            service_type: item.category || 'service',
+            provider_name: item.title,
+            quantity: item.quantity ?? 1,
+            unit_price: item.net_unit_price ?? 0,
+            currency: item.currency || validated.currency || 'BAM',
+            description: item.description || null,
+          }));
+        if (serviceRows.length > 0) {
+          await supabaseAdmin.from('package_services').insert(serviceRows);
+        }
+      }
+    }
 
     return res.status(201).json(packageData);
 
