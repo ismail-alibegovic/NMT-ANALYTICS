@@ -4,7 +4,6 @@ import {
   ArrowRightIcon,
   BoxIconLine,
   ShootingStarIcon,
-  TimeIcon,
   GridIcon,
   UserCircleIcon,
 } from "../../icons";
@@ -53,13 +52,6 @@ const sectionsFor = (
       icon: ShootingStarIcon,
       title: t.nav.packages,
       description: t.packages.description,
-      minRole: "agent",
-    },
-    {
-      href: "/departures",
-      icon: TimeIcon,
-      title: t.nav.departures,
-      description: t.departures.description,
       minRole: "agent",
     },
   ];

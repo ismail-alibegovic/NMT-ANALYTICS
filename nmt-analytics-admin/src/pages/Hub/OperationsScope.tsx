@@ -5,6 +5,8 @@ import {
   UserCircleIcon,
   ShootingStarIcon,
   GridIcon,
+  TimeIcon,
+  PaperPlaneIcon,
 } from "../../icons";
 import { useApp } from "../../context/AppContext";
 import { useT } from "../../lib/i18n/context";
@@ -26,10 +28,31 @@ export default function OperationsScope() {
 
   const all: Section[] = [
     {
+      href: "/departures",
+      icon: TimeIcon,
+      title: t.nav.departures,
+      description: t.departures.description,
+      minRole: "agent",
+    },
+    {
       href: "/operations/calendar",
       icon: CalenderIcon,
       title: t.nav.calendar,
       description: t.operations.calendar.description,
+      minRole: "viewer",
+    },
+    {
+      href: "/operations/availability",
+      icon: GridIcon,
+      title: t.nav.availability,
+      description: t.operations.availability.description,
+      minRole: "viewer",
+    },
+    {
+      href: "/suppliers",
+      icon: UserCircleIcon,
+      title: t.nav.suppliers,
+      description: t.suppliers.description,
       minRole: "viewer",
     },
     {
@@ -72,6 +95,13 @@ export default function OperationsScope() {
       icon: GridIcon,
       title: t.nav.hotels,
       description: t.operations.hotels.description,
+      minRole: "manager",
+    },
+    {
+      href: "/operations/flights",
+      icon: PaperPlaneIcon,
+      title: t.nav.flights,
+      description: t.operations.flights.description,
       minRole: "manager",
     },
   ];
