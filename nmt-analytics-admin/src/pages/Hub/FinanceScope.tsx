@@ -1,6 +1,5 @@
 import {
   DollarLineIcon,
-  FileIcon,
   PieChartIcon,
   PlugInIcon,
 } from "../../icons";
@@ -28,13 +27,6 @@ export default function FinanceScope() {
       icon: DollarLineIcon,
       title: t.nav.payments,
       description: t.payments.description,
-      minRole: "manager",
-    },
-    {
-      href: "/reservations",
-      icon: FileIcon,
-      title: t.nav.fakturisanje,
-      description: t.dashboard.title,
       minRole: "manager",
     },
     {

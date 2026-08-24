@@ -89,7 +89,7 @@ export const en = {
     opsDesc: 'Calendar, contracts, receipts, hotels and sub-agents',
     opsStat: 'Run departures',
     finTitle: 'Finance',
-    finDesc: 'Payments, invoicing, reports and integrations',
+    finDesc: 'Payments, reports and integrations',
     finStat: 'Track the money',
     sysTitle: 'System',
     sysDesc: 'Audit logs, documents and PDF templates',

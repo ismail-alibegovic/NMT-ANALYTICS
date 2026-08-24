@@ -91,7 +91,7 @@ export const bs: Translations = {
     opsDesc: 'Kalendar, ugovori, računi, hoteli i subagenti',
     opsStat: 'Vodi polaske',
     finTitle: 'Finansije',
-    finDesc: 'Plaćanja, fakturisanje, izvještaji i integracije',
+    finDesc: 'Plaćanja, izvještaji i integracije',
     finStat: 'Prati novac',
     sysTitle: 'Sistem',
     sysDesc: 'Audit zapisi, dokumenti i PDF predlošci',
