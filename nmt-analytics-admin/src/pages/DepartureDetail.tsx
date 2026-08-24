@@ -59,7 +59,8 @@ const formatDateTime = (dateStr: string) => {
   });
 };
 
-const statusBadge = (status: string) => {
+const statusBadge = (status?: string | null) => {
+  const normalizedStatus = status ?? "unknown";
   const colors: Record<string, any> = {
     active: "info",
     completed: "success",
@@ -67,7 +68,7 @@ const statusBadge = (status: string) => {
     confirmed: "success",
     pending: "warning",
   };
-  return <Badge color={colors[status] || "light"} size="sm">{status.toUpperCase()}</Badge>;
+  return <Badge color={colors[normalizedStatus] || "light"} size="sm">{normalizedStatus.toUpperCase()}</Badge>;
 };
 
 type Tab = "overview" | "passengers" | "razvrstavanje" | "drustva" | "hotels";
