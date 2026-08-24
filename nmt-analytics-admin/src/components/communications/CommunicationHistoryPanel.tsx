@@ -12,6 +12,7 @@ interface CommunicationHistoryPanelProps {
   relatedDepartureId?: string;
   relatedReservationId?: string;
   title?: string;
+  refreshKey?: number;
 }
 
 const formatDateTime = (value?: string | null) => {
@@ -46,6 +47,7 @@ export default function CommunicationHistoryPanel({
   relatedDepartureId,
   relatedReservationId,
   title = "Communication history",
+  refreshKey = 0,
 }: CommunicationHistoryPanelProps) {
   const [items, setItems] = useState<CommunicationHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,7 +79,7 @@ export default function CommunicationHistoryPanel({
     return () => {
       mounted = false;
     };
-  }, [channel, status, relatedDepartureId, relatedReservationId]);
+  }, [channel, status, relatedDepartureId, relatedReservationId, refreshKey]);
 
   const columns: Column<CommunicationHistoryItem>[] = useMemo(() => [
     {

@@ -1,3 +1,5 @@
+import { logCommunicationHistory } from '../communicationHistory';
+
 export interface SmsOptions {
   to: string;
   message: string;
@@ -40,5 +42,37 @@ export class SmsService {
 
   static async sendSms(options: SmsOptions) {
     return this.provider.sendSms(options);
+  }
+
+  static async sendManualMessage(options: SmsOptions & {
+    orgId: string;
+    relatedReservationId?: string | null;
+    relatedDepartureId?: string | null;
+  }) {
+    try {
+      await this.provider.sendSms(options);
+      await logCommunicationHistory({
+        orgId: options.orgId,
+        channel: 'sms',
+        recipient: options.to,
+        bodyPreview: options.message,
+        status: 'sent',
+        relatedReservationId: options.relatedReservationId ?? null,
+        relatedDepartureId: options.relatedDepartureId ?? null,
+        sentAt: new Date(),
+      });
+    } catch (error: any) {
+      await logCommunicationHistory({
+        orgId: options.orgId,
+        channel: 'sms',
+        recipient: options.to,
+        bodyPreview: options.message,
+        status: 'failed',
+        errorMessage: error?.message || 'sms_send_failed',
+        relatedReservationId: options.relatedReservationId ?? null,
+        relatedDepartureId: options.relatedDepartureId ?? null,
+      });
+      throw error;
+    }
   }
 }

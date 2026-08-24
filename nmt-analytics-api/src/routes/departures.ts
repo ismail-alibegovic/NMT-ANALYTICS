@@ -9,6 +9,7 @@ import { apiError } from "../lib/errors";
 import { requireMinimumRole } from '../middleware/requireRole';
 import { getDepartureStatus, resolveDepartureCapabilities } from '../utils/business';
 import { computePassengerDocumentReadiness, summarizeDocumentReadiness, toTravelDateKey } from '../lib/documentReadiness';
+import { manualMessageSchema, sendManualEmailForOrg, sendManualSmsForOrg } from '../lib/manualMessaging';
 
 const router = Router();
 
@@ -558,6 +559,50 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
   } catch (error) {
     console.error('Error in GET /departures/:id:', error);
     apiError(res, 500, "INTERNAL_ERROR", "Internal server error");
+  }
+});
+
+router.post('/departures/:id/manual-message', authenticateToken, requireOrgContext, async (req, res: Response) => {
+  try {
+    const { id } = req.params;
+    const orgId = req.orgId!;
+    const parsed = manualMessageSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid manual message payload', parsed.error.issues);
+    }
+
+    const { data: departure, error } = await supabaseAdmin
+      .from('departures')
+      .select('id, org_id')
+      .eq('id', id)
+      .eq('org_id', orgId)
+      .single();
+
+    if (error || !departure) {
+      return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
+    }
+
+    if (parsed.data.channel === 'email') {
+      await sendManualEmailForOrg({
+        ...parsed.data,
+        orgId,
+        relatedDepartureId: departure.id,
+      });
+    } else {
+      await sendManualSmsForOrg({
+        ...parsed.data,
+        orgId,
+        relatedDepartureId: departure.id,
+      });
+    }
+
+    return res.json({ success: true, channel: parsed.data.channel });
+  } catch (error: any) {
+    console.error('Error in POST /departures/:id/manual-message:', error);
+    if (error?.message === 'SMTP_NOT_CONFIGURED' || error?.message === 'SMS_NOT_CONFIGURED' || error?.message === 'SMS_SENDER_MISSING') {
+      return apiError(res, 400, error.message, error.message);
+    }
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to send manual message', String(error?.message || error));
   }
 });
 

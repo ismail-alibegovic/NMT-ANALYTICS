@@ -9,6 +9,7 @@ import { DataTable, Column } from "../components/ui/DataTable";
 import SeatMap from "../components/operations/SeatMap";
 import RoomingWorkspace from "../components/operations/RoomingWorkspace";
 import CommunicationHistoryPanel from "../components/communications/CommunicationHistoryPanel";
+import ManualMessageComposer from "../components/communications/ManualMessageComposer";
 import { useToast } from "../context/ToastContext";
 import { Modal } from "../components/ui/modal";
 import Input from "../components/form/input/InputField";
@@ -40,6 +41,7 @@ import {
   type PassengerDocumentStatus,
 } from "../api/departures";
 import { getFlights, type Flight } from "../api/flights";
+import { sendDepartureManualMessage } from "../api/manualMessaging";
 
 const formatCurrency = (amount: number, currency = "BAM") =>
   new Intl.NumberFormat("bs-BA", { style: "currency", currency }).format(amount || 0);
@@ -103,6 +105,7 @@ export default function DepartureDetail() {
   const [flightsLoading, setFlightsLoading] = useState(false);
   const [flightSaving, setFlightSaving] = useState(false);
   const [flightError, setFlightError] = useState<string | null>(null);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -158,6 +161,15 @@ export default function DepartureDetail() {
       guides: Array.from(new Set(list.map((p) => p.tourGuide).filter(Boolean))) as string[],
     }));
   }, [normPax]);
+
+  const departureDefaultEmail = useMemo(
+    () => normPax.find((p) => p.email)?.email || "",
+    [normPax],
+  );
+  const departureDefaultPhone = useMemo(
+    () => normPax.find((p) => p.phone)?.phone || "",
+    [normPax],
+  );
 
   // Open document editor for a passenger
   const openDocEditor = (p: DeparturePassenger) => {
@@ -566,9 +578,18 @@ export default function DepartureDetail() {
             </aside>
 
             <div className="lg:col-span-3">
+              <div className="mb-5">
+                <ManualMessageComposer
+                  initialEmail={departureDefaultEmail}
+                  initialPhone={departureDefaultPhone}
+                  onSend={(payload) => sendDepartureManualMessage(departure.id, payload)}
+                  onSent={() => setHistoryRefreshKey((value) => value + 1)}
+                />
+              </div>
               <CommunicationHistoryPanel
                 relatedDepartureId={departure.id}
                 title="Communication history"
+                refreshKey={historyRefreshKey}
               />
             </div>
           </div>

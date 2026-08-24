@@ -140,4 +140,16 @@ export class EmailService {
             relatedReservationId: reservationId,
         });
     }
+
+    static async sendManualMessage(options: EmailOptions & {
+        orgId: string;
+        relatedReservationId?: string | null;
+        relatedDepartureId?: string | null;
+    }) {
+        return this.sendAndLog(options, {
+            orgId: options.orgId,
+            relatedReservationId: options.relatedReservationId ?? null,
+            relatedDepartureId: options.relatedDepartureId ?? null,
+        });
+    }
 }

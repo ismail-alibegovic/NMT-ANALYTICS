@@ -12,6 +12,7 @@ import { calculateRemainingAmount, safeNumber } from '../utils/business';
 import { generateVoucherPDF, generateInvoicePDF } from '../lib/pdfGenerator';
 import { getOrgBranding } from '../lib/orgBranding';
 import { EmailService } from '../lib/email/EmailService';
+import { manualMessageSchema, sendManualEmailForOrg, sendManualSmsForOrg } from '../lib/manualMessaging';
 import PDFDocument from 'pdfkit';
 import { notifyNewReservation } from '../lib/notificationService';
 import { requireMinimumRole } from '../middleware/requireRole';
@@ -962,6 +963,52 @@ router.post('/reservations/:id/send-email', authenticateToken, requireOrgContext
   } catch (error) {
     console.error('Error in POST /reservations/:id/send-email:', error);
     apiError(res, 500, "INTERNAL_ERROR", "Failed to send email", String(error));
+  }
+});
+
+router.post('/reservations/:id/manual-message', authenticateToken, requireOrgContext, async (req, res: Response) => {
+  try {
+    const { id } = req.params;
+    const orgId = req.orgId!;
+    const parsed = manualMessageSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid manual message payload', parsed.error.issues);
+    }
+
+    const { data: reservation, error } = await supabaseAdmin
+      .from('reservations')
+      .select('id, org_id, departure_id')
+      .eq('id', id)
+      .eq('org_id', orgId)
+      .single();
+
+    if (error || !reservation) {
+      return apiError(res, 404, 'NOT_FOUND', 'Reservation not found');
+    }
+
+    if (parsed.data.channel === 'email') {
+      await sendManualEmailForOrg({
+        ...parsed.data,
+        orgId,
+        relatedReservationId: reservation.id,
+        relatedDepartureId: reservation.departure_id || null,
+      });
+    } else {
+      await sendManualSmsForOrg({
+        ...parsed.data,
+        orgId,
+        relatedReservationId: reservation.id,
+        relatedDepartureId: reservation.departure_id || null,
+      });
+    }
+
+    return res.json({ success: true, channel: parsed.data.channel });
+  } catch (error: any) {
+    console.error('Error in POST /reservations/:id/manual-message:', error);
+    if (error?.message === 'SMTP_NOT_CONFIGURED' || error?.message === 'SMS_NOT_CONFIGURED' || error?.message === 'SMS_SENDER_MISSING') {
+      return apiError(res, 400, error.message, error.message);
+    }
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to send manual message', String(error?.message || error));
   }
 });
 

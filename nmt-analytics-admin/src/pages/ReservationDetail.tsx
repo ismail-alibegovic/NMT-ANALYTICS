@@ -6,6 +6,7 @@ import Button from "../components/ui/button/Button";
 import EmptyState from "../components/ui/EmptyState";
 import { DataTable, Column } from "../components/ui/DataTable";
 import CommunicationHistoryPanel from "../components/communications/CommunicationHistoryPanel";
+import ManualMessageComposer from "../components/communications/ManualMessageComposer";
 import { useToast } from "../context/ToastContext";
 import {
   ChevronLeftIcon,
@@ -25,6 +26,7 @@ import {
   formatReservationDate,
   reservationPaymentStatusBadge,
 } from "../api/reservations";
+import { sendReservationManualMessage } from "../api/manualMessaging";
 
 type Tab = "overview" | "passengers" | "payments" | "services" | "documents";
 
@@ -45,6 +47,7 @@ export default function ReservationDetail() {
   const [installments, setInstallments] = useState<ReservationInstallment[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -130,6 +133,8 @@ export default function ReservationDetail() {
   const remaining = Math.max(0, total - paid);
   const paidPct = total > 0 ? Math.round((paid / total) * 100) : 0;
   const reservationShortId = reservation.id ? reservation.id.slice(0, 8) : "—";
+  const reservationEmail = (reservation as any).customer?.email || (reservation as any).customers?.email || "";
+  const reservationPhone = reservation.customerPhone || (reservation as any).customer?.phone || "";
 
   const paxColumns: Column<ReservationPassenger>[] = [
     {
@@ -259,9 +264,16 @@ export default function ReservationDetail() {
               <Button size="sm" variant="outline" onClick={handleDownloadVoucher}>Preuzmi vaučer</Button>
               <Button size="sm" variant="outline" onClick={handleDownloadInvoice}>Preuzmi fakturu</Button>
             </div>
+            <ManualMessageComposer
+              initialEmail={reservationEmail}
+              initialPhone={reservationPhone}
+              onSend={(payload) => sendReservationManualMessage(reservation.id, payload)}
+              onSent={() => setHistoryRefreshKey((value) => value + 1)}
+            />
             <CommunicationHistoryPanel
               relatedReservationId={reservation.id}
               title="Communication history"
+              refreshKey={historyRefreshKey}
             />
           </div>
         )}
