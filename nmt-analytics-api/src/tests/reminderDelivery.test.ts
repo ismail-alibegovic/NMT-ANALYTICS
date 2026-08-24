@@ -8,7 +8,7 @@ function createSupabaseStub({
   settings,
 }: {
   rpcRows: Array<{ notification_id: string }>;
-  notifications: Array<{ id: string; org_id: string; title: string; body: string }>;
+  notifications: Array<{ id: string; org_id: string; title: string; body: string; data?: Record<string, any> }>;
   organizations: Record<string, any>;
   settings: Record<string, Record<string, any>>;
 }) {

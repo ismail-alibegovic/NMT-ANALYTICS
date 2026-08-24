@@ -8,6 +8,7 @@ import EmptyState from "../components/ui/EmptyState";
 import { DataTable, Column } from "../components/ui/DataTable";
 import SeatMap from "../components/operations/SeatMap";
 import RoomingWorkspace from "../components/operations/RoomingWorkspace";
+import CommunicationHistoryPanel from "../components/communications/CommunicationHistoryPanel";
 import { useToast } from "../context/ToastContext";
 import { Modal } from "../components/ui/modal";
 import Input from "../components/form/input/InputField";
@@ -561,6 +562,13 @@ export default function DepartureDetail() {
                 <TripFact label="Vodiči" value={`${manifest?.summary.guides?.length ?? 0}`} />
               </dl>
             </aside>
+
+            <div className="lg:col-span-3">
+              <CommunicationHistoryPanel
+                relatedDepartureId={departure.id}
+                title="Communication history"
+              />
+            </div>
           </div>
         )}
 

@@ -5,6 +5,7 @@ import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
 import EmptyState from "../components/ui/EmptyState";
 import { DataTable, Column } from "../components/ui/DataTable";
+import CommunicationHistoryPanel from "../components/communications/CommunicationHistoryPanel";
 import { useToast } from "../context/ToastContext";
 import {
   ChevronLeftIcon,
@@ -229,9 +230,15 @@ export default function ReservationDetail() {
 
         {/* Documents Tab */}
         {activeTab === "documents" && (
-          <div className="flex gap-3">
-            <Button size="sm" variant="outline" onClick={handleDownloadVoucher}>Preuzmi vaučer</Button>
-            <Button size="sm" variant="outline" onClick={handleDownloadInvoice}>Preuzmi fakturu</Button>
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <Button size="sm" variant="outline" onClick={handleDownloadVoucher}>Preuzmi vaučer</Button>
+              <Button size="sm" variant="outline" onClick={handleDownloadInvoice}>Preuzmi fakturu</Button>
+            </div>
+            <CommunicationHistoryPanel
+              relatedReservationId={reservation.id}
+              title="Communication history"
+            />
           </div>
         )}
       </div>

@@ -4,7 +4,7 @@ const sendEmail = vi.fn(async () => undefined);
 const logCommunicationHistory = vi.fn(async () => undefined);
 
 vi.mock('../lib/communicationHistory', () => ({
-  logCommunicationHistory: (entry: any) => logCommunicationHistory(entry),
+  logCommunicationHistory: (...args: any[]) => (logCommunicationHistory as any)(...args),
 }));
 
 import { EmailService } from '../lib/email/EmailService';
