@@ -1,6 +1,6 @@
 import { useT } from "../../lib/i18n/context";
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import PageMeta from '../../components/common/PageMeta';
 import { DataTable, Column, Pagination } from '../../components/ui/DataTable';
 import PackageEditorModal from '../../components/packages/PackageEditorModal';
@@ -24,6 +24,7 @@ import {
 const ITEMS_PER_PAGE = 10;
 
 export default function Packages() {
+  const navigate = useNavigate();
   const { success: showSuccess, error: showError } = useToast();
   const { user, loading: authLoading } = useApp();
   const { getParam, setParams } = useQueryParams();
@@ -174,6 +175,7 @@ export default function Packages() {
     {
       key: 'actions', header: 'Actions', render: (_, pkg) => (
         <div className="flex gap-2 justify-end">
+          <Button size="sm" variant="outline" onClick={() => navigate(`/packages/${pkg.id}`)} className="p-2">{t.packages.open}</Button>
           <Button size="sm" variant="outline" onClick={() => handleEdit(pkg)} className="p-2">Edit</Button>
           <Button size="sm" variant="outline" onClick={() => handleDelete(pkg)} className="p-2 text-red-600 hover:text-red-700">Delete</Button>
         </div>

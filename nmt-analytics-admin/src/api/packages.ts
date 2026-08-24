@@ -26,6 +26,47 @@ export interface Package {
   variants?: PackageVariant[];
 }
 
+export interface PackageDetailService {
+  id: string;
+  service_type?: string | null;
+  provider_name?: string | null;
+  quantity?: number | null;
+  unit_price?: number | null;
+  currency?: string | null;
+  notes?: string | null;
+}
+
+export interface PackageDetailHotel {
+  id: string;
+  hotel_id?: string | null;
+  hotel_name?: string | null;
+  room_type?: string | null;
+  price_per_night?: number | null;
+  check_in?: string | null;
+  check_out?: string | null;
+  rooms_reserved?: number | null;
+  hotels?: {
+    id: string;
+    name: string;
+  } | null;
+}
+
+export interface PackageDetailDeparture {
+  id: string;
+  depart_at: string;
+  return_at?: string | null;
+  status?: string | null;
+  capacity?: number | null;
+  booked?: number | null;
+  transport_type?: string | null;
+}
+
+export interface PackageDetail extends Package {
+  package_services?: PackageDetailService[];
+  hotels?: PackageDetailHotel[];
+  departures?: PackageDetailDeparture[];
+}
+
 export interface PackageVariant {
   id: string;
   name: string;             // e.g. "Deluxe", "Standard", "Premium"
@@ -71,9 +112,9 @@ export async function getPackages(filters: PackageFilters = {}, config?: any): P
 }
 
 
-export async function getPackageById(id: string): Promise<Package & { services?: any[]; hotels?: any[]; departures?: any[] }> {
-  const { data } = await get<Package & { services?: any[]; hotels?: any[]; departures?: any[] }>(`/packages/${id}`);
-  return data;
+export async function getPackageById(id: string): Promise<PackageDetail> {
+  const { data } = await get<{ data: PackageDetail }>(`/packages/${id}`);
+  return data.data;
 }
 export async function createPackage(data: any): Promise<Package> {
   const { data: result } = await post<Package>('/packages', data);

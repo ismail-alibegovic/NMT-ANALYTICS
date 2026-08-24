@@ -344,7 +344,7 @@ router.get('/packages/export', authenticateToken, requireOrgContext, async (req:
 router.get('/packages/:id', authenticateToken, requireOrgContext, async (req: any, res: Response) => {
   try {
     const { id } = req.params;
-    const orgId = req.user?.orgId;
+    const orgId = req.orgId;
 
     const { data: pkg, error: pkgErr } = await supabaseAdmin
       .from('packages')

@@ -19,6 +19,7 @@ const FinanceScope = lazy(() => import("./pages/Hub/FinanceScope"));
 const Customers = lazy(() => import("./pages/admin/Customers"));
 const CustomerDetail = lazy(() => import("./pages/CustomerDetail"));
 const Packages = lazy(() => import("./pages/admin/Packages"));
+const PackageDetail = lazy(() => import("./pages/PackageDetail"));
 const Reservations = lazy(() => import("./pages/Reservations"));
 const ReservationDetail = lazy(() => import("./pages/ReservationDetail"));
 const Inquiries = lazy(() => import("./pages/Inquiries"));
@@ -102,6 +103,7 @@ export default function App() {
           <Route path="/customers" element={<SuspenseWrapper><Customers /></SuspenseWrapper>} />
           <Route path="/customers/:id" element={<SuspenseWrapper><CustomerDetail /></SuspenseWrapper>} />
           <Route path="/packages" element={<SuspenseWrapper><Packages /></SuspenseWrapper>} />
+          <Route path="/packages/:id" element={<SuspenseWrapper><PackageDetail /></SuspenseWrapper>} />
           <Route path="/reservations" element={<SuspenseWrapper><Reservations /></SuspenseWrapper>} />
           <Route path="/reservations/:id" element={<SuspenseWrapper><ReservationDetail /></SuspenseWrapper>} />
           <Route path="/inquiries" element={<SuspenseWrapper><Inquiries /></SuspenseWrapper>} />
