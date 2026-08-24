@@ -361,7 +361,6 @@ const HomeHub: React.FC = () => {
     { label: hub.sCustomers, href: "/customers", icon: GroupIcon },
     { label: hub.sReports, href: "/reports", icon: PieChartIcon, minRole: "manager" as UserRole },
     { label: hub.sBranding, href: "/settings", icon: UserCircleIcon, minRole: "director" as UserRole },
-    { label: hub.sPdfTemplates, href: "/settings/pdf-templates", icon: FileIcon, minRole: "director" as UserRole },
   ].filter((s) => !s.minRole || hasAccess(s.minRole, role));
 
   const bookingsList = bookingsTab === "upcoming" ? upcoming : past;

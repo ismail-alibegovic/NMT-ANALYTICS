@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router';
 import PageMeta from '../../components/common/PageMeta';
 import { DataTable, Column, Pagination } from '../../components/ui/DataTable';
 import PageBreadCrumb from '../../components/common/PageBreadCrumb';
@@ -280,6 +281,20 @@ export default function Documents() {
                     </Button>
                 }
             />
+
+            <div className="mb-6 flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+                <DocsIcon className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+                <div className="flex-1">
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-200">PDF Templates are managed in Settings</p>
+                    <p className="text-xs text-blue-700 dark:text-blue-300">Use Settings to configure invoice, voucher, contract, and receipt templates without changing document storage or generation flows.</p>
+                </div>
+                <Link
+                    to="/settings/pdf-templates"
+                    className="whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                >
+                    Open PDF Templates
+                </Link>
+            </div>
 
             {loading ? (
                 <div className="flex items-center justify-center p-20">

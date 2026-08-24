@@ -96,7 +96,6 @@ const AppSidebar: React.FC = () => {
   const adminItems: NavItem[] = [
     { icon: <LockIcon />, name: t.nav.auditLogs, path: "/admin/audit-logs", minRole: "director" },
     { icon: <FileIcon />, name: t.nav.documents, path: "/admin/documents", module: "documents", minRole: "manager" },
-    { icon: <FileIcon />, name: t.nav.pdfTemplates, path: "/settings/pdf-templates", minRole: "director" },
   ];
 
   const groups: NavGroup[] = [
