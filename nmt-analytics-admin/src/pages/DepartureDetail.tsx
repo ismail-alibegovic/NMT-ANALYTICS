@@ -128,6 +128,7 @@ export default function DepartureDetail() {
   const passengers: DeparturePassenger[] = Array.isArray((manifest as any)?.manifest)
     ? (manifest as any).manifest
     : (manifest as any)?.passengers || [];
+  const summary = manifest?.summary ?? {};
 
   // Normalize seat/paid/debt fields to support either shape
   const normPax: DeparturePassenger[] = passengers.map((p: any) => ({
@@ -230,16 +231,16 @@ export default function DepartureDetail() {
 
   const handleUnlinkFlight = () => handleLinkFlight(null);
 
-  const totalGuests = manifest?.summary.totalGuests ?? departure?.booked ?? 0;
+  const totalGuests = summary.totalGuests ?? departure?.booked ?? 0;
   const occupancyPct = departure && departure.capacity > 0
     ? Math.round((totalGuests / departure.capacity) * 100)
     : 0;
   const overCapacity = departure ? Math.max(0, totalGuests - departure.capacity) : 0;
-  const confirmedGuests = manifest?.summary.confirmedGuests ?? 0;
-  const totalDebt = manifest?.summary.totalDebt ?? 0;
-  const totalPaid = manifest?.summary.totalPaid ?? 0;
-  const currency = manifest?.summary.currency || departure?.packages?.currency || "EUR";
-  const allocations = manifest?.summary.allocations || [];
+  const confirmedGuests = summary.confirmedGuests ?? 0;
+  const totalDebt = summary.totalDebt ?? 0;
+  const totalPaid = summary.totalPaid ?? 0;
+  const currency = summary.currency || departure?.packages?.currency || "EUR";
+  const allocations = summary.allocations || [];
   const capabilities: DepartureCapabilities | undefined = (departure as any)?.capabilities;
   const transportConfigured = capabilities?.hasBusTransport || capabilities?.hasFlight || false;
   const t = useTranslation();
@@ -557,9 +558,9 @@ export default function DepartureDetail() {
                 <TripFact label="Period" value={`${formatDate(departure.depart_at)} — ${formatDate(departure.return_at)}`} />
                 <TripFact label="Trajanje" value={`${Math.max(1, Math.ceil((new Date(departure.return_at).getTime() - new Date(departure.depart_at).getTime()) / 86400000))} dana`} />
                 <TripFact label="Kapacitet" value={`${totalGuests} / ${departure.capacity} mjesta (${occupancyPct}%)`} attention={overCapacity > 0} />
-                <TripFact label="Rezervacije" value={`${manifest?.summary.totalReservations ?? 0}`} />
+                <TripFact label="Rezervacije" value={`${summary.totalReservations ?? 0}`} />
                 <TripFact label="Prodajni agenti" value={`${groups?.byAgent.length ?? 0}`} />
-                <TripFact label="Vodiči" value={`${manifest?.summary.guides?.length ?? 0}`} />
+                <TripFact label="Vodiči" value={`${summary.guides?.length ?? 0}`} />
               </dl>
             </aside>
 
