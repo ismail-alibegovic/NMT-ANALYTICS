@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import PageToolbar from "../../components/ui/PageToolbar";
 import Button from "../../components/ui/button/Button";
 import { DataTable, Column } from "../../components/ui/DataTable";
 import EmptyState from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/modal";
+import Badge from "../../components/ui/badge/Badge";
 import { useToast } from "../../context/ToastContext";
 import { useApp } from "../../context/AppContext";
 import { PlusIcon, TrashBinIcon } from "../../icons";
@@ -13,6 +15,7 @@ import { getFlights, createFlight, deleteFlight, Flight } from "../../api/operat
 export default function Flights() {
   const { success: showSuccess, error: showError } = useToast();
   const { user, loading: authLoading } = useApp();
+  const [searchParams] = useSearchParams();
 
   const [flights, setFlights] = useState<Flight[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,12 +33,17 @@ export default function Flights() {
   const [formCurrency, setFormCurrency] = useState("BAM");
   const [formNotes, setFormNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const focusedFlightId = searchParams.get("flightId");
 
   const fetchFlights = async () => {
     try {
       setLoading(true);
       const data = await getFlights(search ? { search } : undefined);
-      setFlights(data);
+      const rows = Array.isArray((data as any)?.data) ? (data as any).data : [];
+      const sorted = focusedFlightId
+        ? [...rows].sort((a, b) => Number(b.id === focusedFlightId) - Number(a.id === focusedFlightId))
+        : rows;
+      setFlights(sorted);
     } catch (err: any) {
       showError(err.message || "Greška pri učitavanju letova");
     } finally {
@@ -100,6 +108,11 @@ export default function Flights() {
         <div>
           <span className="font-medium text-gray-900 dark:text-white">{f.airline}</span>
           <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{f.flightNumber}</span>
+          {focusedFlightId === f.id && (
+            <Badge color="primary" size="sm" className="ml-2">
+              Focus
+            </Badge>
+          )}
         </div>
       ),
     },

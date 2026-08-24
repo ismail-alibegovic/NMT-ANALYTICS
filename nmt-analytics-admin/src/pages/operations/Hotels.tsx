@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import PageToolbar from "../../components/ui/PageToolbar";
 import Button from "../../components/ui/button/Button";
@@ -27,6 +28,7 @@ export default function Hotels() {
   const { success: showSuccess, error: showError } = useToast();
   const { user, loading: authLoading } = useApp();
   const { t } = useT();
+  const [searchParams, setSearchParams] = useSearchParams();
   const tr = t.operations.hotels;
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +73,16 @@ export default function Hotels() {
     if (user && !authLoading) fetchHotels();
     else if (!authLoading) setLoading(false);
   }, [user, authLoading]);
+
+  useEffect(() => {
+    if (loading || roomModalOpen) return;
+    const hotelId = searchParams.get("hotelId");
+    if (!hotelId) return;
+    const hotel = hotels.find((item) => item.id === hotelId);
+    if (!hotel) return;
+    setSelectedHotel(hotel);
+    setRoomModalOpen(true);
+  }, [loading, roomModalOpen, searchParams, hotels]);
 
   useEffect(() => {
     if (roomModalOpen && selectedHotel) {
@@ -131,6 +143,15 @@ export default function Hotels() {
       });
       showSuccess("Allocation created"); setAllocModalOpen(false); fetchHotels();
     } catch (err: any) { showError(err.message || "Failed to create allocation"); }
+  };
+
+  const handleCloseRoomModal = () => {
+    setRoomModalOpen(false);
+    if (searchParams.get("hotelId")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("hotelId");
+      setSearchParams(next, { replace: true });
+    }
   };
 
   const columns: Column<Hotel>[] = [
@@ -203,7 +224,7 @@ export default function Hotels() {
         </div>
       </Modal>
 
-      <Modal isOpen={roomModalOpen} onClose={() => setRoomModalOpen(false)} className="m-4 max-w-2xl" title={selectedHotel ? `${selectedHotel.name} — ${tr.roomTypes || "Room Types"}` : (tr.roomTypes || "Room Types")}>
+      <Modal isOpen={roomModalOpen} onClose={handleCloseRoomModal} className="m-4 max-w-2xl" title={selectedHotel ? `${selectedHotel.name} — ${tr.roomTypes || "Room Types"}` : (tr.roomTypes || "Room Types")}>
         <div className="max-h-[75vh] overflow-y-auto p-6">
           <div className="mb-6 grid gap-3 sm:grid-cols-5 sm:items-end">
             <Field label={tr.roomType || "Type"}><Input placeholder="e.g. 2-bed, 3-bed, twin, family" value={roomType} onChange={(e) => setRoomType(e.target.value)} /></Field>
@@ -232,7 +253,7 @@ export default function Hotels() {
             </div>
           )}
           <div className="mt-6 flex justify-end border-t border-gray-100 pt-4 dark:border-gray-800">
-            <Button variant="outline" onClick={() => setRoomModalOpen(false)}>{tr.close || "Close"}</Button>
+            <Button variant="outline" onClick={handleCloseRoomModal}>{tr.close || "Close"}</Button>
           </div>
         </div>
       </Modal>

@@ -1,5 +1,6 @@
 import { useT } from "../../lib/i18n/context";
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router';
 import PageMeta from '../../components/common/PageMeta';
 import { DataTable, Column, Pagination } from '../../components/ui/DataTable';
 import PackageEditorModal from '../../components/packages/PackageEditorModal';
@@ -26,7 +27,8 @@ export default function Packages() {
   const { success: showSuccess, error: showError } = useToast();
   const { user, loading: authLoading } = useApp();
   const { getParam, setParams } = useQueryParams();
-const { t } = useT();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { t } = useT();
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +81,16 @@ const { t } = useT();
     }
   }, [currentPage, searchTerm, user, authLoading, setParams]);
 
+  useEffect(() => {
+    if (!user || authLoading || modalOpen) return;
+    const packageId = searchParams.get('packageId');
+    if (!packageId) return;
+    const pkg = packages.find((item) => item.id === packageId);
+    if (!pkg) return;
+    setEditingPackage(pkg);
+    setModalOpen(true);
+  }, [user, authLoading, modalOpen, searchParams, packages]);
+
   const handleSearch = (value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
@@ -97,6 +109,16 @@ const { t } = useT();
   const handleCreate = () => {
     setEditingPackage(null);
     setModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setEditingPackage(null);
+    if (searchParams.get('packageId')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('packageId');
+      setSearchParams(next, { replace: true });
+    }
   };
 
   const handleEdit = (pkg: Package) => {
@@ -220,8 +242,11 @@ const { t } = useT();
 
       <PackageEditorModal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSaved={() => fetchPackages(currentPage, searchTerm)}
+        onClose={handleCloseModal}
+        onSaved={() => {
+          handleCloseModal();
+          fetchPackages(currentPage, searchTerm);
+        }}
         initial={editingPackage ?? undefined}
       />
     </>

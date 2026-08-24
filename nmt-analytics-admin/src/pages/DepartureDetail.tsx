@@ -244,6 +244,23 @@ export default function DepartureDetail() {
 
   const handleUnlinkFlight = () => handleLinkFlight(null);
 
+  const openPackage = () => {
+    if (!departure?.package_id) return;
+    navigate(`/packages?packageId=${encodeURIComponent(departure.package_id)}`);
+  };
+
+  const openHotel = (hotelId: string) => {
+    navigate(`/operations/hotels?hotelId=${encodeURIComponent(hotelId)}`);
+  };
+
+  const openFlights = () => {
+    navigate(
+      departure?.linkedFlight?.id
+        ? `/operations/flights?flightId=${encodeURIComponent(departure.linkedFlight.id)}`
+        : "/operations/flights",
+    );
+  };
+
   const totalGuests = summary.totalGuests ?? departure?.booked ?? 0;
   const occupancyPct = departure && departure.capacity > 0
     ? Math.round((totalGuests / departure.capacity) * 100)
@@ -254,6 +271,27 @@ export default function DepartureDetail() {
   const totalPaid = summary.totalPaid ?? 0;
   const currency = summary.currency || departure?.packages?.currency || "EUR";
   const allocations = summary.allocations || [];
+  const relatedHotels = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+
+    for (const allocation of (departure?.hotelAllocations || [])) {
+      const hotelId = allocation?.hotel_id || allocation?.hotels?.id;
+      const hotelName = allocation?.hotels?.name;
+      if (hotelId && hotelName && !map.has(hotelId)) {
+        map.set(hotelId, { id: hotelId, name: hotelName });
+      }
+    }
+
+    for (const linked of (departure?.packageHotels || [])) {
+      const hotelId = linked?.hotelId || linked?.hotel_id || linked?.hotel?.id || linked?.hotels?.id;
+      const hotelName = linked?.hotel?.name || linked?.hotels?.name || linked?.hotel_name;
+      if (hotelId && hotelName && !map.has(hotelId)) {
+        map.set(hotelId, { id: hotelId, name: hotelName });
+      }
+    }
+
+    return Array.from(map.values());
+  }, [departure?.hotelAllocations, departure?.packageHotels]);
   const capabilities: DepartureCapabilities | undefined = (departure as any)?.capabilities;
   const transportConfigured = capabilities?.hasBusTransport || capabilities?.hasFlight || false;
   const t = useTranslation();
@@ -435,6 +473,13 @@ export default function DepartureDetail() {
               </div>
               <h1 className="text-2xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-3xl">{departure.packageName}</h1>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{departure.destination}</p>
+              {departure.package_id && (
+                <div className="mt-3">
+                  <Button variant="outline" size="sm" onClick={openPackage}>
+                    {t.departure.openPackage}
+                  </Button>
+                </div>
+              )}
               <div className="mt-5 flex flex-col gap-2 text-sm text-gray-600 dark:text-gray-300 sm:flex-row sm:flex-wrap sm:gap-x-6">
                 <span className="inline-flex items-center gap-2">
                   <CalenderIcon className="size-4 text-gray-400" aria-hidden="true" />
@@ -531,6 +576,9 @@ export default function DepartureDetail() {
                         <Button variant="outline" size="sm" onClick={openFlightSelector} className="justify-center">
                           {departure.linkedFlight ? t.departure.changeFlight : t.departure.linkFlight}
                         </Button>
+                        <Button variant="outline" size="sm" onClick={openFlights} className="justify-center">
+                          {t.departure.openFlights}
+                        </Button>
                         {departure.linkedFlight && (
                           <Button variant="outline" size="sm" onClick={handleUnlinkFlight} disabled={flightSaving} className="justify-center">
                             {t.departure.unlinkFlight}
@@ -575,6 +623,20 @@ export default function DepartureDetail() {
                 <TripFact label="Prodajni agenti" value={`${groups?.byAgent.length ?? 0}`} />
                 <TripFact label="Vodiči" value={`${summary.guides?.length ?? 0}`} />
               </dl>
+              {relatedHotels.length > 0 && (
+                <div className="mt-6 border-t border-gray-200 pt-4 dark:border-gray-800">
+                  <p className="mb-3 text-xs font-medium uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">
+                    {t.departure.relatedHotels}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {relatedHotels.map((hotel) => (
+                      <Button key={hotel.id} variant="outline" size="sm" onClick={() => openHotel(hotel.id)}>
+                        {t.departure.openHotel}: {hotel.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </aside>
 
             <div className="lg:col-span-3">
