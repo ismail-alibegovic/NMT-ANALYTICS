@@ -52,10 +52,12 @@ export default function NotificationDropdown() {
         getNotifications({ limit: 10 }),
         getUnreadNotificationCount(),
       ]);
-      setNotifications(notificationsResponse.data);
-      setUnreadCount(unreadCount);
+      setNotifications(Array.isArray(notificationsResponse?.data) ? notificationsResponse.data : []);
+      setUnreadCount(typeof unreadCount === "number" ? unreadCount : 0);
     } catch (error) {
       console.error("Failed to load notifications", error);
+      setNotifications([]);
+      setUnreadCount(0);
     } finally {
       setLoading(false);
     }
