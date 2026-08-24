@@ -6,6 +6,8 @@ import api from "../../lib/apiClient";
 import { useT } from "../../lib/i18n/context";
 import { useApp } from "../../context/AppContext";
 import { archiveMessageTemplate, createMessageTemplate, getMessageTemplates, updateMessageTemplate, type MessageTemplate, type MessageTemplateChannel } from "../../api/messageTemplates";
+import { createCampaign, getCampaigns, sendCampaignApi, type Campaign, type CampaignChannel } from "../../api/campaigns";
+import { createCampaign, getCampaigns, sendCampaignApi, type Campaign, type CampaignChannel } from "../../api/campaigns";
 
 interface OrgSettings {
   name: string;
@@ -250,6 +252,7 @@ export default function Settings() {
   const fetchTemplates = async () => {
     try {
       setTemplates(await getMessageTemplates());
+      loadCampaigns();
     } catch (error: any) {
       showTemplateMessage(error?.message || 'Failed to load templates', 'error');
     }

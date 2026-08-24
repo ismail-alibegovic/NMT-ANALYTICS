@@ -21,6 +21,7 @@ import communicationHistoryRoutes from './communicationHistory';
 import emailSettingsRoutes from './emailSettings';
 import smsSettingsRoutes from './smsSettings';
 import messageTemplatesRoutes from './messageTemplates';
+import campaignsRoutes from './campaigns';
 import paylinksRoutes from './paylinks';
 import publicRoutes from './public';
 import signupRoutes from './signup';
@@ -81,6 +82,7 @@ router.use('/', communicationHistoryRoutes);
 router.use('/settings/email', emailSettingsRoutes);
 router.use('/settings/sms', smsSettingsRoutes);
 router.use('/settings', messageTemplatesRoutes);
+router.use('/settings', campaignsRoutes);
 router.use('/paylinks', paylinksRoutes);
 router.use('/settings', settingsRoutes);
 
