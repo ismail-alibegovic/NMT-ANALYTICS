@@ -3,6 +3,7 @@ import { supabaseAdmin } from './supabase';
 import { EmailService } from './email/EmailService';
 import { SmtpEmailProvider, type SmtpConfig } from './email/SmtpProvider';
 import { SmsService, createSmsProvider, type SmsOptions, type SmsProviderConfig } from './sms/SmsService';
+import { logCommunicationHistory, type CommunicationHistoryEntry } from './communicationHistory';
 
 const smtpConfigSchema = z.object({
   host: z.string().trim().min(1),
@@ -46,6 +47,7 @@ type ReminderDeliveryDeps = {
   setSmsProvider: typeof SmsService.setProvider;
   sendSms: (options: SmsOptions) => Promise<void>;
   createSmsProvider: typeof createSmsProvider;
+  logCommunication: (entry: CommunicationHistoryEntry) => Promise<unknown>;
   logger: Logger;
 };
 
@@ -81,6 +83,7 @@ const defaultDeps: ReminderDeliveryDeps = {
   setSmsProvider: SmsService.setProvider.bind(SmsService),
   sendSms: SmsService.sendSms.bind(SmsService),
   createSmsProvider,
+  logCommunication: (entry) => logCommunicationHistory(entry),
   logger: console,
 };
 
@@ -162,6 +165,8 @@ async function deliverReminderChannels(
   context: OrgReminderContext,
   deps: ReminderDeliveryDeps
 ): Promise<ReminderDeliveryResult> {
+  const relatedDepartureId =
+    typeof notification.data?.departureId === 'string' ? notification.data.departureId : null;
   const result: ReminderDeliveryResult = {
     notificationId: notification.id,
     orgId: notification.org_id,
@@ -171,15 +176,55 @@ async function deliverReminderChannels(
 
   if (!context.remindersEnabled) {
     deps.logger.log(`[DepartureReminders] Reminders disabled for org ${notification.org_id}`);
+    await deps.logCommunication({
+      orgId: notification.org_id,
+      channel: 'email',
+      recipient: context.emailRecipient || 'unconfigured',
+      subject: notification.title,
+      bodyPreview: notification.body,
+      status: 'skipped',
+      errorMessage: 'reminders_disabled',
+      relatedDepartureId,
+    });
+    await deps.logCommunication({
+      orgId: notification.org_id,
+      channel: 'sms',
+      recipient: context.smsRecipient || 'unconfigured',
+      subject: notification.title,
+      bodyPreview: notification.body,
+      status: 'skipped',
+      errorMessage: 'reminders_disabled',
+      relatedDepartureId,
+    });
     return result;
   }
 
   if (!context.smtpConfig) {
     result.email = { status: 'skipped', reason: 'missing_email_config' };
     deps.logger.log(`[DepartureReminders] Email skipped for org ${notification.org_id}: missing config`);
+    await deps.logCommunication({
+      orgId: notification.org_id,
+      channel: 'email',
+      recipient: context.emailRecipient || 'unconfigured',
+      subject: notification.title,
+      bodyPreview: notification.body,
+      status: 'skipped',
+      errorMessage: 'missing_email_config',
+      relatedDepartureId,
+    });
   } else if (!context.emailRecipient) {
     result.email = { status: 'skipped', reason: 'missing_email_recipient' };
     deps.logger.log(`[DepartureReminders] Email skipped for org ${notification.org_id}: missing recipient`);
+    await deps.logCommunication({
+      orgId: notification.org_id,
+      channel: 'email',
+      recipient: 'unconfigured',
+      subject: notification.title,
+      bodyPreview: notification.body,
+      status: 'skipped',
+      errorMessage: 'missing_email_recipient',
+      relatedDepartureId,
+    });
   } else {
     try {
       deps.setEmailProvider(deps.createEmailProvider(context.smtpConfig) as never);
@@ -189,21 +234,71 @@ async function deliverReminderChannels(
         body: notification.body || 'Upcoming departure reminder',
       });
       result.email = { status: 'sent' };
+      await deps.logCommunication({
+        orgId: notification.org_id,
+        channel: 'email',
+        recipient: context.emailRecipient,
+        subject: notification.title,
+        bodyPreview: notification.body,
+        status: 'sent',
+        relatedDepartureId,
+        sentAt: new Date(),
+      });
     } catch (err: any) {
       result.email = { status: 'failed', reason: err.message || 'email_send_failed' };
       deps.logger.warn(`[DepartureReminders] Email failed for org ${notification.org_id}: ${result.email.reason}`);
+      await deps.logCommunication({
+        orgId: notification.org_id,
+        channel: 'email',
+        recipient: context.emailRecipient,
+        subject: notification.title,
+        bodyPreview: notification.body,
+        status: 'failed',
+        errorMessage: result.email.reason,
+        relatedDepartureId,
+      });
     }
   }
 
   if (!context.smsConfig) {
     result.sms = { status: 'skipped', reason: 'missing_sms_config' };
     deps.logger.log(`[DepartureReminders] SMS skipped for org ${notification.org_id}: missing config`);
+    await deps.logCommunication({
+      orgId: notification.org_id,
+      channel: 'sms',
+      recipient: context.smsRecipient || 'unconfigured',
+      subject: notification.title,
+      bodyPreview: notification.body,
+      status: 'skipped',
+      errorMessage: 'missing_sms_config',
+      relatedDepartureId,
+    });
   } else if (!context.smsRecipient) {
     result.sms = { status: 'skipped', reason: 'missing_sms_recipient' };
     deps.logger.log(`[DepartureReminders] SMS skipped for org ${notification.org_id}: missing recipient`);
+    await deps.logCommunication({
+      orgId: notification.org_id,
+      channel: 'sms',
+      recipient: 'unconfigured',
+      subject: notification.title,
+      bodyPreview: notification.body,
+      status: 'skipped',
+      errorMessage: 'missing_sms_recipient',
+      relatedDepartureId,
+    });
   } else if (!context.smsSenderNumber) {
     result.sms = { status: 'skipped', reason: 'missing_sms_sender' };
     deps.logger.log(`[DepartureReminders] SMS skipped for org ${notification.org_id}: missing sender`);
+    await deps.logCommunication({
+      orgId: notification.org_id,
+      channel: 'sms',
+      recipient: context.smsRecipient,
+      subject: notification.title,
+      bodyPreview: notification.body,
+      status: 'skipped',
+      errorMessage: 'missing_sms_sender',
+      relatedDepartureId,
+    });
   } else {
     try {
       deps.setSmsProvider(deps.createSmsProvider(context.smsConfig));
@@ -214,9 +309,29 @@ async function deliverReminderChannels(
         message: notification.body || notification.title,
       });
       result.sms = { status: 'sent' };
+      await deps.logCommunication({
+        orgId: notification.org_id,
+        channel: 'sms',
+        recipient: context.smsRecipient,
+        subject: notification.title,
+        bodyPreview: notification.body,
+        status: 'sent',
+        relatedDepartureId,
+        sentAt: new Date(),
+      });
     } catch (err: any) {
       result.sms = { status: 'failed', reason: err.message || 'sms_send_failed' };
       deps.logger.warn(`[DepartureReminders] SMS failed for org ${notification.org_id}: ${result.sms.reason}`);
+      await deps.logCommunication({
+        orgId: notification.org_id,
+        channel: 'sms',
+        recipient: context.smsRecipient,
+        subject: notification.title,
+        bodyPreview: notification.body,
+        status: 'failed',
+        errorMessage: result.sms.reason,
+        relatedDepartureId,
+      });
     }
   }
 

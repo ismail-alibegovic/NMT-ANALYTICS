@@ -1,3 +1,5 @@
+import { logCommunicationHistory } from '../communicationHistory';
+
 export interface EmailOptions {
     to: string;
     subject: string;
@@ -42,11 +44,56 @@ export class EmailService {
         this.provider = provider;
     }
 
+    private static async sendAndLog(
+        options: EmailOptions,
+        context: {
+            orgId?: string | null;
+            relatedReservationId?: string | null;
+            relatedDepartureId?: string | null;
+        } = {}
+    ) {
+        try {
+            await this.provider.sendEmail(options);
+
+            if (context.orgId) {
+                await logCommunicationHistory({
+                    orgId: context.orgId,
+                    channel: 'email',
+                    recipient: options.to,
+                    subject: options.subject,
+                    bodyPreview: options.body,
+                    status: 'sent',
+                    relatedReservationId: context.relatedReservationId ?? null,
+                    relatedDepartureId: context.relatedDepartureId ?? null,
+                    sentAt: new Date(),
+                });
+            }
+        } catch (error: any) {
+            if (context.orgId) {
+                await logCommunicationHistory({
+                    orgId: context.orgId,
+                    channel: 'email',
+                    recipient: options.to,
+                    subject: options.subject,
+                    bodyPreview: options.body,
+                    status: 'failed',
+                    errorMessage: error?.message || 'email_send_failed',
+                    relatedReservationId: context.relatedReservationId ?? null,
+                    relatedDepartureId: context.relatedDepartureId ?? null,
+                });
+            }
+
+            throw error;
+        }
+    }
+
     static async sendBookingConfirmation(reservation: any, pdfBuffer: Buffer) {
         const customerEmail = reservation.customers?.email || reservation.customer_email || 'customer@example.com';
         const customerName = reservation.customers?.full_name || reservation.customer_name || 'Customer';
+        const orgId = reservation.org_id || reservation.organizations?.id || null;
+        const departureId = reservation.departure_id || reservation.departures?.id || null;
 
-        return this.provider.sendEmail({
+        return this.sendAndLog({
             to: customerEmail,
             subject: `Booking Confirmation - ${reservation.id.substring(0, 8).toUpperCase()}`,
             body: `Dear ${customerName}, your booking for ${reservation.departures?.packages?.name || 'your trip'} is confirmed. Please find your voucher attached.`,
@@ -57,6 +104,10 @@ export class EmailService {
                     contentType: 'application/pdf'
                 }
             ]
+        }, {
+            orgId,
+            relatedReservationId: reservation.id,
+            relatedDepartureId: departureId,
         });
     }
 
@@ -66,19 +117,27 @@ export class EmailService {
         const amount = reservation.amount;
         const currency = reservation.currency || 'BAM';
         const paymentId = reservation.paymentId || reservation.id || '';
+        const orgId = reservation.org_id || reservation.orgId || null;
+        const reservationId = reservation.reservationId || reservation.id || null;
 
-        return this.provider.sendEmail({
+        return this.sendAndLog({
             to: customerEmail,
             subject: `Potvrda uplate - ${paymentId.substring(0, 8).toUpperCase()}`,
             body: `Poštovani ${customerName},\n\nVaša uplata od ${amount} ${currency} je uspješno primljena.\n\nHvala na povjerenju!\n${reservation.orgName || 'Travline'}`,
+        }, {
+            orgId,
+            relatedReservationId: reservationId,
         });
     }
 
-    static async sendPaymentOverdueReminder(customerEmail: string, customerName: string, amount: number, reservationId: string) {
-        return this.provider.sendEmail({
+    static async sendPaymentOverdueReminder(customerEmail: string, customerName: string, amount: number, reservationId: string, orgId?: string | null) {
+        return this.sendAndLog({
             to: customerEmail,
             subject: `Podsjetnik: dospjela uplata - ${reservationId.substring(0, 8).toUpperCase()}`,
             body: `Poštovani ${customerName},\n\nPodsjećamo Vas da imate dospjelu uplatu od ${amount} BAM.\n\nMolimo izvršite uplatu u najkraćem mogućem roku.\n\nSrdačno,\nTravline`,
+        }, {
+            orgId: orgId || null,
+            relatedReservationId: reservationId,
         });
     }
 }

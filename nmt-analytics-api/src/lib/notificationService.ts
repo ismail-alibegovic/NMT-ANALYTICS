@@ -102,7 +102,7 @@ export async function notifyPaymentOverdue(
   });
 
   if (customerEmail) {
-    EmailService.sendPaymentOverdueReminder(customerEmail, customerName, amount, reservationId)
+    EmailService.sendPaymentOverdueReminder(customerEmail, customerName, amount, reservationId, orgId)
       .catch((err: any) => console.warn('Failed to send overdue email:', err));
   }
 

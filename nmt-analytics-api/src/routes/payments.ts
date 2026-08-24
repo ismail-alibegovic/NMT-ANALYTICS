@@ -291,6 +291,7 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
                             .single();
                         if (customer?.email) {
                             await EmailService.sendPaymentConfirmation({
+                                orgId,
                                 customerName: reservation.customer_name || customer.full_name || 'Klijent',
                                 customerEmail: customer.email,
                                 amount,

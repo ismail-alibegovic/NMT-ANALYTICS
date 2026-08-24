@@ -74,6 +74,7 @@ describe('runUpcomingDepartureReminderDelivery', () => {
   const setSmsProvider = vi.fn();
   const createEmailProvider = vi.fn((config) => ({ config }));
   const createSmsProvider = vi.fn((config) => ({ config }));
+  const logCommunication = vi.fn(async () => undefined);
   const logger = { log: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
   beforeEach(() => {
@@ -83,6 +84,7 @@ describe('runUpcomingDepartureReminderDelivery', () => {
     setSmsProvider.mockClear();
     createEmailProvider.mockClear();
     createSmsProvider.mockClear();
+    logCommunication.mockClear();
     logger.log.mockClear();
     logger.warn.mockClear();
     logger.error.mockClear();
@@ -104,6 +106,7 @@ describe('runUpcomingDepartureReminderDelivery', () => {
       setSmsProvider,
       sendSms,
       createSmsProvider: createSmsProvider as any,
+      logCommunication,
       logger,
     });
 
@@ -130,6 +133,7 @@ describe('runUpcomingDepartureReminderDelivery', () => {
       setSmsProvider,
       sendSms,
       createSmsProvider: createSmsProvider as any,
+      logCommunication,
       logger,
     });
 
@@ -139,12 +143,18 @@ describe('runUpcomingDepartureReminderDelivery', () => {
       subject: 'Podsjetnik',
       body: 'Polazak sutra',
     });
+    expect(logCommunication).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channel: 'email',
+      recipient: 'ops@example.ba',
+      status: 'sent',
+    }));
   });
 
   it('delivers notification and SMS through the mock provider', async () => {
     const supabase = createSupabaseStub({
       rpcRows: [{ notification_id: 'n1' }],
-      notifications: [{ id: 'n1', org_id: 'org-1', title: 'Podsjetnik', body: 'Polazak sutra' }],
+      notifications: [{ id: 'n1', org_id: 'org-1', title: 'Podsjetnik', body: 'Polazak sutra', data: { departureId: 'dep-1' } }],
       organizations: {
         'org-1': {
           reminders_enabled: true,
@@ -165,6 +175,7 @@ describe('runUpcomingDepartureReminderDelivery', () => {
       setSmsProvider,
       sendSms,
       createSmsProvider: createSmsProvider as any,
+      logCommunication,
       logger,
     });
 
@@ -175,6 +186,13 @@ describe('runUpcomingDepartureReminderDelivery', () => {
       fromNumber: '+38763333444',
       message: 'Polazak sutra',
     });
+    expect(logCommunication).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channel: 'sms',
+      recipient: '+38761111222',
+      status: 'sent',
+      relatedDepartureId: 'dep-1',
+    }));
   });
 
   it('skips missing email config without crashing the job', async () => {
@@ -193,11 +211,18 @@ describe('runUpcomingDepartureReminderDelivery', () => {
       setSmsProvider,
       sendSms,
       createSmsProvider: createSmsProvider as any,
+      logCommunication,
       logger,
     });
 
     expect(result.emailSkipped).toBe(1);
     expect(result.results[0].email.reason).toBe('missing_email_config');
+    expect(logCommunication).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channel: 'email',
+      status: 'skipped',
+      errorMessage: 'missing_email_config',
+    }));
   });
 
   it('skips missing SMS config without crashing the job', async () => {
@@ -224,6 +249,7 @@ describe('runUpcomingDepartureReminderDelivery', () => {
       setSmsProvider,
       sendSms,
       createSmsProvider: createSmsProvider as any,
+      logCommunication,
       logger,
     });
 
@@ -257,12 +283,24 @@ describe('runUpcomingDepartureReminderDelivery', () => {
       setSmsProvider,
       sendSms,
       createSmsProvider: createSmsProvider as any,
+      logCommunication,
       logger,
     });
 
     expect(result.emailFailed).toBe(1);
     expect(result.smsSent).toBe(1);
     expect(sendSms).toHaveBeenCalledTimes(1);
+    expect(logCommunication).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channel: 'email',
+      status: 'failed',
+      errorMessage: 'SMTP down',
+    }));
+    expect(logCommunication).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channel: 'sms',
+      status: 'sent',
+    }));
   });
 
   it('keeps org isolation across reminder deliveries', async () => {
@@ -290,6 +328,7 @@ describe('runUpcomingDepartureReminderDelivery', () => {
       setSmsProvider,
       sendSms,
       createSmsProvider: createSmsProvider as any,
+      logCommunication,
       logger,
     });
 
@@ -303,5 +342,15 @@ describe('runUpcomingDepartureReminderDelivery', () => {
       subject: 'Podsjetnik 2',
       body: 'Polazak sutra 2',
     });
+    expect(logCommunication).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channel: 'email',
+      recipient: 'ops1@example.ba',
+    }));
+    expect(logCommunication).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-2',
+      channel: 'email',
+      recipient: 'ops2@example.ba',
+    }));
   });
 });
