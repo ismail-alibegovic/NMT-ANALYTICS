@@ -46,17 +46,36 @@ export interface Departure {
   capabilities?: DepartureCapabilities;
   linkedFlight?: LinkedFlight | null;
   documentReadiness?: {
-    totalRequiredPassengers: number;
-    readyPassengerCount: number;
-    attentionPassengerCount: number;
-    missingPassengerCount: number;
-    expiredPassengerCount: number;
+    required: boolean;
+    totalRelevant: number;
+    ready: number;
+    missing: number;
+    expiredBeforeDeparture: number;
+    expiredBeforeReturn: number;
   };
   packageServices?: any[];
   packageHotels?: any[];
   hotelAllocations?: any[];
   accommodationBuildings?: any[];
   passengerGroups?: any[];
+}
+
+
+export interface ReadinessDeparture {
+  departureId: string;
+  hasFlight: boolean;
+  flightConfigured: boolean;
+  needTravelDocuments: boolean;
+  hasAccommodation: boolean;
+  documentIssues: number;
+  splitOrPartialGroups: number;
+  unassignedAccommodation: number;
+  departureLabel: string;
+  accommodationConfigured: boolean;
+}
+
+export interface ReadinessSummary {
+  departures: ReadinessDeparture[];
 }
 
 export interface CreateDepartureData {
@@ -225,6 +244,15 @@ export interface DepartureManifest {
     allocations?: any[];
   };
   manifest: DeparturePassenger[];
+  capabilities?: DepartureCapabilities;
+  documentReadiness?: {
+    required: boolean;
+    totalRelevant: number;
+    ready: number;
+    missing: number;
+    expiredBeforeDeparture: number;
+    expiredBeforeReturn: number;
+  };
 }
 
 export async function getDeparturePassengers(id: string): Promise<DepartureManifest> {
@@ -382,4 +410,17 @@ export async function generateRoomingProposal(departureId: string): Promise<Room
 export async function applyRoomingProposal(departureId: string, assignmentIds: string[]): Promise<{ applied: number }> {
   const r = await post<{ applied: number }>(`/departures/${departureId}/rooming/apply`, { assignmentIds });
   return r.data;
+}
+
+export async function getReadinessSummary(
+  dateFrom?: string,
+  limit?: number,
+): Promise<ReadinessSummary> {
+  const params = new URLSearchParams();
+  if (dateFrom) params.set('dateFrom', dateFrom);
+  if (limit) params.set('limit', String(limit));
+  const qs = params.toString();
+  const url = qs ? `/api/departures/readiness-summary?${qs}` : '/api/departures/readiness-summary';
+  const { data } = await apiClient.get(url);
+  return data;
 }

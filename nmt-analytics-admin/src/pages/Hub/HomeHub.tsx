@@ -9,7 +9,7 @@ import {
   type OverviewAnalyticsV2,
   type RevenueSeriesDataPoint,
 } from "../../api/analytics";
-import { getDepartures } from "../../api/departures";
+import { generateRoomingProposal, getDeparture, getDeparturePassengers, getDepartures } from "../../api/departures";
 import { getReservations, type Reservation } from "../../api/reservations";
 import { getPaymentDashboard, type PaymentDashboardMetric } from "../../api/payments";
 import {
@@ -48,6 +48,14 @@ type TodayWorkItem = {
   href: string;
   kind: "reservation" | "departure" | "occupancy" | "payment";
   urgency: "urgent" | "attention" | "normal";
+};
+
+type ReadinessAlert = {
+  id: string;
+  departureId: string;
+  departureLabel: string;
+  label: string;
+  urgency: "urgent" | "attention";
 };
 
 /**
@@ -251,6 +259,7 @@ const HomeHub: React.FC = () => {
   const [pendingReservationRows, setPendingReservationRows] = useState<Reservation[]>([]);
   const [overdueCount, setOverdueCount] = useState(0);
   const [overdueReservations, setOverdueReservations] = useState<PaymentDashboardMetric[]>([]);
+  const [readinessAlerts, setReadinessAlerts] = useState<ReadinessAlert[]>([]);
   const [queueError, setQueueError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [bookingsTab, setBookingsTab] = useState<"upcoming" | "past">("upcoming");
@@ -290,6 +299,109 @@ const HomeHub: React.FC = () => {
         if (!active) return;
         if (ov.status === "fulfilled") setOverview(ov.value);
         if (deps.status === "fulfilled") setDepartures((deps.value as any)?.data || []);
+        if (deps.status === "fulfilled") {
+          const departureRows = ((deps.value as any)?.data || []) as any[];
+          const nearDepartureRows = departureRows
+            .filter((departure) => {
+              const departureTime = new Date(departure.depart_at).getTime();
+              const nowTime = Date.now();
+              return departureTime >= nowTime - 86_400_000 && departureTime <= nowTime + 7 * 86_400_000;
+            })
+            .slice(0, 6);
+
+          const readinessResults = await Promise.all(
+            nearDepartureRows.map(async (departure) => {
+              try {
+                const detail = await getDeparture(departure.id);
+                const alerts: ReadinessAlert[] = [];
+                const departureLabel =
+                  detail.packages?.name || detail.packageName || detail.destination || hub.untitledDeparture;
+
+                if (detail.capabilities?.hasFlight && !detail.capabilities?.flightConfigured) {
+                  alerts.push({
+                    id: `flight-${detail.id}`,
+                    departureId: detail.id,
+                    departureLabel,
+                    label: hub.alertFlightMissing,
+                    urgency: "urgent",
+                  });
+                }
+
+                if (detail.capabilities?.needTravelDocuments) {
+                  // ponytail: reuses the /passengers endpoint's server-side readiness
+                  // summary instead of duplicating the calculation client-side.
+                  try {
+                    const manifest = await getDeparturePassengers(detail.id);
+                    const attentionCount = manifest.documentReadiness?.missing || 0;
+                    if (attentionCount > 0) {
+                      alerts.push({
+                        id: `documents-${detail.id}`,
+                        departureId: detail.id,
+                        departureLabel,
+                        label: hub.alertDocumentsAttention.replace("{count}", String(attentionCount)),
+                        urgency: "urgent",
+                      });
+                    }
+                  } catch {
+                    // manifest unavailable - skip documents alert rather than block other alerts
+                  }
+                }
+
+                if (detail.capabilities?.hasAccommodation && showFinance) {
+                  // ponytail: proposal endpoint is manager-gated - agent/viewer roles
+                  // silently get no rooming alerts; upgrade path is a readiness summary
+                  // endpoint readable by all roles.
+                  const roomingSignals = new Set<string>();
+                  if ((detail.accommodationBuildings?.length || 0) === 0) {
+                    // No buildings configured at all - that IS the unconfigured signal;
+                    // the proposal engine can't distinguish it from "configured but
+                    // nothing placeable".
+                    roomingSignals.add(hub.alertRoomingMissingConfig);
+                  } else {
+                    try {
+                      const proposal = await generateRoomingProposal(detail.id);
+                      const groupIssues = proposal.groupResults.filter(
+                        (group) => group.status === "split" || group.status === "partial"
+                      ).length;
+                      if (groupIssues > 0) {
+                        roomingSignals.add(
+                          hub.alertGroupSplit.replace("{count}", String(groupIssues))
+                        );
+                      }
+                      const unplacedCount = proposal.unplaced?.length || 0;
+                      if (unplacedCount > 0) {
+                        roomingSignals.add(
+                          hub.alertRoomingUnassigned.replace("{count}", String(unplacedCount))
+                        );
+                      }
+                    } catch {
+                      // manager-gated endpoint - non-manager roles simply get no rooming alerts
+                    }
+                  }
+
+                  roomingSignals.forEach((label) => {
+                    alerts.push({
+                      id: `${detail.id}-${label}`,
+                      departureId: detail.id,
+                      departureLabel,
+                      label,
+                      urgency: "attention",
+                    });
+                  });
+                }
+
+                return alerts;
+              } catch (error) {
+                logger.error("[HomeHub] readiness detail failed", error);
+                return [];
+              }
+            })
+          );
+
+          if (active) {
+            setReadinessAlerts(readinessResults.flat().slice(0, 4));
+          }
+        }
         if (rev.status === "fulfilled") setRevenue(rev.value || []);
         if (pending.status === "fulfilled") {
           setPendingReservations(pending.value.total);
@@ -413,18 +525,30 @@ const HomeHub: React.FC = () => {
         });
       });
     }
-    nearDepartures.slice(0, 2).forEach((departure) => {
+    readinessAlerts.forEach((alert) => {
       items.push({
-        id: `departure-${departure.id}`,
-        title: departure.label,
-        detail: relativeDayLabel(departure.departAt, lang),
-        href: `/departures/${departure.id}`,
+        id: alert.id,
+        title: alert.departureLabel,
+        detail: alert.label,
+        href: `/departures/${alert.departureId}`,
         kind: "departure",
-        urgency: "normal",
+        urgency: alert.urgency,
       });
     });
+    if (readinessAlerts.length === 0) {
+      nearDepartures.slice(0, 2).forEach((departure) => {
+        items.push({
+          id: `departure-${departure.id}`,
+          title: departure.label,
+          detail: relativeDayLabel(departure.departAt, lang),
+          href: `/departures/${departure.id}`,
+          kind: "departure",
+          urgency: "normal",
+        });
+      });
+    }
     return items.slice(0, 6);
-  }, [hub.todayPendingReservations, lang, loading, nearDepartures, overdueReservations, pendingReservationRows, showFinance]);
+  }, [hub.todayPendingReservations, lang, loading, nearDepartures, overdueReservations, pendingReservationRows, readinessAlerts, showFinance]);
   const isNewOrg = !loading && overview?.reservations_count === 0 && departures.length === 0;
   return (
     <>

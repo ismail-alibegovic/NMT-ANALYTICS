@@ -428,6 +428,153 @@ router.delete('/departures/:id', authenticateToken, requireOrgContext, auditDepa
   }
 });
 
+
+/**
+ * GET /api/departures/readiness-summary?dateFrom=YYYY-MM-DD&limit=10
+ *
+ * Single batch endpoint for HomeHub Needs Attention. Returns the minimum
+ * readiness data for near departures so the client does not fan out one
+ * request per departure.
+ */
+router.get('/departures/readiness-summary', authenticateToken, requireOrgContext, async (req, res: Response) => {
+  try {
+    const orgId = req.orgId!;
+    const dateFrom = (req.query.dateFrom as string) || new Date().toISOString().slice(0, 10);
+    const limit = Math.min(parseInt(req.query.limit as string, 10) || 10, 20);
+
+    const { data: departures, error: depErr } = await supabaseAdmin
+      .from('departures')
+      .select('id, depart_at, return_at, transport_type, flight_id, document_readiness_required, package_id, packages!inner(id, name, destination, transport_type, trip_type)')
+      .eq('org_id', orgId)
+      .eq('status', 'active')
+      .gte('depart_at', dateFrom)
+      .order('depart_at', { ascending: true })
+      .limit(limit);
+
+    if (depErr) return handleSupabaseError(res, depErr, 'Failed to fetch departures');
+    if (!departures || departures.length === 0) return res.json({ departures: [] });
+
+    const departureIds = departures.map((d: any) => d.id);
+
+    const { data: allPassengers } = await supabaseAdmin
+      .from('departure_passengers')
+      .select('id, departure_id, id_document_type, id_document_number, id_document_expiry')
+      .eq('org_id', orgId)
+      .in('departure_id', departureIds);
+
+    const passengersByDeparture = new Map<string, any[]>();
+    for (const p of allPassengers || []) {
+      const list = passengersByDeparture.get(p.departure_id) || [];
+      list.push(p);
+      passengersByDeparture.set(p.departure_id, list);
+    }
+
+    const { data: allBuildings } = await supabaseAdmin
+      .from('accommodation_buildings')
+      .select('id, departure_id')
+      .eq('org_id', orgId)
+      .in('departure_id', departureIds);
+
+    const buildingIdsByDeparture = new Map<string, string[]>();
+    const hasBuildingsByDeparture = new Set<string>();
+    for (const b of allBuildings || []) {
+      hasBuildingsByDeparture.add(b.departure_id);
+      const list = buildingIdsByDeparture.get(b.departure_id) || [];
+      list.push(b.id);
+      buildingIdsByDeparture.set(b.departure_id, list);
+    }
+
+    const { data: allGroups } = await supabaseAdmin
+      .from('trip_passenger_groups')
+      .select('id, departure_id, members:trip_passenger_group_members(passenger_id)')
+      .eq('org_id', orgId)
+      .in('departure_id', departureIds);
+
+    const groupsByDeparture = new Map<string, any[]>();
+    for (const g of allGroups || []) {
+      const list = groupsByDeparture.get(g.departure_id) || [];
+      list.push(g);
+      groupsByDeparture.set(g.departure_id, list);
+    }
+
+    const { data: allAssignments } = await supabaseAdmin
+      .from('accommodation_assignments')
+      .select('passenger_id, org_id')
+      .eq('org_id', orgId)
+      .not('passenger_id', 'is', null);
+
+    const assignedPassengerIds = new Set<string>();
+    for (const a of allAssignments || []) {
+      if (a.passenger_id) assignedPassengerIds.add(a.passenger_id);
+    }
+
+    const results = departures.map((departure: any) => {
+      const pkg = departure.packages || null;
+
+      const packageHasAccommodation = hasBuildingsByDeparture.has(departure.id);
+      const capabilities = resolveDepartureCapabilities(departure, pkg, packageHasAccommodation);
+
+      let documentIssues = 0;
+      if (capabilities.needTravelDocuments) {
+        const depPassengers = passengersByDeparture.get(departure.id) || [];
+        const readinessCtx = {
+          needTravelDocuments: true,
+          departDateKey: toTravelDateKey(departure.depart_at),
+          returnDateKey: toTravelDateKey(departure.return_at),
+        };
+        const entries: Array<[string, ReturnType<typeof computePassengerDocumentReadiness>]> = [];
+        for (const p of depPassengers) {
+          const status = computePassengerDocumentReadiness(p as any, readinessCtx);
+          if (status !== 'ready' && status !== 'not_required') {
+            entries.push([p.id, status]);
+          }
+        }
+        const summary = summarizeDocumentReadiness(true, entries);
+        documentIssues = summary.missing + summary.expiredBeforeDeparture + summary.expiredBeforeReturn;
+      }
+
+      let splitOrPartialGroups = 0;
+      let unassignedAccommodation = 0;
+
+      if (capabilities.hasAccommodation) {
+        const depBuildings = buildingIdsByDeparture.get(departure.id) || [];
+
+        if (depBuildings.length > 0) {
+          const depGroups = groupsByDeparture.get(departure.id) || [];
+          for (const g of depGroups) {
+            const memberIds: string[] = (g.members || []).map((m: any) => m.passenger_id);
+            if (memberIds.length < 2) continue;
+            const assignedInGroup = memberIds.filter((id: string) => assignedPassengerIds.has(id));
+            if (assignedInGroup.length > 0 && assignedInGroup.length < memberIds.length) {
+              splitOrPartialGroups += 1;
+            }
+          }
+
+          const depPassengerIds = (passengersByDeparture.get(departure.id) || []).map((p: any) => p.id);
+          const unassigned = depPassengerIds.filter((id: string) => !assignedPassengerIds.has(id));
+          unassignedAccommodation = unassigned.length;
+        }
+      }
+
+      return {
+        departureId: departure.id,
+        hasFlight: capabilities.hasFlight,
+        flightConfigured: capabilities.flightConfigured,
+        needTravelDocuments: capabilities.needTravelDocuments,
+        documentIssues,
+        splitOrPartialGroups,
+        unassignedAccommodation,
+      };
+    });
+
+    return res.json({ departures: results });
+  } catch (err) {
+    console.error('GET /departures/readiness-summary:', err);
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error');
+  }
+});
+
+
 /**
  * GET /api/departures/:id
  */
