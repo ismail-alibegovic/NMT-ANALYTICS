@@ -7,12 +7,14 @@ import EmptyState from "../components/ui/EmptyState";
 import { DataTable, Column } from "../components/ui/DataTable";
 import CommunicationHistoryPanel from "../components/communications/CommunicationHistoryPanel";
 import ManualMessageComposer from "../components/communications/ManualMessageComposer";
+import { Modal } from "../components/ui/modal";
 import { useToast } from "../context/ToastContext";
 import {
   ChevronLeftIcon,
   DollarLineIcon,
   GroupIcon,
   PlugInIcon,
+  FileIcon,
 } from "../icons";
 import {
   getReservation,
@@ -26,6 +28,11 @@ import {
   formatReservationDate,
   reservationPaymentStatusBadge,
 } from "../api/reservations";
+import {
+  createContract as apiCreateContract,
+  getContracts,
+  Contract,
+} from "../api/contracts";
 import { sendReservationManualMessage } from "../api/manualMessaging";
 
 type Tab = "overview" | "passengers" | "payments" | "services" | "documents";
@@ -48,6 +55,12 @@ export default function ReservationDetail() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+
+  // Contract generation state
+  const [contractModalOpen, setContractModalOpen] = useState(false);
+  const [existingContracts, setExistingContracts] = useState<Contract[]>([]);
+  const [generating, setGenerating] = useState(false);
+  const [generatedContract, setGeneratedContract] = useState<Contract | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -77,9 +90,18 @@ export default function ReservationDetail() {
               }),
             ])
           : [[], []];
+
         setReservation(res);
         setPassengers(pax);
         setInstallments(inst as ReservationInstallment[]);
+
+        // Check for existing contracts
+        try {
+          const contractsRes = await getContracts({ reservationId: id, limit: 5 });
+          setExistingContracts(contractsRes.data || []);
+        } catch {
+          // Non-critical — don't block the page
+        }
       } catch (err: any) {
         showError(err?.message || "Failed to load reservation");
         navigate(-1);
@@ -113,6 +135,31 @@ export default function ReservationDetail() {
       a.click();
       URL.revokeObjectURL(url);
     } catch { showError("Failed to download invoice"); }
+  };
+
+  const handleGenerateContract = async () => {
+    if (!id) return;
+    setGenerating(true);
+    try {
+      const contract = await apiCreateContract({ reservationId: id });
+      setGeneratedContract(contract);
+      showSuccess("Contract generated");
+      // Refresh existing contracts list
+      try {
+        const contractsRes = await getContracts({ reservationId: id, limit: 5 });
+        setExistingContracts(contractsRes.data || []);
+      } catch {}
+    } catch (err: any) {
+      showError(err?.message || "Failed to generate contract");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleOpenContract = (contractId: string) => {
+    setContractModalOpen(false);
+    setGeneratedContract(null);
+    navigate(`/operations/contracts?search=${encodeURIComponent(contractId)}`);
   };
 
   if (loading) return <PageMeta title="Učitavanje..." description="" />;
@@ -170,6 +217,9 @@ export default function ReservationDetail() {
             {reservation.status.toUpperCase()}
           </Badge>
           <div className="ml-auto flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setContractModalOpen(true)}>
+              <FileIcon className="size-4" /> Ugovor
+            </Button>
             <Button size="sm" variant="outline" onClick={handleDownloadVoucher}>Vaucer</Button>
             <Button size="sm" variant="outline" onClick={handleDownloadInvoice}>Faktura</Button>
           </div>
@@ -278,6 +328,66 @@ export default function ReservationDetail() {
           </div>
         )}
       </div>
+
+      {/* Contract Generation Modal */}
+      <Modal isOpen={contractModalOpen} onClose={() => { setContractModalOpen(false); setGeneratedContract(null); }} className="max-w-md">
+        <div className="space-y-4 p-2">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Generiši ugovor</h3>
+
+          {existingContracts.length > 0 && !generatedContract && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20 p-3">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Ova rezervacija već ima ugovore</p>
+              <ul className="mt-2 space-y-1">
+                {existingContracts.map((c) => (
+                  <li key={c.id} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {c.contractNumber} — <Badge color={c.status === "signed" ? "success" : c.status === "cancelled" ? "error" : "warning"} variant="light" size="sm">{c.status}</Badge>
+                    </span>
+                    <button
+                      onClick={() => handleOpenContract(c.id)}
+                      className="text-brand-600 dark:text-brand-400 text-sm font-medium hover:underline"
+                    >
+                      Otvori
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {generatedContract ? (
+            <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-700 dark:bg-green-900/20 p-4 text-center space-y-3">
+              <p className="text-sm font-medium text-green-800 dark:text-green-200">Ugovor uspješno generisan</p>
+              <p className="text-sm text-green-700 dark:text-green-300">{generatedContract.contractNumber}</p>
+              <div className="flex justify-center gap-2">
+                <Button variant="primary" onClick={() => handleOpenContract(generatedContract.id)}>
+                  Otvori ugovor
+                </Button>
+                <Button variant="outline" onClick={() => { setContractModalOpen(false); setGeneratedContract(null); }}>
+                  Zatvori
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Generišite ugovor iz ove rezervacije sa podacima putnika, aranžmana i cijenom.
+              </p>
+              <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 space-y-1 text-sm">
+                <p><span className="text-gray-500">Putnik:</span> <span className="text-gray-900 dark:text-white">{reservation.customerName}</span></p>
+                <p><span className="text-gray-500">Aranžman:</span> <span className="text-gray-900 dark:text-white">{reservation.packageName}</span></p>
+                <p><span className="text-gray-500">Iznos:</span> <span className="text-gray-900 dark:text-white">{formatReservationCurrency(Number(reservation.totalAmount), reservation.currency)}</span></p>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setContractModalOpen(false)}>Otkaži</Button>
+                <Button variant="primary" onClick={handleGenerateContract} disabled={generating}>
+                  {generating ? "Generisanje..." : "Generiši"}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
     </>
   );
 }

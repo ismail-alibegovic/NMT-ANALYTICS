@@ -32,6 +32,7 @@ export interface ContractListResponse {
 export interface ContractFilters {
   search?: string;
   status?: 'draft' | 'signed' | 'cancelled';
+  reservationId?: string;
   page?: number;
   limit?: number;
 }
@@ -73,6 +74,7 @@ export async function getContracts(filters: ContractFilters = {}): Promise<Contr
     limit: filters.limit,
     search: filters.search,
     status: filters.status,
+    reservationId: filters.reservationId,
   };
   const { data } = await get<ContractListResponse>('/contracts', { params });
   return data;
