@@ -63,8 +63,7 @@ router.get(
         overdue:
           p.due_date !== null &&
           p.due_date < now &&
-          Number(p.remaining_after ?? 0) > 0 &&
-          p.status === 'succeeded',
+          p.status === 'pending',
         createdAt: p.created_at,
       }));
 

@@ -47,7 +47,7 @@ function reconcileInstallments(
       i.dueDate !== null &&
       i.dueDate! < now &&
       (i.remainingAfter ?? 0) > 0 &&
-      i.status === 'succeeded',
+      i.status === 'pending',
   ).length
   // remaining_after after the LAST installment recovers the gap to 0.
   // If non-null, the final installment's remaining_after must equal
@@ -92,7 +92,7 @@ describe('installment reconciliation — Sprint 5 §6.2', () => {
     ]
     const r = reconcileInstallments(schedule, 3000)
     // Only `succeeded` rows with positive remaining_after AND past due_date
-    // count toward overdue. installment 1 satisfies all → overdue=1
+    // count toward overdue. installment 1 is succeeded → not overdue
     // installment 2 is `pending` so it is NOT counted.
     expect(r.overdueCount).toBe(1)
     expect(r.totalScheduled).toBe(3000)
