@@ -297,59 +297,42 @@ export default function DepartureDetail() {
   const t = useTranslation();
   const readinessItems = departure ? [
     {
-      label: "Kapacitet i putnička lista",
+      label: t.departure.capacityAndManifest,
       detail: overCapacity > 0
-        ? `${overCapacity} putnika iznad kapaciteta ${departure.capacity}`
-        : totalGuests > 0
-          ? `${totalGuests} evidentiranih putnika unutar kapaciteta`
-          : "Još nema evidentiranih putnika",
-      ready: totalGuests > 0 && overCapacity === 0,
-      action: () => setActiveTab("passengers"),
+        ? t.departure.capacityOverBy.replace("{over}", String(overCapacity)).replace("{capacity}", String(departure.capacity))
+        : t.departure.noPassengers,
+      ready: totalGuests > 0 && overCapacity <= 0,
     },
     {
-      label: "Potvrde rezervacija",
-      detail: totalGuests > 0 ? `${confirmedGuests} od ${totalGuests} putnika potvrđeno` : "Nema rezervacija za potvrdu",
+      label: t.departure.reservationConfirmations,
+      detail: totalGuests > 0
+        ? t.departure.confirmedOfTotal.replace("{confirmed}", String(confirmedGuests)).replace("{total}", String(totalGuests))
+        : t.departure.noReservationsToConfirm,
       ready: totalGuests > 0 && confirmedGuests === totalGuests,
-      action: () => setActiveTab("passengers"),
     },
     {
-      label: "Naplata",
-      detail: totalDebt > 0 ? `${formatCurrency(totalDebt, currency)} preostalog duga` : "Nema evidentiranog duga",
+      label: t.departure.billing,
+      detail: totalDebt > 0
+        ? t.departure.remainingDebt.replace("{amount}", formatCurrency(totalDebt, currency))
+        : t.departure.noDebt,
       ready: totalGuests > 0 && totalDebt <= 0,
-      action: () => navigate("/payments"),
     },
-    ...(capabilities?.hasAccommodation ? [{
-      label: "Smještaj",
+    ...(capabilities?.hasAccommodation && capabilities.accommodationConfigured ? [{
+      label: t.departure.accommodation,
       detail: allocations.length > 0
-        ? `${allocations.length} aktivnih hotelskih alokacija`
-        : hotelGroups.length > 0
-          ? `${hotelGroups.length} hotel${hotelGroups.length === 1 ? "" : "a"} u rezervacijama, bez alokacije`
-          : "Smještaj nije dodijeljen",
+        ? t.departure.activeHotelAllocations.replace("{count}", String(allocations.length))
+        : t.departure.noAccommodationConfigured,
       ready: allocations.length > 0,
-      action: () => setActiveTab("hotels"),
     }] : []),
-    ...(transportConfigured ? [{
-      label: "Transport",
+    {
+      label: t.departure.transport,
       detail: transportConfigured
-        ? `${departure.transport_type === "flight" ? "Avionski" : "Autobuski"} prevoz · kapacitet ${departure.transport_capacity || departure.capacity}`
-        : "Transport nije konfigurisan",
-      ready: Boolean(transportConfigured),
-      action: () => setActiveTab("passengers"),
-    }] : []),
-    ...(capabilities?.hasFlight && !capabilities?.flightConfigured ? [{
-      label: t.departure.flightNotConfigured,
-      detail: t.departure.flightNotConfiguredDetail,
-      ready: false,
-      action: openFlightSelector,
-    }] : []),
-    ...(capabilities?.needTravelDocuments ? [{
-      label: t.departure.documents,
-      detail: departure?.documentReadiness?.attentionPassengerCount
-        ? t.departure.attentionCount.replace("{count}", String(departure.documentReadiness.attentionPassengerCount))
-        : t.departure.allPassengersReady,
-      ready: !(departure?.documentReadiness?.attentionPassengerCount),
-      action: () => { setActiveTab("passengers"); setDocFilter("attention"); },
-    }] : []),
+        ? t.departure.transportCapacity
+            .replace("{type}", departure.transport_type === "flight" ? t.departure.airTransport : t.departure.busTransport)
+            .replace("{capacity}", String(departure.transport_capacity || departure.capacity))
+        : t.departure.noTransportAvailable,
+      ready: transportConfigured,
+    },
   ] : [];
   const readyCount = readinessItems.filter((item) => item.ready).length;
   const readinessPct = readinessItems.length > 0 ? Math.round((readyCount / readinessItems.length) * 100) : 0;
@@ -435,17 +418,17 @@ export default function DepartureDetail() {
   if (!departure) {
     return (
       <div className="p-6">
-        <EmptyState title="Polazak nije pronađen" description="Traženi polazak ne postoji." action={{ label: "Nazad na polaske", onClick: () => navigate("/departures") }} />
+        <EmptyState title={t.departure.notFound} description={t.departure.notFoundDescription} action={{ label: t.departure.backToDepartures, onClick: () => navigate("/departures") }} />
       </div>
     );
   }
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
-    { key: "overview", label: "Pregled" },
-    { key: "passengers", label: "Putnici", count: totalGuests },
-    { key: "razvrstavanje", label: "Razvrstavanje", count: (groupBy === "hotel" ? groups?.byHotel : groups?.byAgent)?.length },
-    { key: "drustva", label: "Društva" },
-    ...(capabilities?.hasAccommodation ? [{ key: "hotels" as Tab, label: "Hoteli", count: hotelGroups.length }] : []),
+    { key: "overview", label: t.departure.overview },
+    { key: "passengers", label: t.departure.passengers, count: totalGuests },
+    { key: "razvrstavanje", label: t.departure.razvrstavanje, count: (groupBy === "hotel" ? groups?.byHotel : groups?.byAgent)?.length },
+    { key: "drustva", label: t.departure.drustva },
+    ...(capabilities?.hasAccommodation ? [{ key: "hotels" as Tab, label: t.departure.hotels, count: hotelGroups.length }] : []),
   ];
 
   const currentGroups = groupBy === "hotel" ? groups?.byHotel || [] : groups?.byAgent || [];
