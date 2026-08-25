@@ -672,7 +672,7 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
     const transportType = (departure as any).transport_type || (pkg as any)?.transport_type || 'none';
     const hasAccommodation = packageServices.some((s: any) =>
       ['hotel', 'accommodation', 'apartment', 'hostel'].includes(s.service_type?.toLowerCase?.() || '')
-    ) || packageHotels.length > 0 || hotelAllocations.length > 0 || accommodationBuildings.length > 0;
+    ) || packageHotels.length > 0;
 
     const capabilities = resolveDepartureCapabilities(
       departure as any,
