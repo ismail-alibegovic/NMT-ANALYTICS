@@ -98,12 +98,13 @@ app.use(['/api/customers', '/api/metrics', '/api/analytics'], (req, res, next) =
   next();
 });
 
-// Public Forms — mounted directly (no auth) to avoid Express 5 sub-router conflict
-app.get('/api/public/forms/:slug', async (req: any, res: any) => {
+// Public Forms — mounted directly (no auth) to avoid Express 5 sub-router conflict.
+// Apply strict rate limiting to public endpoints to prevent abuse.
+app.get('/api/public/forms/:slug', strictRateLimit, async (req: any, res: any) => {
   const { getPublicForm } = require('./routes/publicFormsHandlers');
   return getPublicForm(req, res);
 });
-app.post('/api/public/forms/:slug', async (req: any, res: any) => {
+app.post('/api/public/forms/:slug', strictRateLimit, async (req: any, res: any) => {
   const { submitPublicForm } = require('./routes/publicFormsHandlers');
   return submitPublicForm(req, res);
 });

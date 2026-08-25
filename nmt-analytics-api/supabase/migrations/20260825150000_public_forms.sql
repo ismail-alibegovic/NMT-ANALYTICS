@@ -32,6 +32,11 @@ CREATE TABLE IF NOT EXISTS public_form_submissions (
 -- 3. Add source_metadata to inquiries
 ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS source_metadata JSONB DEFAULT '{}';
 
+-- 3b. Add 'public_form' to inquiries.source CHECK constraint
+ALTER TABLE inquiries DROP CONSTRAINT IF EXISTS inquiries_source_check;
+ALTER TABLE inquiries ADD CONSTRAINT inquiries_source_check
+  CHECK (source IN ('web', 'phone', 'email', 'walk_in', 'partner', 'social', 'referral', 'public_form', 'other'));
+
 -- 4. Indexes
 CREATE INDEX IF NOT EXISTS idx_public_forms_org ON public_forms(org_id);
 CREATE INDEX IF NOT EXISTS idx_public_forms_slug ON public_forms(slug);
@@ -111,14 +116,18 @@ BEGIN
     RAISE EXCEPTION 'contact_name is required' USING ERRCODE = 'NV001';
   END IF;
 
-  -- Create inquiry
+  -- Create inquiry with canonical public_form source + source_metadata
   INSERT INTO inquiries (
-    org_id, contact_name, phone, email, trip_type, source,
-    destination, travel_start, travel_end, travelers, budget, currency,
-    notes
+    org_id, contact_name, phone, email, trip_type, source, source_metadata,
+    destination, travel_start, travel_end, travelers, budget, currency, notes
   ) VALUES (
     current_org_id, trim(mapped_contact_name), mapped_phone, mapped_email,
-    mapped_trip_type, 'other',
+    mapped_trip_type, 'public_form',
+    jsonb_build_object(
+      'type', 'public_form',
+      'form_id', active_form_id,
+      'form_slug', form_slug
+    ),
     mapped_destination, mapped_travel_start, mapped_travel_end,
     mapped_travelers, mapped_budget, 'BAM',
     'Submitted via public form: ' || form_slug
