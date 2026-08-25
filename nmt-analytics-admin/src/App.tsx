@@ -53,6 +53,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/OtherPage/NotFound"));
 const PublicSignWaiver = lazy(() => import("./pages/PublicSignWaiver"));
 const PublicSubAgentPortal = lazy(() => import("./pages/PublicSubAgentPortal"));
+const PublicFormRenderer = lazy(() => import("./pages/PublicFormRenderer"));
 // Sprint 3 — Customer self-service portal
 const PortalLayout = lazy(() => import("./layout/PortalLayout"));
 const PortalDashboard = lazy(() => import("./pages/portal/PortalDashboard"));
@@ -83,6 +84,7 @@ export default function App() {
         <Route path="/reset-password" element={<SuspenseWrapper><ResetPassword /></SuspenseWrapper>} />
         <Route path="/waiver/:token" element={<SuspenseWrapper><PublicSignWaiver /></SuspenseWrapper>} />
         <Route path="/portal/subagent/:token" element={<SuspenseWrapper><PublicSubAgentPortal /></SuspenseWrapper>} />
+        <Route path="/public/forms/:slug" element={<SuspenseWrapper><PublicFormRenderer /></SuspenseWrapper>} />
 
         {/* Sprint 3 — Customer self-service portal (own layout, no admin sidebar) */}
         <Route element={<AuthGuard><PortalGuard><PortalLayout /></PortalGuard></AuthGuard>}>
