@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useT } from "../../lib/i18n/context";
 import type { DeparturePassenger } from "../../api/departures";
+import { computeGroupSeatingStatus } from "../../utils/seatGeometry";
 
 interface Group {
   id: string;
@@ -23,6 +24,9 @@ interface Props {
   passengers: DeparturePassenger[];
   groups: Group[];
   groupMembers: GroupMember[];
+  groupById?: Record<string, Group>;
+  transportType?: "bus" | "flight";
+  capacity?: number;
 }
 
 type GroupStatus = "unassigned" | "together" | "split" | "partial";
@@ -30,32 +34,27 @@ type GroupStatus = "unassigned" | "together" | "split" | "partial";
 function computeGroupStatus(
   groupId: string,
   groupMembers: GroupMember[],
-  passengers: DeparturePassenger[]
+  passengers: DeparturePassenger[],
+  transportType: "bus" | "flight" | "none"
 ): GroupStatus {
   const memberIds = groupMembers
     .filter((gm) => gm.group_id === groupId)
     .map((gm) => gm.passenger_id);
   if (memberIds.length === 0) return "unassigned";
 
-  const assignedSeatCount = passengers.filter(
-    (p) => memberIds.includes(p.id) && p.seatNumber != null
-  ).length;
-
-  if (assignedSeatCount === 0) return "unassigned";
-  if (assignedSeatCount < memberIds.length) return "partial";
-
-  const seatNumbers = passengers
+  const occupiedSeatNumbers = passengers
     .filter((p) => memberIds.includes(p.id) && p.seatNumber != null)
     .map((p) => p.seatNumber!);
 
-  const uniqueSeats = new Set(seatNumbers);
-  if (uniqueSeats.size === 1) return "together";
-  return "split";
+  const result = computeGroupSeatingStatus(occupiedSeatNumbers, transportType, memberIds.length);
+  return result.status;
 }
 
-export default function DrustvaTab({ passengers, groups, groupMembers }: Props) {
+export default function DrustvaTab({ passengers, groups, groupMembers, transportType = "bus", capacity = 0 }: Props) {
   const { t } = useT();
   const rm = t("departures.rooming");
+
+  const effectiveTransportType = transportType || "bus";
 
   const statusLabel: Record<GroupStatus, string> = {
     unassigned: rm?.groupStatus?.unassigned || "Unassigned",
@@ -74,10 +73,10 @@ export default function DrustvaTab({ passengers, groups, groupMembers }: Props) 
   const groupStatuses = useMemo(() => {
     const map = new Map<string, GroupStatus>();
     for (const g of groups) {
-      map.set(g.id, computeGroupStatus(g.id, groupMembers, passengers));
+      map.set(g.id, computeGroupStatus(g.id, groupMembers, passengers, effectiveTransportType as "bus" | "flight" | "none"));
     }
     return map;
-  }, [groups, groupMembers, passengers]);
+  }, [groups, groupMembers, passengers, effectiveTransportType]);
 
   const membersByGroup = useMemo(() => {
     const map = new Map<string, DeparturePassenger[]>();
@@ -118,7 +117,6 @@ export default function DrustvaTab({ passengers, groups, groupMembers }: Props) 
             key={g.id}
             className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 overflow-hidden"
           >
-            {/* Header */}
             <div className="px-5 py-4 flex items-center gap-3 border-b border-gray-100 dark:border-gray-800">
               <span
                 className="size-3 rounded-full shrink-0"
@@ -144,7 +142,6 @@ export default function DrustvaTab({ passengers, groups, groupMembers }: Props) 
               </span>
             </div>
 
-            {/* Members */}
             <div className="px-5 py-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {members.map((p) => (
@@ -163,7 +160,6 @@ export default function DrustvaTab({ passengers, groups, groupMembers }: Props) 
               </div>
             </div>
 
-            {/* Notes */}
             {g.notes && (
               <div className="px-5 pb-4">
                 <p className="text-xs text-gray-500 dark:text-gray-400 italic">{g.notes}</p>

@@ -766,6 +766,8 @@ export default function DepartureDetail() {
             passengers={normPax}
             groupMembers={(manifest as any).groupMembers || []}
             groupById={(manifest as any).groupById || {}}
+            transportType={capabilities?.transportType as "bus" | "flight" | undefined}
+            capacity={departure.capacity}
           />
         )}
         {activeTab === "drustva" && !(manifest as any)?.passengerGroups && (
