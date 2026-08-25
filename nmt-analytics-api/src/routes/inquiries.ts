@@ -59,6 +59,26 @@ router.get('/inquiries', authenticateToken, requireOrgContext, requireMinimumRol
   return res.json({ data: (data || []).map(transform) });
 });
 
+router.get('/inquiries/:id', authenticateToken, requireOrgContext, requireMinimumRole('viewer'), async (req, res: Response) => {
+  const { data: inquiry, error } = await supabaseAdmin
+    .from('inquiries')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('org_id', req.orgId!)
+    .single();
+  if (error) return handleSupabaseError(res, error, 'Inquiry not found');
+  if (!inquiry) return apiError(res, 404, 'NOT_FOUND', 'Inquiry not found');
+
+  const { data: itineraries } = await supabaseAdmin
+    .from('itineraries')
+    .select('id, title, status, created_at, updated_at')
+    .eq('inquiry_id', req.params.id)
+    .eq('org_id', req.orgId!)
+    .order('created_at', { ascending: false });
+
+  return res.json({ ...transform(inquiry), itineraries: (itineraries || []).map((i: any) => ({ id: i.id, title: i.title, status: i.status, createdAt: i.created_at, updatedAt: i.updated_at })) });
+});
+
 router.post('/inquiries', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditLog('CREATE', 'inquiry'), async (req, res: Response) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid inquiry', parsed.error.issues);
