@@ -23,7 +23,7 @@ const CURRENCIES = ['BAM', 'EUR', 'USD'] as const;
 const emptyForm: CreateInquiry = { contactName: '', phone: null, email: null, tripType: 'other', source: 'phone', destination: null, travelStart: null, travelEnd: null, travelers: 1, budget: null, currency: 'BAM', nextActionAt: null, notes: null };
 
 export default function Inquiries() {
-  const t = useT();
+  const { t } = useT();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { success, error: showError } = useToast();
@@ -164,8 +164,8 @@ export default function Inquiries() {
           </div>
 
           <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4 dark:border-gray-800 sm:col-span-2">
-            <Button variant="outline" onClick={() => setIsOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={() => void save()} disabled={saving}>{saving ? t('common.saving') : t.inquiries.saveButton}</Button>
+            <Button variant="outline" onClick={() => setIsOpen(false)}>{t.common.cancel}</Button>
+            <Button onClick={() => void save()} disabled={saving}>{saving ? t.common.saving : t.inquiries.saveButton}</Button>
           </div>
         </div>
       </Modal>

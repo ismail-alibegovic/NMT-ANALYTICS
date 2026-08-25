@@ -25,7 +25,19 @@ function formatDate(d: string) {
 }
 
 export default function InquiryDetail() {
-  const { t } = useT();
+  const translations = useT().t;
+  const t = Object.assign(
+    (key: string): string | undefined => {
+      const parts = key.split('.');
+      let result: any = translations;
+      for (const p of parts) {
+        if (result == null || typeof result !== 'object') return undefined;
+        result = result[p];
+      }
+      return typeof result === 'string' ? result : undefined;
+    },
+    translations
+  );
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [inquiry, setInquiry] = useState<Inquiry | null>(null);
@@ -75,7 +87,7 @@ export default function InquiryDetail() {
               {t("inquiries.createItinerary") || "Create Itinerary"}
             </Button>
             <Button variant="outline" onClick={() => setShowDelete(true)} disabled={deleting}>
-              {t("common.delete") || "Delete"}
+              {t.common.delete || "Delete"}
             </Button>
           </div>
         }
@@ -162,10 +174,10 @@ export default function InquiryDetail() {
             </p>
             <div className="flex gap-3 justify-end">
               <Button variant="outline" onClick={() => setShowDelete(false)} disabled={deleting}>
-                {t("common.cancel") || "Cancel"}
+                {t.common.cancel || "Cancel"}
               </Button>
               <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-                {deleting ? t("common.deleting") || "Deleting..." : t("common.delete") || "Delete"}
+                {deleting ? t.common.deleting || "Deleting..." : t.common.delete || "Delete"}
               </Button>
             </div>
           </div>
