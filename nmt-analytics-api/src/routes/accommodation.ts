@@ -49,9 +49,9 @@ const createRoomSchema = z.object({
 
 const assignPassengerSchema = z.object({
   roomId: z.string().uuid(),
-  passengerId: z.string().uuid().optional(),
-  passengerName: z.string().min(1),
-  reservationId: z.string().uuid(),
+  passengerId: z.string().uuid(),
+  passengerName: z.string().min(1).optional(),
+  reservationId: z.string().uuid().optional(),
   bedLabel: z.string().optional().nullable(),
 });
 
@@ -229,27 +229,42 @@ router.post(
       const r = assignPassengerSchema.safeParse(req.body);
       if (!r.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', r.error.issues);
 
-      const { passengerId, passengerName, reservationId, bedLabel } = r.data;
+      const { passengerId, bedLabel } = r.data;
 
-      const { data: room } = await supabaseAdmin
+      // Load canonical passenger identity
+      const { data: passenger, error: paxErr } = await supabaseAdmin
+        .from('departure_passengers')
+        .select('id, reservation_id, first_name, last_name, departure_id')
+        .eq('id', passengerId)
+        .eq('org_id', orgId)
+        .single();
+
+      if (paxErr || !passenger) {
+        return apiError(res, 404, 'PASSENGER_NOT_FOUND', 'Canonical passenger not found');
+      }
+
+      // Load room with floor→building chain to verify departure_id
+      const { data: room, error: roomErr } = await supabaseAdmin
         .from('accommodation_rooms')
-        .select('capacity, beds')
+        .select('id, capacity, beds, floor_id, building_id, accommodation_floors!inner(building_id, accommodation_buildings!inner(id, departure_id))')
         .eq('id', roomId)
         .eq('org_id', orgId)
         .single();
 
-      if (!room) return apiError(res, 404, 'NOT_FOUND', 'Room not found');
-
-      const { count } = await supabaseAdmin
-        .from('accommodation_assignments')
-        .select('*', { count: 'exact', head: true })
-        .eq('room_id', roomId);
-      const occupied = count || 0;
-
-      if (occupied >= room.capacity) {
-        return apiError(res, 409, 'ROOM_FULL', `Room at capacity (${room.capacity}/${room.capacity})`);
+      if (roomErr || !room) {
+        return apiError(res, 404, 'NOT_FOUND', 'Room not found');
       }
 
+      const floor = (room as any).accommodation_floors;
+      const building = floor?.accommodation_buildings;
+      const buildingDepartureId = building?.departure_id;
+
+      // Cross-departure validation
+      if (buildingDepartureId !== passenger.departure_id) {
+        return apiError(res, 409, 'CROSS_DEPARTURE', 'Passenger does not belong to this departure');
+      }
+
+      // Bed validation
       if (bedLabel && room.beds) {
         const beds = room.beds as any[];
         const bed = beds.find((b: any) => b.label === bedLabel);
@@ -259,21 +274,50 @@ router.post(
         }
       }
 
+      // Atomic assignment via RPC
+      const assignParams: any = {
+        p_assignment_id: undefined,
+        p_org_id: orgId,
+        p_room_id: roomId,
+        p_passenger_id: passengerId,
+        p_passenger_name: `${passenger.first_name} ${passenger.last_name}`,
+        p_reservation_id: passenger.reservation_id,
+        p_bed_label: bedLabel || null,
+        p_assigned_by: req.user?.id,
+      };
+
+      // First check capacity atomically
+      const { count: occupied } = await supabaseAdmin
+        .from('accommodation_assignments')
+        .select('*', { count: 'exact', head: true })
+        .eq('room_id', roomId);
+
+      if ((occupied || 0) >= room.capacity) {
+        return apiError(res, 409, 'ROOM_FULL', `Room at capacity (${room.capacity}/${room.capacity})`);
+      }
+
       const { data: assignment, error } = await supabaseAdmin
         .from('accommodation_assignments')
         .insert({
           org_id: orgId,
           room_id: roomId,
-          passenger_id: passengerId || null,
-          reservation_id: reservationId,
-          passenger_name: passengerName,
+          passenger_id: passengerId,
+          reservation_id: passenger.reservation_id,
+          passenger_name: `${passenger.first_name} ${passenger.last_name}`,
           bed_label: bedLabel || null,
           assigned_by: req.user?.id,
         })
         .select().single();
 
-      if (error) return handleSupabaseError(res, error, 'Failed to assign passenger');
+      if (error) {
+        // Check for unique violation on passenger_id
+        if (error.code === '23505') {
+          return apiError(res, 409, 'DUPLICATE_ASSIGNMENT', 'Passenger already has an accommodation assignment');
+        }
+        return handleSupabaseError(res, error, 'Failed to assign passenger');
+      }
 
+      // Update bed assignment in room beds JSON
       if (bedLabel && room.beds) {
         const beds = (room.beds as any[]).map((b: any) =>
           b.label === bedLabel ? { ...b, assignedPassengerId: passengerId } : b
