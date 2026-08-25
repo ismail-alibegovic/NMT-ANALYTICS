@@ -42,6 +42,19 @@ if (isDev) {
 }
 
 // ============================================================================
+// 401 Redirect Guard — prevent infinite reload loops
+// ============================================================================
+
+let isRedirectingToSignIn = false;
+
+/**
+ * Reset the 401 redirect guard — call after successful login / session restore.
+ */
+export function reset401RedirectGuard(): void {
+  isRedirectingToSignIn = false;
+}
+
+// ============================================================================
 // 429 Rate Limit Cooldown Helper
 // ============================================================================
 
@@ -181,11 +194,14 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      await supabase.auth.signOut();
-      window.dispatchEvent(new CustomEvent('api-auth-error', {
-        detail: { message: 'Session expired' }
-      }));
-      window.location.href = '/auth/signin';
+      if (!isRedirectingToSignIn) {
+        isRedirectingToSignIn = true;
+        await supabase.auth.signOut();
+        window.dispatchEvent(new CustomEvent('api-auth-error', {
+          detail: { message: 'Session expired' }
+        }));
+        window.location.replace('/auth/signin');
+      }
       return Promise.reject(error);
     }
     // Handle 403 (forbidden = role-based access denied) - do NOT sign out, just reject

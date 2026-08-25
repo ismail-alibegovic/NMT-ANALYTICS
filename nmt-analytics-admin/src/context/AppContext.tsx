@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { getMeContext, UserContext } from '../api/me';
 import { useToast } from './ToastContext';
 import { logger } from '../utils/logger';
+import { reset401RedirectGuard } from '../lib/apiClient';
 import { setSentryUser } from '../lib/sentry';
 
 interface AppContextType {
@@ -273,6 +274,7 @@ export function AppProvider({ children }: AppProviderProps) {
           // Only fetch context on SIGNED_IN, not on TOKEN_REFRESHED
           // TOKEN_REFRESHED should use cached context
           if (event === 'SIGNED_IN' && currentUser) {
+            reset401RedirectGuard();
             await fetchUserContext(currentUser, true); // Force refresh on sign in
           } else if (event === 'SIGNED_OUT') {
             setUserContext(null);

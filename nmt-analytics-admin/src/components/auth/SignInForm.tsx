@@ -42,11 +42,13 @@ export default function SignInForm() {
           id: '72ed5a01-9095-4045-bd9a-14b3beed9962',
           email: 'dev@travline.app'
         }));
-        window.location.href = '/';
+        reset401RedirectGuard();
+        navigate('/');
         return;
       }
 
-      navigate("/");
+      reset401RedirectGuard();
+      navigate('/');
     } catch (err: any) {
       console.error("DEV LOGIN ERROR", err);
       setError(err?.message || t.errors.generic);
