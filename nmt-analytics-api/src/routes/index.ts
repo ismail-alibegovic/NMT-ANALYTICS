@@ -76,7 +76,6 @@ router.use('/', reportsRoutes);
 router.use('/', documentsRoutes);
 router.use('/', importRoutes);
 router.use('/', exportRoutes);
-router.use('/', quotationRoutes);
 router.use('/', paymentsRoutes);
 router.use('/', notificationsRoutes);
 router.use('/', communicationHistoryRoutes);
