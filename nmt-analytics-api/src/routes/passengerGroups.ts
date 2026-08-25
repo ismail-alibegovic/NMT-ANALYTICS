@@ -33,7 +33,7 @@ const updateGroupSchema = z.object({
 
 const addMemberSchema = z.object({
   passengerId: z.string().uuid(),
-  reservationId: z.string().uuid(),
+  reservationId: z.string().uuid().optional(),
 });
 
 function autoColor(existingCount: number): string {
