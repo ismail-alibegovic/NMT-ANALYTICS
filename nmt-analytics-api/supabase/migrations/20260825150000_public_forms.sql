@@ -1,6 +1,66 @@
--- Phase 13 — Public Forms backen
-[truncated]
-  active_form_id TEXT;
+-- Phase 13 — Public Forms backend foundation
+-- Tables: public_forms, public_form_submissions
+-- Function: submit_public_form(form_slug TEXT, submission_data JSONB)
+-- Adds inquiries.source_metadata JSONB column
+
+-- 1. Public Forms table
+CREATE TABLE IF NOT EXISTS public_forms (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  slug TEXT NOT NULL UNIQUE,
+  active BOOLEAN NOT NULL DEFAULT true,
+  fields JSONB NOT NULL DEFAULT '[]',
+  thank_you_message TEXT,
+  package_id UUID REFERENCES packages(id) ON DELETE SET NULL,
+  departure_id UUID REFERENCES departures(id) ON DELETE SET NULL,
+  created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 2. Public Form Submissions table
+CREATE TABLE IF NOT EXISTS public_form_submissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  form_id UUID NOT NULL REFERENCES public_forms(id) ON DELETE CASCADE,
+  inquiry_id UUID REFERENCES inquiries(id) ON DELETE SET NULL,
+  answers JSONB NOT NULL,
+  submitted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 3. Add source_metadata to inquiries
+ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS source_metadata JSONB DEFAULT '{}';
+
+-- 4. Indexes
+CREATE INDEX IF NOT EXISTS idx_public_forms_org ON public_forms(org_id);
+CREATE INDEX IF NOT EXISTS idx_public_forms_slug ON public_forms(slug);
+CREATE INDEX IF NOT EXISTS idx_public_forms_active ON public_forms(active);
+CREATE INDEX IF NOT EXISTS idx_public_form_submissions_form ON public_form_submissions(form_id);
+CREATE INDEX IF NOT EXISTS idx_public_form_submissions_inquiry ON public_form_submissions(inquiry_id);
+
+-- 5. RLS on public_forms
+ALTER TABLE public_forms ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS org_isolation_public_forms ON public_forms;
+CREATE POLICY org_isolation_public_forms ON public_forms
+  FOR ALL USING (org_id = ((current_setting('request.jwt.claims', true)::jsonb)->>'org_id')::UUID);
+
+-- 6. RLS on public_form_submissions
+ALTER TABLE public_form_submissions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS org_isolation_public_form_submissions ON public_form_submissions;
+CREATE POLICY org_isolation_public_form_submissions ON public_form_submissions
+  FOR ALL USING (EXISTS (
+    SELECT 1 FROM public_forms pf
+    WHERE pf.id = public_form_submissions.form_id
+    AND pf.org_id = ((current_setting('request.jwt.claims', true)::jsonb)->>'org_id')::UUID
+  ));
+
+-- 7. Canonical submit function
+DROP FUNCTION IF EXISTS public.submit_public_form(TEXT, JSONB);
+CREATE OR REPLACE FUNCTION public.submit_public_form(form_slug TEXT, submission_data JSONB)
+RETURNS JSONB AS $$
+DECLARE
+  active_form_id UUID;
   mapped_contact_name TEXT;
   mapped_phone        TEXT;
   mapped_email        TEXT;
