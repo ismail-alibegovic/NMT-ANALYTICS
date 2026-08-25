@@ -1,4 +1,4 @@
-import { get, post, patch } from './client';
+import { get, post, patch, del } from './client';
 
 export interface QuotationItem {
   id: string; dayNumber: number; sortOrder: number; startTime: string | null;
@@ -8,8 +8,13 @@ export interface QuotationItem {
   markupPercent: number; included: boolean;
   netLineTotal: number; sellLineTotal: number;
 }
+
 export interface Quotation {
-  id: string; itineraryId: string; itineraryVersionId: string;
+  id: string;
+  itineraryId: string | null;
+  itineraryVersionId: string | null;
+  itinerary?: { id: string; title: string; currentVersion: number } | null;
+  version?: { versionNumber: number; name: string } | null;
   title: string; reference: string;
   status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
   clientNotes: string | null; internalNotes: string | null;
@@ -20,15 +25,63 @@ export interface Quotation {
   assignedTo: string | null; createdAt: string; updatedAt: string;
   items: QuotationItem[];
 }
-export type CreateQuotation = Omit<Quotation, 'id' | 'reference' | 'status' | 'sellTotal' | 'netTotal' | 'marginTotal' | 'sentAt' | 'acceptedAt' | 'rejectedAt' | 'assignedTo' | 'createdAt' | 'updatedAt' | 'items'>;
+
+export type CreateQuotation = {
+  title: string;
+  itineraryId?: string | null;
+  itineraryVersionId?: string | null;
+  items?: CreateQuotationItem[];
+  clientNotes?: string | null;
+  internalNotes?: string | null;
+  validUntil?: string | null;
+  markupStrategy?: 'uniform' | 'per_item';
+  globalMarkupPercent?: number;
+  currency?: string;
+};
+
+export type CreateQuotationItem = {
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  category?: string;
+  quantity?: number;
+  unit?: string;
+  netUnitPrice?: number;
+  markupPercent?: number;
+  currency?: string;
+  included?: boolean;
+  dayNumber?: number;
+  sortOrder?: number;
+  startTime?: string | null;
+  supplierId?: string | null;
+  supplierServiceId?: string | null;
+};
 
 export async function getQuotations(params?: { status?: string; itineraryId?: string; search?: string }) {
   const { data } = await get<{ data: Quotation[] }>('/quotations', { params: params || {} });
   return data.data || [];
 }
+
 export async function getQuotation(id: string) { const { data } = await get<Quotation>(`/quotations/${id}`); return data; }
+
 export async function createQuotation(payload: CreateQuotation) { const { data } = await post<Quotation>('/quotations', payload); return data; }
+
 export async function updateQuotation(id: string, payload: Partial<Pick<Quotation, 'title' | 'status' | 'clientNotes' | 'internalNotes' | 'validUntil' | 'assignedTo'>>) {
   const { data } = await patch<Quotation>(`/quotations/${id}`, payload); return data;
 }
+
+export async function addQuotationItem(quotationId: string, payload: CreateQuotationItem) {
+  const { data } = await post<QuotationItem>(`/quotations/${quotationId}/items`, payload);
+  return data;
+}
+
+export async function editQuotationItem(quotationId: string, itemId: string, payload: CreateQuotationItem) {
+  const { data } = await patch<QuotationItem>(`/quotations/${quotationId}/items/${itemId}`, payload);
+  return data;
+}
+
+export async function deleteQuotationItem(quotationId: string, itemId: string) {
+  await del(`/quotations/${quotationId}/items/${itemId}`);
+}
+
 export function quotationPdfUrl(id: string) { return `/api/quotations/${id}/pdf`; }
