@@ -15,7 +15,7 @@ import { useApp } from "../context/AppContext";
 import EmptyState from "../components/ui/EmptyState";
 import NewSaleWizard from "../components/reservations/NewSaleWizard";
 import EditReservationModal from "../components/reservations/EditReservationModal";
-import { formatCurrency, normalizeMoney } from "../utils/business";
+import { formatCurrency, normalizeMoney, PAYMENT_STATUS_COLORS } from "../utils/business";
 import {
   getReservations,
   downloadVoucher,
@@ -349,24 +349,19 @@ export default function Reservations() {
     },
     {
       key: 'paymentStatus',
-      header: 'Status plaćanja',
+      header: c.reservations.paymentStatus,
       render: (val) => {
-        // Use backend-calculated payment_status
-        const status = val || 'unpaid';
-
-        const statusConfig: Record<string, { color: any; text: string }> = {
-          'unpaid': { color: 'error', text: 'Neplaćeno' },
-          'partially_paid': { color: 'warning', text: 'Djelimično' },
-          'paid': { color: 'success', text: 'Plaćeno' },
-          'refunded': { color: 'info', text: 'Refundirano' },
+        const status = (val as string) || 'unpaid';
+        const statusMap: Record<string, string> = {
+          partially_paid: 'partiallyPaid',
         };
-
-        const config = statusConfig[status] || statusConfig['unpaid'];
+        const key = statusMap[status] || status;
+        const color = PAYMENT_STATUS_COLORS[key] || 'error';
 
         return (
           <div className="flex justify-center">
-            <Badge size="sm" color={config.color} variant="light">
-              {config.text}
+            <Badge size="sm" color={color as any} variant="light">
+              {c[key] || c.unpaid}
             </Badge>
           </div>
         );

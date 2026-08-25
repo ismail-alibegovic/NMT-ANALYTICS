@@ -97,6 +97,19 @@ export interface PaymentStatusBadge {
     color: 'success' | 'warning' | 'error' | 'light';
 }
 
+
+/** Canonical payment status colors — shared by all components */
+export const PAYMENT_STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'light' | 'info'> = {
+    succeeded: 'success',
+    pending: 'warning',
+    failed: 'error',
+    refunded: 'info',
+    cancelled: 'light',
+    unpaid: 'error',
+    partiallyPaid: 'warning',
+    paid: 'success',
+};
+
 /**
  * Determines the payment status badge based on total and paid amounts.
  */
