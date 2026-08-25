@@ -48,6 +48,8 @@ export type AuditEntity =
   | 'import'
   | 'email_settings'
   | 'paylink'
+  | 'public_form'
+  | 'public_form_submission'
   | 'inquiry'
   | 'supplier'
   | 'supplier_service'

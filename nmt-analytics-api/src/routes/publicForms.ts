@@ -199,6 +199,7 @@ router.get('/forms/:id/submissions', authenticateToken, requireOrgContext, requi
 // ── PUBLIC ENDPOINTS ──
 
 router.get('/public/forms/:slug', async (req, res: Response) => {
+  console.log('[DEBUG publicForms] Route hit for slug:', req.params.slug);
   const { data, error } = await supabaseAdmin
     .from('public_forms')
     .select('id, title, description, slug, fields, thank_you_message, active')
