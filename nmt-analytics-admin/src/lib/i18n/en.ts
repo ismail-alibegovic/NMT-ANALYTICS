@@ -864,7 +864,6 @@ export const en = {
     departureNotFound: 'Departure Not Found',
     departureNotFoundDesc: 'The requested departure does not exist.',
     backToDepartures: 'Back to Departures',
-    flightContext: 'Flight',
   },
 };
 export type Translations = typeof en;
