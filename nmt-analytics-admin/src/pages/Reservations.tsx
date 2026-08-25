@@ -12,6 +12,7 @@ import { useToast } from "../context/ToastContext";
 import { useQueryParams } from "../hooks/useQueryParams";
 import { useDataInvalidation } from "../hooks/useDataInvalidation";
 import { useApp } from "../context/AppContext";
+import { useT } from "../lib/i18n/context";
 import EmptyState from "../components/ui/EmptyState";
 import NewSaleWizard from "../components/reservations/NewSaleWizard";
 import EditReservationModal from "../components/reservations/EditReservationModal";
@@ -34,6 +35,7 @@ const ITEMS_PER_PAGE = 10;
 
 export default function Reservations() {
   const { error: showError, success: showSuccess } = useToast();
+  const { t } = useT();
   const navigate = useNavigate();
   const { user, userContext, loading: authLoading } = useApp();
   const role = userContext?.role ?? 'agent';
@@ -349,7 +351,7 @@ export default function Reservations() {
     },
     {
       key: 'paymentStatus',
-      header: c.reservations.paymentStatus,
+      header: t.reservations.paymentStatus,
       render: (val) => {
         const status = (val as string) || 'unpaid';
         const statusMap: Record<string, string> = {
@@ -361,7 +363,7 @@ export default function Reservations() {
         return (
           <div className="flex justify-center">
             <Badge size="sm" color={color as any} variant="light">
-              {c[key] || c.unpaid}
+              {t.reservations[key] || t.reservations.unpaid}
             </Badge>
           </div>
         );
