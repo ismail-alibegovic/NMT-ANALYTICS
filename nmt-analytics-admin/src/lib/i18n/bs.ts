@@ -81,6 +81,7 @@ export const bs: Translations = {
     fakturisanje: 'Fakturisanje',
     pdfTemplates: 'PDF Predlošci',
     hub: 'Početna',
+  },
 
   inquiries: {
     stage: { new: 'Novo', qualified: 'Kvalifikovano', proposal: 'Ponuda', follow_up: 'Praćenje', won: 'Dobijeno', lost: 'Izgubljeno' },
@@ -104,7 +105,6 @@ export const bs: Translations = {
     saveButton: 'Sačuvaj upit',
     success: { created: 'Upit je evidentiran' },
     error: { load: 'Upiti se ne mogu učitati', contactNameRequired: 'Ime kontakta je obavezno', save: 'Upit nije sačuvan', move: 'Faza nije ažurirana' },
-  },
   },
   hub: {
     title: 'Travline',
