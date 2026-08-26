@@ -37,7 +37,7 @@ interface DrustvaTabProps {
 }
 
 export default function DrustvaTab({ departureId, passengers, groups, onRefresh }: DrustvaTabProps) {
-  const t = useT();
+  const { t } = useT();
   const [modal, setModal] = useState<{ mode: "create" | "edit"; group?: PassengerGroup } | null>(null);
   const [_membersModal, _setMembersModal] = useState<PassengerGroup | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<PassengerGroup | null>(null);
@@ -286,7 +286,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                     {primary && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                         <span className="font-medium text-gray-600 dark:text-gray-300">{String(t.departure.drustva.primaryPassenger)}:</span>{" "}
-                        {primary.full_name || "—"}
+                        {primary.fullName || "—"}
                       </p>
                     )}
                     {group.seating_preference && (
@@ -316,7 +316,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                                 : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
                             }`}
                           >
-                            {p.full_name || m.passenger_id.slice(0, 8)}
+                            {p.fullName || m.passenger_id.slice(0, 8)}
                             {p.seat_number && (
                               <span className="text-gray-400">S{p.seat_number}</span>
                             )}
@@ -404,7 +404,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                     if (!p) return null;
                     return (
                       <option key={pid} value={pid}>
-                        {p.full_name || pid.slice(0, 8)}
+                        {p.fullName || pid.slice(0, 8)}
                       </option>
                     );
                   })}
@@ -480,7 +480,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                             className="rounded border-gray-300 text-brand-500 focus:ring-brand-500"
                           />
                           <span className="flex-1">
-                            {p.full_name || p.id.slice(0, 8)}
+                            {p.fullName || p.id.slice(0, 8)}
                           </span>
                           {isOtherGroup && (
                             <span className="text-xs text-gray-400">{String(t.departure.drustva.locked)}</span>

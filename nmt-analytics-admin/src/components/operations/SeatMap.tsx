@@ -184,7 +184,7 @@ export default function SeatMap({
                         pendingPassengerId === p.passengerId ? null : p.passengerId || null
                       )
                     }
-                    onClear={p.passengerId ? () => clearSeat(p.passengerId!) : () => {}}
+                    _onClear={p.passengerId ? () => clearSeat(p.passengerId!) : () => {}}
                   />
                 ))}
               </div>
@@ -201,7 +201,7 @@ export default function SeatMap({
                     pendingPassengerId === p.passengerId ? null : p.passengerId || null
                   )
                 }
-                onClear={p.passengerId ? () => clearSeat(p.passengerId!) : () => {}}
+                _onClear={p.passengerId ? () => clearSeat(p.passengerId!) : () => {}}
               />
             ))}
 

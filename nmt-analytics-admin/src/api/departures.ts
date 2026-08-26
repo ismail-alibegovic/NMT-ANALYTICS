@@ -213,6 +213,10 @@ export interface DeparturePassenger {
   nationality?: string | null;
   date_of_birth?: string | null;
   documentReadinessStatus?: string | null;
+  // Snake-case aliases for raw Supabase responses
+  full_name?: string;
+  passport_number?: string | null;
+  seat_number?: string | number | null;
 }
 
 export interface DepartureManifest {
@@ -487,6 +491,13 @@ export interface RoomingProposal {
     unplacedCount: number;
     remainingCapacity: number;
   };
+  // Flat accessors mirroring summary + UI fields
+  items?: RoomingProposalItem[];
+  placedCount?: number;
+  unplacedCount?: number;
+  groupsKeptTogether?: number;
+  groupsSplit?: number;
+  groups?: RoomingGroupSummary[];
 }
 
 export async function generateRoomingProposal(departureId: string): Promise<RoomingProposal> {

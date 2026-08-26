@@ -10,7 +10,7 @@ const translations: Record<Lang, Translations> = { bs, en };
 
 interface I18nContextType {
   lang: Lang;
-  t: Translations;
+  t: Record<string, any>;
   setLang: (lang: Lang) => void;
   toggleLang: () => void;
 }

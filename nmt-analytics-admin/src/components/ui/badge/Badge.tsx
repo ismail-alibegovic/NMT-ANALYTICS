@@ -16,6 +16,7 @@ interface BadgeProps {
   startIcon?: React.ReactNode; // Icon at the start
   endIcon?: React.ReactNode; // Icon at the end
   children: React.ReactNode; // Badge content
+  className?: string; // Additional CSS classes
 }
 
 const Badge: React.FC<BadgeProps> = ({
@@ -25,17 +26,16 @@ const Badge: React.FC<BadgeProps> = ({
   startIcon,
   endIcon,
   children,
+  className = "",
 }) => {
   const baseStyles =
     "inline-flex items-center px-2.5 py-0.5 justify-center gap-1 rounded-full font-medium";
 
-  // Define size styles
   const sizeStyles = {
-    sm: "text-theme-xs", // Smaller padding and font size
-    md: "text-sm", // Default padding and font size
+    sm: "text-theme-xs",
+    md: "text-sm",
   };
 
-  // Define color styles for variants
   const variants = {
     light: {
       primary:
@@ -61,12 +61,11 @@ const Badge: React.FC<BadgeProps> = ({
     },
   };
 
-  // Get styles based on size and color variant
-  const sizeClass = sizeStyles[size];
-  const colorStyles = variants[variant][color];
 
   return (
-    <span className={`${baseStyles} ${sizeClass} ${colorStyles}`}>
+    <span
+      className={`${baseStyles} ${sizeStyles[size]} ${variants[variant][color]} ${className}`}
+    >
       {startIcon && <span className="mr-1">{startIcon}</span>}
       {children}
       {endIcon && <span className="ml-1">{endIcon}</span>}

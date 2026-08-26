@@ -250,7 +250,6 @@ export default function Settings() {
   const fetchTemplates = async () => {
     try {
       setTemplates(await getMessageTemplates());
-      loadCampaigns();
     } catch (error: any) {
       showTemplateMessage(error?.message || 'Failed to load templates', 'error');
     }

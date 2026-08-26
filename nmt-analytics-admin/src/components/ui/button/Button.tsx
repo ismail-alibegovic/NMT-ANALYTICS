@@ -3,11 +3,13 @@ import { ReactNode } from "react";
 interface ButtonProps {
   children: ReactNode; // Button text or content
   size?: "sm" | "md"; // Button size
-  variant?: "primary" | "outline"; // Button variant
+  variant?: "primary" | "outline" | "ghost"; // Button variant
   startIcon?: ReactNode; // Icon before the text
   endIcon?: ReactNode; // Icon after the text
   onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void; // Click handler
   disabled?: boolean; // Disabled state
+  loading?: boolean; // Loading spinner state
+  color?: string; // Unused, kept for backward compat
   className?: string;
   type?: "button" | "submit" | "reset";
   title?: string; // Native HTML tooltip
@@ -20,6 +22,7 @@ const Button: React.FC<ButtonProps> = ({
   startIcon,
   endIcon,
   onClick,
+  color: _color,
   className = "",
   disabled = false,
   type = "button",
@@ -37,6 +40,8 @@ const Button: React.FC<ButtonProps> = ({
       "bg-brand-500 text-white shadow-theme-xs hover:bg-brand-600 disabled:bg-brand-300",
     outline:
       "bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03] dark:hover:text-gray-300",
+    ghost:
+      "bg-transparent text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.05]",
   };
 
   return (

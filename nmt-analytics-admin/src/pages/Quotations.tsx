@@ -13,7 +13,7 @@ import { useT } from '../lib/i18n/context';
 import { createQuotation, getQuotations, type CreateQuotation, type Quotation } from '../api/quotations';
 import { getItineraries, type Itinerary } from '../api/itineraries';
 
-const _CATEGORIES = ['accommodation', 'transport', 'flight', 'guide', 'activity', 'meal', 'insurance', 'visa', 'ticket', 'venue', 'equipment', 'other'] as const;
+const CATEGORIES = ['accommodation', 'transport', 'flight', 'guide', 'activity', 'meal', 'insurance', 'visa', 'ticket', 'venue', 'equipment', 'other'] as const;
 
 export default function Quotations() {
   const { t } = useT(); const c = t.quotations; const navigate = useNavigate(); const [params, setParams] = useSearchParams();

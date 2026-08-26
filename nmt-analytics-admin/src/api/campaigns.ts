@@ -1,4 +1,4 @@
-import { del, get, patch, post } from './client';
+import { get, patch, post } from './client';
 
 export type CampaignChannel = 'email' | 'sms';
 export type CampaignStatus = 'draft' | 'sending' | 'completed' | 'failed';
