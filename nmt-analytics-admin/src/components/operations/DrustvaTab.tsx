@@ -511,4 +511,3 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
       )}
     </div>
   );
-}
