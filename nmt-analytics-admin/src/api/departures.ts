@@ -41,6 +41,7 @@ export interface Departure {
   };
   // --- Nova Prodaja wizard support (migration 036) ---
   transport_type?: 'bus' | 'flight' | 'none';
+  transport_mode?: string;
   transport_capacity?: number | null;
   // --- Phase 1 domain wiring ---
   capabilities?: DepartureCapabilities;

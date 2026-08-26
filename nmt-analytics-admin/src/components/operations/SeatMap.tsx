@@ -202,7 +202,7 @@ export default function SeatMap({
                     pendingPassengerId === p.passengerId ? null : p.passengerId || null
                   )
                 }
-                _onClear={p.passengerId ? () => clearSeat(p.passengerId!) : () => {}}
+                onClear={p.passengerId ? () => clearSeat(p.passengerId!) : () => {}}
               />
             ))}
 
@@ -397,12 +397,12 @@ function Seat({
   let colorClass = PALETTE.free;
   if (occupied && passenger) {
     if (passenger.groupColor) {
-      colorClass = `${passenger.groupColor} text-white border-transparent` as const;
+      colorClass = `${passenger.groupColor} text-white border-transparent` as any as string;
       if (otherHighlighted) colorClass += " opacity-30";
       if (isHighlighted) colorClass += " ring-2 ring-white shadow-lg scale-110 z-10";
     } else {
       colorClass =
-        "bg-white text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600" as string as const;
+        "bg-white text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600" as string;
     }
   }
 
