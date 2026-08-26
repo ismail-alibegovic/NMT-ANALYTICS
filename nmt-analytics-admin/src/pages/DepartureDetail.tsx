@@ -8,6 +8,7 @@ import EmptyState from "../components/ui/EmptyState";
 import { DataTable, Column } from "../components/ui/DataTable";
 import SeatMap from "../components/operations/SeatMap";
 import RoomingWorkspace from "../components/operations/RoomingWorkspace";
+import DrustvaTab from "../components/operations/DrustvaTab";
 import CommunicationHistoryPanel from "../components/communications/CommunicationHistoryPanel";
 import ManualMessageComposer from "../components/communications/ManualMessageComposer";
 import { useToast } from "../context/ToastContext";
@@ -31,6 +32,8 @@ import {
   getDeparture,
   getDeparturePassengers,
   getDepartureGroups,
+  getPassengerGroups,
+  PassengerGroup,
   updateDeparture,
   Departure,
   DepartureCapabilities,
@@ -82,6 +85,8 @@ export default function DepartureDetail() {
   const [departure, setDeparture] = useState<Departure | null>(null);
   const [manifest, setManifest] = useState<DepartureManifest | null>(null);
   const [groups, setGroups] = useState<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] } | null>(null);
+  const [passengerGroups, setPassengerGroups] = useState<PassengerGroup[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [docFilter, setDocFilter] = useState<"all" | "ready" | "attention">("all");
@@ -93,6 +98,11 @@ export default function DepartureDetail() {
       setActiveTab(t as Tab);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!id || activeTab !== "drustva") return;
+    getPassengerGroups(id).then(setPassengerGroups).catch(() => {});
+  }, [id, activeTab]);
   const [groupBy, setGroupBy] = useState<"hotel" | "agent">("hotel");
 
   // Document edit modal state
@@ -743,25 +753,20 @@ export default function DepartureDetail() {
         )}
 
         {/* DRUSTVA TAB */}
-        {activeTab === "drustva" && (manifest as any)?.passengerGroups && (
+        {activeTab === "drustva" && (
           <DrustvaTab
-            groups={(manifest as any).passengerGroups}
+            departureId={id || ""}
             passengers={normPax}
-            groupMembers={(manifest as any).groupMembers || []}
-            groupById={(manifest as any).groupById || {}}
-            transportType={capabilities?.transportType as "bus" | "flight" | undefined}
-            capacity={departure.capacity}
+            groups={passengerGroups}
+            onRefresh={async () => {
+              if (!id) return;
+              try {
+                const gs = await getPassengerGroups(id);
+                setPassengerGroups(gs);
+              } catch {}
+            }}
           />
         )}
-        {activeTab === "drustva" && !(manifest as any)?.passengerGroups && (
-          <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
-            <EmptyState
-              title="Nema društava"
-              description="Za ovaj polazak još nisu formirana putnička društva."
-            />
-          </div>
-        )}
-
         {/* HOTELS TAB — Rooming Workspace */}
         {activeTab === "hotels" && capabilities?.hasAccommodation && (
           <RoomingWorkspace

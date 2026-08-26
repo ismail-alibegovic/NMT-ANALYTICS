@@ -42,7 +42,7 @@ function autoColor(existingCount: number): string {
 
 // GET /api/departures/:departureId/groups
 router.get(
-  '/departures/:departureId/groups',
+  '/departures/:departureId/passenger-groups',
   authenticateToken,
   requireOrgContext,
   requireMinimumRole('agent'),
@@ -69,7 +69,7 @@ router.get(
 
 // POST /api/departures/:departureId/groups
 router.post(
-  '/departures/:departureId/groups',
+  '/departures/:departureId/passenger-groups',
   authenticateToken,
   requireOrgContext,
   requireMinimumRole('manager'),
@@ -171,7 +171,7 @@ router.post(
 
 // PATCH /api/groups/:id
 router.patch(
-  '/groups/:id',
+  '/passenger-groups/:id',
   authenticateToken,
   requireOrgContext,
   requireMinimumRole('manager'),
@@ -210,7 +210,7 @@ router.patch(
 
 // DELETE /api/groups/:id
 router.delete(
-  '/groups/:id',
+  '/passenger-groups/:id',
   authenticateToken,
   requireOrgContext,
   requireMinimumRole('manager'),
@@ -235,7 +235,7 @@ router.delete(
 
 // POST /api/groups/:id/members
 router.post(
-  '/groups/:id/members',
+  '/passenger-groups/:id/members',
   authenticateToken,
   requireOrgContext,
   requireMinimumRole('manager'),
@@ -310,7 +310,7 @@ router.post(
 
 // DELETE /api/groups/:id/members/:memberId
 router.delete(
-  '/groups/:id/members/:memberId',
+  '/passenger-groups/:id/members/:memberId',
   authenticateToken,
   requireOrgContext,
   requireMinimumRole('manager'),

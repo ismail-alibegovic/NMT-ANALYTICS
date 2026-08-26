@@ -278,6 +278,74 @@ export async function getDepartureGroups(id: string): Promise<{ byHotel: Departu
   return data;
 }
 
+// ── Passenger Groups (Društva) ──
+
+export interface PassengerGroupMember {
+  id: string;
+  group_id: string;
+  passenger_id: string;
+  reservation_id: string | null;
+  is_primary?: boolean;
+}
+
+export interface PassengerGroup {
+  id: string;
+  name: string | null;
+  color: string | null;
+  seating_preference: string;
+  accommodation_preference: string;
+  notes: string | null;
+  locked?: boolean;
+  primary_passenger_id: string | null;
+  primary_passenger_name?: string | null;
+  members: PassengerGroupMember[];
+}
+
+export async function getPassengerGroups(departureId: string): Promise<PassengerGroup[]> {
+  const { data } = await get<PassengerGroup[]>(`/departures/${departureId}/passenger-groups`);
+  return data;
+}
+
+export interface CreateGroupPayload {
+  name?: string;
+  notes?: string | null;
+  seatingPreference?: string;
+  accommodationPreference?: string;
+  memberIds: string[];
+}
+
+export async function createPassengerGroup(departureId: string, payload: CreateGroupPayload): Promise<PassengerGroup> {
+  const { data } = await post<PassengerGroup>(`/departures/${departureId}/passenger-groups`, payload);
+  return data;
+}
+
+export interface UpdateGroupPayload {
+  name?: string;
+  color?: string;
+  notes?: string | null;
+  seatingPreference?: string;
+  accommodationPreference?: string;
+  locked?: boolean;
+}
+
+export async function updatePassengerGroup(groupId: string, payload: UpdateGroupPayload): Promise<PassengerGroup> {
+  const { data } = await patch<PassengerGroup>(`/passenger-groups/${groupId}`, payload);
+  return data;
+}
+
+export async function deletePassengerGroup(groupId: string): Promise<void> {
+  await del(`/passenger-groups/${groupId}`);
+}
+
+export async function addGroupMember(groupId: string, passengerId: string): Promise<{ added: boolean }> {
+  const { data } = await post<{ added: boolean }>(`/passenger-groups/${groupId}/members`, { passengerId });
+  return data;
+}
+
+export async function removeGroupMember(groupId: string, memberId: string): Promise<void> {
+  await del(`/passenger-groups/${groupId}/members/${memberId}`);
+}
+
 export interface UpdatePassengerDocumentData {
   id_document_type?: string | null;
   id_document_number?: string | null;
