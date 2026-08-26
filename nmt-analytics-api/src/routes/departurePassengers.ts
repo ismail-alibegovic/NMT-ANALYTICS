@@ -175,6 +175,62 @@ router.patch('/departure-passengers/:id', authenticateToken, requireOrgContext, 
   }
 });
 
+/**
+ * DELETE /api/departure-passengers/:id
+ * Safe deletion: cascades to groups (CASCADE), seat (null), accommodation (CASCADE).
+ * Does NOT delete reservation, customer, departure, or package.
+ */
+router.delete('/departure-passengers/:id', authenticateToken, requireOrgContext, async (req, res: Response) => {
+  try {
+    const { id } = req.params;
+    const orgId = req.orgId!;
+
+    const { data: existing, error: fetchErr } = await supabaseAdmin
+      .from('departure_passengers')
+      .select('id, reservation_id, departure_id, full_name')
+      .eq('id', id)
+      .eq('org_id', orgId)
+      .single();
+
+    if (fetchErr || !existing) {
+      return apiError(res, 404, 'NOT_FOUND', 'Passenger not found');
+    }
+
+    const { error: deleteErr } = await supabaseAdmin
+      .from('departure_passengers')
+      .delete()
+      .eq('id', id)
+      .eq('org_id', orgId);
+
+    if (deleteErr) {
+      return handleSupabaseError(res, deleteErr, 'Failed to delete passenger');
+    }
+
+    if (req.user?.id) {
+      await logAuditEntry({
+        org_id: orgId,
+        user_id: req.user.id,
+        action: 'DELETE',
+        entity: 'departure_passenger',
+        entity_id: id,
+        metadata: {
+          passenger_name: existing.full_name,
+          reservation_id: existing.reservation_id,
+          departure_id: existing.departure_id,
+          note: 'Passenger removed from departure. Group memberships, seat, and accommodation assignments cascade-deleted.',
+        },
+      }).catch((auditErr) => {
+        console.warn('DELETE passenger audit log failed:', auditErr);
+      });
+    }
+
+    res.json({ deleted: true, id });
+  } catch (err) {
+    console.error('DELETE /departure-passengers/:id:', err);
+    apiError(res, 500, 'INTERNAL_ERROR', 'Failed to delete passenger');
+  }
+});
+
 function isSeatConflict(err: unknown): boolean {
   if (err && typeof err === 'object' && 'code' in err && (err as any).code === '23505') {
     const msg: string = (err as any).message ?? '';

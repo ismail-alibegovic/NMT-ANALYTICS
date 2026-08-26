@@ -354,6 +354,25 @@ export interface UpdatePassengerDocumentData {
   date_of_birth?: string | null;
 }
 
+export interface CreateDeparturePassengerData {
+  reservation_id: string;
+  departure_id: string;
+  full_name: string;
+  phone?: string;
+  email?: string;
+  nationality?: string;
+  date_of_birth?: string;
+}
+
+export async function createDeparturePassenger(data: CreateDeparturePassengerData) {
+  const { data: result } = await post('/departure-passengers', data);
+  return result;
+}
+
+export async function deleteDeparturePassenger(passengerId: string): Promise<void> {
+  await del('/departure-passengers/' + passengerId);
+}
+
 export async function updateDeparturePassenger(passengerId: string, data: UpdatePassengerDocumentData) {
   const { data: result } = await patch(`/departure-passengers/${passengerId}`, data);
   return result;

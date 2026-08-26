@@ -31,6 +31,8 @@ import {
 import {
   getDeparture,
   getDeparturePassengers,
+  createDeparturePassenger,
+  deleteDeparturePassenger,
   getDepartureGroups,
   getPassengerGroups,
   PassengerGroup,
@@ -42,8 +44,10 @@ import {
   DepartureGroup,
   updateDeparturePassenger,
   type PassengerDocumentStatus,
+  type CreateDeparturePassengerData,
 } from "../api/departures";
 import { getFlights, type Flight } from "../api/flights";
+import { getReservations } from "../api/reservations";
 import { sendDepartureManualMessage } from "../api/manualMessaging";
 
 const formatCurrency = (amount: number, currency = "BAM") =>
@@ -89,7 +93,6 @@ export default function DepartureDetail() {
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
-  const [docFilter, setDocFilter] = useState<"all" | "ready" | "attention">("all");
   const [searchParams] = useSearchParams();
   // Deep-link support: /departures/:id?tab=passengers opens straight to the seat map.
   useEffect(() => {
@@ -116,6 +119,27 @@ export default function DepartureDetail() {
   const [flightSaving, setFlightSaving] = useState(false);
   const [flightError, setFlightError] = useState<string | null>(null);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [targetPassenger, setTargetPassenger] = useState<DeparturePassenger | null>(null);
+  const [paxForm, setPaxForm] = useState<Record<string, string>>({});
+  const [paxSaving, setPaxSaving] = useState(false);
+  const [paxError, setPaxError] = useState<string | null>(null);
+  const [reservations, setReservations] = useState<{ id: string; customer_name: string }[]>([]);
+  const [resLoading, setResLoading] = useState(false);
+  const [quickFilter, setQuickFilter] = useState<"all" | "unseated" | "noRoom" | "docAttention">("all");
+
+  // Fetch reservations for this departure when add modal opens
+  useEffect(() => {
+    if (!showAddModal || !id) return;
+    setResLoading(true);
+    getReservations({ departureId: id, limit: 200 })
+      .then((r) => setReservations(r.data.map((res: any) => ({ id: res.id, customer_name: res.customer_name }))))
+      .catch(() => setReservations([]))
+      .finally(() => setResLoading(false));
+  }, [showAddModal, id]);
 
   useEffect(() => {
     if (!id) return;
@@ -347,18 +371,107 @@ export default function DepartureDetail() {
   const readyCount = readinessItems.filter((item) => item.ready).length;
   const readinessPct = readinessItems.length > 0 ? Math.round((readyCount / readinessItems.length) * 100) : 0;
 
-  const passengerCols: Column<DeparturePassenger>[] = [
-    { key: "fullName", header: "Putnik", render: (v) => <span className="font-medium dark:text-white">{String(v)}</span> },
+  // ENHANCED passenger columns
+  const enhancedPassengerCols: Column<DeparturePassenger>[] = [
+    {
+      key: "fullName",
+      header: t.departure.fullName,
+      render: (v, item) => (
+        <div>
+          <span className="font-medium dark:text-white">{String(v)}</span>
+          {item.groupName && (
+            <span className="ml-2 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium" style={item.groupColor ? { backgroundColor: item.groupColor + "20", color: item.groupColor } : {}}>
+              {item.groupName}
+            </span>
+          )}
+        </div>
+      ),
+    },
     { key: "phone", header: "Telefon", render: (v) => v ? <span className="text-gray-600 dark:text-gray-300">{String(v)}</span> : <span className="text-gray-400">—</span> },
-    { key: "hotelName", header: "Hotel", render: (v) => v ? <span className="text-gray-700 dark:text-gray-200">{String(v)}</span> : <span className="text-gray-400">—</span> },
-    { key: "roomType", header: "Soba", render: (v) => v ? <Badge color="light" size="sm">{String(v)}</Badge> : <span className="text-gray-400">—</span> },
-    { key: "tourGuide", header: "Vodič", render: (v) => v ? <span className="text-gray-600 dark:text-gray-300">{String(v)}</span> : <span className="text-gray-400">—</span> },
-    { key: "agent", header: "Agent", render: (v) => v ? <span className="text-brand-600 dark:text-brand-400">{String(v)}</span> : <span className="text-gray-400">—</span> },
+    {
+      key: "seat",
+      header: t.departure.seat,
+      render: (v) => v ? <Badge color="primary" size="sm">{String(v)}</Badge> : <span className="text-xs text-gray-400">{t.departure.noSeat}</span>,
+    },
+    {
+      key: "roomType",
+      header: t.departure.room,
+      render: (v, item) => v ? (
+        <span className="text-xs">
+          <Badge color="light" size="sm">{String(v)}</Badge>
+          {item.hotelName && <span className="ml-1 text-gray-400">{item.hotelName}</span>}
+        </span>
+      ) : <span className="text-xs text-gray-400">{t.departure.noRoom}</span>,
+    },
+    {
+      key: "reservationId",
+      header: t.departure.reservation,
+      render: (v, item) => (
+        <button
+          type="button"
+          onClick={() => openReservation(String(v))}
+          className="text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 text-xs font-medium underline underline-offset-2"
+        >
+          {item.fullName?.split(" ")[0] || String(v).slice(0, 8)}
+        </button>
+      ),
+    },
     { key: "paidAmount", header: "Plaćeno", render: (v) => <span className="text-success-600 dark:text-success-400 font-medium">{formatCurrency(Number(v), "EUR")}</span> },
     { key: "debtAmount", header: "Dug", render: (v) => Number(v) > 0 ? <span className="text-error-600 font-semibold">{formatCurrency(Number(v), "EUR")}</span> : <span className="text-gray-400">—</span> },
-    { key: "status", header: "Status", render: (v) => statusBadge(String(v)) },
+    {
+      key: "documentReadinessStatus",
+      header: t.departure.documents,
+      render: (v) => {
+        const s = String(v);
+        const label = (t.departure.documentStatus as Record<string, string>)[s] || s;
+        if (s === "ready") return <span className="text-success-600 dark:text-success-400 text-xs font-medium">{label}</span>;
+        if (s === "missing") return <span className="text-warning-600 dark:text-warning-400 text-xs font-medium">{label}</span>;
+        if (s === "expired_before_departure" || s === "expired_before_return") return <span className="text-error-600 dark:text-error-400 text-xs font-medium">{label}</span>;
+        if (s === "not_required") return <span className="text-gray-400 text-xs">{label}</span>;
+        return <span className="text-gray-400">—</span>;
+      },
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (_v, item) => (
+        <div className="flex items-center gap-1">
+          {capabilities?.needTravelDocuments && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); openDocEditor(item); }}
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-white/[0.06] dark:hover:text-brand-400"
+              title={t.departure.editDocuments}
+            >
+              <svg className="size-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+              </svg>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); openEditModal(item); }}
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/[0.06] dark:hover:text-white"
+            title={t.departure.editPassenger}
+          >
+            <svg className="size-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); openDeleteModal(item); }}
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+            title={t.departure.deletePassenger}
+          >
+            <svg className="size-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+            </svg>
+          </button>
+        </div>
+      ),
+    },
   ];
-
 
   const docStatusCol: Column<DeparturePassenger> = {
     key: "documentReadinessStatus",
@@ -394,20 +507,119 @@ export default function DepartureDetail() {
       }
     : null;
 
-  const allPassengerCols = capabilities?.needTravelDocuments
-    ? docEditCol
-      ? [...passengerCols, docStatusCol, docEditCol]
-      : [...passengerCols, docStatusCol]
-    : passengerCols;
+  const allPassengerCols = enhancedPassengerCols;
 
-  const filteredPassengers = useMemo(() => {
-    if (!capabilities?.needTravelDocuments || docFilter === "all") return passengers;
-    const needsAttention = (p: DeparturePassenger) =>
-      !p.documentReadinessStatus || (p.documentReadinessStatus !== "ready" && p.documentReadinessStatus !== "not_required");
-    if (docFilter === "ready") return passengers.filter((p) => p.documentReadinessStatus === "ready");
-    if (docFilter === "attention") return passengers.filter(needsAttention);
-    return passengers;
-  }, [passengers, docFilter, capabilities?.needTravelDocuments]);
+  // Quick filters - combine doc readiness with unseated/noRoom
+  const quickFiltered = useMemo(() => {
+    let result = [...normPax];
+    if (quickFilter === "unseated") result = result.filter((p) => !p.seat);
+    if (quickFilter === "noRoom") result = result.filter((p) => !p.roomType);
+    if (quickFilter === "docAttention" && capabilities?.needTravelDocuments) {
+      result = result.filter((p) =>
+        !p.documentReadinessStatus ||
+        (p.documentReadinessStatus !== "ready" && p.documentReadinessStatus !== "not_required")
+      );
+    }
+    return result;
+  }, [normPax, quickFilter, capabilities?.needTravelDocuments]);
+
+  const openReservation = (reservationId: string) => {
+    navigate(`/reservations/${reservationId}`);
+  };
+
+  const openAddModal = () => {
+    setPaxForm({});
+    setPaxError(null);
+    setShowAddModal(true);
+  };
+
+  const handleAddPassenger = async () => {
+    if (!id) return;
+    const rid = paxForm.reservation_id;
+    if (!rid) { setPaxError(t.departure.noReservationSelected); return; }
+    if (!paxForm.full_name?.trim()) { setPaxError(t.departure.nameRequired); return; }
+    setPaxSaving(true);
+    setPaxError(null);
+    try {
+      await createDeparturePassenger({
+        reservation_id: rid,
+        departure_id: id,
+        full_name: paxForm.full_name.trim(),
+        phone: paxForm.phone?.trim() || undefined,
+        email: paxForm.email?.trim() || undefined,
+        nationality: paxForm.nationality?.trim() || undefined,
+        date_of_birth: paxForm.date_of_birth || undefined,
+      });
+      const fresh = await getDeparturePassengers(id);
+      setManifest(fresh);
+      setShowAddModal(false);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || t.common.error;
+      setPaxError(msg);
+    } finally {
+      setPaxSaving(false);
+    }
+  };
+
+  const openEditModal = (p: DeparturePassenger) => {
+    setTargetPassenger(p);
+    setPaxForm({
+      full_name: p.fullName || '',
+      phone: p.phone || '',
+      email: p.email || '',
+      nationality: p.nationality || '',
+      date_of_birth: p.date_of_birth || '',
+    });
+    setPaxError(null);
+    setShowEditModal(true);
+  };
+
+  const handleEditPassenger = async () => {
+    if (!targetPassenger?.id) return;
+    if (!paxForm.full_name?.trim()) { setPaxError(t.departure.nameRequired); return; }
+    setPaxSaving(true);
+    setPaxError(null);
+    try {
+      await updateDeparturePassenger(targetPassenger.id, {
+        full_name: paxForm.full_name.trim(),
+        phone: paxForm.phone?.trim() || null,
+        email: paxForm.email?.trim() || null,
+        nationality: paxForm.nationality?.trim() || null,
+        date_of_birth: paxForm.date_of_birth || null,
+      });
+      const fresh = await getDeparturePassengers(id!);
+      setManifest(fresh);
+      setShowEditModal(false);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || t.common.error;
+      setPaxError(msg);
+    } finally {
+      setPaxSaving(false);
+    }
+  };
+
+  const openDeleteModal = (p: DeparturePassenger) => {
+    setTargetPassenger(p);
+    setPaxError(null);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeletePassenger = async () => {
+    if (!targetPassenger?.id) return;
+    setPaxSaving(true);
+    setPaxError(null);
+    try {
+      await deleteDeparturePassenger(targetPassenger.id);
+      const fresh = await getDeparturePassengers(id!);
+      setManifest(fresh);
+      setShowDeleteModal(false);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || t.common.error;
+      setPaxError(msg);
+    } finally {
+      setPaxSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -653,7 +865,7 @@ export default function DepartureDetail() {
         {/* PASSENGERS TAB */}
         {activeTab === "passengers" && (
           <div className="space-y-6">
-            {capabilities?.hasManagedSeatLayout && departure.capacity > 0 && passengers.length > 0 && (
+            {capabilities?.hasManagedSeatLayout && departure.capacity > 0 && normPax.length > 0 && (
               <SeatMap
                 passengers={normPax}
                 capacity={departure.capacity}
@@ -664,40 +876,48 @@ export default function DepartureDetail() {
                     const fresh = await getDeparturePassengers(id!);
                     setManifest(fresh);
                   } catch {
-                    showError("Greška pri ažuriranju putnika");
+                    showError(t.departure.seatUpdateError || "Greška pri ažuriranju putnika");
                   }
                 }}
               />
             )}
-            <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
-              {capabilities?.needTravelDocuments && (
-                <div className="mb-4 flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t.departure.documentReadiness}:</span>
-                  {(["all", "ready", "attention"] as const).map((f) => (
+            <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-6 py-3 dark:border-gray-800">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t.departure.filter}:</span>
+                  {(["all", "unseated", "noRoom", "docAttention"] as const).map((f) => (
                     <button
                       key={f}
                       type="button"
-                      onClick={() => setDocFilter(f)}
+                      onClick={() => setQuickFilter(f)}
                       className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                        docFilter === f
+                        quickFilter === f
                           ? "bg-brand-500 text-white"
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                       }`}
                     >
-                      {(t.departure.docFilter as Record<string, string>)[f === "all" ? "all" : f === "ready" ? "ready" : "attention"]}
+                      {(t.departure.quickFilters as Record<string, string>)[f]}
                     </button>
                   ))}
                 </div>
-              )}
-              {passengers.length > 0 ? (
-                <DataTable data={filteredPassengers} columns={allPassengerCols} />
-              ) : (
-                <EmptyState
-                  title="Nema putnika"
-                  description="Za ovaj polazak još nisu dodijeljeni putnici. Rezervacije vezane za ovaj polazak automatski se pojavljuju ovdje."
-                  action={{ label: "Idi na rezervacije", onClick: () => navigate("/reservations") }}
-                />
-              )}
+                <Button size="sm" onClick={openAddModal} className="gap-1.5">
+                  <svg className="size-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  {t.departure.addPassenger}
+                </Button>
+              </div>
+              <div className="p-6">
+                {normPax.length > 0 ? (
+                  <DataTable data={quickFiltered} columns={allPassengerCols} />
+                ) : (
+                  <EmptyState
+                    title={t.departure.noPassengersTitle}
+                    description={t.departure.noPassengersDesc}
+                    action={{ label: t.departure.goToReservations, onClick: () => navigate("/reservations") }}
+                  />
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -787,6 +1007,215 @@ export default function DepartureDetail() {
           </div>
         )}
       </div>
+
+      {/* ADD PASSENGER MODAL */}
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        className="max-w-md"
+      >
+        <div className="p-6">
+          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">{t.departure.addPassenger}</h2>
+          <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">{t.departure.addPassengerDesc}</p>
+
+          {paxError && (
+            <div className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-500/10 dark:text-error-400">
+              {paxError}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="add-fullname">{t.departure.fullName} *</Label>
+              <Input
+                type="text"
+                id="add-fullname"
+                value={paxForm.full_name || ""}
+                onChange={(e) => setPaxForm((prev) => ({ ...prev, full_name: e.target.value }))}
+                placeholder={t.departure.fullNamePlaceholder}
+              />
+            </div>
+            <div>
+              <Label htmlFor="add-phone">{t.departure.phone}</Label>
+              <Input
+                type="text"
+                id="add-phone"
+                value={paxForm.phone || ""}
+                onChange={(e) => setPaxForm((prev) => ({ ...prev, phone: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="add-email">{t.departure.email}</Label>
+              <Input
+                type="email"
+                id="add-email"
+                value={paxForm.email || ""}
+                onChange={(e) => setPaxForm((prev) => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="add-nationality">{t.departure.nationality}</Label>
+                <Input
+                  type="text"
+                  id="add-nationality"
+                  value={paxForm.nationality || ""}
+                  onChange={(e) => setPaxForm((prev) => ({ ...prev, nationality: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="add-dob">{t.departure.dateOfBirth}</Label>
+                <Input
+                  type="date"
+                  id="add-dob"
+                  value={paxForm.date_of_birth || ""}
+                  onChange={(e) => setPaxForm((prev) => ({ ...prev, date_of_birth: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="add-reservation">{t.departure.reservation} *</Label>
+              {resLoading ? (
+                <div className="h-10 animate-pulse rounded-lg bg-gray-100 dark:bg-white/[0.06]" />
+              ) : (
+                <Select
+                  options={[
+                    { value: "", label: t.departure.selectReservation },
+                    ...reservations.map((r) => ({ value: r.id, label: r.customer_name || r.id.slice(0, 8) })),
+                  ]}
+                  defaultValue={paxForm.reservation_id || ""}
+                  onChange={(value: string) => setPaxForm((prev) => ({ ...prev, reservation_id: value }))}
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowAddModal(false)} disabled={paxSaving}>
+              {t.common.cancel}
+            </Button>
+            <Button onClick={handleAddPassenger} disabled={paxSaving}>
+              {paxSaving ? t.common.saving : t.common.add}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* EDIT PASSENGER MODAL */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        className="max-w-md"
+      >
+        <div className="p-6">
+          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">{t.departure.editPassenger}</h2>
+          {targetPassenger && (
+            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+              <span className="font-medium text-gray-700 dark:text-gray-200">{targetPassenger.fullName}</span>
+            </p>
+          )}
+
+          {paxError && (
+            <div className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-500/10 dark:text-error-400">
+              {paxError}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-fullname">{t.departure.fullName} *</Label>
+              <Input
+                type="text"
+                id="edit-fullname"
+                value={paxForm.full_name || ""}
+                onChange={(e) => setPaxForm((prev) => ({ ...prev, full_name: e.target.value }))}
+                placeholder={t.departure.fullNamePlaceholder}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-phone">{t.departure.phone}</Label>
+              <Input
+                type="text"
+                id="edit-phone"
+                value={paxForm.phone || ""}
+                onChange={(e) => setPaxForm((prev) => ({ ...prev, phone: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-email">{t.departure.email}</Label>
+              <Input
+                type="email"
+                id="edit-email"
+                value={paxForm.email || ""}
+                onChange={(e) => setPaxForm((prev) => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-nationality">{t.departure.nationality}</Label>
+                <Input
+                  type="text"
+                  id="edit-nationality"
+                  value={paxForm.nationality || ""}
+                  onChange={(e) => setPaxForm((prev) => ({ ...prev, nationality: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-dob">{t.departure.dateOfBirth}</Label>
+                <Input
+                  type="date"
+                  id="edit-dob"
+                  value={paxForm.date_of_birth || ""}
+                  onChange={(e) => setPaxForm((prev) => ({ ...prev, date_of_birth: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowEditModal(false)} disabled={paxSaving}>
+              {t.common.cancel}
+            </Button>
+            <Button onClick={handleEditPassenger} disabled={paxSaving}>
+              {paxSaving ? t.common.saving : t.common.save}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* DELETE PASSENGER MODAL */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        className="max-w-md"
+      >
+        <div className="p-6">
+          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">{t.departure.deletePassenger}</h2>
+          {targetPassenger && (
+            <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+              {t.departure.deletePassengerConfirm.replace("{name}", targetPassenger.fullName)}
+            </p>
+          )}
+          <p className="mb-4 text-sm text-warning-600 dark:text-warning-400">
+            {t.departure.deletePassengerWarning}
+          </p>
+
+          {paxError && (
+            <div className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-500/10 dark:text-error-400">
+              {paxError}
+            </div>
+          )}
+
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)} disabled={paxSaving}>
+              {t.common.cancel}
+            </Button>
+            <Button onClick={handleDeletePassenger} disabled={paxSaving} className="bg-red-600 hover:bg-red-700 text-white">
+              {paxSaving ? t.common.deleting : t.departure.deletePassenger}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={!!editingPassenger}
