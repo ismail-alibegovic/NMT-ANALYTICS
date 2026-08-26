@@ -402,7 +402,7 @@ function Seat({
       if (isHighlighted) colorClass += " ring-2 ring-white shadow-lg scale-110 z-10";
     } else {
       colorClass =
-        "bg-white text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600" as const;
+        "bg-white text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600" as string as const;
     }
   }
 
@@ -445,11 +445,13 @@ function PassengerAssignRow({
   pending,
   busy,
   onSelect,
+  onClear,
 }: {
   passenger: DeparturePassenger;
   pending: boolean;
   busy: boolean;
   onSelect: () => void;
+  onClear?: () => void;
 }) {
   return (
     <div className="flex items-center gap-2 py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-0">
