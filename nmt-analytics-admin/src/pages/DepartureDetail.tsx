@@ -437,7 +437,7 @@ export default function DepartureDetail() {
     { key: "overview", label: t.departure.overview },
     { key: "passengers", label: t.departure.passengers, count: totalGuests },
     { key: "razvrstavanje", label: t.departure.razvrstavanje, count: (groupBy === "hotel" ? groups?.byHotel : groups?.byAgent)?.length },
-    { key: "drustva", label: t.departure.drustva },
+    { key: "drustva", label: t.departure.drustva.label },
     ...(capabilities?.hasAccommodation ? [{ key: "hotels" as Tab, label: t.departure.hotels, count: hotelGroups.length }] : []),
   ];
 
