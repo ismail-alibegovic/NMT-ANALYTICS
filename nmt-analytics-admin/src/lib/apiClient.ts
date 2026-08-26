@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { supabase } from './supabase';
 import { logger } from '../utils/logger';
 import { captureError } from './sentry';
+import { handleExpiredSession, markSessionEstablished } from './authSession';
 
 const isDev = import.meta.env.DEV;
 
@@ -42,16 +42,19 @@ if (isDev) {
 }
 
 // ============================================================================
-// 401 Redirect Guard — prevent infinite reload loops
+// 401 handling
 // ============================================================================
-
-let isRedirectingToSignIn = false;
+//
+// The interceptor does NOT own logout or routing. It reports the 401 to the
+// single auth owner in ./authSession, which performs a deterministic local
+// teardown and at most one navigation. See authSession.ts for why.
 
 /**
- * Reset the 401 redirect guard — call after successful login / session restore.
+ * Reset the expired-session guard — call after a successful login.
+ * Retained as a named export for existing call sites.
  */
 export function reset401RedirectGuard(): void {
-  isRedirectingToSignIn = false;
+  markSessionEstablished();
 }
 
 // ============================================================================
@@ -190,18 +193,13 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Handle 401 (unauthorized = session expired, sign out)
+    // Handle 401 (unauthorized = session expired).
+    // Ownership: notify the auth layer once and reject. No signOut() call and
+    // no navigation happens here.
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      if (!isRedirectingToSignIn) {
-        isRedirectingToSignIn = true;
-        await supabase.auth.signOut();
-        window.dispatchEvent(new CustomEvent('api-auth-error', {
-          detail: { message: 'Session expired' }
-        }));
-        window.location.replace('/auth/signin');
-      }
+      handleExpiredSession(`api-401 ${originalRequest?.url || 'unknown'}`);
       return Promise.reject(error);
     }
     // Handle 403 (forbidden = role-based access denied) - do NOT sign out, just reject

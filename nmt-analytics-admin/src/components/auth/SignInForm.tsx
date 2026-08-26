@@ -7,6 +7,7 @@ import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
 import { supabase } from "../../lib/supabase";
+import { markSessionEstablished } from "../../lib/authSession";
 
 export default function SignInForm() {
   const { t } = useT();
@@ -42,12 +43,12 @@ export default function SignInForm() {
           id: '72ed5a01-9095-4045-bd9a-14b3beed9962',
           email: 'dev@travline.app'
         }));
-        reset401RedirectGuard();
+        markSessionEstablished();
         navigate('/');
         return;
       }
 
-      reset401RedirectGuard();
+      markSessionEstablished();
       navigate('/');
     } catch (err: any) {
       console.error("DEV LOGIN ERROR", err);
@@ -121,6 +122,7 @@ export default function SignInForm() {
                   if (isChecked && data.session.refresh_token) {
                     localStorage.setItem('nmt_refresh_token', data.session.refresh_token);
                   }
+                  markSessionEstablished();
                   navigate("/");
                 } else {
                   setError(t.errors.generic);

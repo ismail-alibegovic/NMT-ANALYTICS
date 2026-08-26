@@ -20,7 +20,31 @@ app.use('/assets', express.static(path.join(adminDistPath, 'assets'), {
   fallthrough: true,
 }));
 
-app.use(express.static(adminDistPath, { fallthrough: true }));
+// index.html must never be served from a stale cache: it is the only file that
+// names the hashed asset bundles, so a cached copy can point a browser at a
+// bundle that no longer exists (or, worse, keep an old buggy bundle alive).
+// Hashed assets above stay immutable; HTML always revalidates.
+const NO_STORE_HTML = 'no-cache, no-store, must-revalidate';
+
+app.use(
+  express.static(adminDistPath, {
+    fallthrough: true,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', NO_STORE_HTML);
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
+    },
+  })
+);
+
+function sendAppShell(res: express.Response) {
+  res.setHeader('Cache-Control', NO_STORE_HTML);
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.sendFile(path.join(adminDistPath, 'index.html'));
+}
 
 // Security headers
 app.use(helmet({
@@ -48,7 +72,7 @@ function isAllowedOrigin(origin: string): boolean {
 // Root route
 app.get('/', (req, res) => {
   if (req.accepts('html')) {
-    res.sendFile(path.join(adminDistPath, 'index.html'));
+    sendAppShell(res);
   } else {
     res.json({
       name: 'Travline API',
@@ -120,7 +144,7 @@ app.use((req, res, next) => {
   if (p.startsWith('/assets/') || p.startsWith('/api/') || p.startsWith('/images/') || /\.[a-zA-Z0-9]+$/.test(p)) {
     return next();
   }
-  res.sendFile(path.join(adminDistPath, 'index.html'));
+  sendAppShell(res);
 });
 
 app.use((req, res) => {

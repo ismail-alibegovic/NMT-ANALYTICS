@@ -4,7 +4,12 @@ import { supabase } from '../lib/supabase';
 import { getMeContext, UserContext } from '../api/me';
 import { useToast } from './ToastContext';
 import { logger } from '../utils/logger';
-import { reset401RedirectGuard } from '../lib/apiClient';
+import {
+  clearLocalAuthStorage,
+  handleExpiredSession,
+  isPublicAuthPath,
+  markSessionEstablished,
+} from '../lib/authSession';
 import { setSentryUser } from '../lib/sentry';
 
 interface AppContextType {
@@ -116,6 +121,7 @@ export function AppProvider({ children }: AppProviderProps) {
         cachedContext.current = context; // Cache successful response
         lastUserId.current = user.id; // Track user ID
         rateLimitCooldownUntil.current = 0; // Clear any cooldown on success
+        markSessionEstablished(); // Healthy session: reset expired-session guards
         logger.log('[AppContext] User context loaded:', {
           org: context.org?.name,
           role: context.role,
@@ -139,20 +145,21 @@ export function AppProvider({ children }: AppProviderProps) {
           return;
         }
 
-        // 401: Invalid/expired token - sign out
+        // 401: Invalid/expired token. The auth layer owns teardown + routing;
+        // this branch only drops local React state.
         if (error.response?.status === 401) {
-          logger.warn('[AppContext] 401 - Signing out');
-          await supabase.auth.signOut();
+          logger.warn('[AppContext] 401 - delegating to auth session owner');
           setUserContext(null);
           cachedContext.current = null;
           lastUserId.current = null;
           rateLimitCooldownUntil.current = 0;
+          handleExpiredSession('me-context-401');
         }
         // 403: Profile not found - in dev, this should auto-bootstrap on API side
         else if (error.response?.status === 403) {
           logger.error('[AppContext] 403 - Profile not found. Check API DEV_AUTO_BOOTSTRAP.');
           toast.error('Profile setup required. Please contact support.');
-          await supabase.auth.signOut();
+          handleExpiredSession('me-context-403');
           setUserContext(null);
           cachedContext.current = null;
           lastUserId.current = null;
@@ -253,8 +260,15 @@ export function AppProvider({ children }: AppProviderProps) {
         setToken(session.access_token);
       }
 
-      // 2. Fetch context for initial user
-      await fetchUserContext(initialUser);
+      // 2. Fetch context for initial user.
+      //    On a public auth route we deliberately do not touch protected
+      //    endpoints, so the sign-in page can never generate a 401.
+      if (isPublicAuthPath()) {
+        logger.log('[AppContext] Public auth route on boot — no context fetch');
+        setUserContext(null);
+      } else {
+        await fetchUserContext(initialUser);
+      }
       if (mounted) setLoading(false);
 
       // 3. Listen for auth changes
@@ -274,7 +288,7 @@ export function AppProvider({ children }: AppProviderProps) {
           // Only fetch context on SIGNED_IN, not on TOKEN_REFRESHED
           // TOKEN_REFRESHED should use cached context
           if (event === 'SIGNED_IN' && currentUser) {
-            reset401RedirectGuard();
+            markSessionEstablished();
             await fetchUserContext(currentUser, true); // Force refresh on sign in
           } else if (event === 'SIGNED_OUT') {
             setUserContext(null);
@@ -298,18 +312,27 @@ export function AppProvider({ children }: AppProviderProps) {
   }, []);
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    // Clear locally first so a failed network sign-out cannot leave a stale
+    // token behind for the next document load to retry with.
+    clearLocalAuthStorage();
+    markSessionEstablished();
     setUserContext(null);
     setUser(null);
     setSentryUser(null);
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (err) {
+      logger.warn('[AppContext] signOut network call failed (ignored)', err);
+    }
   }, []);
 
   useEffect(() => {
-    const handleApiAuthError = async (event: Event) => {
+    // Notification only. Session teardown and routing belong to
+    // lib/authSession.ts; duplicating them here caused competing signOut()
+    // calls and duplicate transitions.
+    const handleApiAuthError = (event: Event) => {
       const customEvent = event as CustomEvent;
       toast.error(customEvent.detail.message);
-      // Sign out to trigger redirect to login
-      await supabase.auth.signOut();
     };
 
     window.addEventListener('api-auth-error', handleApiAuthError);

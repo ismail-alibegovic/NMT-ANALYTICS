@@ -1,6 +1,13 @@
 import { initSentry } from './lib/sentry';
 initSentry();
 
+// Build identifier. Lets anyone confirm from the browser console which
+// frontend bundle is actually executing, independent of caches.
+const TRAVLINE_BUILD_ID =
+  typeof __TRAVLINE_BUILD_ID__ === 'string' ? __TRAVLINE_BUILD_ID__ : 'unknown';
+(window as unknown as { __TRAVLINE_BUILD__: string }).__TRAVLINE_BUILD__ = TRAVLINE_BUILD_ID;
+console.info(`Travline build: ${TRAVLINE_BUILD_ID}`);
+
 // Suppress browser extension errors in development
 if (import.meta.env.DEV) {
   const originalError = console.error;
