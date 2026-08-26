@@ -166,16 +166,6 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
     }
   };
 
-    const map: Record<string, { label: string; cls: string }> = {
-      together: { label: "✓", cls: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
-      partial: { label: "~", cls: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" },
-      split: { label: "✗", cls: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
-      unassigned: { label: "·", cls: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
-    };
-    const s = map[status.toLowerCase()] || { label: status, cls: "bg-gray-100 text-gray-600" };
-    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${s.cls}`}>{s.label} {status}</span>;
-  };
-
   const emptyState = (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-8 text-center">
       <p className="text-gray-900 dark:text-white font-medium">{String(t.departure.drustva.noGroups)}</p>
@@ -511,3 +501,4 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
       )}
     </div>
   );
+}
