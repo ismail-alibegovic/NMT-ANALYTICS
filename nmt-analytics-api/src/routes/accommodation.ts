@@ -405,4 +405,132 @@ router.delete(
   },
 );
 
+// ─── POST /api/accommodation/assignments/:assignmentId/move ──────────
+
+router.post(
+  '/accommodation/assignments/:assignmentId/move',
+  authenticateToken,
+  requireOrgContext,
+  requireMinimumRole('manager'),
+  async (req, res: Response) => {
+    try {
+      const { assignmentId } = req.params;
+      const orgId = req.orgId!;
+      const { targetRoomId, bedLabel } = req.body || {};
+      if (!targetRoomId || typeof targetRoomId !== 'string') {
+        return apiError(res, 400, 'VALIDATION_ERROR', 'targetRoomId is required');
+      }
+
+      const { data: oldAssignment, error: oldErr } = await supabaseAdmin
+        .from('accommodation_assignments')
+        .select('id, room_id, passenger_id, passenger_name, reservation_id, bed_label')
+        .eq('id', assignmentId)
+        .eq('org_id', orgId)
+        .single();
+
+      if (oldErr || !oldAssignment) {
+        return apiError(res, 404, 'NOT_FOUND', 'Assignment not found');
+      }
+
+      if (!oldAssignment.passenger_id) {
+        return apiError(res, 400, 'INVALID_ASSIGNMENT', 'Assignment has no passenger');
+      }
+
+      // Cross-departure validation
+      const { data: pax } = await supabaseAdmin
+        .from('departure_passengers')
+        .select('departure_id')
+        .eq('id', oldAssignment.passenger_id)
+        .eq('org_id', orgId)
+        .single();
+
+      const { data: targetRoom, error: roomErr } = await supabaseAdmin
+        .from('accommodation_rooms')
+        .select('id, capacity, beds, building_id, accommodation_floors!inner(building_id, accommodation_buildings!inner(id, departure_id))')
+        .eq('id', targetRoomId)
+        .eq('org_id', orgId)
+        .single();
+
+      if (roomErr || !targetRoom) {
+        return apiError(res, 404, 'ROOM_NOT_FOUND', 'Target room not found');
+      }
+
+      const floor = (targetRoom as any).accommodation_floors;
+      const building = floor?.accommodation_buildings;
+      if (building?.departure_id !== pax?.departure_id) {
+        return apiError(res, 409, 'CROSS_DEPARTURE', 'Target room is in a different departure');
+      }
+
+      const { count: occupied } = await supabaseAdmin
+        .from('accommodation_assignments')
+        .select('*', { count: 'exact', head: true })
+        .eq('room_id', targetRoomId);
+
+      if ((occupied || 0) >= targetRoom.capacity) {
+        return apiError(res, 409, 'ROOM_FULL', `Room at capacity (${targetRoom.capacity}/${targetRoom.capacity})`);
+      }
+
+      if (bedLabel && targetRoom.beds) {
+        const beds = targetRoom.beds as any[];
+        const bed = beds.find((b: any) => b.label === bedLabel);
+        if (!bed) return apiError(res, 400, 'INVALID_BED', `Bed "${bedLabel}" not found`);
+        if (bed.assignedPassengerId) return apiError(res, 409, 'BED_OCCUPIED', `Bed "${bedLabel}" already occupied`);
+      }
+
+      const { data: moved, error: moveErr } = await supabaseAdmin
+        .from('accommodation_assignments')
+        .update({ room_id: targetRoomId, bed_label: bedLabel || null })
+        .eq('id', assignmentId)
+        .eq('org_id', orgId)
+        .select()
+        .single();
+
+      if (moveErr) {
+        if (moveErr.code === '23505') return apiError(res, 409, 'DUPLICATE_ASSIGNMENT', 'Passenger already assigned');
+        return handleSupabaseError(res, moveErr, 'Failed to move assignment');
+      }
+
+      if (bedLabel && targetRoom.beds) {
+        const beds = (targetRoom.beds as any[]).map((b: any) =>
+          b.label === bedLabel ? { ...b, assignedPassengerId: oldAssignment.passenger_id } : b
+        );
+        await supabaseAdmin.from('accommodation_rooms').update({ beds }).eq('id', targetRoomId);
+      }
+
+      if (oldAssignment.bed_label) {
+        const { data: oldRoom } = await supabaseAdmin
+          .from('accommodation_rooms')
+          .select('beds')
+          .eq('id', oldAssignment.room_id)
+          .single();
+        if (oldRoom?.beds) {
+          const oldBeds = (oldRoom.beds as any[]).map((b: any) =>
+            b.label === oldAssignment.bed_label ? { ...b, assignedPassengerId: null } : b
+          );
+          await supabaseAdmin.from('accommodation_rooms').update({ beds: oldBeds }).eq('id', oldAssignment.room_id);
+        }
+      }
+
+      logAuditEntry({
+        org_id: orgId,
+        user_id: req.user?.id || 'system',
+        action: 'MOVE',
+        entity: 'accommodation_assignment',
+        entity_id: assignmentId,
+        metadata: {
+          passenger_id: oldAssignment.passenger_id,
+          passenger_name: oldAssignment.passenger_name,
+          from_room_id: oldAssignment.room_id,
+          to_room_id: targetRoomId,
+        },
+      });
+
+      return res.json(moved);
+    } catch (err) {
+      console.error('POST /accommodation/assignments/:assignmentId/move:', err);
+      return apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err));
+    }
+  },
+);
+
 export default router;

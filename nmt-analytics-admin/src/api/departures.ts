@@ -492,3 +492,9 @@ export async function getReadinessSummary(
   const { data } = await apiClient.get(url);
   return data;
 }
+
+
+export async function moveAccommodationAssignment(assignmentId: string, targetRoomId: string, bedLabel?: string | null): Promise<AccommodationAssignment> {
+  const res = await post(`/accommodation/assignments/${assignmentId}/move`, { targetRoomId, bedLabel: bedLabel || null });
+  return res.data;
+}
