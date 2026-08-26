@@ -49,16 +49,6 @@ export async function authenticateToken(
 
   const token = authHeader.split(" ")[1];
 
-  // TEMP-DIAG(P0-authloop): shape-only diagnostics, never token contents.
-  if (process.env.AUTH_DEBUG === "1") {
-    const raw = authHeader.slice(7);
-    console.error(
-      `[AUTH-DIAG] ${req.requestId} ${req.method} ${req.path} ` +
-        `hdrLen=${authHeader.length} rawLen=${raw.length} tokLen=${token ? token.length : 0} ` +
-        `segs=${token ? token.split(".").length : 0} pfx=${JSON.stringify((token || "").slice(0, 8))} ` +
-        `ref=${JSON.stringify(req.headers.referer || "")} ua=${JSON.stringify((req.headers["user-agent"] || "").slice(0, 60))}`
-    );
-  }
 
   try {
     // Validate the token and get user info

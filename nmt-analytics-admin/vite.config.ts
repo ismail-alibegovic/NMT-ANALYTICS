@@ -1,22 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import svgr from "vite-plugin-svgr";
-import { execSync } from "node:child_process";
 
-function resolveBuildId(): string {
-  if (process.env.TRAVLINE_BUILD_ID) return process.env.TRAVLINE_BUILD_ID;
-  try {
-    return execSync("git rev-parse --short=7 HEAD", { encoding: "utf8" }).trim();
-  } catch {
-    return "unknown";
-  }
-}
 
 // https://vite.dev/config/
 export default defineConfig({
-  define: {
-    __TRAVLINE_BUILD_ID__: JSON.stringify(resolveBuildId()),
-  },
   plugins: [
     react(),
     svgr({
