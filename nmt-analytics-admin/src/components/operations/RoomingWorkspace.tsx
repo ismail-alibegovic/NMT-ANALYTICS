@@ -74,7 +74,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     setApplying(true);
     setError(null);
     try {
-      await applyRoomingProposal(departureId, new Date().toISOString());
+      await applyRoomingProposal(departureId, [new Date().toISOString()]);
       setShowProposal(false);
       setProposal(null);
       setRefetchKey((k) => k + 1);
@@ -167,7 +167,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
 
   const hasAccommodationConfigured = buildings.length > 0 &&
     buildings.some(b => (b.floors?.length ?? 0) > 0 &&
-      b.floors.some(f => (f.rooms?.length ?? 0) > 0));
+      b.floors?.some(f => (f.rooms?.length ?? 0) > 0));
 
   // Group rooming status
   const groupStatuses = useMemo(() => {
@@ -203,8 +203,8 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
 
   const findAssignment = (passengerId: string): AccommodationAssignment | null => {
     for (const b of buildings) {
-      for (const f of b.floors) {
-        for (const r of f.rooms) {
+      for (const f of b.floors || []) {
+        for (const r of f.rooms || []) {
           if (r.assignments) {
             for (const a of r.assignments) {
               if (a.passenger_id === passengerId) return a;
@@ -218,8 +218,8 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
 
   const findRoomContext = (roomId: string) => {
     for (const b of buildings) {
-      for (const f of b.floors) {
-        for (const r of f.rooms) {
+      for (const f of b.floors || []) {
+        for (const r of f.rooms || []) {
           if (r.id === roomId) return { building: b, floor: f, room: r };
         }
       }
