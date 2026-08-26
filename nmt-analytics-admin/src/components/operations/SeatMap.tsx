@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { updatePassengerSeat } from "../../api/departures";
 import type { DeparturePassenger } from "../../api/departures";
+import SeatAutoAssignPanel from "./SeatAutoAssignPanel";
 
 export interface SeatMapProps {
   capacity: number;
@@ -473,4 +474,3 @@ function PassengerAssignRow({
     </div>
   );
 }
-// TEST WRITE 1787750941
