@@ -18,7 +18,7 @@ export default function SeatAutoAssignPanel({ departureId, passengers, transport
   const [result, setResult] = useState<{ assigned: number; preserved: number; unassigned: number } | null>(null);
 
   const unassignedCount = passengers.filter(p => {
-    const s = p.seatNumber ?? p.seat;
+    const s = p.seat_number ?? p.seat;
     return s == null || (typeof s === "string" && s === "");
   }).length;
 

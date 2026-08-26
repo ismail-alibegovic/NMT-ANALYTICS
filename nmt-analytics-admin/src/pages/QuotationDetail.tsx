@@ -241,8 +241,8 @@ export default function QuotationDetail() {
         </div>
         <Field label={c.category}><Select value={itemForm.category || 'other'} onChange={(v) => setItemForm({ ...itemForm, category: v })}
           options={CATEGORIES.map((v) => ({ value: v, label: categoryLabel(v) }))} /></Field>
-        <Field label={c.dayNumber}><Input type="number" min="1" value={itemForm.dayNumber} onChange={(e) => setItemForm({ ...itemForm, dayNumber: Number(e.target.value) })} /></Field>
-        <Field label={c.quantity}><Input type="number" min="1" step="1" value={itemForm.quantity} onChange={(e) => setItemForm({ ...itemForm, quantity: Number(e.target.value) })} /></Field>
+        <Field label={c.dayNumber}><Input type="number" min="1" value={String(itemForm.dayNumber)} onChange={(e) => setItemForm({ ...itemForm, dayNumber: Number(e.target.value) })} /></Field>
+        <Field label={c.quantity}><Input type="number" min="1" step="1" value={String(itemForm.quantity)} onChange={(e) => setItemForm({ ...itemForm, quantity: Number(e.target.value) })} /></Field>
         <Field label={c.unit}><Select value={itemForm.unit || 'fixed'} onChange={(v) => setItemForm({ ...itemForm, unit: v })}
           options={UNITS.map((v) => ({ value: v, label: v }))} /></Field>
         <Field label={c.netUnitPrice}><Input type="number" min="0" step="0.01" value={itemForm.netUnitPrice} onChange={(e) => setItemForm({ ...itemForm, netUnitPrice: Number(e.target.value) })} /></Field>

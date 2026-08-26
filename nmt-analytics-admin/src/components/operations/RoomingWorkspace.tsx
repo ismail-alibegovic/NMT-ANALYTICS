@@ -38,11 +38,6 @@ interface MoveTarget {
   fromBuildingName: string;
 }
 
-const _COLORS = [
-  "#ec4899", "#eab308", "#3b82f6", "#22c55e", "#a855f7",
-  "#06b6d4", "#f97316", "#ef4444", "#84cc16", "#6366f1",
-];
-
 export default function RoomingWorkspace({ departureId, passengers }: Props) {
   const { t } = useT();
   const rm = t.departures.rooming;
@@ -115,8 +110,8 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
   const passengerRoomMap = useMemo(() => {
     const map = new Map<string, string>();
     buildings.forEach((b) =>
-      b.floors.forEach((f: AccommodationFloor) =>
-        f.rooms.forEach((r) => {
+      (b.floors || []).forEach((f: AccommodationFloor) =>
+        (f.rooms || []).forEach((r) => {
           if (r.assignments) {
             r.assignments.forEach((a: AccommodationAssignment) => {
               if (a.passenger_id) map.set(a.passenger_id, r.id ?? "");
@@ -131,8 +126,8 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
   const assignedPaxIds = useMemo(() => {
     const ids = new Set<string>();
     buildings.forEach((b) =>
-      b.floors.forEach((f: AccommodationFloor) =>
-        f.rooms.forEach((r) => {
+      (b.floors || []).forEach((f: AccommodationFloor) =>
+        (f.rooms || []).forEach((r) => {
           if (r.assignments) {
             r.assignments.forEach((a: AccommodationAssignment) => {
               if (a.passenger_id) ids.add(a.passenger_id);

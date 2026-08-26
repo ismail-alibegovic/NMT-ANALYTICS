@@ -510,18 +510,6 @@ export async function applyRoomingProposal(departureId: string, assignmentIds: s
   return r.data;
 }
 
-export async function getReadinessSummary(
-  dateFrom?: string,
-  limit?: number,
-): Promise<ReadinessSummary> {
-  const params = new URLSearchParams();
-  if (dateFrom) params.set('dateFrom', dateFrom);
-  if (limit) params.set('limit', String(limit));
-  const qs = params.toString();
-  const url = qs ? `/api/departures/readiness-summary?${qs}` : '/api/departures/readiness-summary';
-  const { data } = await apiClient.get(url);
-  return data;
-}
 
 
 export async function moveAccommodationAssignment(assignmentId: string, targetRoomId: string, bedLabel?: string | null): Promise<AccommodationAssignment> {

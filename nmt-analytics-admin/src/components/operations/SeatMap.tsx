@@ -184,7 +184,8 @@ export default function SeatMap({
                         pendingPassengerId === p.passengerId ? null : p.passengerId || null
                       )
                     }
-                    _onClear={p.passengerId ? () => clearSeat(p.passengerId!) : () => {}}
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                    onClear={p.passengerId ? () => clearSeat(p.passengerId!) : () => {}}
                   />
                 ))}
               </div>
@@ -396,12 +397,12 @@ function Seat({
   let colorClass = PALETTE.free;
   if (occupied && passenger) {
     if (passenger.groupColor) {
-      colorClass = `${passenger.groupColor} text-white border-transparent`;
+      colorClass = `${passenger.groupColor} text-white border-transparent` as const;
       if (otherHighlighted) colorClass += " opacity-30";
       if (isHighlighted) colorClass += " ring-2 ring-white shadow-lg scale-110 z-10";
     } else {
       colorClass =
-        "bg-white text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600";
+        "bg-white text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600" as const;
     }
   }
 
@@ -444,13 +445,11 @@ function PassengerAssignRow({
   pending,
   busy,
   onSelect,
-  _onClear,
 }: {
   passenger: DeparturePassenger;
   pending: boolean;
   busy: boolean;
   onSelect: () => void;
-  _onClear: () => void;
 }) {
   return (
     <div className="flex items-center gap-2 py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-0">
