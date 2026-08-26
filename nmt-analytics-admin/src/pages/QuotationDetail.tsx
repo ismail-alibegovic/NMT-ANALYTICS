@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import PageMeta from '../components/common/PageMeta';
 import Badge from '../components/ui/badge/Badge';

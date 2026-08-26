@@ -43,8 +43,6 @@ import {
   DepartureManifest,
   DepartureGroup,
   updateDeparturePassenger,
-  type PassengerDocumentStatus,
-  type CreateDeparturePassengerData,
 } from "../api/departures";
 import { getFlights, type Flight } from "../api/flights";
 import { getReservations } from "../api/reservations";
@@ -90,7 +88,7 @@ export default function DepartureDetail() {
   const [manifest, setManifest] = useState<DepartureManifest | null>(null);
   const [groups, setGroups] = useState<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] } | null>(null);
   const [passengerGroups, setPassengerGroups] = useState<PassengerGroup[]>([]);
-  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [_groupsLoading, _setGroupsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [searchParams] = useSearchParams();
@@ -473,7 +471,7 @@ export default function DepartureDetail() {
     },
   ];
 
-  const docStatusCol: Column<DeparturePassenger> = {
+  const _docStatusCol: Column<DeparturePassenger> = {
     key: "documentReadinessStatus",
     header: t.departure.documents,
     render: (v) => {
@@ -488,7 +486,7 @@ export default function DepartureDetail() {
   };
 
   // Document edit action column for passengers tab
-  const docEditCol: Column<DeparturePassenger> | null = capabilities?.needTravelDocuments
+  const _docEditCol: Column<DeparturePassenger> | null = capabilities?.needTravelDocuments
     ? {
         key: "docEdit",
         header: "",
@@ -983,7 +981,7 @@ export default function DepartureDetail() {
               try {
                 const gs = await getPassengerGroups(id);
                 setPassengerGroups(gs);
-              } catch {}
+              } catch { /* group load fail */ }
             }}
           />
         )}

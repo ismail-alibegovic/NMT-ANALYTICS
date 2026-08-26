@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useT } from "../../lib/i18n/context";
-import type { DeparturePassenger, PassengerGroup, CreateGroupPayload, UpdateGroupPayload } from "../../api/departures";
+import type { DeparturePassenger, PassengerGroup } from "../../api/departures";
 import {
   createPassengerGroup,
   updatePassengerGroup,
@@ -39,7 +39,7 @@ interface DrustvaTabProps {
 export default function DrustvaTab({ departureId, passengers, groups, onRefresh }: DrustvaTabProps) {
   const t = useT();
   const [modal, setModal] = useState<{ mode: "create" | "edit"; group?: PassengerGroup } | null>(null);
-  const [membersModal, setMembersModal] = useState<PassengerGroup | null>(null);
+  const [_membersModal, _setMembersModal] = useState<PassengerGroup | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<PassengerGroup | null>(null);
 
   const [formName, setFormName] = useState("");
@@ -51,7 +51,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const [memberActionError, setMemberActionError] = useState("");
+  const [_memberActionError, setMemberActionError] = useState("");
 
   const occupiedByOtherGroup = useCallback(
     (groupId: string) => {
@@ -130,12 +130,12 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
         const toRemove = currentMembers.filter((id) => !formMemberIds.includes(id));
 
         for (const pid of toAdd) {
-          try { await addGroupMember(modal.group.id, pid); } catch {}
+          try { await addGroupMember(modal.group.id, pid); } catch { /* allowed to fail */ }
         }
         for (const pid of toRemove) {
           const member = (modal.group.members || []).find((m) => m.passenger_id === pid);
           if (member) {
-            try { await removeGroupMember(modal.group.id, member.id); } catch {}
+            try { await removeGroupMember(modal.group.id, member.id); } catch { /* allowed to fail */ }
           }
         }
       }
@@ -167,7 +167,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
     }
   };
 
-  const handleAddMember = async (groupId: string, passengerId: string) => {
+  const _handleAddMember = async (groupId: string, passengerId: string) => {
     setMemberActionError("");
     try {
       await addGroupMember(groupId, passengerId);
@@ -182,7 +182,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
     }
   };
 
-  const handleRemoveMember = async (groupId: string, memberId: string) => {
+  const _handleRemoveMember = async (groupId: string, memberId: string) => {
     setMemberActionError("");
     try {
       await removeGroupMember(groupId, memberId);
@@ -286,7 +286,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                     {primary && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                         <span className="font-medium text-gray-600 dark:text-gray-300">{String(t.departure.drustva.primaryPassenger)}:</span>{" "}
-                        {primary.full_name || primary.first_name || primary.last_name || "—"}
+                        {primary.full_name || "—"}
                       </p>
                     )}
                     {group.seating_preference && (
@@ -316,7 +316,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                                 : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
                             }`}
                           >
-                            {p.full_name || p.first_name || p.last_name || m.passenger_id.slice(0, 8)}
+                            {p.full_name || m.passenger_id.slice(0, 8)}
                             {p.seat_number && (
                               <span className="text-gray-400">S{p.seat_number}</span>
                             )}
@@ -404,7 +404,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                     if (!p) return null;
                     return (
                       <option key={pid} value={pid}>
-                        {p.full_name || p.first_name || p.last_name || pid.slice(0, 8)}
+                        {p.full_name || pid.slice(0, 8)}
                       </option>
                     );
                   })}
@@ -480,7 +480,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                             className="rounded border-gray-300 text-brand-500 focus:ring-brand-500"
                           />
                           <span className="flex-1">
-                            {p.full_name || p.first_name || p.last_name || p.id.slice(0, 8)}
+                            {p.full_name || p.id.slice(0, 8)}
                           </span>
                           {isOtherGroup && (
                             <span className="text-xs text-gray-400">{String(t.departure.drustva.locked)}</span>

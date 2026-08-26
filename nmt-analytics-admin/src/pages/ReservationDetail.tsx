@@ -11,14 +11,12 @@ import { Modal } from "../components/ui/modal";
 import { useToast } from "../context/ToastContext";
 import {
   ChevronLeftIcon,
-  DollarLineIcon,
   GroupIcon,
   PlugInIcon,
   FileIcon,
 } from "../icons";
 import {
   getReservation,
-  deleteReservation,
   downloadVoucher,
   downloadInvoice,
   Reservation,
@@ -51,7 +49,6 @@ export default function ReservationDetail() {
   const { showError, showSuccess } = useToast();
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [passengers, setPassengers] = useState<ReservationPassenger[]>([]);
-  const [installments, setInstallments] = useState<ReservationInstallment[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
@@ -148,7 +145,9 @@ export default function ReservationDetail() {
       try {
         const contractsRes = await getContracts({ reservationId: id, limit: 5 });
         setExistingContracts(contractsRes.data || []);
-      } catch {}
+      } catch {
+        // Allow silent failure
+      }
     } catch (err: any) {
       showError(err?.message || "Failed to generate contract");
     } finally {

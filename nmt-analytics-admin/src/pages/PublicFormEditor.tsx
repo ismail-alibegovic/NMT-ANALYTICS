@@ -4,7 +4,7 @@ import { useT } from "../lib/i18n/context";
 import { useToast } from "../context/ToastContext";
 import {
   getForm, createForm, updateForm, getDepartures,
-  type PublicForm, type FormField,
+  type FormField,
 } from "../api/forms";
 import { getPackages } from "../api/packages";
 import PageToolbar from "../components/ui/PageToolbar";

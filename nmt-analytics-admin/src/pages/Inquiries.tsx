@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import PageMeta from '../components/common/PageMeta';
 import PageToolbar from '../components/ui/PageToolbar';
@@ -85,7 +85,6 @@ export default function Inquiries() {
               <header className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800"><h2 className="text-sm font-semibold text-gray-900 dark:text-white">{t.inquiries.stage[stage]}</h2><Badge size="sm" color="light">{grouped[stage].length}</Badge></header>
               <div className="space-y-3 p-3">
                 {grouped[stage].map((item) => {
-                  const stageLabel = t.inquiries.stage[item.stage as InquiryStage] || item.stage;
                   return (
                   <article key={item.id} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
                     <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="truncate text-sm font-semibold text-gray-900 dark:text-white">{item.contactName}</h3><p className="mt-0.5 truncate text-xs text-gray-500">{item.destination || t.inquiries.noDestination}</p></div><Badge size="sm" color="primary">{t.inquiries.tripType[item.tripType as InquiryTripType] || item.tripType}</Badge></div>

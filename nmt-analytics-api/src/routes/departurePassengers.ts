@@ -102,6 +102,27 @@ router.post('/departure-passengers', authenticateToken, requireOrgContext, async
     }
 
     const orgId = req.orgId!;
+
+    // --- Safety: verify reservation ⇋ departure ⇋ org consistency ---
+    const { data: validation, error: validationErr } = await supabaseAdmin
+      .rpc('validate_passenger_creation_context', {
+        p_reservation_id: parsed.data.reservation_id,
+        p_departure_id: parsed.data.departure_id,
+        p_org_id: orgId,
+      });
+
+    if (validationErr) {
+      return handleSupabaseError(res, validationErr, 'Validation failed');
+    }
+
+    const vresult = validation as any;
+    if (!vresult?.valid) {
+      const code = vresult?.error || 'VALIDATION_FAILED';
+      const message = vresult?.message || 'Invalid passenger context';
+      const status = code === 'RESERVATION_NOT_FOUND' || code === 'DEPARTURE_NOT_FOUND' ? 404 : 403;
+      return apiError(res, status, code, message);
+    }
+
     const { data, error } = await supabaseAdmin
       .from('departure_passengers')
       .insert({ ...parsed.data, org_id: orgId })
@@ -196,11 +217,11 @@ router.delete('/departure-passengers/:id', authenticateToken, requireOrgContext,
       return apiError(res, 404, 'NOT_FOUND', 'Passenger not found');
     }
 
-    const { error: deleteErr } = await supabaseAdmin
-      .from('departure_passengers')
-      .delete()
-      .eq('id', id)
-      .eq('org_id', orgId);
+    const { data: deleteResult, error: deleteErr } = await supabaseAdmin
+      .rpc('delete_departure_passenger_safe', {
+        p_passenger_id: id,
+        p_org_id: orgId,
+      });
 
     if (deleteErr) {
       return handleSupabaseError(res, deleteErr, 'Failed to delete passenger');

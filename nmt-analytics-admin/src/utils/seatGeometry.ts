@@ -34,7 +34,7 @@ export function seatsAreAdjacent(
   b: SeatPosition,
   transportType: "bus" | "flight" | "none"
 ): boolean {
-  const perRow = seatsPerRow(transportType);
+  const _perRow = seatsPerRow(transportType);
 
   if (a.row === b.row) {
     const cols = [a.col, b.col].sort((x, y) => x - y);

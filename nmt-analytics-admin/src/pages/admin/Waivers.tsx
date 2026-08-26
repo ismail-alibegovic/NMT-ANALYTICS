@@ -46,7 +46,7 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 export default function WaiversPage() {
-  const { } = useT();
+  const _t = useT();
   const { error: showError, success: showSuccess } = useToast();
 
   const [templates, setTemplates] = useState<WaiverTemplate[]>([]);

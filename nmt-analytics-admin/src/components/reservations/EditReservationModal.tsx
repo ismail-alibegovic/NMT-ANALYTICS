@@ -69,7 +69,7 @@ export default function EditReservationModal({
               const pkgDeps = await getDepartures({ packageId: dep.package_id, limit: 200 });
               setDepartures(pkgDeps.data);
             }
-          } catch {}
+          } catch {/* noop */}
         }
       })
       .catch(() => showError("Failed to load reservation"))

@@ -38,7 +38,7 @@ interface MoveTarget {
   fromBuildingName: string;
 }
 
-const COLORS = [
+const _COLORS = [
   "#ec4899", "#eab308", "#3b82f6", "#22c55e", "#a855f7",
   "#06b6d4", "#f97316", "#ef4444", "#84cc16", "#6366f1",
 ];
