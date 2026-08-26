@@ -445,7 +445,6 @@ function PassengerAssignRow({
   pending,
   busy,
   onSelect,
-  onClear,
 }: {
   passenger: DeparturePassenger;
   pending: boolean;
