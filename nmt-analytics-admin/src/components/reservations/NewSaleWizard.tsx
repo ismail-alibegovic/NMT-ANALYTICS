@@ -647,7 +647,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               {paymentPlan === "deposit" && (
                 <div className="mt-2 flex items-center gap-2">
                   <Label className="!m-0">Depozit %</Label>
-                  <Input type="number" min={1} max={99} value={String(depositPct)} onChange={(e) => setDepositPct(Math.min(99, Math.max(1, parseInt(e.target.value) || 10)))} className="w-20 !py-1.5 !text-sm" />
+                  <Input type="number" min="1" max="99" value={String(depositPct)} onChange={(e) => setDepositPct(Math.min(99, Math.max(1, parseInt(e.target.value) || 10)))} className="w-20 !py-1.5 !text-sm" />
                   <span className="text-xs text-gray-500">
                     = {Math.round((totalAmount ? Number(totalAmount) : 0) * (depositPct / 100))} BAM
                   </span>
@@ -656,7 +656,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               {paymentPlan === "installments" && (
                 <div className="mt-2 flex items-center gap-2">
                   <Label className="!m-0">Broj rata</Label>
-                  <Input type="number" min={2} max={24} value={String(installmentCount)} onChange={(e) => setInstallmentCount(Math.min(24, Math.max(2, parseInt(e.target.value) || 2)))} className="w-20 !py-1.5 !text-sm" />
+                  <Input type="number" min="2" max="24" value={String(installmentCount)} onChange={(e) => setInstallmentCount(Math.min(24, Math.max(2, parseInt(e.target.value) || 2)))} className="w-20 !py-1.5 !text-sm" />
                   <span className="text-xs text-gray-500">
                     ≈ {totalAmount ? Math.round(Number(totalAmount) / installmentCount) : 0} BAM / rata
                   </span>

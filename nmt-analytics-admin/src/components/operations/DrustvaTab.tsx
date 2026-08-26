@@ -51,8 +51,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const [_memberActionError, setMemberActionError] = useState("");
-
+  
   const occupiedByOtherGroup = useCallback(
     (groupId: string) => {
       const ids = new Set<string>();
@@ -167,34 +166,6 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
     }
   };
 
-  const _handleAddMember = async (groupId: string, passengerId: string) => {
-    setMemberActionError("");
-    try {
-      await addGroupMember(groupId, passengerId);
-      onRefresh();
-    } catch (err: any) {
-      const msg = err?.response?.data?.error?.toLowerCase?.() || err?.message?.toLowerCase?.() || "";
-      if (msg.includes("duplicate") || msg.includes("already") || msg.includes("another group")) {
-        setMemberActionError(String(t.departure.drustva.errorDuplicate));
-      } else {
-        setMemberActionError(String(t.departure.drustva.errorGeneric));
-      }
-    }
-  };
-
-  const _handleRemoveMember = async (groupId: string, memberId: string) => {
-    setMemberActionError("");
-    try {
-      await removeGroupMember(groupId, memberId);
-      onRefresh();
-    } catch {
-      setMemberActionError(String(t.departure.drustva.errorGeneric));
-    }
-  };
-
-  const passengerById = new Map(passengers.filter((p) => p.id).map((p) => [p.id!, p]));
-  const statusBadge = (status: string | null) => {
-    if (!status) return null;
     const map: Record<string, { label: string; cls: string }> = {
       together: { label: "✓", cls: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
       partial: { label: "~", cls: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" },

@@ -771,6 +771,7 @@ export const en = {
       allAssigned: 'All passengers assigned.',
       assign: 'Assign',
       unassign: 'Unassign',
+      resultAssigned: '{count} assigned',
       accommodation: 'Accommodation',
       floors: 'floors', floor: 'floor',
       floorLabel: 'Floor', room: 'Room',
