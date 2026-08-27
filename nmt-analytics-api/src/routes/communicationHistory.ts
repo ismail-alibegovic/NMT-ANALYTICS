@@ -16,6 +16,37 @@ const querySchema = z.object({
   related_reservation_id: z.string().uuid().optional(),
 });
 
+const detailParamsSchema = z.object({
+  id: z.string().uuid(),
+});
+
+const historySelect = `
+  id,
+  org_id,
+  channel,
+  recipient,
+  subject,
+  body_preview,
+  status,
+  error_message,
+  related_departure_id,
+  related_reservation_id,
+  created_at,
+  sent_at,
+  departures:related_departure_id (
+    id,
+    depart_at,
+    packages (
+      id,
+      name
+    )
+  ),
+  reservations:related_reservation_id (
+    id,
+    customer_name
+  )
+`;
+
 router.use(authenticateToken, requireOrgContext);
 
 router.get('/communication-history', async (req: Request, res: Response) => {
@@ -30,32 +61,7 @@ router.get('/communication-history', async (req: Request, res: Response) => {
 
   let query = supabaseAdmin
     .from('communication_history')
-    .select(`
-      id,
-      org_id,
-      channel,
-      recipient,
-      subject,
-      body_preview,
-      status,
-      error_message,
-      related_departure_id,
-      related_reservation_id,
-      created_at,
-      sent_at,
-      departures:related_departure_id (
-        id,
-        depart_at,
-        packages (
-          id,
-          name
-        )
-      ),
-      reservations:related_reservation_id (
-        id,
-        customer_name
-      )
-    `, { count: 'exact' })
+    .select(historySelect, { count: 'exact' })
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
@@ -80,6 +86,31 @@ router.get('/communication-history', async (req: Request, res: Response) => {
       totalPages: Math.ceil((count || 0) / limit),
     },
   });
+});
+
+router.get('/communication-history/:id', async (req: Request, res: Response) => {
+  const parsed = detailParamsSchema.safeParse(req.params);
+  if (!parsed.success) {
+    return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid communication history id', parsed.error.issues);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('communication_history')
+    .select(historySelect)
+    .eq('id', parsed.data.id)
+    .eq('org_id', req.orgId!)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[communication-history] detail fetch failed:', error);
+    return apiError(res, 500, 'FETCH_FAILED', 'Failed to fetch communication history item', error.message);
+  }
+
+  if (!data) {
+    return apiError(res, 404, 'NOT_FOUND', 'Communication history item not found');
+  }
+
+  return res.json({ data });
 });
 
 export default router;
