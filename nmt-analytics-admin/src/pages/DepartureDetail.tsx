@@ -43,8 +43,6 @@ import {
   DepartureManifest,
   DepartureGroup,
   updateDeparturePassenger,
-  type PassengerDocumentStatus,
-  type CreateDeparturePassengerData,
 } from "../api/departures";
 import { getFlights, type Flight } from "../api/flights";
 import { getReservations } from "../api/reservations";
@@ -90,7 +88,7 @@ export default function DepartureDetail() {
   const [manifest, setManifest] = useState<DepartureManifest | null>(null);
   const [groups, setGroups] = useState<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] } | null>(null);
   const [passengerGroups, setPassengerGroups] = useState<PassengerGroup[]>([]);
-  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [_groupsLoading, _setGroupsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [searchParams] = useSearchParams();
@@ -171,6 +169,7 @@ export default function DepartureDetail() {
   // Normalize seat/paid/debt fields to support either shape
   const normPax: DeparturePassenger[] = passengers.map((p: any) => ({
     ...p,
+    id: p.id ?? p.passengerId ?? null,
     seatNumber: p.seatNumber ?? p.seat ?? null,
     paidAmount: p.paidAmount ?? p.paid ?? 0,
     debtAmount: p.debtAmount ?? p.debt ?? 0,
@@ -351,12 +350,13 @@ export default function DepartureDetail() {
         : t.departure.noDebt,
       ready: totalGuests > 0 && totalDebt <= 0,
     },
-    ...(capabilities?.hasAccommodation && capabilities.accommodationConfigured ? [{
+    ...(capabilities?.hasAccommodation ? [{
       label: t.departure.accommodation,
       detail: allocations.length > 0
         ? t.departure.activeHotelAllocations.replace("{count}", String(allocations.length))
         : t.departure.noAccommodationConfigured,
       ready: allocations.length > 0,
+      action: () => setActiveTab("hotels"),
     }] : []),
     {
       label: t.departure.transport,
@@ -366,6 +366,7 @@ export default function DepartureDetail() {
             .replace("{capacity}", String(departure.transport_capacity || departure.capacity))
         : t.departure.noTransportAvailable,
       ready: transportConfigured,
+      action: () => setActiveTab("overview"),
     },
   ] : [];
   const readyCount = readinessItems.filter((item) => item.ready).length;
@@ -473,41 +474,27 @@ export default function DepartureDetail() {
     },
   ];
 
-  const docStatusCol: Column<DeparturePassenger> = {
-    key: "documentReadinessStatus",
-    header: t.departure.documents,
-    render: (v) => {
-      const s = String(v);
-      const label = (t.departure.documentStatus as Record<string, string>)[s] || s;
-      if (s === "ready") return <span className="text-success-600 dark:text-success-400 text-xs font-medium">{label}</span>;
-      if (s === "missing") return <span className="text-warning-600 dark:text-warning-400 text-xs font-medium">{label}</span>;
-      if (s === "expired_before_departure" || s === "expired_before_return") return <span className="text-error-600 dark:text-error-400 text-xs font-medium">{label}</span>;
-      if (s === "not_required") return <span className="text-gray-400 text-xs">{label}</span>;
-      return <span className="text-gray-400">—</span>;
-    },
-  };
-
-  // Document edit action column for passengers tab
-  const docEditCol: Column<DeparturePassenger> | null = capabilities?.needTravelDocuments
-    ? {
-        key: "docEdit",
-        header: "",
-        render: (_v: any, item: DeparturePassenger) => (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); openDocEditor(item); }}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-white/[0.06] dark:hover:text-brand-400"
-            title={t.departure.editDocuments}
-          >
-            <svg className="size-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-            </svg>
-          </button>
-        ),
-      }
-    : null;
-
   const allPassengerCols = enhancedPassengerCols;
+
+  // Lightweight columns for the grouped "Razvrstavanje" table. The /groups endpoint
+  // returns passenger rows shaped as { name, phone, partySize, roomType, hotel } —
+  // NOT the manifest shape — so the full manifest columns (fullName/reservationId/
+  // paidAmount) rendered "undefined". These columns read the actual fields.
+  const groupPassengerCols: Column<any>[] = [
+    { key: "name", header: t.departure.fullName, render: (v) => <span className="font-medium dark:text-white">{v ? String(v) : "—"}</span> },
+    { key: "phone", header: "Telefon", render: (v) => v ? <span className="text-gray-600 dark:text-gray-300">{String(v)}</span> : <span className="text-gray-400">—</span> },
+    { key: "partySize", header: t.departure.partySize, render: (v) => <span className="text-gray-600 dark:text-gray-300">{Number(v) || 1}</span> },
+    {
+      key: "roomType",
+      header: t.departure.room,
+      render: (v, item: any) => v ? (
+        <span className="text-xs">
+          <Badge color="light" size="sm">{String(v)}</Badge>
+          {item.hotel && <span className="ml-1 text-gray-400">{String(item.hotel)}</span>}
+        </span>
+      ) : <span className="text-xs text-gray-400">{t.departure.noRoom}</span>,
+    },
+  ];
 
   // Quick filters - combine doc readiness with unseated/noRoom
   const quickFiltered = useMemo(() => {
@@ -580,13 +567,18 @@ export default function DepartureDetail() {
     setPaxSaving(true);
     setPaxError(null);
     try {
-      await updateDeparturePassenger(targetPassenger.id, {
+      const payload: Record<string, string> = {
         full_name: paxForm.full_name.trim(),
-        phone: paxForm.phone?.trim() || null,
-        email: paxForm.email?.trim() || null,
-        nationality: paxForm.nationality?.trim() || null,
-        date_of_birth: paxForm.date_of_birth || null,
-      });
+      };
+      const phone = paxForm.phone?.trim();
+      const email = paxForm.email?.trim();
+      const nationality = paxForm.nationality?.trim();
+      const dateOfBirth = paxForm.date_of_birth?.trim();
+      if (phone) payload.phone = phone;
+      if (email) payload.email = email;
+      if (nationality) payload.nationality = nationality;
+      if (dateOfBirth) payload.date_of_birth = dateOfBirth;
+      await updateDeparturePassenger(targetPassenger.id, payload);
       const fresh = await getDeparturePassengers(id!);
       setManifest(fresh);
       setShowEditModal(false);
@@ -666,14 +658,14 @@ export default function DepartureDetail() {
           className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-gray-400 dark:hover:text-white"
         >
           <ChevronLeftIcon className="size-4" aria-hidden="true" />
-          Svi polasci
+          {t.departure.allDepartures}
         </button>
 
         <section className="mb-6 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-600 dark:text-brand-400">Radni prostor putovanja</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-600 dark:text-brand-400">{t.departure.travelWorkspace}</span>
                 {statusBadge(departure.status)}
               </div>
               <h1 className="text-2xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-3xl">{departure.packageName}</h1>
@@ -692,25 +684,25 @@ export default function DepartureDetail() {
                 </span>
                 <span className="inline-flex items-center gap-2">
                   <PlugInIcon className="size-4 text-gray-400" aria-hidden="true" />
-                  {capabilities?.hasFlight ? "Avionski prevoz" : capabilities?.hasBusTransport ? "Autobuski prevoz" : "Transport nije definisan"}
+                  {capabilities?.hasFlight ? t.departure.airTransport : capabilities?.hasBusTransport ? t.departure.busTransport : t.departure.noTransportDefined}
                 </span>
               </div>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
               <Button variant="outline" size="sm" onClick={() => setActiveTab("passengers")} className="justify-center gap-2">
-                <GroupIcon className="size-4" aria-hidden="true" /> Putnička lista
+                <GroupIcon className="size-4" aria-hidden="true" /> {t.departure.passengerList}
               </Button>
               <Button size="sm" onClick={() => navigate(`/reservations?departureId=${departure.id}`)} className="justify-center gap-2">
-                <ListIcon className="size-4" aria-hidden="true" /> Rezervacije
+                <ListIcon className="size-4" aria-hidden="true" /> {t.departure.reservationsBtn}
               </Button>
             </div>
           </div>
 
           <div className="grid border-t border-gray-200 dark:border-gray-800 sm:grid-cols-2 xl:grid-cols-4">
-            <WorkspaceMetric icon={GroupIcon} label="Putnici" value={`${totalGuests}`} detail={`${confirmedGuests} potvrđeno`} />
-            <WorkspaceMetric icon={DollarLineIcon} label="Naplaćeno" value={formatCurrency(totalPaid, currency)} detail={totalDebt > 0 ? `${formatCurrency(totalDebt, currency)} duga` : "Bez duga"} attention={totalDebt > 0} />
-            {capabilities?.hasAccommodation && <WorkspaceMetric icon={BoxIcon} label="Smještaj" value={`${hotelGroups.length}`} detail={allocations.length > 0 ? `${allocations.length} alokacija` : "Bez alokacije"} attention={allocations.length === 0} />}
-            <WorkspaceMetric icon={ListIcon} label="Operativna spremnost" value={`${readinessPct}%`} detail={`${readyCount} od ${readinessItems.length} stavki spremno`} attention={readinessPct < 100} />
+            <WorkspaceMetric icon={GroupIcon} label={t.departure.metricPassengers} value={`${totalGuests}`} detail={t.departure.metricConfirmedSuffix.replace("{n}", String(confirmedGuests))} />
+            <WorkspaceMetric icon={DollarLineIcon} label={t.departure.metricCollected} value={formatCurrency(totalPaid, currency)} detail={totalDebt > 0 ? t.departure.metricDebtSuffix.replace("{amount}", formatCurrency(totalDebt, currency)) : t.departure.metricNoDebt} attention={totalDebt > 0} />
+            {capabilities?.hasAccommodation && <WorkspaceMetric icon={BoxIcon} label={t.departure.metricAccommodation} value={`${hotelGroups.length}`} detail={allocations.length > 0 ? t.departure.metricAllocationsSuffix.replace("{n}", String(allocations.length)) : t.departure.metricNoAllocation} attention={allocations.length === 0} />}
+            <WorkspaceMetric icon={ListIcon} label={t.departure.metricReadiness} value={`${readinessPct}%`} detail={t.departure.metricReadySuffix.replace("{ready}", String(readyCount)).replace("{total}", String(readinessItems.length))} attention={readinessPct < 100} />
           </div>
         </section>
 
@@ -736,7 +728,7 @@ export default function DepartureDetail() {
               <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="font-semibold text-gray-950 dark:text-white">Operativna spremnost</h2>
+                    <h2 className="font-semibold text-gray-950 dark:text-white">{t.departure.metricReadiness}</h2>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Stvarno stanje ključnih priprema za ovaj polazak.</p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -959,7 +951,7 @@ export default function DepartureDetail() {
                       <Badge color="primary" size="sm">{g.count}</Badge>
                     </div>
                     <div className="p-4">
-                      <DataTable data={g.passengers} columns={passengerCols.slice(0, 6)} />
+                    <DataTable data={g.passengers} columns={groupPassengerCols} />
                     </div>
                   </div>
                 ))}
@@ -983,7 +975,7 @@ export default function DepartureDetail() {
               try {
                 const gs = await getPassengerGroups(id);
                 setPassengerGroups(gs);
-              } catch {}
+              } catch { /* group load fail */ }
             }}
           />
         )}
@@ -992,10 +984,6 @@ export default function DepartureDetail() {
           <RoomingWorkspace
             departureId={departure.id}
             passengers={normPax}
-            departure={{
-              hasBusTransport: capabilities.hasBusTransport,
-              transportType: capabilities.transportType,
-            }}
           />
         )}
         {activeTab === "hotels" && !capabilities?.hasAccommodation && (

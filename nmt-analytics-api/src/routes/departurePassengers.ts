@@ -102,6 +102,37 @@ router.post('/departure-passengers', authenticateToken, requireOrgContext, async
     }
 
     const orgId = req.orgId!;
+    const { reservation_id, departure_id } = parsed.data;
+
+    // Verify reservation exists and belongs to this org
+    const { data: reservation, error: resErr } = await supabaseAdmin
+      .from('reservations')
+      .select('id, departure_id, org_id')
+      .eq('id', reservation_id)
+      .eq('org_id', orgId)
+      .single();
+
+    if (resErr || !reservation) {
+      return apiError(res, 404, 'RESERVATION_NOT_FOUND', 'Reservation not found or access denied');
+    }
+
+    // Verify departure exists and belongs to this org
+    const { data: departure, error: depErr } = await supabaseAdmin
+      .from('departures')
+      .select('id, org_id')
+      .eq('id', departure_id)
+      .eq('org_id', orgId)
+      .single();
+
+    if (depErr || !departure) {
+      return apiError(res, 404, 'DEPARTURE_NOT_FOUND', 'Departure not found or access denied');
+    }
+
+    // Verify reservation.departure_id matches requested departure
+    if (reservation.departure_id !== departure_id) {
+      return apiError(res, 409, 'RESERVATION_DEPARTURE_MISMATCH', 'Reservation does not belong to the specified departure');
+    }
+
     const { data, error } = await supabaseAdmin
       .from('departure_passengers')
       .insert({ ...parsed.data, org_id: orgId })

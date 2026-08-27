@@ -71,11 +71,11 @@ router.get(
         .from('accommodation_buildings')
         .select(`
           *,
-          floors:accommodation_floors(
+          floors:accommodation_floors!accommodation_floors_building_id_fkey(
             *,
-            rooms:accommodation_rooms(
+            rooms:accommodation_rooms!accommodation_rooms_floor_id_fkey(
               *,
-              assignments:accommodation_assignments(*)
+              assignments:accommodation_assignments!accommodation_assignments_room_id_fkey(*)
             )
           )
         `)
@@ -234,7 +234,7 @@ router.post(
       // Load canonical passenger identity
       const { data: passenger, error: paxErr } = await supabaseAdmin
         .from('departure_passengers')
-        .select('id, reservation_id, first_name, last_name, departure_id')
+        .select('id, reservation_id, full_name, departure_id')
         .eq('id', passengerId)
         .eq('org_id', orgId)
         .single();
@@ -246,7 +246,7 @@ router.post(
       // Load room with floor→building chain to verify departure_id
       const { data: room, error: roomErr } = await supabaseAdmin
         .from('accommodation_rooms')
-        .select('id, capacity, beds, floor_id, building_id, accommodation_floors!inner(building_id, accommodation_buildings!inner(id, departure_id))')
+        .select('id, capacity, beds, floor_id, building_id, accommodation_floors!accommodation_rooms_floor_id_fkey!inner(building_id, accommodation_buildings!accommodation_floors_building_id_fkey!inner(id, departure_id))')
         .eq('id', roomId)
         .eq('org_id', orgId)
         .single();
@@ -280,21 +280,12 @@ router.post(
         p_org_id: orgId,
         p_room_id: roomId,
         p_passenger_id: passengerId,
-        p_passenger_name: `${passenger.first_name} ${passenger.last_name}`,
+        p_passenger_name: passenger.full_name,
         p_reservation_id: passenger.reservation_id,
         p_bed_label: bedLabel || null,
         p_assigned_by: req.user?.id,
       };
 
-      // First check capacity atomically
-      const { count: occupied } = await supabaseAdmin
-        .from('accommodation_assignments')
-        .select('*', { count: 'exact', head: true })
-        .eq('room_id', roomId);
-
-      if ((occupied || 0) >= room.capacity) {
-        return apiError(res, 409, 'ROOM_FULL', `Room at capacity (${room.capacity}/${room.capacity})`);
-      }
 
       const { data: assignment, error } = await supabaseAdmin
         .from('accommodation_assignments')
@@ -303,7 +294,7 @@ router.post(
           room_id: roomId,
           passenger_id: passengerId,
           reservation_id: passenger.reservation_id,
-          passenger_name: `${passenger.first_name} ${passenger.last_name}`,
+          passenger_name: passenger.full_name,
           bed_label: bedLabel || null,
           assigned_by: req.user?.id,
         })
@@ -317,13 +308,6 @@ router.post(
         return handleSupabaseError(res, error, 'Failed to assign passenger');
       }
 
-      // Update bed assignment in room beds JSON
-      if (bedLabel && room.beds) {
-        const beds = (room.beds as any[]).map((b: any) =>
-          b.label === bedLabel ? { ...b, assignedPassengerId: passengerId } : b
-        );
-        await supabaseAdmin.from('accommodation_rooms').update({ beds }).eq('id', roomId);
-      }
 
       return res.status(201).json(assignment);
     } catch (err) {
@@ -354,25 +338,6 @@ router.delete(
 
       if (!assignment) {
         return apiError(res, 404, 'NOT_FOUND', 'Accommodation assignment not found');
-      }
-
-      if (assignment.bed_label) {
-        const { data: room } = await supabaseAdmin
-          .from('accommodation_rooms')
-          .select('beds')
-          .eq('id', assignment.room_id)
-          .eq('org_id', orgId)
-          .single();
-
-        if (room?.beds) {
-          const beds = (room.beds as any[]).map((b: any) =>
-            b.label === assignment.bed_label ? { ...b, assignedPassengerId: null } : b
-          );
-          await supabaseAdmin.from('accommodation_rooms')
-            .update({ beds })
-            .eq('id', assignment.room_id)
-            .eq('org_id', orgId);
-        }
       }
 
       const { error } = await supabaseAdmin
@@ -446,7 +411,7 @@ router.post(
 
       const { data: targetRoom, error: roomErr } = await supabaseAdmin
         .from('accommodation_rooms')
-        .select('id, capacity, beds, building_id, accommodation_floors!inner(building_id, accommodation_buildings!inner(id, departure_id))')
+        .select('id, capacity, beds, building_id, accommodation_floors!accommodation_rooms_floor_id_fkey!inner(building_id, accommodation_buildings!accommodation_floors_building_id_fkey!inner(id, departure_id))')
         .eq('id', targetRoomId)
         .eq('org_id', orgId)
         .single();

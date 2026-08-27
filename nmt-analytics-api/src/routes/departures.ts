@@ -834,7 +834,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
     if (reservationIds.length > 0) {
       const { data: passRows, error: passErr } = await supabaseAdmin
         .from('departure_passengers')
-        .select('id, reservation_id, full_name, seat_number, notes, id_document_type, id_document_number, id_document_expiry, nationality, date_of_birth')
+        .select('id, reservation_id, full_name, phone, email, seat_number, notes, id_document_type, id_document_number, id_document_expiry, nationality, date_of_birth')
         .eq('departure_id', id)
         .eq('org_id', orgId)
         .order('seat_number', { ascending: true, nullsFirst: false });
@@ -915,10 +915,11 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
         for (const p of rows) {
           manifest.push({
             passengerId: p.id,
+            id: p.id,
             reservationId: r.id,
             fullName: p.full_name || r.customer_name,
             phone: p.phone || r.customer_phone || cust?.phone,
-            email: cust?.email,
+            email: p.email || cust?.email || null,
             seat: p.seat_number,
             paid: Number(p.paid_amount || 0),
             debt: Number(p.debt_amount || 0),

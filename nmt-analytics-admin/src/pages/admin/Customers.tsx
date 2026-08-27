@@ -64,7 +64,7 @@ export default function Customers() {
     try {
       const res = await getPackages({ limit: 200 });
       setPackages(res.data);
-    } catch {}
+    } catch { /* silent */ }
   };
 
   useEffect(() => {

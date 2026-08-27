@@ -125,7 +125,6 @@ export default function Packages() {
     setItineraryId(undefined);
     setItineraryPrefill(undefined);
     const next = new URLSearchParams(searchParams);
-    const dirty = false;
     if (next.get('packageId') || next.get('createFromItinerary')) {
       next.delete('packageId');
       next.delete('createFromItinerary');

@@ -6,7 +6,7 @@ import Label from "../form/Label";
 import Select from "../form/Select";
 import { useToast } from "../../context/ToastContext";
 import { TrashBinIcon, PlusIcon } from "../../icons";
-import { createPackage, updatePackage, Package } from "../../api/packages";
+import { createPackage, updatePackage, Package, type PackageVariant } from "../../api/packages";
 
 type TransportMode = "none" | "bus" | "flight";
 type VariantTier = "standard" | "premium" | "deluxe" | "custom";
@@ -49,12 +49,12 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
   const [name, setName] = useState("");
   const [destination, setDestination] = useState("");
   const [description, setDescription] = useState("");
-  const [basePrice, setBasePrice] = useState<number | "">("");
+  const [base_price, setBasePrice] = useState<number | "">("");
   const [currency, setCurrency] = useState("BAM");
   const [durationDays, setDurationDays] = useState<number | "">("");
   const [active, setActive] = useState(true);
-  const [transportMode, setTransportMode] = useState<TransportMode>("none");
-  const [transportCapacity, setTransportCapacity] = useState<number | "">("");
+  const [transport_mode, setTransportMode] = useState<TransportMode>("none");
+  const [transport_capacity, setTransportCapacity] = useState<number | "">("");
   const [tripType, setTripType] = useState<string>("");
   const [variants, setVariants] = useState<Variant[]>([]);
 
@@ -64,14 +64,21 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       setName(initial.name || "");
       setDestination(initial.destination || "");
       setDescription(initial.description || "");
-      setBasePrice(initial.basePrice ?? "");
+      setBasePrice(initial.base_price ?? "");
       setCurrency(initial.currency || "BAM");
       setActive(initial.active ?? true);
       setDurationDays(initial.durationDays ?? "");
-      setTransportMode(initial.transportMode || "none");
-      setTripType(initial.tripType || null);
-      setTransportCapacity(initial.transportCapacity ?? "");
-      setVariants(initial.variants ?? []);
+      setTransportMode(initial.transport_type || "none");
+      setTripType(initial.tripType || "");
+      setTransportCapacity(initial.transport_capacity ?? "");
+      setVariants((initial.variants ?? []).map((variant: PackageVariant) => ({
+        id: variant.id,
+        name: variant.name || "",
+        tier: "standard",
+        accommodation: (variant.accommodation as Variant["accommodation"]) || "hotel",
+        price: variant.price_delta ?? 0,
+        capacity: 0,
+      })));
     } else if (initialValues) {
       setName(initialValues.name || "");
       setDestination(initialValues.destination || "");
@@ -81,7 +88,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       setActive(true);
       setDurationDays("");
       setTransportMode("none");
-      setTripType(null);
+      setTripType("");
       setTransportCapacity("");
       setVariants([]);
     } else {
@@ -93,7 +100,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       setActive(true);
       setDurationDays("");
       setTransportMode("none");
-      setTripType(null);
+      setTripType("");
       setTransportCapacity("");
       setVariants([]);
     }
@@ -102,9 +109,9 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
 
   const dirty = useMemo(() => {
     if (!name.trim() || !destination.trim()) return true;
-    if (transportMode !== "none" && !Number.isFinite(Number(transportCapacity))) return false;
+    if (transport_mode !== "none" && !Number.isFinite(Number(transport_capacity))) return false;
     return false;
-  }, [name, destination, transportMode, transportCapacity]);
+  }, [name, destination, transport_mode, transport_capacity]);
 
   function addVariant() {
     setVariants([...variants, {
@@ -140,7 +147,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       const payload: Record<string, unknown> = {
         name: name.trim(),
         destination: destination.trim(),
-        price: Number(basePrice || 0),
+        price: Number(base_price || 0),
         currency: currency || "BAM",
         active,
         description: description.trim() || null,
@@ -148,9 +155,9 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
         maxParticipants: null,
         startDate: null,
         endDate: null,
-        transportMode,
+        transport_mode,
         tripType: tripType || null,
-        transportCapacity: transportMode === "none" ? null : Number(transportCapacity || 0),
+        transport_capacity: transport_mode === "none" ? null : Number(transport_capacity || 0),
         variants: variants
           .filter(v => v.name.trim())
           .map(v => ({
@@ -199,7 +206,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
           </div>
           <div>
             <Label>bazna cijena (bez opcija)</Label>
-            <Input type="number" value={basePrice} onChange={(e: any) => setBasePrice(e.target.value === "" ? "" : Number(e.target.value))} placeholder="0" />
+            <Input type="number" value={base_price} onChange={(e: any) => setBasePrice(e.target.value === "" ? "" : Number(e.target.value))} placeholder="0" />
           </div>
           <div>
             <Label>Valuta</Label>
@@ -271,7 +278,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
             <div>
               <Label>Vrsta prijevoza</Label>
               <Select
-                defaultValue={transportMode}
+                defaultValue={transport_mode}
                 onChange={(v) => setTransportMode(v as TransportMode)}
                 options={[
                   { value: "none", label: "Bez prijevoza (samo paket)" },
@@ -284,10 +291,10 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
               <Label>Kapacitet (mjesta)</Label>
               <Input
                 type="number"
-                value={transportCapacity}
-                disabled={transportMode === "none"}
+                value={transport_capacity}
+                disabled={transport_mode === "none"}
                 onChange={(e: any) => setTransportCapacity(e.target.value === "" ? "" : Number(e.target.value))}
-                placeholder={transportMode === "none" ? "—" : "npr. 50"}
+                placeholder={transport_mode === "none" ? "—" : "npr. 50"}
               />
             </div>
           </div>

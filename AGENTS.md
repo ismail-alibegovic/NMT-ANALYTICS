@@ -2,6 +2,18 @@
 
 ## Next: Resume Here
 
+**Production stabilization (PR #2 `stabilization-20260826`) — VERIFIED COMPLETE 2026-08-27, HEAD `665f317`, CI run `33079137826` all 5 jobs green (incl. real Docker + Test API/Admin jobs). Zo == origin == PR HEAD, clean tree. NOT merged (awaiting Ismail's review); Communication Center NOT started.**
+Key: CI now truly runs tests + Docker on every push (a local green is no longer trusted). API `tsc` 0 / 123 tests / audit 0; Admin `tsc` 0 / 40 tests / build 0 TS / ESLint 0.
+Bugs found in Phase-0 live+browser verification and fixed on this branch (all root-caused, not patched):
+1. Passenger groups create 500 — `accommodation_preference` default `prefer_together` violates its own CHECK; fixed handler + column default → `no_preference` (+regression test).
+2. Add-member 404 / auto-group-on-sale broken — code referenced non-existent `trip_passenger_groups.reservation_id`; and `primary_passenger_name` column was missing (migration adds it).
+3. "Razvrstavanje" grouping table rendered `undefined` — group rows are `{name,phone,partySize,roomType}`, not manifest shape; added dedicated columns.
+4. DepartureDetail workspace header hardcoded Bosnian (leaked into EN) — threaded through i18n (bs/en).
+5. Accommodation/rooming endpoints 500 PGRST201 — dual FK (`*_id_fkey` + composite `*_org_fk`) made embeds ambiguous; disambiguated in `accommodation.ts` (and same pattern lives in `rooming.ts:70,239` if touched later).
+Live-verified (director acct): RPC/grants clean; groups create/add/remove/multi-block/delete; seat assign/move/conflict; rooming assign/move/unassign/capacity/cascade; BS↔EN walk clean (no undefined/[object Object]/raw keys/React#31/console errors/401 loop).
+Known minor (non-blocking): full-room rejection surfaces as HTTP 500 from DB CHECK/trigger instead of a clean 409 — capacity IS enforced, only the status code is coarse. Follow-up polish candidate.
+Deploy note: `travline` service (svc_c4blbSMPftU) runs API-only from `dist`; after any build, restart via update_user_service to pick up new code (admin dist is served by the API).
+
 **Sprint 1 + Sprint 2 + Sprint 3 + Sprint 5 are ALL DONE — see the dedicated sections at the bottom of this file.** Both projects build clean (`tsc --noEmit` 0 errors). API `npm audit`: 0 vulnerabilities. Foundation task F-3 (migration script) is also done.
 
 **Next open work (pick up here):**

@@ -173,7 +173,7 @@ export default function Flights() {
               : tr.noLinkedDepartures}
           </span>
           {f.linkedDepartureCount && f.linkedDepartureCount > 0 ? (
-            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setRelatedDeparturesFlight(f); }}>
+            <Button size="sm" variant="outline" onClick={(e) => { e?.stopPropagation(); setRelatedDeparturesFlight(f); }}>
               {tr.viewDepartures}
             </Button>
           ) : null}

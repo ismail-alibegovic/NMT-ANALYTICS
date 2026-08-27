@@ -43,6 +43,19 @@ const AppSidebar: React.FC = () => {
   const role = userContext?.role;
   const { t } = useT();
 
+  // ── Submenu state (must be before any early return per Rules of Hooks) ──
+  const [openSubmenu, setOpenSubmenu] = useState<{
+    type: "section";
+    index: number;
+  } | null>(null);
+  const [subMenuHeight] = useState<Record<string, number>>({});
+  const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const isActive = useCallback(
+    (path: string) => location.pathname === path,
+    [location.pathname]
+  );
+
   // No sidebar when no scope at all (shouldn't happen with "all" fallback, but safe).
   if (activeScope === null) return null;
 
@@ -108,19 +121,6 @@ const AppSidebar: React.FC = () => {
   const visibleGroups = groups
     .map((g) => ({ ...g, items: g.items.filter(canSeeItem) }))
     .filter((g) => g.items.length > 0);
-
-  // ── Submenu state (kept for future nested items) ────────────────────
-  const [openSubmenu, setOpenSubmenu] = useState<{
-    type: "section";
-    index: number;
-  } | null>(null);
-  const [subMenuHeight] = useState<Record<string, number>>({});
-  const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
-
-  const isActive = useCallback(
-    (path: string) => location.pathname === path,
-    [location.pathname]
-  );
 
   const handleSubmenuToggle = (index: number) => {
     setOpenSubmenu((prev) =>

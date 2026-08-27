@@ -41,6 +41,7 @@ export interface Departure {
   };
   // --- Nova Prodaja wizard support (migration 036) ---
   transport_type?: 'bus' | 'flight' | 'none';
+  transport_mode?: string;
   transport_capacity?: number | null;
   // --- Phase 1 domain wiring ---
   capabilities?: DepartureCapabilities;
@@ -213,6 +214,10 @@ export interface DeparturePassenger {
   nationality?: string | null;
   date_of_birth?: string | null;
   documentReadinessStatus?: string | null;
+  // Snake-case aliases for raw Supabase responses
+  full_name?: string;
+  passport_number?: string | null;
+  seat_number?: string | number | null;
 }
 
 export interface DepartureManifest {
@@ -364,6 +369,18 @@ export interface CreateDeparturePassengerData {
   date_of_birth?: string;
 }
 
+export interface UpdateDeparturePassengerData {
+  full_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  nationality?: string | null;
+  date_of_birth?: string | null;
+  id_document_type?: string | null;
+  id_document_number?: string | null;
+  id_document_expiry?: string | null;
+  notes?: string | null;
+}
+
 export async function createDeparturePassenger(data: CreateDeparturePassengerData) {
   const { data: result } = await post('/departure-passengers', data);
   return result;
@@ -373,7 +390,7 @@ export async function deleteDeparturePassenger(passengerId: string): Promise<voi
   await del('/departure-passengers/' + passengerId);
 }
 
-export async function updateDeparturePassenger(passengerId: string, data: UpdatePassengerDocumentData) {
+export async function updateDeparturePassenger(passengerId: string, data: UpdateDeparturePassengerData) {
   const { data: result } = await patch(`/departure-passengers/${passengerId}`, data);
   return result;
 }
@@ -487,6 +504,13 @@ export interface RoomingProposal {
     unplacedCount: number;
     remainingCapacity: number;
   };
+  // Flat accessors mirroring summary + UI fields
+  items?: RoomingProposalItem[];
+  placedCount?: number;
+  unplacedCount?: number;
+  groupsKeptTogether?: number;
+  groupsSplit?: number;
+  groups?: RoomingGroupSummary[];
 }
 
 export async function generateRoomingProposal(departureId: string): Promise<RoomingProposal> {
@@ -499,18 +523,6 @@ export async function applyRoomingProposal(departureId: string, assignmentIds: s
   return r.data;
 }
 
-export async function getReadinessSummary(
-  dateFrom?: string,
-  limit?: number,
-): Promise<ReadinessSummary> {
-  const params = new URLSearchParams();
-  if (dateFrom) params.set('dateFrom', dateFrom);
-  if (limit) params.set('limit', String(limit));
-  const qs = params.toString();
-  const url = qs ? `/api/departures/readiness-summary?${qs}` : '/api/departures/readiness-summary';
-  const { data } = await apiClient.get(url);
-  return data;
-}
 
 
 export async function moveAccommodationAssignment(assignmentId: string, targetRoomId: string, bedLabel?: string | null): Promise<AccommodationAssignment> {

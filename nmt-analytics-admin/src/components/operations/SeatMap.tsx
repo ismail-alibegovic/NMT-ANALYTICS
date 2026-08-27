@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { updatePassengerSeat } from "../../api/departures";
 import type { DeparturePassenger } from "../../api/departures";
-import SeatAutoAssignPanel from "./SeatAutoAssignPanel";
 
 export interface SeatMapProps {
   capacity: number;
@@ -185,6 +184,7 @@ export default function SeatMap({
                         pendingPassengerId === p.passengerId ? null : p.passengerId || null
                       )
                     }
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
                     onClear={p.passengerId ? () => clearSeat(p.passengerId!) : () => {}}
                   />
                 ))}
@@ -394,15 +394,15 @@ function Seat({
   const baseClass =
     "w-10 h-10 rounded-lg border text-xs font-medium flex items-center justify-center transition-all relative";
 
-  let colorClass = PALETTE.free;
+  let colorClass: string = PALETTE.free;
   if (occupied && passenger) {
     if (passenger.groupColor) {
-      colorClass = `${passenger.groupColor} text-white border-transparent`;
+      colorClass = `${passenger.groupColor} text-white border-transparent` as any as string;
       if (otherHighlighted) colorClass += " opacity-30";
       if (isHighlighted) colorClass += " ring-2 ring-white shadow-lg scale-110 z-10";
     } else {
       colorClass =
-        "bg-white text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600";
+        "bg-white text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600" as string;
     }
   }
 
@@ -445,13 +445,12 @@ function PassengerAssignRow({
   pending,
   busy,
   onSelect,
-  onClear,
 }: {
   passenger: DeparturePassenger;
   pending: boolean;
   busy: boolean;
   onSelect: () => void;
-  onClear: () => void;
+  onClear?: () => void;
 }) {
   return (
     <div className="flex items-center gap-2 py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-0">

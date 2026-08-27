@@ -5,6 +5,8 @@ interface ToastContextType {
   success: (message: string) => void;
   error: (message: string) => void;
   info: (message: string) => void;
+  showSuccess: (message: string) => void;
+  showError: (message: string) => void;
   warning: (message: string) => void;
   loading: (message: string) => string;
   dismiss: (toastId?: string) => void;
@@ -20,6 +22,8 @@ export function ToastProvider({ children }: ToastProviderProps) {
   const value: ToastContextType = {
     success: (message: string) => toast.success(message),
     error: (message: string) => toast.error(message),
+    showSuccess: (message: string) => toast.success(message),
+    showError: (message: string) => toast.error(message),
     info: (message: string) => toast(message),
     warning: (message: string) => toast(message, { icon: '⚠️' }),
     loading: (message: string) => toast.loading(message),

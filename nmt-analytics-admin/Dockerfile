@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY tsconfig.json tsconfig.app.json tsconfig.node.json ./
+COPY tsconfig.json tsconfig.app.json tsconfig.node.json vite.config.ts ./
 COPY postcss.config.js postcss-strip-empty-is.mjs ./
 COPY index.html ./
 COPY public/ public/
@@ -22,9 +22,6 @@ ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 FROM nginx:1.27-alpine AS runner
-
-RUN addgroup --system --gid 1001 nginx && \
-    adduser --system --uid 1001 nginx
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html

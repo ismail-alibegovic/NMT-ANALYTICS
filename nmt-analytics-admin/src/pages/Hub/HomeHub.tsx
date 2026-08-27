@@ -24,7 +24,6 @@ import {
   GroupIcon,
   CheckCircleIcon,
   LockIcon,
-  FileIcon,
 } from "../../icons";
 import { useApp } from "../../context/AppContext";
 import { hasAccess, UserRole } from "../../types/roles";

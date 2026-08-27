@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import api from "../../lib/apiClient";
-import { useT } from "../../lib/i18n/context";
 import { useToast } from "../../context/ToastContext";
 
 interface WaiverTemplate {
@@ -46,7 +45,6 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 export default function WaiversPage() {
-  const { } = useT();
   const { error: showError, success: showSuccess } = useToast();
 
   const [templates, setTemplates] = useState<WaiverTemplate[]>([]);

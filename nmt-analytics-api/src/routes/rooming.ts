@@ -67,11 +67,11 @@ router.post(
         .from('accommodation_buildings')
         .select(`
           id, name,
-          floors:accommodation_floors(
+          floors:accommodation_floors!accommodation_floors_building_id_fkey(
             id, floor_number, label,
-            rooms:accommodation_rooms(
+            rooms:accommodation_rooms!accommodation_rooms_floor_id_fkey(
               id, room_number, type, capacity,
-              assignments:accommodation_assignments(id, passenger_id)
+              assignments:accommodation_assignments!accommodation_assignments_room_id_fkey(id, passenger_id)
             )
           )
         `)
@@ -236,7 +236,7 @@ async function regenerateAndValidate(
 
   const { data: buildings } = await supabaseAdmin
     .from('accommodation_buildings')
-    .select(`id, name, floors:accommodation_floors(id, floor_number, label, rooms:accommodation_rooms(id, room_number, type, capacity, assignments:accommodation_assignments(id, passenger_id)))`)
+    .select(`id, name, floors:accommodation_floors!accommodation_floors_building_id_fkey(id, floor_number, label, rooms:accommodation_rooms!accommodation_rooms_floor_id_fkey(id, room_number, type, capacity, assignments:accommodation_assignments!accommodation_assignments_room_id_fkey(id, passenger_id)))`)
     .eq('org_id', orgId)
     .eq('departure_id', departureId);
 

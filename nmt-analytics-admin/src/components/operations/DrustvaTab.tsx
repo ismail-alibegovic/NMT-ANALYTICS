@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useT } from "../../lib/i18n/context";
-import type { DeparturePassenger, PassengerGroup, CreateGroupPayload, UpdateGroupPayload } from "../../api/departures";
+import type { DeparturePassenger, PassengerGroup } from "../../api/departures";
 import {
   createPassengerGroup,
   updatePassengerGroup,
@@ -37,9 +37,9 @@ interface DrustvaTabProps {
 }
 
 export default function DrustvaTab({ departureId, passengers, groups, onRefresh }: DrustvaTabProps) {
-  const t = useT();
+  const { t } = useT();
   const [modal, setModal] = useState<{ mode: "create" | "edit"; group?: PassengerGroup } | null>(null);
-  const [membersModal, setMembersModal] = useState<PassengerGroup | null>(null);
+  const [_membersModal, _setMembersModal] = useState<PassengerGroup | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<PassengerGroup | null>(null);
 
   const [formName, setFormName] = useState("");
@@ -51,8 +51,36 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const [memberActionError, setMemberActionError] = useState("");
+  const passengerById = useCallback(() => {
+    const map = new Map<string, DeparturePassenger>();
+    for (const passenger of passengers) {
+      if (passenger.id) map.set(passenger.id, passenger);
+      if (passenger.passengerId) map.set(passenger.passengerId, passenger);
+    }
+    return map;
+  }, [passengers]);
 
+  const renderSeatStatusBadge = useCallback((status: ReturnType<typeof computeGroupSeatingStatus>) => {
+    const variants: Record<string, string> = {
+      together: "bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400",
+      partial: "bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-400",
+      split: "bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-400",
+      unassigned: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+    };
+    const labels: Record<string, string> = {
+      together: "Zajedno",
+      partial: "Djelomično",
+      split: "Razdvojeni",
+      unassigned: "Neraspoređeni",
+    };
+    return (
+      <span className={`rounded-md px-2 py-1 text-xs font-medium ${variants[status.status] || variants.unassigned}`}>
+        {labels[status.status] || status.status}
+      </span>
+    );
+  }, []);
+
+  
   const occupiedByOtherGroup = useCallback(
     (groupId: string) => {
       const ids = new Set<string>();
@@ -69,12 +97,17 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
 
   const seatingStatus = useCallback(
     (group: PassengerGroup) => {
-      const ids = (group.members || []).map((m) => m.passenger_id);
-      if (ids.length < 2) return null;
-      const status = computeGroupSeatingStatus(passengers, ids);
+      const totalMembers = (group.members || []).length;
+      if (totalMembers < 2) return null;
+      const occupiedSeatNumbers = (group.members || [])
+        .map((m) => passengerById().get(m.passenger_id)?.seat)
+        .map((seat) => typeof seat === "number" ? seat : typeof seat === "string" ? parseInt(seat, 10) : null)
+        .filter((seat): seat is number => seat !== null && seat > 0);
+      const transportType = occupiedSeatNumbers.some((seat) => seat > 4) ? "flight" : "bus";
+      const status = computeGroupSeatingStatus(occupiedSeatNumbers, transportType, totalMembers);
       return status;
     },
-    [passengers],
+    [passengers, passengerById],
   );
 
   const openCreate = () => {
@@ -130,12 +163,12 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
         const toRemove = currentMembers.filter((id) => !formMemberIds.includes(id));
 
         for (const pid of toAdd) {
-          try { await addGroupMember(modal.group.id, pid); } catch {}
+          try { await addGroupMember(modal.group.id, pid); } catch { /* allowed to fail */ }
         }
         for (const pid of toRemove) {
           const member = (modal.group.members || []).find((m) => m.passenger_id === pid);
           if (member) {
-            try { await removeGroupMember(modal.group.id, member.id); } catch {}
+            try { await removeGroupMember(modal.group.id, member.id); } catch { /* allowed to fail */ }
           }
         }
       }
@@ -165,44 +198,6 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
     } catch {
       setError(String(t.departure.drustva.errorGeneric));
     }
-  };
-
-  const handleAddMember = async (groupId: string, passengerId: string) => {
-    setMemberActionError("");
-    try {
-      await addGroupMember(groupId, passengerId);
-      onRefresh();
-    } catch (err: any) {
-      const msg = err?.response?.data?.error?.toLowerCase?.() || err?.message?.toLowerCase?.() || "";
-      if (msg.includes("duplicate") || msg.includes("already") || msg.includes("another group")) {
-        setMemberActionError(String(t.departure.drustva.errorDuplicate));
-      } else {
-        setMemberActionError(String(t.departure.drustva.errorGeneric));
-      }
-    }
-  };
-
-  const handleRemoveMember = async (groupId: string, memberId: string) => {
-    setMemberActionError("");
-    try {
-      await removeGroupMember(groupId, memberId);
-      onRefresh();
-    } catch {
-      setMemberActionError(String(t.departure.drustva.errorGeneric));
-    }
-  };
-
-  const passengerById = new Map(passengers.filter((p) => p.id).map((p) => [p.id!, p]));
-  const statusBadge = (status: string | null) => {
-    if (!status) return null;
-    const map: Record<string, { label: string; cls: string }> = {
-      together: { label: "✓", cls: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
-      partial: { label: "~", cls: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" },
-      split: { label: "✗", cls: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
-      unassigned: { label: "·", cls: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
-    };
-    const s = map[status.toLowerCase()] || { label: status, cls: "bg-gray-100 text-gray-600" };
-    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${s.cls}`}>{s.label} {status}</span>;
   };
 
   const emptyState = (
@@ -237,7 +232,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
             {groups.map((group) => {
               const members = group.members || [];
               const seatStatus = seatingStatus(group);
-              const primary = group.primary_passenger_id ? passengerById.get(group.primary_passenger_id) : null;
+              const primary = group.primary_passenger_id ? passengerById().get(group.primary_passenger_id) : null;
 
               return (
                 <div
@@ -260,7 +255,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                       )}
                     </div>
                     <div className="flex items-center gap-1">
-                      {seatStatus && statusBadge(seatStatus)}
+                      {seatStatus && renderSeatStatusBadge(seatStatus)}
                       <button
                         onClick={() => openEdit(group)}
                         className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -286,7 +281,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                     {primary && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                         <span className="font-medium text-gray-600 dark:text-gray-300">{String(t.departure.drustva.primaryPassenger)}:</span>{" "}
-                        {primary.full_name || primary.first_name || primary.last_name || "—"}
+                        {primary.fullName || "—"}
                       </p>
                     )}
                     {group.seating_preference && (
@@ -304,7 +299,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
 
                     <div className="flex flex-wrap gap-1">
                       {members.map((m) => {
-                        const p = passengerById.get(m.passenger_id);
+                        const p = passengerById().get(m.passenger_id);
                         if (!p) return null;
                         const isPrimary = m.is_primary || m.passenger_id === group.primary_passenger_id;
                         return (
@@ -316,7 +311,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                                 : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
                             }`}
                           >
-                            {p.full_name || p.first_name || p.last_name || m.passenger_id.slice(0, 8)}
+                            {p.fullName || m.passenger_id.slice(0, 8)}
                             {p.seat_number && (
                               <span className="text-gray-400">S{p.seat_number}</span>
                             )}
@@ -400,11 +395,11 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                 >
                   <option value="">{String(t.departure.drustva.selectPrimary)}</option>
                   {formMemberIds.map((pid) => {
-                    const p = passengerById.get(pid);
+                    const p = passengerById().get(pid);
                     if (!p) return null;
                     return (
                       <option key={pid} value={pid}>
-                        {p.full_name || p.first_name || p.last_name || pid.slice(0, 8)}
+                        {p.fullName || pid.slice(0, 8)}
                       </option>
                     );
                   })}
@@ -480,7 +475,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                             className="rounded border-gray-300 text-brand-500 focus:ring-brand-500"
                           />
                           <span className="flex-1">
-                            {p.full_name || p.first_name || p.last_name || p.id.slice(0, 8)}
+                            {p.fullName || p.id.slice(0, 8)}
                           </span>
                           {isOtherGroup && (
                             <span className="text-xs text-gray-400">{String(t.departure.drustva.locked)}</span>
