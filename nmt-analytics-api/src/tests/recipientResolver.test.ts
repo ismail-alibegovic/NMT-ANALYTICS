@@ -20,6 +20,9 @@ const passengers = [
   { id: 'pA3', org_id: ORG_A, departure_id: DEP_A, reservation_id: 'resA3', full_name: 'NoContact', email: null, phone: null },
   { id: 'pA4', org_id: ORG_A, departure_id: DEP_A, reservation_id: 'resA4', full_name: 'BadData', email: 'not-an-email', phone: '123' },
   { id: 'pA5', org_id: ORG_A, departure_id: DEP_A, reservation_id: 'resA5', full_name: 'AliceDup', email: 'ALICE@x.com', phone: '+38761000001' },
+  // Same org as the group, but a DIFFERENT departure (DEP_B). A stale group
+  // membership must never resolve this passenger into DEP_A's recipient set.
+  { id: 'pAcross', org_id: ORG_A, departure_id: DEP_B, reservation_id: 'resAcross', full_name: 'StaleCrossDep', email: 'stale-cross@x.com', phone: '+38761000055' },
   { id: 'pB1', org_id: ORG_B, departure_id: DEP_B, reservation_id: 'resB1', full_name: 'Foreign', email: 'foreign@y.com', phone: '+38761999999' },
 ];
 
@@ -32,6 +35,9 @@ const groups = [
   { id: 'gA1', org_id: ORG_A, departure_id: DEP_A },
   { id: 'gDup', org_id: ORG_A, departure_id: DEP_A },
   { id: 'gB1', org_id: ORG_B, departure_id: DEP_B },
+  // Org A group on departure A whose membership has drifted to include a
+  // passenger from another departure (DEP_B).
+  { id: 'gCross', org_id: ORG_A, departure_id: DEP_A },
 ];
 
 const groupMembers = [
@@ -40,6 +46,9 @@ const groupMembers = [
   { group_id: 'gDup', passenger_id: 'pA1' },
   { group_id: 'gDup', passenger_id: 'pA5' },
   { group_id: 'gB1', passenger_id: 'pB1' },
+  // gCross: one valid DEP_A passenger + one stale DEP_B passenger (same org).
+  { group_id: 'gCross', passenger_id: 'pA1' },
+  { group_id: 'gCross', passenger_id: 'pAcross' },
 ];
 
 const departures = [
@@ -214,9 +223,28 @@ describe('recipientResolver — departure', () => {
 });
 
 describe('recipientResolver — group departure_id safety', () => {
-  it('same org, group on departure A, membership points to passenger from departure B — NOT sendable', async () => {
-    await expect(
-      resolveRecipients({ orgId: ORG_A, channel: 'email', targetType: 'passenger_group', targetId: 'gp-cross-dep' }),
-    ).rejects.toBeInstanceOf(RecipientTargetNotFoundError);
+  it('same org: a stale membership pointing to a passenger from another departure is NOT resolved', async () => {
+    // gCross belongs to DEP_A (org A). Its membership is [pA1 (DEP_A), pAcross (DEP_B)].
+    // Both are org A, so this is NOT an org-scoping case — it is purely the
+    // departure_id filter that must exclude the cross-departure passenger.
+    const r = await resolveRecipients({ orgId: ORG_A, channel: 'email', targetType: 'group', targetId: 'gCross' });
+
+    // Only the DEP_A passenger is a candidate at all — pAcross is filtered out
+    // by the departure_id guard before contact validation.
+    expect(r.totalCandidates).toBe(1);
+    expect(r.sendableRecipients).toBe(1);
+
+    const ids = r.recipients.map((x) => x.passengerId);
+    expect(ids).toEqual(['pA1']);
+    expect(ids).not.toContain('pAcross');
+
+    // Every resolved recipient must belong to the group's departure.
+    for (const rec of r.recipients) {
+      expect(rec.departureId).toBe(DEP_A);
+    }
+
+    // The stale cross-departure contact must never appear.
+    expect(r.recipients.find((x) => x.contact === 'stale-cross@x.com')).toBeUndefined();
+    expect(r.relatedDepartureId).toBe(DEP_A);
   });
 });

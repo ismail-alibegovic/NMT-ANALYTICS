@@ -586,6 +586,8 @@ export const en = {
       previewError: 'Failed to resolve recipients.',
       subjectRequired: 'Subject is required for email.',
       chooseTarget: 'Choose a recipient, then preview.',
+      smsCounter: '{count} / {max}',
+      smsTooLong: 'SMS exceeds the 320-character limit.',
     },
     campaigns: {
       title: 'Campaigns',

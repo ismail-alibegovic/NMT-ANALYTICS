@@ -24,6 +24,10 @@ type Option = { value: string; label: string };
 const TARGET_TYPES: RecipientTargetType[] = ['direct', 'reservation', 'passenger', 'group', 'departure'];
 const BULK_TARGETS: RecipientTargetType[] = ['group', 'departure'];
 
+// Server-side contract: SMS body max 320 chars, email body max 5000.
+const SMS_MAX_LENGTH = 320;
+const EMAIL_MAX_LENGTH = 5000;
+
 export default function SendMessage({ onSent }: SendMessageProps) {
   const { t, lang } = useT();
   const s = t.communication.send;
@@ -306,10 +310,14 @@ export default function SendMessage({ onSent }: SendMessageProps) {
     }
   };
 
+  const smsLen = body.length;
+  const smsOverLimit = channel === 'sms' && smsLen > SMS_MAX_LENGTH;
+
   const canSend =
     !!resolution &&
     resolution.sendableRecipients > 0 &&
     body.trim().length > 0 &&
+    !smsOverLimit &&
     (channel !== 'email' || subject.trim().length > 0) &&
     (!isBulk || confirmed);
 
@@ -532,8 +540,25 @@ export default function SendMessage({ onSent }: SendMessageProps) {
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 rows={6}
+                maxLength={channel === 'sms' ? SMS_MAX_LENGTH : EMAIL_MAX_LENGTH}
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-900 shadow-theme-xs focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white"
               />
+              {channel === 'sms' && (
+                <div className="mt-1 flex items-center justify-between">
+                  <span
+                    className={`text-xs ${
+                      smsOverLimit
+                        ? 'text-error-600 dark:text-error-400'
+                        : 'text-gray-500 dark:text-gray-400'
+                    }`}
+                  >
+                    {s.smsCounter.replace('{count}', String(body.length)).replace('{max}', String(SMS_MAX_LENGTH))}
+                  </span>
+                  {smsOverLimit && (
+                    <span className="text-xs text-error-600 dark:text-error-400">{s.smsTooLong}</span>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3">

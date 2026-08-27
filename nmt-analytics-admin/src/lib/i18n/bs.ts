@@ -586,6 +586,8 @@ export const bs: Translations = {
       previewError: 'Neuspješno razrješavanje primalaca.',
       subjectRequired: 'Naslov je obavezan za email.',
       chooseTarget: 'Odaberite primaoca, zatim pregled.',
+      smsCounter: '{count} / {max}',
+      smsTooLong: 'SMS premašuje ograničenje od 320 znakova.',
     },
     campaigns: {
       title: 'Kampanje',
