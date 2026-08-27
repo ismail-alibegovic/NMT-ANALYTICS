@@ -135,7 +135,7 @@ router.post(
           name: name || null,
           color: groupColor,
           seating_preference: seatingPreference || 'prefer_together',
-          accommodation_preference: accommodationPreference || 'prefer_together',
+          accommodation_preference: accommodationPreference || 'no_preference',
           notes: notes || null,
           primary_passenger_id: memberIds[0],
         })
