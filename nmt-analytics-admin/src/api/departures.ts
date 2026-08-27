@@ -369,6 +369,18 @@ export interface CreateDeparturePassengerData {
   date_of_birth?: string;
 }
 
+export interface UpdateDeparturePassengerData {
+  full_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  nationality?: string | null;
+  date_of_birth?: string | null;
+  id_document_type?: string | null;
+  id_document_number?: string | null;
+  id_document_expiry?: string | null;
+  notes?: string | null;
+}
+
 export async function createDeparturePassenger(data: CreateDeparturePassengerData) {
   const { data: result } = await post('/departure-passengers', data);
   return result;
@@ -378,7 +390,7 @@ export async function deleteDeparturePassenger(passengerId: string): Promise<voi
   await del('/departure-passengers/' + passengerId);
 }
 
-export async function updateDeparturePassenger(passengerId: string, data: UpdatePassengerDocumentData) {
+export async function updateDeparturePassenger(passengerId: string, data: UpdateDeparturePassengerData) {
   const { data: result } = await patch(`/departure-passengers/${passengerId}`, data);
   return result;
 }

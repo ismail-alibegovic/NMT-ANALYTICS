@@ -169,6 +169,7 @@ export default function DepartureDetail() {
   // Normalize seat/paid/debt fields to support either shape
   const normPax: DeparturePassenger[] = passengers.map((p: any) => ({
     ...p,
+    id: p.id ?? p.passengerId ?? null,
     seatNumber: p.seatNumber ?? p.seat ?? null,
     paidAmount: p.paidAmount ?? p.paid ?? 0,
     debtAmount: p.debtAmount ?? p.debt ?? 0,
@@ -547,6 +548,9 @@ export default function DepartureDetail() {
     setPaxError(null);
     try {
       await updateDeparturePassenger(targetPassenger.id, {
+        full_name: paxForm.full_name.trim(),
+        phone: paxForm.phone?.trim() || null,
+        email: paxForm.email?.trim() || null,
         nationality: paxForm.nationality?.trim() || null,
         date_of_birth: paxForm.date_of_birth || null,
       });
