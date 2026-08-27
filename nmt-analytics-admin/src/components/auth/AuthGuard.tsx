@@ -34,6 +34,7 @@ const routeRequirements: { prefix: string; minRole: UserRole }[] = [
   { prefix: "/reports", minRole: "manager" },
   { prefix: "/integrations", minRole: "manager" },
   { prefix: "/admin/documents", minRole: "manager" },
+  { prefix: "/communication", minRole: "agent" },
 ];
 
 function getRequiredRole(pathname: string) {

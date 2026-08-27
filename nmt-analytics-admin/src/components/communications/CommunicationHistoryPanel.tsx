@@ -16,9 +16,9 @@ interface CommunicationHistoryPanelProps {
   refreshKey?: number;
 }
 
-const formatDateTime = (value?: string | null) => {
+const formatDateTime = (value: string | null | undefined, locale: string) => {
   if (!value) return "—";
-  return new Date(value).toLocaleString("bs-BA", {
+  return new Date(value).toLocaleString(locale, {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -44,7 +44,8 @@ export default function CommunicationHistoryPanel({
   title,
   refreshKey = 0,
 }: CommunicationHistoryPanelProps) {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const dateLocale = lang === "bs" ? "bs-BA" : "en-US";
   const c = t.communication.history;
   const [items, setItems] = useState<CommunicationHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,7 +91,7 @@ export default function CommunicationHistoryPanel({
       header: c.colDate,
       render: (_value, item) => (
         <div className="min-w-[140px]">
-          <div className="font-medium text-gray-900 dark:text-white">{formatDateTime(item.sent_at || item.created_at)}</div>
+          <div className="font-medium text-gray-900 dark:text-white">{formatDateTime(item.sent_at || item.created_at, dateLocale)}</div>
           <div className="text-xs text-gray-500 dark:text-gray-400">{item.sent_at ? "sent_at" : "created_at"}</div>
         </div>
       ),

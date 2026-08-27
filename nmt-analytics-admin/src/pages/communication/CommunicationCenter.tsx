@@ -23,7 +23,8 @@ type TabKey = "overview" | "send" | "campaigns" | "templates" | "history" | "aut
 const TAB_ORDER: TabKey[] = ["overview", "send", "campaigns", "templates", "history", "automation"];
 
 export default function CommunicationCenter() {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const dateLocale = lang === "bs" ? "bs-BA" : "en-US";
   const c = t.communication;
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab") as TabKey | null;
@@ -56,7 +57,7 @@ export default function CommunicationCenter() {
 
   const departureLabel = (d: Departure) => {
     const name = d.packageName || d.packages?.name || d.destination || d.id.slice(0, 8);
-    const date = d.depart_at ? new Date(d.depart_at).toLocaleDateString("bs-BA") : "";
+    const date = d.depart_at ? new Date(d.depart_at).toLocaleDateString(dateLocale) : "";
     return date ? `${name} — ${date}` : name;
   };
 
