@@ -1,146 +1,178 @@
-// @ts-nocheck
-/**
- * PART C + D — Passenger creation & deletion safety tests.
- */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import express, { type Request, type Response, type NextFunction } from 'express'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import express, { type NextFunction, type Request, type Response } from 'express'
 import request from 'supertest'
 
 const TEST_ORG = '00000000-0000-0000-0000-000000000001'
-const WRONG_ORG = '00000000-0000-0000-0000-000000000002'
+const OTHER_ORG = '00000000-0000-0000-0000-000000000002'
+const DEPARTURE_ID = '10000000-0000-4000-8000-000000000001'
+const OTHER_DEPARTURE_ID = '10000000-0000-4000-8000-000000000002'
+const RESERVATION_ID = '20000000-0000-4000-8000-000000000001'
+const PASSENGER_ID = '30000000-0000-4000-8000-000000000001'
 
-let passengerStore: any[] = []
-let groupMemberStore: any[] = []
-let assignmentStore: any[] = []
-let roomStore: any[] = []
-
-function resetStores() {
-  passengerStore = []
-  groupMemberStore = []
-  assignmentStore = []
-  roomStore = []
+type ReservationRow = {
+  id: string
+  org_id: string
+  departure_id: string
 }
 
-// Mock middleware
+type DepartureRow = {
+  id: string
+  org_id: string
+}
+
+type PassengerRow = {
+  id: string
+  org_id: string
+  reservation_id: string
+  departure_id: string
+  full_name: string
+}
+
+let reservations: ReservationRow[] = []
+let departures: DepartureRow[] = []
+let passengers: PassengerRow[] = []
+
+function resetStores() {
+  reservations = [
+    { id: RESERVATION_ID, org_id: TEST_ORG, departure_id: DEPARTURE_ID },
+  ]
+  departures = [
+    { id: DEPARTURE_ID, org_id: TEST_ORG },
+    { id: OTHER_DEPARTURE_ID, org_id: TEST_ORG },
+  ]
+  passengers = [
+    {
+      id: PASSENGER_ID,
+      org_id: TEST_ORG,
+      reservation_id: RESERVATION_ID,
+      departure_id: DEPARTURE_ID,
+      full_name: 'Delete Me',
+    },
+  ]
+}
+
 vi.mock('../middleware/authenticateToken', () => ({
   authenticateToken: (req: Request, _res: Response, next: NextFunction) => {
-    req.user = { id: 'test-user', email: 'test@travline.app', role: 'agent' }
+    req.user = { id: 'user-1', email: 'test@travline.app', role: 'agent' }
     next()
   },
 }))
 
 vi.mock('../middleware/requireOrgContext', () => ({
   requireOrgContext: (req: Request, _res: Response, next: NextFunction) => {
-    req.orgId = req.headers['x-test-org'] as string || TEST_ORG
+    req.orgId = (req.headers['x-test-org'] as string) || TEST_ORG
     next()
   },
   requireOrgScope: (qb: unknown) => qb,
-}))
-
-vi.mock('../middleware/requireRole', () => ({
-  requireMinimumRole: () => (_req: Request, _res: Response, next: NextFunction) => next(),
-  requireRole: () => (_req: Request, _res: Response, next: NextFunction) => next(),
-  requireModule: () => (_req: Request, _res: Response, next: NextFunction) => next(),
 }))
 
 vi.mock('../middleware/auditLogger', () => ({
   logAuditEntry: vi.fn(() => Promise.resolve()),
 }))
 
-vi.mock('../lib/supabase', () => {
-  function createSupabaseMock() {
-    const from = (table: string) => {
-      const mock = {
-        select: vi.fn(() => mock),
-        insert: vi.fn(() => mock),
-        update: vi.fn(() => mock),
-        delete: vi.fn(() => mock),
-        eq: vi.fn(() => mock),
-        in: vi.fn(() => mock),
-        order: vi.fn(() => mock),
-        range: vi.fn(() => mock),
-        single: vi.fn(() => {
-          const tableName = table
-          const ctx = {
-            id: (mock as any).__eqValues?.id,
-            org_id: (mock as any).__eqValues?.org_id,
-            passenger_id: (mock as any).__eqValues?.passenger_id,
-            room_id: (mock as any).__eqValues?.room_id,
-          }
-
-          if (tableName === 'departure_passengers') {
-            if ((mock as any).__action === 'insert') {
-              const payload = (mock as any).__payload
-              // Simulated validation
-              if (!passengerStore.some(p => p.id === payload.reservation_id && p.type === 'reservation')) {
-                return { data: null, error: { code: '23503', message: 'FK violation' } }
-              }
-              const pax = { id: `pax-${passengerStore.length + 1}`, ...payload }
-              passengerStore.push(pax)
-              return { data: pax, error: null }
-            }
-            if ((mock as any).__action === 'delete') {
-              const idx = passengerStore.findIndex(p => p.id === ctx.id && p.org_id === ctx.org_id)
-              if (idx === -1) return { data: null, error: { code: 'PGRST116', message: 'Not found' } }
-              const deleted = passengerStore.splice(idx, 1)[0]
-              // Cascade: remove group memberships
-              groupMemberStore = groupMemberStore.filter(m => m.passenger_id !== deleted.id)
-              // Cascade: remove accommodation assignments  
-              assignmentStore = assignmentStore.filter(a => a.passenger_id !== deleted.id)
-              return { data: deleted, error: null, count: 1 }
-            }
-            // SELECT
-            const found = passengerStore.find(p => p.id === ctx.id && p.org_id === ctx.org_id)
-            return found
-              ? { data: found, error: null }
-              : { data: null, error: { code: 'PGRST116' } }
-          }
-          return { data: null, error: { code: 'PGRST116' } }
-        }),
-      }
-      ;(mock as any).__eqValues = {}
-
-      const origEq = mock.eq
-      mock.eq = vi.fn((col: string, val: any) => {
-        ;(mock as any).__eqValues[col] = val
-        return mock
-      })
-
-      return mock
-    }
-
-    return {
-      from: (table: string) => {
-        const m = from(table)
-        m.__action = ''
-        const origInsert = (m as any).insert
-        const origDelete = (m as any).delete
-        ;(m as any).insert = vi.fn((payload: any) => {
-          ;(m as any).__payload = payload
-          ;(m as any).__action = 'insert'
-          return m
-        })
-        ;(m as any).delete = vi.fn(() => {
-          ;(m as any).__action = 'delete'
-          return m
-        })
-        if (origInsert) (m as any).insert = vi.fn(origInsert.bind ? origInsert.bind(m) : () => m)
-        return m
-      },
-      rpc: vi.fn(() => Promise.resolve({ data: null, error: { message: 'unknown' } })),
-    }
-  }
+function buildSelectQuery(table: string) {
+  const filters: Record<string, unknown> = {}
 
   return {
-    supabaseAdmin: createSupabaseMock(),
-    supabase: createSupabaseMock(),
-    handleSupabaseError: vi.fn((res: Response, err: any, msg: string) => {
-      return res.status(400).json({ code: err?.code || 'ERROR', message: err?.message || msg })
-    }),
-  }
-})
+    eq(column: string, value: unknown) {
+      filters[column] = value
+      return this
+    },
+    async single() {
+      if (table === 'reservations') {
+        const row = reservations.find(
+          (item) => item.id === filters.id && item.org_id === filters.org_id,
+        )
+        return row
+          ? { data: row, error: null }
+          : { data: null, error: { code: 'PGRST116', message: 'Not found' } }
+      }
 
-// After mocks, import the router
+      if (table === 'departures') {
+        const row = departures.find(
+          (item) => item.id === filters.id && item.org_id === filters.org_id,
+        )
+        return row
+          ? { data: row, error: null }
+          : { data: null, error: { code: 'PGRST116', message: 'Not found' } }
+      }
+
+      if (table === 'departure_passengers') {
+        const row = passengers.find(
+          (item) => item.id === filters.id && item.org_id === filters.org_id,
+        )
+        return row
+          ? { data: row, error: null }
+          : { data: null, error: { code: 'PGRST116', message: 'Not found' } }
+      }
+
+      return { data: null, error: { code: 'PGRST116', message: 'Not found' } }
+    },
+  }
+}
+
+function buildInsertQuery(table: string) {
+  return {
+    insert(payload: Record<string, unknown>) {
+      return {
+        select() {
+          return {
+            async single() {
+              if (table !== 'departure_passengers') {
+                return { data: null, error: { code: 'PGRST116', message: 'Unsupported table' } }
+              }
+
+              const row: PassengerRow = {
+                id: '30000000-0000-4000-8000-000000000099',
+                org_id: String(payload.org_id),
+                reservation_id: String(payload.reservation_id),
+                departure_id: String(payload.departure_id),
+                full_name: String(payload.full_name),
+              }
+              passengers.push(row)
+              return { data: row, error: null }
+            },
+          }
+        },
+      }
+    },
+  }
+}
+
+function buildDeleteQuery() {
+  const filters: Record<string, unknown> = {}
+
+  const query = {
+    error: null as null | { code: string; message: string },
+    eq(column: string, value: unknown) {
+      filters[column] = value
+      if (filters.id && filters.org_id) {
+        const index = passengers.findIndex(
+          (item) => item.id === filters.id && item.org_id === filters.org_id,
+        )
+        query.error = index === -1 ? { code: 'PGRST116', message: 'Not found' } : null
+        if (index !== -1) passengers.splice(index, 1)
+      }
+      return query
+    },
+  }
+
+  return query
+}
+
+vi.mock('../lib/supabase', () => ({
+  supabaseAdmin: {
+    from: vi.fn((table: string) => ({
+      select: vi.fn(() => buildSelectQuery(table)),
+      insert: buildInsertQuery(table).insert,
+      delete: vi.fn(() => buildDeleteQuery()),
+    })),
+  },
+  supabase: {},
+  handleSupabaseError: (res: Response, err: { code?: string; message?: string }, message: string) =>
+    res.status(500).json({ code: err?.code || 'DATABASE_ERROR', message: err?.message || message }),
+}))
+
 import passengerRouter from '../routes/departurePassengers'
 
 function createApp() {
@@ -150,102 +182,116 @@ function createApp() {
   return app
 }
 
-describe('PART C — Safe Passenger Creation', () => {
-  beforeEach(() => resetStores())
-
-  it('creates a passenger when payload and org are valid', async () => {
-    const app = createApp()
-    const res = await request(app)
-      .post('/api/departure-passengers')
-      .set('x-test-org', TEST_ORG)
-      .send({
-        reservation_id: `res-1`,
-        departure_id: `dep-1`,
-        full_name: 'Test Passenger',
-      })
-    // Will fail on FK check since reservation doesn't exist in mock store
-    // But tests the route structure
-    expect([201, 400]).toContain(res.status)
-  })
-
-  it('rejects missing full_name', async () => {
-    const app = createApp()
-    const res = await request(app)
-      .post('/api/departure-passengers')
-      .set('x-test-org', TEST_ORG)
-      .send({
-        reservation_id: `res-1`,
-        departure_id: `dep-1`,
-      })
-    expect(res.status).toBe(400)
-    expect(res.body.code).toBe('VALIDATION_ERROR')
-  })
-
-  it('rejects invalid reservation_id format', async () => {
-    const app = createApp()
-    const res = await request(app)
-      .post('/api/departure-passengers')
-      .set('x-test-org', TEST_ORG)
-      .send({
-        reservation_id: 'not-a-uuid',
-        departure_id: `dep-1`,
-        full_name: 'Test',
-      })
-    expect(res.status).toBe(400)
-    expect(res.body.code).toBe('VALIDATION_ERROR')
-  })
-
-  it('rejects missing reservation_id', async () => {
-    const app = createApp()
-    const res = await request(app)
-      .post('/api/departure-passengers')
-      .set('x-test-org', TEST_ORG)
-      .send({
-        departure_id: `dep-1`,
-        full_name: 'Test',
-      })
-    expect(res.status).toBe(400)
-  })
-})
-
-describe('PART D — Safe Passenger Deletion', () => {
+describe('departure passenger safety', () => {
   beforeEach(() => {
     resetStores()
-    passengerStore.push({
-      id: 'pax-1',
+  })
+
+  it('creates a passenger with 201 for a valid reservation/departure pair', async () => {
+    const res = await request(createApp())
+      .post('/api/departure-passengers')
+      .set('x-test-org', TEST_ORG)
+      .send({
+        reservation_id: RESERVATION_ID,
+        departure_id: DEPARTURE_ID,
+        full_name: 'Valid Passenger',
+      })
+
+    expect(res.status).toBe(201)
+    expect(res.body).toMatchObject({
       org_id: TEST_ORG,
-      reservation_id: 'res-1',
-      departure_id: 'dep-1',
-      full_name: 'Delete Me',
-    })
-    groupMemberStore.push({
-      id: 'gm-1',
-      group_id: 'grp-1',
-      passenger_id: 'pax-1',
-    })
-    assignmentStore.push({
-      id: 'asgn-1',
-      room_id: 'room-1',
-      passenger_id: 'pax-1',
-      org_id: TEST_ORG,
+      reservation_id: RESERVATION_ID,
+      departure_id: DEPARTURE_ID,
+      full_name: 'Valid Passenger',
     })
   })
 
-  it('deletes passenger and cascades to group memberships', async () => {
-    const app = createApp()
-    const res = await request(app)
-      .delete('/api/departure-passengers/pax-1')
+  it('rejects invalid payload with 400 and VALIDATION_ERROR', async () => {
+    const res = await request(createApp())
+      .post('/api/departure-passengers')
       .set('x-test-org', TEST_ORG)
-    // Should succeed since our mock handles cascade
-    expect([200, 400, 500]).toContain(res.status)
+      .send({
+        reservation_id: RESERVATION_ID,
+        departure_id: DEPARTURE_ID,
+      })
+
+    expect(res.status).toBe(400)
+    expect(res.body.code).toBe('VALIDATION_ERROR')
   })
 
-  it('rejects deletion of non-existent passenger', async () => {
-    const app = createApp()
-    const res = await request(app)
-      .delete('/api/departure-passengers/nonexistent')
+  it('returns 404 RESERVATION_NOT_FOUND when reservation is missing for the org', async () => {
+    const res = await request(createApp())
+      .post('/api/departure-passengers')
       .set('x-test-org', TEST_ORG)
-    // The mock returns PGRST116 which routes to 404
-    expect(res.status).not.toBe(200)
+      .send({
+        reservation_id: '20000000-0000-4000-8000-000000000099',
+        departure_id: DEPARTURE_ID,
+        full_name: 'Missing Reservation',
+      })
+
+    expect(res.status).toBe(404)
+    expect(res.body.code).toBe('RESERVATION_NOT_FOUND')
+  })
+
+  it('returns 404 DEPARTURE_NOT_FOUND when departure is missing for the org', async () => {
+    const res = await request(createApp())
+      .post('/api/departure-passengers')
+      .set('x-test-org', TEST_ORG)
+      .send({
+        reservation_id: RESERVATION_ID,
+        departure_id: '10000000-0000-4000-8000-000000000099',
+        full_name: 'Missing Departure',
+      })
+
+    expect(res.status).toBe(404)
+    expect(res.body.code).toBe('DEPARTURE_NOT_FOUND')
+  })
+
+  it('returns 409 RESERVATION_DEPARTURE_MISMATCH when reservation belongs to another departure', async () => {
+    const res = await request(createApp())
+      .post('/api/departure-passengers')
+      .set('x-test-org', TEST_ORG)
+      .send({
+        reservation_id: RESERVATION_ID,
+        departure_id: OTHER_DEPARTURE_ID,
+        full_name: 'Mismatch Passenger',
+      })
+
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('RESERVATION_DEPARTURE_MISMATCH')
+  })
+
+  it('deletes an existing passenger with a defined success body', async () => {
+    const res = await request(createApp())
+      .delete(`/api/departure-passengers/${PASSENGER_ID}`)
+      .set('x-test-org', TEST_ORG)
+
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ deleted: true, id: PASSENGER_ID })
+  })
+
+  it('returns 404 for an unknown passenger delete', async () => {
+    const res = await request(createApp())
+      .delete('/api/departure-passengers/30000000-0000-4000-8000-000000000099')
+      .set('x-test-org', TEST_ORG)
+
+    expect(res.status).toBe(404)
+    expect(res.body.code).toBe('NOT_FOUND')
+  })
+
+  it('returns 404 when reservation exists only in another org', async () => {
+    reservations = [{ id: RESERVATION_ID, org_id: OTHER_ORG, departure_id: DEPARTURE_ID }]
+
+    const res = await request(createApp())
+      .post('/api/departure-passengers')
+      .set('x-test-org', TEST_ORG)
+      .send({
+        reservation_id: RESERVATION_ID,
+        departure_id: DEPARTURE_ID,
+        full_name: 'Wrong Org Reservation',
+      })
+
+    expect(res.status).toBe(404)
+    expect(res.body.code).toBe('RESERVATION_NOT_FOUND')
   })
 })
