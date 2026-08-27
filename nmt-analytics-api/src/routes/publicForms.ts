@@ -263,7 +263,7 @@ router.post('/public/forms/:slug', async (req, res: Response) => {
     }
   }
 
-  const { data: result, error } = await supabaseAdmin.rpc('submit_user_form', {
+  const { data: result, error } = await supabaseAdmin.rpc('submit_public_form', {
     form_slug: form.slug,
     submission_data: answers,
   });
