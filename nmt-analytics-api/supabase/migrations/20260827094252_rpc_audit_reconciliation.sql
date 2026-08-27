@@ -1,3 +1,6 @@
+-- ⚠️ RESTORED FROM LIVE: Applied to production with this timestamp instead of 20260827094121.
+-- Content is identical to the local 20260827094121 version.
+
 CREATE OR REPLACE FUNCTION public.create_reservation_atomic(
   p_org_id uuid,
   p_departure_id uuid,
