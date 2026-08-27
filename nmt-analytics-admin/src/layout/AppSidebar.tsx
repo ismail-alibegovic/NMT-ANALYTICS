@@ -16,6 +16,7 @@ import {
   PlugInIcon,
   LockIcon,
   PaperPlaneIcon,
+  MailIcon,
   FileIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
@@ -98,6 +99,7 @@ const AppSidebar: React.FC = () => {
     { icon: <ShootingStarIcon />, name: t.nav.excursions, path: "/operations/excursions", module: "travel_core", capability: "group_operations", minRole: "manager" },
     { icon: <GridIcon />, name: t.nav.hotels, path: "/operations/hotels", module: "travel_core", capability: "accommodation_operations", minRole: "manager" },
     { icon: <PaperPlaneIcon />, name: t.nav.flights, path: "/operations/flights", module: "travel_core", capability: "transport_operations", minRole: "manager" },
+    { icon: <MailIcon />, name: t.nav.communicationCenter, path: "/communication", minRole: "agent" },
   ];
 
   const financeItems: NavItem[] = [

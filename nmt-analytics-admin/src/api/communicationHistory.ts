@@ -49,6 +49,10 @@ export interface CommunicationHistoryResponse {
   };
 }
 
+export interface CommunicationHistoryDetailResponse {
+  data: CommunicationHistoryItem;
+}
+
 export async function getCommunicationHistory(
   filters: CommunicationHistoryFilters = {},
 ): Promise<CommunicationHistoryResponse> {
@@ -63,4 +67,9 @@ export async function getCommunicationHistory(
 
   const { data } = await get<CommunicationHistoryResponse>("/communication-history", { params });
   return data;
+}
+
+export async function getCommunicationHistoryItem(id: string): Promise<CommunicationHistoryItem> {
+  const { data } = await get<CommunicationHistoryDetailResponse>(`/communication-history/${id}`);
+  return data.data;
 }

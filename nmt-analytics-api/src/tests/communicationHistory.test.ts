@@ -5,7 +5,7 @@ import request from 'supertest';
 let currentOrgId = 'org-1';
 const rows = [
   {
-    id: '11111111-1111-1111-1111-111111111111',
+    id: '11111111-1111-4111-8111-111111111111',
     org_id: 'org-1',
     channel: 'email',
     recipient: 'guest1@example.ba',
@@ -21,7 +21,7 @@ const rows = [
     reservations: { id: '223e4567-e89b-42d3-a456-426614174001', customer_name: 'Guest One' },
   },
   {
-    id: '22222222-2222-2222-2222-222222222222',
+    id: '22222222-2222-4222-8222-222222222222',
     org_id: 'org-1',
     channel: 'sms',
     recipient: '+38761111222',
@@ -37,7 +37,7 @@ const rows = [
     reservations: null,
   },
   {
-    id: '33333333-3333-3333-3333-333333333333',
+    id: '33333333-3333-4333-8333-333333333333',
     org_id: 'org-2',
     channel: 'email',
     recipient: 'other@example.ba',
@@ -75,6 +75,15 @@ vi.mock('../lib/supabase', () => ({
       const filters: Record<string, any> = {};
       let rangeStart = 0;
       let rangeEnd = 19;
+      const filteredRows = () => {
+        let filtered = rows.filter((row) => row.org_id === filters.org_id);
+        if (filters.id) filtered = filtered.filter((row) => row.id === filters.id);
+        if (filters.channel) filtered = filtered.filter((row) => row.channel === filters.channel);
+        if (filters.status) filtered = filtered.filter((row) => row.status === filters.status);
+        if (filters.related_departure_id) filtered = filtered.filter((row) => row.related_departure_id === filters.related_departure_id);
+        if (filters.related_reservation_id) filtered = filtered.filter((row) => row.related_reservation_id === filters.related_reservation_id);
+        return [...filtered].sort((a, b) => b.created_at.localeCompare(a.created_at));
+      };
       const builder: any = {
         select: vi.fn(() => builder),
         eq: vi.fn((column: string, value: any) => {
@@ -85,18 +94,17 @@ vi.mock('../lib/supabase', () => ({
         range: vi.fn(async (start: number, end: number) => {
           rangeStart = start;
           rangeEnd = end;
-          let filtered = rows.filter((row) => row.org_id === filters.org_id);
-          if (filters.channel) filtered = filtered.filter((row) => row.channel === filters.channel);
-          if (filters.status) filtered = filtered.filter((row) => row.status === filters.status);
-          if (filters.related_departure_id) filtered = filtered.filter((row) => row.related_departure_id === filters.related_departure_id);
-          if (filters.related_reservation_id) filtered = filtered.filter((row) => row.related_reservation_id === filters.related_reservation_id);
-          filtered = [...filtered].sort((a, b) => b.created_at.localeCompare(a.created_at));
+          const filtered = filteredRows();
           return {
             data: filtered.slice(rangeStart, rangeEnd + 1),
             error: null,
             count: filtered.length,
           };
         }),
+        maybeSingle: vi.fn(async () => ({
+          data: filteredRows()[0] || null,
+          error: null,
+        })),
       };
       return builder;
     }),
@@ -122,8 +130,8 @@ describe('communication history route', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(2);
-    expect(res.body.data[0].id).toBe('22222222-2222-2222-2222-222222222222');
-    expect(res.body.data[1].id).toBe('11111111-1111-1111-1111-111111111111');
+    expect(res.body.data[0].id).toBe('22222222-2222-4222-8222-222222222222');
+    expect(res.body.data[1].id).toBe('11111111-1111-4111-8111-111111111111');
   });
 
   it('filters by channel and status', async () => {
@@ -158,5 +166,26 @@ describe('communication history route', () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0].org_id).toBe('org-2');
+  });
+
+  it('returns one org-scoped communication history detail', async () => {
+    const res = await request(app()).get('/communication-history/11111111-1111-4111-8111-111111111111');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.id).toBe('11111111-1111-4111-8111-111111111111');
+    expect(res.body.data.org_id).toBe('org-1');
+    expect(res.body.data.recipient).toBe('guest1@example.ba');
+  });
+
+  it('does not expose another org communication history detail', async () => {
+    const res = await request(app()).get('/communication-history/33333333-3333-4333-8333-333333333333');
+
+    expect(res.status).toBe(404);
+  });
+
+  it('rejects an invalid communication history detail id', async () => {
+    const res = await request(app()).get('/communication-history/not-a-uuid');
+
+    expect(res.status).toBe(400);
   });
 });

@@ -49,6 +49,7 @@ const HotelsPage = lazy(() => import("./pages/operations/Hotels"));
 const HotelDetail = lazy(() => import("./pages/HotelDetail"));
 const FlightsPage = lazy(() => import("./pages/operations/Flights"));
 const AvailabilityPage = lazy(() => import("./pages/operations/Availability"));
+const CommunicationCenter = lazy(() => import("./pages/communication/CommunicationCenter"));
 const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/OtherPage/NotFound"));
 const PublicSignWaiver = lazy(() => import("./pages/PublicSignWaiver"));
@@ -136,6 +137,7 @@ export default function App() {
           <Route path="/operations/hotels" element={<SuspenseWrapper><ModuleGuard moduleKey="travel_core" fallback={<NotFoundClientOnly />}><HotelsPage /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/operations/hotels/:id" element={<SuspenseWrapper><ModuleGuard moduleKey="travel_core" fallback={<NotFoundClientOnly />}><HotelDetail /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/operations/availability" element={<SuspenseWrapper><ModuleGuard moduleKey="travel_core" fallback={<NotFoundClientOnly />}><AvailabilityPage /></ModuleGuard></SuspenseWrapper>} />
+          <Route path="/communication" element={<SuspenseWrapper><CommunicationCenter /></SuspenseWrapper>} />
           <Route path="/profile" element={<SuspenseWrapper><Profile /></SuspenseWrapper>} />
         </Route>
 

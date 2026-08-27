@@ -309,7 +309,6 @@ export default function ReservationDetail() {
             />
             <CommunicationHistoryPanel
               relatedReservationId={reservation.id}
-              title="Communication history"
               refreshKey={historyRefreshKey}
             />
           </div>
