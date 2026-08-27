@@ -1,14 +1,10 @@
-import { useEffect, useMemo, useState, type ReactElement } from "react";
+import { useMemo, useState, type ReactElement } from "react";
 import { useSearchParams } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
-import Label from "../../components/form/Label";
-import Select from "../../components/form/Select";
 import EmptyState from "../../components/ui/EmptyState";
-import ManualMessageComposer from "../../components/communications/ManualMessageComposer";
+import SendMessage from "../../components/communications/SendMessage";
 import CommunicationHistoryPanel from "../../components/communications/CommunicationHistoryPanel";
 import { useT } from "../../lib/i18n/context";
-import { getDepartures, type Departure } from "../../api/departures";
-import { sendDepartureManualMessage } from "../../api/manualMessaging";
 import {
   GridIcon,
   PaperPlaneIcon,
@@ -23,52 +19,25 @@ type TabKey = "overview" | "send" | "campaigns" | "templates" | "history" | "aut
 const TAB_ORDER: TabKey[] = ["overview", "send", "campaigns", "templates", "history", "automation"];
 
 export default function CommunicationCenter() {
-  const { t, lang } = useT();
-  const dateLocale = lang === "bs" ? "bs-BA" : "en-US";
+  const { t } = useT();
   const c = t.communication;
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab") as TabKey | null;
   const activeTab: TabKey = tabParam && TAB_ORDER.includes(tabParam) ? tabParam : "overview";
 
-  const [departures, setDepartures] = useState<Departure[]>([]);
-  const [departuresError, setDeparturesError] = useState<string | null>(null);
-  const [selectedDepartureId, setSelectedDepartureId] = useState("");
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const response = await getDepartures({ limit: 100 });
-        if (mounted) setDepartures(response.data || []);
-      } catch {
-        if (mounted) setDeparturesError(c.send.loadError);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [c.send.loadError]);
-
-  const selectedDeparture = useMemo(
-    () => departures.find((d) => d.id === selectedDepartureId) || null,
-    [departures, selectedDepartureId],
+  const tabIcon: Record<TabKey, ReactElement> = useMemo(
+    () => ({
+      overview: <GridIcon className="size-4" />,
+      send: <PaperPlaneIcon className="size-4" />,
+      campaigns: <ListIcon className="size-4" />,
+      templates: <FileIcon className="size-4" />,
+      history: <TimeIcon className="size-4" />,
+      automation: <BoltIcon className="size-4" />,
+    }),
+    [],
   );
-
-  const departureLabel = (d: Departure) => {
-    const name = d.packageName || d.packages?.name || d.destination || d.id.slice(0, 8);
-    const date = d.depart_at ? new Date(d.depart_at).toLocaleDateString(dateLocale) : "";
-    return date ? `${name} — ${date}` : name;
-  };
-
-  const tabIcon: Record<TabKey, ReactElement> = {
-    overview: <GridIcon className="size-4" />,
-    send: <PaperPlaneIcon className="size-4" />,
-    campaigns: <ListIcon className="size-4" />,
-    templates: <FileIcon className="size-4" />,
-    history: <TimeIcon className="size-4" />,
-    automation: <BoltIcon className="size-4" />,
-  };
 
   const setTab = (tab: TabKey) => {
     const next = new URLSearchParams(searchParams);
@@ -123,34 +92,7 @@ export default function CommunicationCenter() {
       )}
 
       {activeTab === "send" && (
-        <div className="max-w-3xl space-y-5">
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
-            <Label>{c.send.contextLabel}</Label>
-            <Select
-              options={[
-                { value: "", label: c.send.contextPlaceholder },
-                ...departures.map((d) => ({ value: d.id, label: departureLabel(d) })),
-              ]}
-              value={selectedDepartureId}
-              onChange={(value: string) => setSelectedDepartureId(value || "")}
-            />
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{c.send.contextHint}</p>
-            {departuresError ? (
-              <p className="mt-2 text-sm text-error-600 dark:text-error-400">{departuresError}</p>
-            ) : null}
-          </div>
-
-          {selectedDeparture ? (
-            <ManualMessageComposer
-              onSend={(payload) => sendDepartureManualMessage(selectedDeparture.id, payload)}
-              onSent={() => setHistoryRefreshKey((value) => value + 1)}
-            />
-          ) : (
-            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-400">
-              {c.send.noContext}
-            </div>
-          )}
-        </div>
+        <SendMessage onSent={() => setHistoryRefreshKey((value) => value + 1)} />
       )}
 
       {activeTab === "campaigns" &&
@@ -159,9 +101,7 @@ export default function CommunicationCenter() {
       {activeTab === "templates" &&
         placeholderPanel(c.templates.title, c.templates.description, c.templates.comingSoon)}
 
-      {activeTab === "history" && (
-        <CommunicationHistoryPanel refreshKey={historyRefreshKey} />
-      )}
+      {activeTab === "history" && <CommunicationHistoryPanel refreshKey={historyRefreshKey} />}
 
       {activeTab === "automation" &&
         placeholderPanel(c.automation.title, c.automation.description, c.automation.comingSoon)}
