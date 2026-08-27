@@ -75,6 +75,15 @@ vi.mock('../lib/supabase', () => ({
       const filters: Record<string, any> = {};
       let rangeStart = 0;
       let rangeEnd = 19;
+      const filteredRows = () => {
+        let filtered = rows.filter((row) => row.org_id === filters.org_id);
+        if (filters.id) filtered = filtered.filter((row) => row.id === filters.id);
+        if (filters.channel) filtered = filtered.filter((row) => row.channel === filters.channel);
+        if (filters.status) filtered = filtered.filter((row) => row.status === filters.status);
+        if (filters.related_departure_id) filtered = filtered.filter((row) => row.related_departure_id === filters.related_departure_id);
+        if (filters.related_reservation_id) filtered = filtered.filter((row) => row.related_reservation_id === filters.related_reservation_id);
+        return [...filtered].sort((a, b) => b.created_at.localeCompare(a.created_at));
+      };
       const builder: any = {
         select: vi.fn(() => builder),
         eq: vi.fn((column: string, value: any) => {
@@ -85,18 +94,17 @@ vi.mock('../lib/supabase', () => ({
         range: vi.fn(async (start: number, end: number) => {
           rangeStart = start;
           rangeEnd = end;
-          let filtered = rows.filter((row) => row.org_id === filters.org_id);
-          if (filters.channel) filtered = filtered.filter((row) => row.channel === filters.channel);
-          if (filters.status) filtered = filtered.filter((row) => row.status === filters.status);
-          if (filters.related_departure_id) filtered = filtered.filter((row) => row.related_departure_id === filters.related_departure_id);
-          if (filters.related_reservation_id) filtered = filtered.filter((row) => row.related_reservation_id === filters.related_reservation_id);
-          filtered = [...filtered].sort((a, b) => b.created_at.localeCompare(a.created_at));
+          const filtered = filteredRows();
           return {
             data: filtered.slice(rangeStart, rangeEnd + 1),
             error: null,
             count: filtered.length,
           };
         }),
+        maybeSingle: vi.fn(async () => ({
+          data: filteredRows()[0] || null,
+          error: null,
+        })),
       };
       return builder;
     }),
@@ -158,5 +166,26 @@ describe('communication history route', () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0].org_id).toBe('org-2');
+  });
+
+  it('returns one org-scoped communication history detail', async () => {
+    const res = await request(app()).get('/communication-history/11111111-1111-1111-1111-111111111111');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.id).toBe('11111111-1111-1111-1111-111111111111');
+    expect(res.body.data.org_id).toBe('org-1');
+    expect(res.body.data.recipient).toBe('guest1@example.ba');
+  });
+
+  it('does not expose another org communication history detail', async () => {
+    const res = await request(app()).get('/communication-history/33333333-3333-3333-3333-333333333333');
+
+    expect(res.status).toBe(404);
+  });
+
+  it('rejects an invalid communication history detail id', async () => {
+    const res = await request(app()).get('/communication-history/not-a-uuid');
+
+    expect(res.status).toBe(400);
   });
 });
