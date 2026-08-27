@@ -71,11 +71,11 @@ router.get(
         .from('accommodation_buildings')
         .select(`
           *,
-          floors:accommodation_floors(
+          floors:accommodation_floors!accommodation_floors_building_id_fkey(
             *,
-            rooms:accommodation_rooms(
+            rooms:accommodation_rooms!accommodation_rooms_floor_id_fkey(
               *,
-              assignments:accommodation_assignments(*)
+              assignments:accommodation_assignments!accommodation_assignments_room_id_fkey(*)
             )
           )
         `)
@@ -246,7 +246,7 @@ router.post(
       // Load room with floor→building chain to verify departure_id
       const { data: room, error: roomErr } = await supabaseAdmin
         .from('accommodation_rooms')
-        .select('id, capacity, beds, floor_id, building_id, accommodation_floors!inner(building_id, accommodation_buildings!inner(id, departure_id))')
+        .select('id, capacity, beds, floor_id, building_id, accommodation_floors!accommodation_rooms_floor_id_fkey!inner(building_id, accommodation_buildings!accommodation_floors_building_id_fkey!inner(id, departure_id))')
         .eq('id', roomId)
         .eq('org_id', orgId)
         .single();
@@ -411,7 +411,7 @@ router.post(
 
       const { data: targetRoom, error: roomErr } = await supabaseAdmin
         .from('accommodation_rooms')
-        .select('id, capacity, beds, building_id, accommodation_floors!inner(building_id, accommodation_buildings!inner(id, departure_id))')
+        .select('id, capacity, beds, building_id, accommodation_floors!accommodation_rooms_floor_id_fkey!inner(building_id, accommodation_buildings!accommodation_floors_building_id_fkey!inner(id, departure_id))')
         .eq('id', targetRoomId)
         .eq('org_id', orgId)
         .single();
