@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { DataTable, Column } from "../ui/DataTable";
 import Select from "../form/Select";
+import { Modal } from "../ui/modal";
+import Button from "../ui/button/Button";
 import { useT } from "../../lib/i18n/context";
 import {
   CommunicationChannel,
   CommunicationHistoryItem,
   CommunicationStatus,
   getCommunicationHistory,
+  getCommunicationHistoryItem,
 } from "../../api/communicationHistory";
 
 interface CommunicationHistoryPanelProps {
@@ -51,6 +54,9 @@ export default function CommunicationHistoryPanel({
   const [loading, setLoading] = useState(true);
   const [channel, setChannel] = useState<CommunicationChannel | "">("");
   const [status, setStatus] = useState<CommunicationStatus | "">("");
+  const [selectedItem, setSelectedItem] = useState<CommunicationHistoryItem | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState(false);
 
   const statusLabel: Record<CommunicationStatus, string> = {
     sent: c.statusSent,
@@ -85,6 +91,30 @@ export default function CommunicationHistoryPanel({
     };
   }, [channel, status, relatedDepartureId, relatedReservationId, refreshKey]);
 
+  const selectedId = selectedItem?.id;
+  useEffect(() => {
+    if (!selectedId) return;
+    let mounted = true;
+
+    setDetailLoading(true);
+    setDetailError(false);
+    void getCommunicationHistoryItem(selectedId)
+      .then((item) => {
+        if (mounted) setSelectedItem(item);
+      })
+      .catch((error) => {
+        console.error("Failed to load communication history detail", error);
+        if (mounted) setDetailError(true);
+      })
+      .finally(() => {
+        if (mounted) setDetailLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedId]);
+
   const columns: Column<CommunicationHistoryItem>[] = useMemo(() => [
     {
       key: "created_at",
@@ -110,7 +140,13 @@ export default function CommunicationHistoryPanel({
       header: c.colRecipient,
       render: (value, item) => (
         <div className="min-w-[220px]">
-          <div className="font-medium text-gray-900 dark:text-white">{String(value || "—")}</div>
+          <button
+            type="button"
+            onClick={() => setSelectedItem(item)}
+            className="text-left font-medium text-brand-600 hover:underline dark:text-brand-400"
+          >
+            {String(value || "—")}
+          </button>
           {item.subject ? (
             <div className="text-xs text-gray-500 dark:text-gray-400">{item.subject}</div>
           ) : item.body_preview ? (
@@ -152,51 +188,149 @@ export default function CommunicationHistoryPanel({
         </div>
       ),
     },
-  ], [c]);
+  ], [c, dateLocale, statusLabel]);
 
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-      <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h3 className="font-semibold text-gray-950 dark:text-white">{title || c.title}</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{c.subtitle}</p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="min-w-[140px]">
-              <Select
-                options={[
-                  { value: "", label: c.allChannels },
-                  { value: "email", label: "Email" },
-                  { value: "sms", label: "SMS" },
-                ]}
-                defaultValue={channel}
-                onChange={(value: string) => setChannel((value || "") as CommunicationChannel | "")}
-              />
+    <>
+      <section className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h3 className="font-semibold text-gray-950 dark:text-white">{title || c.title}</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{c.subtitle}</p>
             </div>
-            <div className="min-w-[140px]">
-              <Select
-                options={[
-                  { value: "", label: c.allStatuses },
-                  { value: "sent", label: c.statusSent },
-                  { value: "failed", label: c.statusFailed },
-                  { value: "skipped", label: c.statusSkipped },
-                ]}
-                defaultValue={status}
-                onChange={(value: string) => setStatus((value || "") as CommunicationStatus | "")}
-              />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="min-w-[140px]">
+                <Select
+                  options={[
+                    { value: "", label: c.allChannels },
+                    { value: "email", label: "Email" },
+                    { value: "sms", label: "SMS" },
+                  ]}
+                  defaultValue={channel}
+                  onChange={(value: string) => setChannel((value || "") as CommunicationChannel | "")}
+                />
+              </div>
+              <div className="min-w-[140px]">
+                <Select
+                  options={[
+                    { value: "", label: c.allStatuses },
+                    { value: "sent", label: c.statusSent },
+                    { value: "failed", label: c.statusFailed },
+                    { value: "skipped", label: c.statusSkipped },
+                  ]}
+                  defaultValue={status}
+                  onChange={(value: string) => setStatus((value || "") as CommunicationStatus | "")}
+                />
+              </div>
             </div>
           </div>
         </div>
+        <div className="p-5 sm:p-6">
+          <DataTable
+            data={items}
+            columns={columns}
+            loading={loading}
+            emptyMessage={c.empty}
+          />
+        </div>
+      </section>
+
+      <Modal
+        isOpen={Boolean(selectedItem)}
+        onClose={() => {
+          setSelectedItem(null);
+          setDetailError(false);
+        }}
+        className="m-4 max-w-2xl"
+        title={c.title}
+      >
+        {selectedItem ? (
+          <div className="max-h-[78vh] overflow-y-auto p-6">
+            {detailLoading ? (
+              <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">{t.common.loading}</div>
+            ) : null}
+            {detailError ? (
+              <div className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-900/40 dark:bg-error-950/20 dark:text-error-300">
+                {t.common.error}
+              </div>
+            ) : null}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <DetailField label={c.colChannel} value={channelLabel[selectedItem.channel]} />
+              <DetailField label={c.colStatus} value={statusLabel[selectedItem.status]} tone={statusTone[selectedItem.status]} />
+              <div className="sm:col-span-2">
+                <DetailField label={c.colRecipient} value={selectedItem.recipient} />
+              </div>
+              {selectedItem.subject ? (
+                <div className="sm:col-span-2">
+                  <DetailField label={t.communication.composer.subject} value={selectedItem.subject} />
+                </div>
+              ) : null}
+              <div className="sm:col-span-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  {t.communication.composer.message}
+                </div>
+                <div className="mt-1.5 whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-800 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-100">
+                  {selectedItem.body_preview || "—"}
+                </div>
+              </div>
+              <DetailField label={c.colDate} value={formatDateTime(selectedItem.sent_at || selectedItem.created_at, dateLocale)} />
+              <DetailField label="ID" value={selectedItem.id} mono />
+              {selectedItem.departures ? (
+                <DetailField
+                  label={c.departure}
+                  value={`${selectedItem.departures.packages?.name || selectedItem.departures.id.slice(0, 8)} · ${formatDateTime(selectedItem.departures.depart_at, dateLocale)}`}
+                />
+              ) : null}
+              {selectedItem.reservations ? (
+                <DetailField
+                  label={c.reservation}
+                  value={selectedItem.reservations.customer_name || selectedItem.reservations.id}
+                />
+              ) : null}
+              {selectedItem.error_message ? (
+                <div className="sm:col-span-2">
+                  <DetailField label={t.common.error} value={selectedItem.error_message} tone="text-error-600 dark:text-error-400" />
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-6 flex justify-end border-t border-gray-100 pt-4 dark:border-gray-800">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSelectedItem(null);
+                  setDetailError(false);
+                }}
+              >
+                {t.common.close}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+    </>
+  );
+}
+
+function DetailField({
+  label,
+  value,
+  tone = "text-gray-900 dark:text-white",
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  tone?: string;
+  mono?: boolean;
+}) {
+  return (
+    <div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
+      <div className={`mt-1.5 break-words text-sm font-medium ${tone} ${mono ? "font-mono text-xs" : ""}`}>
+        {value || "—"}
       </div>
-      <div className="p-5 sm:p-6">
-        <DataTable
-          data={items}
-          columns={columns}
-          loading={loading}
-          emptyMessage={c.empty}
-        />
-      </div>
-    </section>
+    </div>
   );
 }
