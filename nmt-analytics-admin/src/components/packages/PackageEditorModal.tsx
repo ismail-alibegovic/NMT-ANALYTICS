@@ -6,7 +6,7 @@ import Label from "../form/Label";
 import Select from "../form/Select";
 import { useToast } from "../../context/ToastContext";
 import { TrashBinIcon, PlusIcon } from "../../icons";
-import { createPackage, updatePackage, Package } from "../../api/packages";
+import { createPackage, updatePackage, Package, type PackageVariant } from "../../api/packages";
 
 type TransportMode = "none" | "bus" | "flight";
 type VariantTier = "standard" | "premium" | "deluxe" | "custom";
@@ -68,10 +68,17 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       setCurrency(initial.currency || "BAM");
       setActive(initial.active ?? true);
       setDurationDays(initial.durationDays ?? "");
-      setTransportMode(initial.transport_mode || "none");
-      setTripType(initial.tripType || null);
+      setTransportMode(initial.transport_type || "none");
+      setTripType(initial.tripType || "");
       setTransportCapacity(initial.transport_capacity ?? "");
-      setVariants(initial.variants ?? []);
+      setVariants((initial.variants ?? []).map((variant: PackageVariant) => ({
+        id: variant.id,
+        name: variant.name || "",
+        tier: "standard",
+        accommodation: (variant.accommodation as Variant["accommodation"]) || "hotel",
+        price: variant.price_delta ?? 0,
+        capacity: 0,
+      })));
     } else if (initialValues) {
       setName(initialValues.name || "");
       setDestination(initialValues.destination || "");
@@ -81,7 +88,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       setActive(true);
       setDurationDays("");
       setTransportMode("none");
-      setTripType(null);
+      setTripType("");
       setTransportCapacity("");
       setVariants([]);
     } else {
@@ -93,7 +100,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       setActive(true);
       setDurationDays("");
       setTransportMode("none");
-      setTripType(null);
+      setTripType("");
       setTransportCapacity("");
       setVariants([]);
     }

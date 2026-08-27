@@ -349,12 +349,13 @@ export default function DepartureDetail() {
         : t.departure.noDebt,
       ready: totalGuests > 0 && totalDebt <= 0,
     },
-    ...(capabilities?.hasAccommodation && capabilities.accommodationConfigured ? [{
+    ...(capabilities?.hasAccommodation ? [{
       label: t.departure.accommodation,
       detail: allocations.length > 0
         ? t.departure.activeHotelAllocations.replace("{count}", String(allocations.length))
         : t.departure.noAccommodationConfigured,
       ready: allocations.length > 0,
+      action: () => setActiveTab("hotels"),
     }] : []),
     {
       label: t.departure.transport,
@@ -364,6 +365,7 @@ export default function DepartureDetail() {
             .replace("{capacity}", String(departure.transport_capacity || departure.capacity))
         : t.departure.noTransportAvailable,
       ready: transportConfigured,
+      action: () => setActiveTab("overview"),
     },
   ] : [];
   const readyCount = readinessItems.filter((item) => item.ready).length;
@@ -471,40 +473,6 @@ export default function DepartureDetail() {
     },
   ];
 
-  const _docStatusCol: Column<DeparturePassenger> = {
-    key: "documentReadinessStatus",
-    header: t.departure.documents,
-    render: (v) => {
-      const s = String(v);
-      const label = (t.departure.documentStatus as Record<string, string>)[s] || s;
-      if (s === "ready") return <span className="text-success-600 dark:text-success-400 text-xs font-medium">{label}</span>;
-      if (s === "missing") return <span className="text-warning-600 dark:text-warning-400 text-xs font-medium">{label}</span>;
-      if (s === "expired_before_departure" || s === "expired_before_return") return <span className="text-error-600 dark:text-error-400 text-xs font-medium">{label}</span>;
-      if (s === "not_required") return <span className="text-gray-400 text-xs">{label}</span>;
-      return <span className="text-gray-400">—</span>;
-    },
-  };
-
-  // Document edit action column for passengers tab
-  const _docEditCol: Column<DeparturePassenger> | null = capabilities?.needTravelDocuments
-    ? {
-        key: "docEdit",
-        header: "",
-        render: (_v: any, item: DeparturePassenger) => (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); openDocEditor(item); }}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-white/[0.06] dark:hover:text-brand-400"
-            title={t.departure.editDocuments}
-          >
-            <svg className="size-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-            </svg>
-          </button>
-        ),
-      }
-    : null;
-
   const allPassengerCols = enhancedPassengerCols;
 
   // Quick filters - combine doc readiness with unseated/noRoom
@@ -579,9 +547,6 @@ export default function DepartureDetail() {
     setPaxError(null);
     try {
       await updateDeparturePassenger(targetPassenger.id, {
-        full_name: paxForm.full_name.trim(),
-        phone: paxForm.phone?.trim() || null,
-        email: paxForm.email?.trim() || null,
         nationality: paxForm.nationality?.trim() || null,
         date_of_birth: paxForm.date_of_birth || null,
       });
@@ -957,7 +922,7 @@ export default function DepartureDetail() {
                       <Badge color="primary" size="sm">{g.count}</Badge>
                     </div>
                     <div className="p-4">
-                      <DataTable data={g.passengers} columns={passengerCols.slice(0, 6)} />
+                    <DataTable data={g.passengers} columns={allPassengerCols.slice(0, 6)} />
                     </div>
                   </div>
                 ))}
@@ -990,10 +955,6 @@ export default function DepartureDetail() {
           <RoomingWorkspace
             departureId={departure.id}
             passengers={normPax}
-            departure={{
-              hasBusTransport: capabilities.hasBusTransport,
-              transportType: capabilities.transportType,
-            }}
           />
         )}
         {activeTab === "hotels" && !capabilities?.hasAccommodation && (

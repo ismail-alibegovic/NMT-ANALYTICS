@@ -21,7 +21,6 @@ import {
   downloadInvoice,
   Reservation,
   ReservationPassenger,
-  ReservationInstallment,
   formatReservationCurrency,
   formatReservationDate,
   reservationPaymentStatusBadge,
@@ -65,32 +64,21 @@ export default function ReservationDetail() {
       try {
         const res = await getReservation(id);
         const departureId = res.departureId;
-        const [pax, inst] = departureId
-          ? await Promise.all([
-              import("../api/departures").then(async (m) => {
-                try {
-                  const manifest = await m.getDeparturePassengers(departureId);
-                  return (manifest.manifest || []).filter(
-                    (p: any) => p.reservationId === id || p.reservation_id === id
-                  );
-                } catch {
-                  return [];
-                }
-              }),
-              import("../api/departures").then(async (m) => {
-                try {
-                  const grp = await m.getDepartureGroups(departureId);
-                  return grp?.byAgent || [];
-                } catch {
-                  return [];
-                }
-              }),
-            ])
-          : [[], []];
+        const pax = departureId
+          ? await import("../api/departures").then(async (m) => {
+              try {
+                const manifest = await m.getDeparturePassengers(departureId);
+                return (manifest.manifest || []).filter(
+                  (p: any) => p.reservationId === id || p.reservation_id === id
+                );
+              } catch {
+                return [];
+              }
+            })
+          : [];
 
         setReservation(res);
-        setPassengers(pax);
-        setInstallments(inst as ReservationInstallment[]);
+        setPassengers(pax as unknown as ReservationPassenger[]);
 
         // Check for existing contracts
         try {
@@ -169,7 +157,7 @@ export default function ReservationDetail() {
         <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
           <ChevronLeftIcon className="size-4" /> Nazad
         </Button>
-        <EmptyState icon={PlugInIcon} title="Rezervacija nije pronađena" description="Tražena rezervacija ne postoji ili nemate pristup." />
+        <EmptyState icon={<PlugInIcon className="size-8" />} title="Rezervacija nije pronađena" description="Tražena rezervacija ne postoji ili nemate pristup." />
       </div>
     );
   }
@@ -279,7 +267,7 @@ export default function ReservationDetail() {
         {activeTab === "passengers" && (
           <div>
             {passengers.length === 0 ? (
-              <EmptyState icon={GroupIcon} title="Nema putnika" description="Ova rezervacija nema zasebne putničke zapise." />
+              <EmptyState icon={<GroupIcon className="size-8" />} title="Nema putnika" description="Ova rezervacija nema zasebne putničke zapise." />
             ) : (
               <DataTable columns={paxColumns} data={passengers} />
             )}

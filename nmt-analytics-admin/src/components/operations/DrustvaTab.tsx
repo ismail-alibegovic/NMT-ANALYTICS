@@ -51,6 +51,35 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const passengerById = useCallback(() => {
+    const map = new Map<string, DeparturePassenger>();
+    for (const passenger of passengers) {
+      if (passenger.id) map.set(passenger.id, passenger);
+      if (passenger.passengerId) map.set(passenger.passengerId, passenger);
+    }
+    return map;
+  }, [passengers]);
+
+  const renderSeatStatusBadge = useCallback((status: ReturnType<typeof computeGroupSeatingStatus>) => {
+    const variants: Record<string, string> = {
+      together: "bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400",
+      partial: "bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-400",
+      split: "bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-400",
+      unassigned: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+    };
+    const labels: Record<string, string> = {
+      together: "Zajedno",
+      partial: "Djelomično",
+      split: "Razdvojeni",
+      unassigned: "Neraspoređeni",
+    };
+    return (
+      <span className={`rounded-md px-2 py-1 text-xs font-medium ${variants[status.status] || variants.unassigned}`}>
+        {labels[status.status] || status.status}
+      </span>
+    );
+  }, []);
+
   
   const occupiedByOtherGroup = useCallback(
     (groupId: string) => {
@@ -68,12 +97,17 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
 
   const seatingStatus = useCallback(
     (group: PassengerGroup) => {
-      const ids = (group.members || []).map((m) => m.passenger_id);
-      if (ids.length < 2) return null;
-      const status = computeGroupSeatingStatus(passengers, ids);
+      const totalMembers = (group.members || []).length;
+      if (totalMembers < 2) return null;
+      const occupiedSeatNumbers = (group.members || [])
+        .map((m) => passengerById().get(m.passenger_id)?.seat)
+        .map((seat) => typeof seat === "number" ? seat : typeof seat === "string" ? parseInt(seat, 10) : null)
+        .filter((seat): seat is number => seat !== null && seat > 0);
+      const transportType = occupiedSeatNumbers.some((seat) => seat > 4) ? "flight" : "bus";
+      const status = computeGroupSeatingStatus(occupiedSeatNumbers, transportType, totalMembers);
       return status;
     },
-    [passengers],
+    [passengers, passengerById],
   );
 
   const openCreate = () => {
@@ -198,7 +232,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
             {groups.map((group) => {
               const members = group.members || [];
               const seatStatus = seatingStatus(group);
-              const primary = group.primary_passenger_id ? passengerById.get(group.primary_passenger_id) : null;
+              const primary = group.primary_passenger_id ? passengerById().get(group.primary_passenger_id) : null;
 
               return (
                 <div
@@ -221,7 +255,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                       )}
                     </div>
                     <div className="flex items-center gap-1">
-                      {seatStatus && statusBadge(seatStatus)}
+                      {seatStatus && renderSeatStatusBadge(seatStatus)}
                       <button
                         onClick={() => openEdit(group)}
                         className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -265,7 +299,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
 
                     <div className="flex flex-wrap gap-1">
                       {members.map((m) => {
-                        const p = passengerById.get(m.passenger_id);
+                        const p = passengerById().get(m.passenger_id);
                         if (!p) return null;
                         const isPrimary = m.is_primary || m.passenger_id === group.primary_passenger_id;
                         return (
@@ -361,7 +395,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                 >
                   <option value="">{String(t.departure.drustva.selectPrimary)}</option>
                   {formMemberIds.map((pid) => {
-                    const p = passengerById.get(pid);
+                    const p = passengerById().get(pid);
                     if (!p) return null;
                     return (
                       <option key={pid} value={pid}>

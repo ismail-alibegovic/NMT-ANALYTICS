@@ -394,7 +394,7 @@ function Seat({
   const baseClass =
     "w-10 h-10 rounded-lg border text-xs font-medium flex items-center justify-center transition-all relative";
 
-  let colorClass = PALETTE.free;
+  let colorClass: string = PALETTE.free;
   if (occupied && passenger) {
     if (passenger.groupColor) {
       colorClass = `${passenger.groupColor} text-white border-transparent` as any as string;
