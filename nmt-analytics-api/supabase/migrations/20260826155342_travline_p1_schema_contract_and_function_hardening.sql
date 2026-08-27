@@ -12,6 +12,12 @@ FROM auth.users u
 WHERE u.id = p.id
   AND (p.full_name IS NULL OR BTRIM(p.full_name) = '');
 
+DROP POLICY IF EXISTS "trip_passenger_groups org isolation" ON public.trip_passenger_groups;
+DROP POLICY IF EXISTS "acc_buildings org isolation" ON public.accommodation_buildings;
+DROP POLICY IF EXISTS "acc_floors org isolation" ON public.accommodation_floors;
+DROP POLICY IF EXISTS "acc_rooms org isolation" ON public.accommodation_rooms;
+DROP POLICY IF EXISTS "acc_assignments org isolation" ON public.accommodation_assignments;
+
 CREATE POLICY clients_tenant
 ON public.clients
 FOR ALL TO authenticated

@@ -1,0 +1,1801 @@
+[
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260704000000_legacy_baseline.sql",
+    "version": "20260704000000",
+    "creates": [
+      "idx_audit_logs_entity",
+      "idx_audit_logs_org_created",
+      "idx_customers_org_id_created_at",
+      "idx_customers_org_id_phone",
+      "idx_customers_search",
+      "idx_customers_status",
+      "idx_departures_org_id_depart_at",
+      "idx_departures_package_id",
+      "idx_fk_reservations_1fc9e23e23",
+      "idx_notifications_created_at",
+      "idx_notifications_is_read",
+      "idx_notifications_org_user",
+      "idx_packages_is_active",
+      "idx_packages_org_id_created_at",
+      "idx_packages_org_id_is_active",
+      "idx_payment_links_code",
+      "idx_payment_links_org",
+      "idx_payment_links_reservation",
+      "idx_payments_org_date",
+      "idx_payments_org_id",
+      "idx_payments_payment_date",
+      "idx_payments_refunded_at",
+      "idx_payments_reservation_id",
+      "idx_payments_status",
+      "idx_profiles_org_id",
+      "idx_reservations_assigned_to",
+      "idx_reservations_created_at",
+      "idx_reservations_customer_id",
+      "idx_reservations_departure_id",
+      "idx_reservations_org_id_created_at",
+      "idx_reservations_org_id_reservation_at",
+      "idx_reservations_paid_amount",
+      "idx_reservations_payment_status",
+      "idx_transactions_analytics",
+      "idx_transactions_created_at",
+      "idx_transactions_org_id_created_at",
+      "idx_transactions_org_id_occurred_at",
+      "idx_transactions_reservation_id",
+      "idx_transactions_status",
+      "idx_transactions_type_org_id",
+      "public.audit_logs",
+      "public.clients",
+      "public.create_reservation_atomic",
+      "public.customers",
+      "public.departure_passengers",
+      "public.departures",
+      "public.document_templates",
+      "public.documents",
+      "public.get_dashboard_stats",
+      "public.get_my_org_id",
+      "public.get_my_role",
+      "public.get_reports_summary",
+      "public.get_revenue_analytics",
+      "public.get_revenue_by_day",
+      "public.get_total_revenue",
+      "public.has_permission",
+      "public.increment_booked",
+      "public.notifications",
+      "public.org_modules",
+      "public.org_settings",
+      "public.organizations",
+      "public.packages",
+      "public.payment_links",
+      "public.payments",
+      "public.profiles",
+      "public.reservations",
+      "public.role_permissions",
+      "public.tours",
+      "public.transactions",
+      "public.update_reservation_paid_amount",
+      "public.update_reservation_status",
+      "public.update_updated_at_column",
+      "trg_auto_reservation_status",
+      "trg_payments_updated_at",
+      "trg_update_reservation_paid_amount"
+    ],
+    "alters": [
+      "public.audit_logs",
+      "public.clients",
+      "public.customers",
+      "public.departure_passengers",
+      "public.departures",
+      "public.document_templates",
+      "public.documents",
+      "public.notifications",
+      "public.org_modules",
+      "public.organizations",
+      "public.packages",
+      "public.payments",
+      "public.profiles",
+      "public.reservations",
+      "public.tours",
+      "public.transactions"
+    ],
+    "drops": [],
+    "functions_replaced": [
+      "public.create_reservation_atomic",
+      "public.get_dashboard_stats",
+      "public.get_my_org_id",
+      "public.get_my_role",
+      "public.get_reports_summary",
+      "public.get_revenue_analytics",
+      "public.get_revenue_by_day",
+      "public.get_total_revenue",
+      "public.has_permission",
+      "public.increment_booked",
+      "public.update_reservation_paid_amount",
+      "public.update_reservation_status",
+      "public.update_updated_at_column"
+    ],
+    "referenced_tables": [
+      "OF",
+      "ON",
+      "OR",
+      "USING",
+      "auth.users",
+      "docs",
+      "failed",
+      "own",
+      "public.customers",
+      "public.departures",
+      "public.document_templates",
+      "public.organizations",
+      "public.packages",
+      "public.payments",
+      "public.profiles",
+      "public.reservations",
+      "public.role_permissions",
+      "v_reservation_id",
+      "v_result"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 6
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260704000027_voucher_enhancement.sql",
+    "version": "20260704000027",
+    "creates": [],
+    "alters": [
+      "reservations"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260704000028_contracts.sql",
+    "version": "20260704000028",
+    "creates": [
+      "contracts",
+      "contracts_touch_updated_at",
+      "idx_contracts_org_created",
+      "idx_contracts_reservation",
+      "idx_contracts_status",
+      "trg_contracts_touch_updated_at"
+    ],
+    "alters": [
+      "contracts"
+    ],
+    "drops": [
+      "contracts",
+      "contracts_touch_updated_at"
+    ],
+    "functions_replaced": [
+      "trg_contracts_touch_updated_at"
+    ],
+    "referenced_tables": [
+      "ON",
+      "auth.users",
+      "organizations",
+      "reservations",
+      "updated_at"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260704000029_receipts.sql",
+    "version": "20260704000029",
+    "creates": [
+      "idx_receipts_contract",
+      "idx_receipts_org_issued",
+      "idx_receipts_reservation",
+      "idx_receipts_type",
+      "receipts"
+    ],
+    "alters": [
+      "receipts"
+    ],
+    "drops": [
+      "receipts"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "auth.users",
+      "contracts",
+      "organizations",
+      "receipts",
+      "reservations"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260704000030_installments.sql",
+    "version": "20260704000030",
+    "creates": [
+      "idx_payments_due_date",
+      "idx_payments_overdue"
+    ],
+    "alters": [
+      "payments"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260704000031_sub_agents.sql",
+    "version": "20260704000031",
+    "creates": [
+      "idx_sub_agent_sales_org",
+      "idx_sub_agent_sales_reservation",
+      "idx_sub_agents_org_active",
+      "sub_agent_sales",
+      "sub_agents"
+    ],
+    "alters": [
+      "sub_agent_sales",
+      "sub_agents"
+    ],
+    "drops": [
+      "sub_agent_sales",
+      "sub_agents"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "auth.users",
+      "organizations",
+      "reservations",
+      "sub_agents"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260704000032_excursions.sql",
+    "version": "20260704000032",
+    "creates": [
+      "excursion_passengers",
+      "idx_excursions_paid",
+      "idx_excursions_reservation"
+    ],
+    "alters": [
+      "excursion_passengers",
+      "packages"
+    ],
+    "drops": [
+      "excursion_passengers"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "organizations",
+      "reservations"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260704000033_fix_excursion_org_id.sql",
+    "version": "20260704000033",
+    "creates": [
+      "idx_excursions_org"
+    ],
+    "alters": [
+      "excursion_passengers"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "excursion_passengers",
+      "organizations",
+      "original",
+      "reservations",
+      "the"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260704010000_package_services.sql",
+    "version": "20260704010000",
+    "creates": [
+      "idx_package_services_package",
+      "idx_package_services_type",
+      "package_services"
+    ],
+    "alters": [
+      "package_services"
+    ],
+    "drops": [
+      "package_services"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "one",
+      "organizations",
+      "packages"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260704020000_hotels.sql",
+    "version": "20260704020000",
+    "creates": [
+      "hotel_allocations",
+      "hotel_rooms",
+      "hotels",
+      "idx_hotel_allocations_departure",
+      "idx_hotel_allocations_hotel",
+      "idx_hotel_rooms_hotel",
+      "idx_hotels_org"
+    ],
+    "alters": [
+      "hotel_allocations",
+      "hotel_rooms",
+      "hotels"
+    ],
+    "drops": [
+      "hotel_allocations",
+      "hotel_rooms",
+      "hotels"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "departures",
+      "hotels",
+      "organizations"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260704020001_fix_hotel_org_id.sql",
+    "version": "20260704020001",
+    "creates": [
+      "idx_hotel_allocations_org",
+      "idx_hotel_rooms_org"
+    ],
+    "alters": [
+      "hotel_allocations",
+      "hotel_rooms"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "hotel_allocations",
+      "hotel_rooms",
+      "hotels",
+      "organizations",
+      "original"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260704030000_fix_package_services_org_id.sql",
+    "version": "20260704030000",
+    "creates": [
+      "idx_package_services_org"
+    ],
+    "alters": [
+      "package_services"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "organizations",
+      "original",
+      "package_services",
+      "packages"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260705010000_eturista.sql",
+    "version": "20260705010000",
+    "creates": [
+      "eturista_submissions",
+      "idx_eturista_departure",
+      "idx_eturista_org"
+    ],
+    "alters": [
+      "eturista_submissions"
+    ],
+    "drops": [
+      "eturista_submissions"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "departures",
+      "government",
+      "organizations"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260706010000_package_options_and_transport.sql",
+    "version": "20260706010000",
+    "creates": [
+      "idx_package_services_option"
+    ],
+    "alters": [
+      "departures",
+      "package_services",
+      "packages",
+      "reservations"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "departures",
+      "hotels",
+      "package_services",
+      "the"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260706020000_reservation_options.sql",
+    "version": "20260706020000",
+    "creates": [
+      "idx_reservations_options",
+      "reserve_capacity_atomic"
+    ],
+    "alters": [
+      "reservations"
+    ],
+    "drops": [],
+    "functions_replaced": [
+      "reserve_capacity_atomic"
+    ],
+    "referenced_tables": [
+      "departures",
+      "v_booked"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260710010000_fiscal_compliance_layer.sql",
+    "version": "20260710010000",
+    "creates": [
+      "eturista_submissions_view",
+      "fiscal_submissions",
+      "fiscal_submissions_org_isolation",
+      "idx_fiscal_submissions_org_market"
+    ],
+    "alters": [
+      "fiscal_submissions",
+      "org_settings"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "departures",
+      "existing",
+      "fiscal_submissions",
+      "organizations"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260711010000_self_service_signup.sql",
+    "version": "20260711010000",
+    "creates": [
+      "generate_org_slug",
+      "on_auth_user_created",
+      "org_branding",
+      "public.handle_new_user"
+    ],
+    "alters": [
+      "org_branding"
+    ],
+    "drops": [
+      "on_auth_user_created"
+    ],
+    "functions_replaced": [
+      "generate_org_slug",
+      "public.handle_new_user"
+    ],
+    "referenced_tables": [
+      "SET",
+      "organizations",
+      "profiles",
+      "public.org_branding",
+      "public.org_modules",
+      "public.organizations",
+      "public.profiles",
+      "v_base",
+      "v_org_id"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260711020000_pdf_template_editor.sql",
+    "version": "20260711020000",
+    "creates": [],
+    "alters": [
+      "org_branding",
+      "org_settings",
+      "organizations"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "org_branding",
+      "the"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260711220000_passenger_waivers.sql",
+    "version": "20260711220000",
+    "creates": [
+      "idx_waiver_tokens_token_hash",
+      "public.waiver_templates",
+      "public.waiver_tokens"
+    ],
+    "alters": [
+      "public.excursion_passengers",
+      "public.waiver_templates",
+      "public.waiver_tokens"
+    ],
+    "drops": [
+      "public.waiver_templates",
+      "public.waiver_tokens"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "public.excursion_passengers",
+      "public.organizations",
+      "public.waiver_templates"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260712010000_partner_type_business_rules.sql",
+    "version": "20260712010000",
+    "creates": [
+      "idx_commission_rules_org",
+      "public.commission_rules",
+      "public.trg_commission_rules_touch_updated_at",
+      "trg_commission_rules_touch"
+    ],
+    "alters": [
+      "public.commission_rules",
+      "public.package_services",
+      "public.sub_agents"
+    ],
+    "drops": [
+      "public.commission_rules",
+      "trg_commission_rules_touch"
+    ],
+    "functions_replaced": [
+      "public.trg_commission_rules_touch_updated_at"
+    ],
+    "referenced_tables": [
+      "ON",
+      "public.organizations",
+      "the"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260712020000_sub_agent_portal_tokens.sql",
+    "version": "20260712020000",
+    "creates": [
+      "idx_sub_agent_tokens_hash",
+      "idx_sub_agent_tokens_sub_agent",
+      "public.sub_agent_tokens"
+    ],
+    "alters": [
+      "public.sub_agent_tokens"
+    ],
+    "drops": [
+      "public.sub_agent_tokens"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "auth.users",
+      "public.organizations",
+      "public.sub_agents"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260715010000_plan_tier_module_gating.sql",
+    "version": "20260715010000",
+    "creates": [
+      "plan_module_map_read_all",
+      "public.plan_module_map"
+    ],
+    "alters": [
+      "public.organizations",
+      "public.plan_module_map"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "DEFAULT_MODULES",
+      "any",
+      "public.org_modules",
+      "public.organizations",
+      "public.plan_module_map"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260715020000_fix_profiles_rls_recursion.sql",
+    "version": "20260715020000",
+    "creates": [
+      "public.get_my_org_id",
+      "public.get_my_role",
+      "public.org_branding",
+      "public.profiles"
+    ],
+    "alters": [
+      "public.profiles"
+    ],
+    "drops": [
+      "public.org_branding",
+      "public.profiles"
+    ],
+    "functions_replaced": [
+      "public.get_my_org_id",
+      "public.get_my_role"
+    ],
+    "referenced_tables": [
+      "USING",
+      "any",
+      "own",
+      "policies",
+      "profiles",
+      "profiles.",
+      "public.profiles",
+      "the",
+      "within"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 1
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260715020001_fix_get_my_org_id_rls.sql",
+    "version": "20260715020001",
+    "creates": [
+      "public.get_my_org_id",
+      "public.get_my_role"
+    ],
+    "alters": [],
+    "drops": [],
+    "functions_replaced": [
+      "public.get_my_org_id",
+      "public.get_my_role"
+    ],
+    "referenced_tables": [
+      "LANGUAGE",
+      "profiles",
+      "public.profiles",
+      "v_org_id",
+      "v_role"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260715020002_fix_get_my_org_id_volatile.sql",
+    "version": "20260715020002",
+    "creates": [
+      "public.get_my_org_id",
+      "public.get_my_role"
+    ],
+    "alters": [],
+    "drops": [],
+    "functions_replaced": [
+      "public.get_my_org_id",
+      "public.get_my_role"
+    ],
+    "referenced_tables": [
+      "public.profiles",
+      "v_org_id",
+      "v_role"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260715020003_purge_recursive_profiles_orgs_policies.sql",
+    "version": "20260715020003",
+    "creates": [
+      "public.organizations",
+      "public.profiles"
+    ],
+    "alters": [],
+    "drops": [
+      "public.inspect_policies",
+      "public.organizations",
+      "public.profiles"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "USING",
+      "inside",
+      "own",
+      "profiles",
+      "their"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260809010000_trip_type_hotel_specs_flights.sql",
+    "version": "20260809010000",
+    "creates": [
+      "flights",
+      "idx_flights_org",
+      "idx_flights_route"
+    ],
+    "alters": [
+      "departures",
+      "flights",
+      "hotels",
+      "packages"
+    ],
+    "drops": [
+      "flights"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "flights",
+      "organizations"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260816010000_organization_settings_columns.sql",
+    "version": "20260816010000",
+    "creates": [],
+    "alters": [
+      "public.organizations"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260818010000_agency_profiles_capabilities.sql",
+    "version": "20260818010000",
+    "creates": [],
+    "alters": [
+      "organizations"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "agency_profiles.",
+      "subscription"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260818020000_inquiry_pipeline.sql",
+    "version": "20260818020000",
+    "creates": [
+      "idx_inquiries_assigned_to",
+      "idx_inquiries_org_next_action",
+      "idx_inquiries_org_stage",
+      "inquiries",
+      "inquiries_org_isolation"
+    ],
+    "alters": [
+      "inquiries"
+    ],
+    "drops": [
+      "inquiries_org_isolation"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "organizations",
+      "profiles"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260818030000_supplier_service_catalogue.sql",
+    "version": "20260818030000",
+    "creates": [
+      "idx_supplier_services_org_supplier",
+      "idx_suppliers_org_category",
+      "supplier_services",
+      "supplier_services_org_isolation",
+      "suppliers",
+      "suppliers_org_isolation"
+    ],
+    "alters": [
+      "supplier_services",
+      "suppliers"
+    ],
+    "drops": [
+      "supplier_services_org_isolation",
+      "suppliers_org_isolation"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "organizations",
+      "suppliers"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260818040000_versioned_itineraries.sql",
+    "version": "20260818040000",
+    "creates": [
+      "idx_itineraries_org_inquiry",
+      "idx_itineraries_org_status",
+      "idx_itinerary_items_version_day",
+      "idx_itinerary_versions_itinerary",
+      "itineraries",
+      "itineraries_org_isolation",
+      "itinerary_items",
+      "itinerary_items_org_isolation",
+      "itinerary_versions",
+      "itinerary_versions_org_isolation"
+    ],
+    "alters": [
+      "itineraries",
+      "itinerary_items",
+      "itinerary_versions"
+    ],
+    "drops": [
+      "itineraries_org_isolation",
+      "itinerary_items_org_isolation",
+      "itinerary_versions_org_isolation"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "inquiries",
+      "itineraries",
+      "itinerary_versions",
+      "organizations",
+      "profiles",
+      "supplier_services",
+      "suppliers"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260818230000_quotations.sql",
+    "version": "20260818230000",
+    "creates": [
+      "idx_quotations_org_itinerary",
+      "idx_quotations_org_status",
+      "idx_quotations_ref",
+      "quotations",
+      "quotations_org_isolation"
+    ],
+    "alters": [
+      "quotations"
+    ],
+    "drops": [
+      "quotations_org_isolation"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "itineraries",
+      "itinerary",
+      "itinerary_versions",
+      "organizations",
+      "profiles"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260819003000_quotations.sql",
+    "version": "20260819003000",
+    "creates": [
+      "idx_quotations_org_itinerary",
+      "idx_quotations_org_reference",
+      "idx_quotations_org_status",
+      "quotations",
+      "quotations_org_isolation"
+    ],
+    "alters": [
+      "quotations"
+    ],
+    "drops": [
+      "quotations_org_isolation"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "itineraries",
+      "itinerary_versions",
+      "locked",
+      "organizations",
+      "profiles"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260819230000_package_hotels.sql",
+    "version": "20260819230000",
+    "creates": [
+      "idx_package_hotels_hotel",
+      "idx_package_hotels_org",
+      "idx_package_hotels_package",
+      "public.package_hotels"
+    ],
+    "alters": [
+      "public.package_hotels"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "public.hotels",
+      "public.organizations",
+      "public.packages"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260821020000_hotel_room_type_free.sql",
+    "version": "20260821020000",
+    "creates": [],
+    "alters": [
+      "hotel_rooms"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "hotel_rooms"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260821030000_add_communication_settings.sql",
+    "version": "20260821030000",
+    "creates": [],
+    "alters": [
+      "organizations"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "address",
+      "name"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260822010000_bus_seat_categories.sql",
+    "version": "20260822010000",
+    "creates": [
+      "bus_seat_categories",
+      "departure_passenger_groups",
+      "for",
+      "idx_bus_seat_categories_departure",
+      "idx_bus_seat_categories_org"
+    ],
+    "alters": [
+      "departure_passengers"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "customers",
+      "departure_passengers",
+      "departures",
+      "reservations"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260822020000_passenger_groups.sql",
+    "version": "20260822020000",
+    "creates": [
+      "idx_tpg_departure",
+      "idx_tpg_org",
+      "idx_tpgm_group",
+      "idx_tpgm_passenger",
+      "idx_tpgm_reservation",
+      "trg_group_member_count",
+      "trip_passenger_group_members",
+      "trip_passenger_groups",
+      "update_group_member_count"
+    ],
+    "alters": [
+      "trip_passenger_group_members",
+      "trip_passenger_groups"
+    ],
+    "drops": [
+      "trg_group_member_count",
+      "trip_passenger_group_members",
+      "trip_passenger_groups"
+    ],
+    "functions_replaced": [
+      "update_group_member_count"
+    ],
+    "referenced_tables": [
+      "departures",
+      "member_count",
+      "trip_passenger_groups"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 2
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260822030000_accommodation_buildings.sql",
+    "version": "20260822030000",
+    "creates": [
+      "accommodation_assignments",
+      "accommodation_buildings",
+      "accommodation_floors",
+      "accommodation_rooms",
+      "idx_aa_org",
+      "idx_aa_room",
+      "idx_ab_departure",
+      "idx_ab_org",
+      "idx_af_building",
+      "idx_af_org",
+      "idx_ar_building",
+      "idx_ar_floor",
+      "idx_ar_org"
+    ],
+    "alters": [
+      "accommodation_assignments",
+      "accommodation_buildings",
+      "accommodation_floors",
+      "accommodation_rooms"
+    ],
+    "drops": [
+      "accommodation_assignments",
+      "accommodation_buildings",
+      "accommodation_floors",
+      "accommodation_rooms"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "accommodation_buildings",
+      "accommodation_floors",
+      "accommodation_rooms",
+      "departures",
+      "trip_passenger_groups"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260822040000_departure_passengers.sql",
+    "version": "20260822040000",
+    "creates": [
+      "departure_passengers",
+      "idx_dp_departure",
+      "idx_dp_org",
+      "idx_dp_reservation",
+      "idx_dp_reservation_departure"
+    ],
+    "alters": [
+      "departure_passengers",
+      "trip_passenger_group_members"
+    ],
+    "drops": [
+      "departure_passengers"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "departure_passengers",
+      "departures",
+      "organizations",
+      "pg_constraint",
+      "reservations"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260822150000_rooming_atomic_apply.sql",
+    "version": "20260822150000",
+    "creates": [
+      "apply_accommodation_assignments_atomic"
+    ],
+    "alters": [],
+    "drops": [
+      "apply_accommodation_assignments_atomic"
+    ],
+    "functions_replaced": [
+      "apply_accommodation_assignments_atomic"
+    ],
+    "referenced_tables": [
+      "accommodation_assignments",
+      "accommodation_buildings",
+      "accommodation_rooms",
+      "an",
+      "departure_passengers",
+      "jsonb_array_elements",
+      "v_already_exists",
+      "v_candidate_count",
+      "v_existing_occ",
+      "v_room_cap",
+      "v_solo_check",
+      "v_unique_pax"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260823000000_document_readiness.sql",
+    "version": "20260823000000",
+    "creates": [],
+    "alters": [
+      "departure_passengers",
+      "departures"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "20260809010000_trip_type_hotel_specs_flights.sql"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260824010000_communication_history.sql",
+    "version": "20260824010000",
+    "creates": [
+      "communication_history",
+      "idx_communication_history_org_id_created_at",
+      "idx_communication_history_related_departure_id",
+      "idx_communication_history_related_reservation_id"
+    ],
+    "alters": [],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "departures",
+      "organizations",
+      "reservations"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260824020000_message_templates.sql",
+    "version": "20260824020000",
+    "creates": [
+      "idx_message_templates_org_active",
+      "idx_message_templates_org_channel",
+      "public.message_templates"
+    ],
+    "alters": [],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "public.organizations"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260824030000_campaigns.sql",
+    "version": "20260824030000",
+    "creates": [
+      "idx_campaigns_org_created_at",
+      "idx_campaigns_org_status",
+      "public.campaigns"
+    ],
+    "alters": [],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "public.organizations"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260825010000_packages_itinerary_fk.sql",
+    "version": "20260825010000",
+    "creates": [
+      "idx_packages_itinerary_id"
+    ],
+    "alters": [
+      "packages"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "itineraries"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260825020000_quotation_snapshots.sql",
+    "version": "20260825020000",
+    "creates": [
+      "idx_quotation_items_quotation",
+      "quotation_items",
+      "quotation_items_org_isolation"
+    ],
+    "alters": [
+      "quotation_items",
+      "quotations"
+    ],
+    "drops": [
+      "quotation_items_org_isolation"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "existing",
+      "itineraries",
+      "itinerary_items",
+      "itinerary_versions",
+      "organizations",
+      "quotation_items",
+      "quotations",
+      "supplier_services",
+      "suppliers"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260825100000_financial_truth_restore.sql",
+    "version": "20260825100000",
+    "creates": [
+      "recalc_reservation_financial_truth",
+      "trg_payment_financial_truth",
+      "trg_reservation_total_changed",
+      "trg_reservation_total_financial_truth",
+      "trg_update_reservation_paid_amount"
+    ],
+    "alters": [],
+    "drops": [
+      "trg_reservation_total_changed",
+      "trg_update_reservation_paid_amount"
+    ],
+    "functions_replaced": [
+      "recalc_reservation_financial_truth",
+      "trg_payment_financial_truth",
+      "trg_reservation_total_financial_truth"
+    ],
+    "referenced_tables": [
+      "NEW.reservation_id",
+      "NEW.total_amount",
+      "ON",
+      "OR",
+      "on",
+      "payments",
+      "reservations",
+      "v_paid_amount",
+      "v_total_amount"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260825103000_fix_overdue_index.sql",
+    "version": "20260825103000",
+    "creates": [
+      "idx_payments_overdue"
+    ],
+    "alters": [],
+    "drops": [
+      "idx_payments_overdue"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "030"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260825120000_passenger_group_integrity.sql",
+    "version": "20260825120000",
+    "creates": [],
+    "alters": [
+      "trip_passenger_group_members"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260825130000_accommodation_integrity.sql",
+    "version": "20260825130000",
+    "creates": [
+      "assign_passenger_to_room",
+      "move_passenger_room"
+    ],
+    "alters": [
+      "accommodation_assignments"
+    ],
+    "drops": [],
+    "functions_replaced": [
+      "assign_passenger_to_room",
+      "move_passenger_room"
+    ],
+    "referenced_tables": [
+      "accommodation_assignments",
+      "accommodation_buildings",
+      "accommodation_floors",
+      "accommodation_rooms",
+      "current",
+      "departure_passengers",
+      "v_assignment",
+      "v_building",
+      "v_existing",
+      "v_existing_id",
+      "v_occupied",
+      "v_passenger",
+      "v_room"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260825140000_source_fk_set_null.sql",
+    "version": "20260825140000",
+    "creates": [],
+    "alters": [
+      "itineraries"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "inquiries",
+      "prior"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260825150000_public_forms.sql",
+    "version": "20260825150000",
+    "creates": [
+      "idx_public_form_submissions_form",
+      "idx_public_form_submissions_inquiry",
+      "idx_public_forms_active",
+      "idx_public_forms_org",
+      "idx_public_forms_slug",
+      "org_isolation_public_form_submissions",
+      "org_isolation_public_forms",
+      "public.submit_public_form",
+      "public_form_submissions",
+      "public_forms"
+    ],
+    "alters": [
+      "inquiries",
+      "public_form_submissions",
+      "public_forms"
+    ],
+    "drops": [
+      "org_isolation_public_form_submissions",
+      "org_isolation_public_forms",
+      "public.submit_public_form"
+    ],
+    "functions_replaced": [
+      "public.submit_public_form"
+    ],
+    "referenced_tables": [
+      "active_form_id",
+      "auth.users",
+      "departures",
+      "inquiries",
+      "inquiry_id",
+      "organizations",
+      "packages",
+      "public_form_submissions",
+      "public_forms",
+      "submission_id"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260825160000_communication_columns_and_view_cleanup.sql",
+    "version": "20260825160000",
+    "creates": [],
+    "alters": [
+      "organizations"
+    ],
+    "drops": [
+      "departure_passenger_groups",
+      "that"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260826130000_batch_assign_seats.sql",
+    "version": "20260826130000",
+    "creates": [
+      "batch_update_seats_atomic"
+    ],
+    "alters": [],
+    "drops": [],
+    "functions_replaced": [
+      "batch_update_seats_atomic"
+    ],
+    "referenced_tables": [
+      "departure_passengers",
+      "existing",
+      "jsonb_to_recordset",
+      "rec"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260826155105_travline_p0_rls_and_rpc_hardening.sql",
+    "version": "20260826155105",
+    "creates": [
+      "accommodation_assignments_tenant",
+      "accommodation_buildings_tenant",
+      "accommodation_floors_tenant",
+      "accommodation_rooms_tenant",
+      "bus_seat_categories_tenant",
+      "campaigns_tenant",
+      "communication_history_tenant",
+      "message_templates_tenant",
+      "payment_links_tenant",
+      "public.get_my_org_id",
+      "public.get_my_role",
+      "role_permissions_read_authenticated"
+    ],
+    "alters": [
+      "public.accommodation_assignments",
+      "public.accommodation_buildings",
+      "public.accommodation_floors",
+      "public.accommodation_rooms",
+      "public.bus_seat_categories",
+      "public.campaigns",
+      "public.communication_history",
+      "public.message_templates",
+      "public.payment_links",
+      "public.role_permissions"
+    ],
+    "drops": [
+      "public.customers",
+      "public.packages",
+      "public.reservations"
+    ],
+    "functions_replaced": [
+      "public.get_my_org_id",
+      "public.get_my_role"
+    ],
+    "referenced_tables": [
+      "PUBLIC",
+      "anon",
+      "authenticated",
+      "pg_namespace",
+      "pg_proc",
+      "public.profiles",
+      "v_org_id",
+      "v_role"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 20
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260826155254_travline_p0_revoke_anon_public_schema.sql",
+    "version": "20260826155254",
+    "creates": [],
+    "alters": [],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "anon",
+      "pg_class",
+      "pg_namespace"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 2
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260826155342_travline_p1_schema_contract_and_function_hardening.sql",
+    "version": "20260826155342",
+    "creates": [
+      "clients_tenant",
+      "tours_tenant",
+      "trip_passenger_group_members_tenant",
+      "trip_passenger_groups_tenant"
+    ],
+    "alters": [
+      "public.hotels",
+      "public.profiles"
+    ],
+    "drops": [
+      "public.accommodation_assignments",
+      "public.accommodation_buildings",
+      "public.accommodation_floors",
+      "public.accommodation_rooms",
+      "public.trip_passenger_groups"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "auth.users",
+      "pg_namespace",
+      "pg_proc",
+      "public.profiles",
+      "public.trip_passenger_groups",
+      "unnest"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260826155408_travline_p0_server_only_data_api.sql",
+    "version": "20260826155408",
+    "creates": [],
+    "alters": [],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "authenticated",
+      "pg_class",
+      "pg_namespace"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 3
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260826155657_travline_p1_operational_integrity_guards.sql",
+    "version": "20260826155657",
+    "creates": [
+      "public.trg_sync_accommodation_bed_json",
+      "public.trg_validate_accommodation_assignment",
+      "sync_accommodation_bed_json",
+      "validate_accommodation_assignment"
+    ],
+    "alters": [
+      "public.accommodation_assignments",
+      "public.accommodation_buildings",
+      "public.accommodation_floors",
+      "public.accommodation_rooms",
+      "public.departure_passengers",
+      "public.departures",
+      "public.reservations"
+    ],
+    "drops": [
+      "sync_accommodation_bed_json",
+      "validate_accommodation_assignment"
+    ],
+    "functions_replaced": [
+      "public.trg_sync_accommodation_bed_json",
+      "public.trg_validate_accommodation_assignment"
+    ],
+    "referenced_tables": [
+      "OF",
+      "OR",
+      "jsonb_array_elements",
+      "public.accommodation_assignments",
+      "public.accommodation_buildings",
+      "public.accommodation_floors",
+      "public.accommodation_rooms",
+      "public.departure_passengers",
+      "public.departures",
+      "public.reservations",
+      "v_bed",
+      "v_occupied",
+      "v_passenger_departure",
+      "v_room_departure"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260826155720_travline_p2_fk_indexes_and_duplicate_cleanup.sql",
+    "version": "20260826155720",
+    "creates": [
+      "IF"
+    ],
+    "alters": [],
+    "drops": [
+      "public.idx_packages_is_active"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "pg_attribute",
+      "pg_class",
+      "pg_constraint",
+      "pg_index",
+      "pg_namespace",
+      "unnest",
+      "v_cols"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260826163412_p0_rls_and_rpc_hardening.sql",
+    "version": "20260826163412",
+    "creates": [
+      "tenant_access_accommodation_assignments",
+      "tenant_access_accommodation_buildings",
+      "tenant_access_accommodation_floors",
+      "tenant_access_accommodation_rooms",
+      "tenant_access_bus_seat_categories",
+      "tenant_access_campaigns",
+      "tenant_access_communication_history",
+      "tenant_access_message_templates",
+      "tenant_access_payment_links"
+    ],
+    "alters": [
+      "public.accommodation_assignments",
+      "public.accommodation_buildings",
+      "public.accommodation_floors",
+      "public.accommodation_rooms",
+      "public.bus_seat_categories",
+      "public.campaigns",
+      "public.communication_history",
+      "public.message_templates",
+      "public.payment_links",
+      "public.role_permissions"
+    ],
+    "drops": [
+      "public.customers",
+      "public.packages",
+      "public.reservations",
+      "tenant_access_accommodation_assignments",
+      "tenant_access_accommodation_buildings",
+      "tenant_access_accommodation_floors",
+      "tenant_access_accommodation_rooms",
+      "tenant_access_bus_seat_categories",
+      "tenant_access_campaigns",
+      "tenant_access_communication_history",
+      "tenant_access_message_templates",
+      "tenant_access_payment_links"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "anon",
+      "browser",
+      "client",
+      "live",
+      "public"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 40
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260826163517_restrict_api_only_tables.sql",
+    "version": "20260826163517",
+    "creates": [],
+    "alters": [],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "authenticated",
+      "live"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 19
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260826163545_deduplicate_api_only_rls_policies.sql",
+    "version": "20260826163545",
+    "creates": [],
+    "alters": [],
+    "drops": [
+      "if"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "live",
+      "pg_policies"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260826163605_consolidate_core_tenant_rls.sql",
+    "version": "20260826163605",
+    "creates": [
+      "tenant_customers",
+      "tenant_departures",
+      "tenant_packages",
+      "tenant_reservations",
+      "tenant_transactions"
+    ],
+    "alters": [],
+    "drops": [
+      "if"
+    ],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "anon",
+      "live",
+      "pg_policies"
+    ],
+    "rls_or_policies": true,
+    "grant_or_revoke_count": 6
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260827094252_rpc_audit_reconciliation.sql",
+    "version": "20260827094252",
+    "creates": [
+      "public.create_reservation_atomic",
+      "public.notify_upcoming_departures"
+    ],
+    "alters": [],
+    "drops": [],
+    "functions_replaced": [
+      "public.create_reservation_atomic",
+      "public.notify_upcoming_departures"
+    ],
+    "referenced_tables": [
+      "PUBLIC",
+      "departures",
+      "live",
+      "nid",
+      "notifications",
+      "packages",
+      "reservations",
+      "v_booked",
+      "v_reservation_id",
+      "v_result"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 12
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260827120000_fix_passenger_group_accommodation_pref_default.sql",
+    "version": "20260827120000",
+    "creates": [],
+    "alters": [
+      "public.trip_passenger_groups"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  },
+  {
+    "file": "nmt-analytics-api/supabase/migrations/20260827120500_add_primary_passenger_name_to_groups.sql",
+    "version": "20260827120500",
+    "creates": [],
+    "alters": [
+      "public.trip_passenger_groups"
+    ],
+    "drops": [],
+    "functions_replaced": [],
+    "referenced_tables": [
+      "each",
+      "public.departure_passengers",
+      "public.trip_passenger_group_members",
+      "public.trip_passenger_groups"
+    ],
+    "rls_or_policies": false,
+    "grant_or_revoke_count": 0
+  }
+]

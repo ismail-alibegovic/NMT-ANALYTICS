@@ -13,8 +13,4 @@ ALTER TABLE trip_passenger_group_members
 -- 2. FK on primary_passenger_id
 -- Before: plain UUID, no referential integrity
 -- After:  must reference a valid departure_passenger; NULLs allowed, SET NULL on delete
-ALTER TABLE trip_passenger_groups
-  ADD CONSTRAINT fk_group_primary_passenger
-    FOREIGN KEY (primary_passenger_id)
-    REFERENCES departure_passengers(id)
-    ON DELETE SET NULL;
+-- Production has no FK on primary_passenger_id; keep this denormalized reference unconstrained.

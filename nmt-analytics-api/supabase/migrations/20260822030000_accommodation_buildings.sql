@@ -55,17 +55,17 @@ CREATE INDEX IF NOT EXISTS idx_ar_org ON accommodation_rooms(org_id);
 ALTER TABLE accommodation_buildings ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "acc_buildings org isolation" ON accommodation_buildings;
 CREATE POLICY "acc_buildings org isolation" ON accommodation_buildings
-  FOR ALL USING (org_id = current_setting('request.jwt.claims', true)::jsonb->>'org_id');
+  FOR ALL USING (org_id = public.get_my_org_id());
 
 ALTER TABLE accommodation_floors ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "acc_floors org isolation" ON accommodation_floors;
 CREATE POLICY "acc_floors org isolation" ON accommodation_floors
-  FOR ALL USING (org_id = current_setting('request.jwt.claims', true)::jsonb->>'org_id');
+  FOR ALL USING (org_id = public.get_my_org_id());
 
 ALTER TABLE accommodation_rooms ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "acc_rooms org isolation" ON accommodation_rooms;
 CREATE POLICY "acc_rooms org isolation" ON accommodation_rooms
-  FOR ALL USING (org_id = current_setting('request.jwt.claims', true)::jsonb->>'org_id');
+  FOR ALL USING (org_id = public.get_my_org_id());
 
 -- Room assignments: which passenger is in which room/bed
 CREATE TABLE IF NOT EXISTS accommodation_assignments (
@@ -78,18 +78,17 @@ CREATE TABLE IF NOT EXISTS accommodation_assignments (
   bed_label TEXT,           -- e.g. "Bed A", null = room-level assignment
   group_id UUID REFERENCES trip_passenger_groups(id) ON DELETE SET NULL,
   assigned_by UUID,
-  assigned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (room_id, passenger_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_aa_room ON accommodation_assignments(room_id);
-CREATE INDEX IF NOT EXISTS idx_aa_passenger ON accommodation_assignments(passenger_id);
 CREATE INDEX IF NOT EXISTS idx_aa_org ON accommodation_assignments(org_id);
 
 ALTER TABLE accommodation_assignments ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "acc_assignments org isolation" ON accommodation_assignments;
 CREATE POLICY "acc_assignments org isolation" ON accommodation_assignments
-  FOR ALL USING (org_id = current_setting('request.jwt.claims', true)::jsonb->>'org_id');
+  FOR ALL USING (org_id = public.get_my_org_id());
 
 COMMENT ON TABLE accommodation_buildings IS 'Hotel, hostel, dormitory, apartment building';
 COMMENT ON TABLE accommodation_floors IS 'Floors within a building';

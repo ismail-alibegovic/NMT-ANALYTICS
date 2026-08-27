@@ -26,13 +26,15 @@ CREATE INDEX IF NOT EXISTS idx_dp_org ON departure_passengers(org_id);
 CREATE INDEX IF NOT EXISTS idx_dp_reservation ON departure_passengers(reservation_id);
 CREATE INDEX IF NOT EXISTS idx_dp_departure ON departure_passengers(departure_id);
 CREATE INDEX IF NOT EXISTS idx_dp_reservation_departure ON departure_passengers(reservation_id, departure_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_departure_passengers_seat ON departure_passengers(departure_id, seat_number) WHERE seat_number IS NOT NULL AND seat_number > 0;
 
 -- RLS: org isolation matching existing conventions
 ALTER TABLE departure_passengers ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "departure_passengers org isolation" ON departure_passengers;
 CREATE POLICY "departure_passengers org isolation" ON departure_passengers
-  FOR ALL USING (org_id = current_setting('request.jwt.claims', true)::jsonb->>'org_id')
-  WITH CHECK (org_id = current_setting('request.jwt.claims', true)::jsonb->>'org_id');
+  FOR ALL TO authenticated
+  USING (org_id = (SELECT public.get_my_org_id()))
+  WITH CHECK (org_id = (SELECT public.get_my_org_id()));
 
 -- Wire trip_passenger_group_members.passenger_id FK
 DO $$

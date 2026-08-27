@@ -43,7 +43,8 @@ CREATE INDEX IF NOT EXISTS idx_tpgm_reservation ON trip_passenger_group_members(
 ALTER TABLE trip_passenger_groups ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "trip_passenger_groups org isolation" ON trip_passenger_groups;
 CREATE POLICY "trip_passenger_groups org isolation" ON trip_passenger_groups
-  FOR ALL USING (org_id = current_setting('request.jwt.claims', true)::jsonb->>'org_id');
+  FOR ALL USING (org_id = public.get_my_org_id())
+  WITH CHECK (org_id = public.get_my_org_id());
 
 ALTER TABLE trip_passenger_group_members ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "trip_passenger_group_members org isolation" ON trip_passenger_group_members;
@@ -51,7 +52,13 @@ CREATE POLICY "trip_passenger_group_members org isolation" ON trip_passenger_gro
   FOR ALL USING (
     group_id IN (
       SELECT id FROM trip_passenger_groups
-      WHERE org_id = current_setting('request.jwt.claims', true)::jsonb->>'org_id'
+      WHERE org_id = public.get_my_org_id()
+    )
+  )
+  WITH CHECK (
+    group_id IN (
+      SELECT id FROM trip_passenger_groups
+      WHERE org_id = public.get_my_org_id()
     )
   );
 
@@ -78,3 +85,6 @@ CREATE TRIGGER trg_group_member_count
 COMMENT ON TABLE trip_passenger_groups IS 'Generic passenger group entity — shared across bus seating, hotel allocation, transfers, excursions.';
 COMMENT ON COLUMN trip_passenger_groups.seating_preference IS 'keep_together | prefer_together | no_preference';
 COMMENT ON COLUMN trip_passenger_groups.accommodation_preference IS 'same_room | adjacent_rooms | same_floor | nearby | no_preference';
+
+GRANT ALL ON public.trip_passenger_groups TO service_role;
+GRANT ALL ON public.trip_passenger_group_members TO service_role;

@@ -106,6 +106,41 @@ jobs:
 
       - run: npm test
 
+  migration-replay:
+    name: Migration Replay
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: travline_replay
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Replay Supabase migrations from zero
+        run: ./nmt-analytics-api/scripts/migration-replay.sh
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          MIGRATION_REPLAY_DB: travline_replay
+
   docker-build:
     name: Docker Build Check
     runs-on: ubuntu-latest

@@ -30,9 +30,9 @@ SELECT
   dp.seat_number,
   dp.passenger_group_name,
   dp.seat_category,
-  c.first_name,
-  c.last_name,
+  c.full_name as first_name,
+  NULL::text as last_name,
   r.party_size
 FROM departure_passengers dp
-LEFT JOIN customers c ON c.id = dp.customer_id
-LEFT JOIN reservations r ON r.id = dp.reservation_id;
+LEFT JOIN reservations r ON r.id = dp.reservation_id
+LEFT JOIN customers c ON c.id = r.customer_id;
