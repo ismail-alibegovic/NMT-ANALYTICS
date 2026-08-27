@@ -48,7 +48,11 @@ function makeQuery(table: string) {
       }
       return q
     },
-    eq: () => q,
+    eq: (col: string, val: any) => {
+      if (!q._eqs) q._eqs = [];
+      q._eqs.push(col, val);
+      return q;
+    },
     in: () => q,
     limit: () => q,
     order: () => q,
@@ -57,6 +61,21 @@ function makeQuery(table: string) {
         ? { data: null, error: q._insertError }
         : { data: insertedGroup, error: null },
   }
+
+  q.maybeSingle = async () => {
+    // For the tenant-safety DELETE test: resolve group only when
+    // org_id filter matches TEST_ORG (simulating cross-org rejection).
+    const eqVals = (q._eqs || []) as string[];
+    if (table === 'trip_passenger_groups') {
+      // eq order: ('id', <group>) then ('org_id', <org>)
+      const orgVal = eqVals[3];  // 0=id,1=value,2=org_id,3=org_value
+      if (orgVal === TEST_ORG || orgVal === undefined) {
+        return { data: { id: eqVals[1] || 'group-1', org_id: TEST_ORG, departure_id: DEPARTURE_ID }, error: null };
+      }
+      return { data: null, error: null };
+    }
+    return { data: null, error: null };
+  };
 
   // Terminal thenable for non-.single() awaits (validation + count queries).
   q.then = (resolve: (v: any) => void) => {
@@ -90,7 +109,7 @@ vi.mock('../middleware/authenticateToken', () => ({
 
 vi.mock('../middleware/requireOrgContext', () => ({
   requireOrgContext: (req: Request, _res: Response, next: NextFunction) => {
-    ;(req as any).orgId = TEST_ORG
+    ;(req as any).orgId = (req.headers['x-org-id'] as string) || TEST_ORG
     next()
   },
 }))
@@ -133,3 +152,18 @@ describe('POST /departures/:departureId/passenger-groups', () => {
     expect(insertedGroup!.accommodation_preference).toBe('same_room')
   })
 })
+
+describe('DELETE /passenger-groups/:id/members/:memberId - tenant safety', () => {
+  const ORG_B = '33333333-3333-3333-3333-333333333333';
+  const GROUP_ID = 'group-org-a';
+  const MEMBER_ID = PAX_A;
+
+  it('org A must not be able to delete membership from org B group', async () => {
+    const app = await buildApp();
+    const res = await request(app)
+      .delete(`/api/passenger-groups/${GROUP_ID}/members/${MEMBER_ID}`)
+      .set('x-org-id', ORG_B);
+    // maybeSingle tracks eq filters: org_id === ORG_B → no match → null → 404
+    expect(res.status).toBe(404);
+  });
+});

@@ -27,6 +27,10 @@ const sendSchema = targetSchema.extend({
   subject: z.string().trim().max(200).optional(),
   body: z.string().trim().min(1).max(5000),
   confirm: z.boolean().optional().default(false),
+}).superRefine(function enforceSmsMax(data: any, ctx: any) {
+  if (data.channel === 'sms' && data.body && data.body.length > 320) {
+    ctx.addIssue({ code: 'custom', message: 'SMS body must not exceed 320 characters', path: ['body'] });
+  }
 });
 
 function mapDeliveryError(message: string | undefined): { status: number; code: string } | null {

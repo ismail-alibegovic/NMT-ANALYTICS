@@ -186,3 +186,16 @@ describe('POST /api/communication/send', () => {
     expect(sendSmsMock).toHaveBeenCalledTimes(1);
   });
 });
+
+  it('SMS > 320 chars ⇒ 400 VALIDATION_ERROR and sender not called', async () => {
+    resolveRecipientsMock.mockResolvedValue(
+      resolution({ channel: 'sms', recipients: [{ contact: '+38761000001', name: null, passengerId: null, reservationId: null, departureId: null }] }),
+    );
+    const body = 'A'.repeat(321);
+    const res = await request(app)
+      .post('/api/communication/send')
+      .send({ channel: 'sms', targetType: 'direct', phone: '+38761000001', body });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(sendSmsMock).not.toHaveBeenCalled();
+  });

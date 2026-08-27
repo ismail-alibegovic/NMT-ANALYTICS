@@ -212,3 +212,11 @@ describe('recipientResolver — departure', () => {
     ).rejects.toBeInstanceOf(RecipientTargetNotFoundError);
   });
 });
+
+describe('recipientResolver — group departure_id safety', () => {
+  it('same org, group on departure A, membership points to passenger from departure B — NOT sendable', async () => {
+    await expect(
+      resolveRecipients({ orgId: ORG_A, channel: 'email', targetType: 'passenger_group', targetId: 'gp-cross-dep' }),
+    ).rejects.toBeInstanceOf(RecipientTargetNotFoundError);
+  });
+});

@@ -319,6 +319,18 @@ router.delete(
       const { id, memberId } = req.params;
       const orgId = req.orgId!;
 
+      // Verify group belongs to req.orgId before deleting member
+      const { data: group } = await supabaseAdmin
+        .from('trip_passenger_groups')
+        .select('id')
+        .eq('id', id)
+        .eq('org_id', orgId)
+        .maybeSingle();
+
+      if (!group) {
+        return apiError(res, 404, 'NOT_FOUND', 'Passenger group not found');
+      }
+
       const { error } = await supabaseAdmin
         .from('trip_passenger_group_members')
         .delete()

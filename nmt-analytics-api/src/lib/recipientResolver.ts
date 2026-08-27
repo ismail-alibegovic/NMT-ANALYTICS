@@ -184,11 +184,17 @@ async function candidatesForPassenger(orgId: string, passengerId: string): Promi
 
 async function passengerCandidates(orgId: string, passengerIds: string[], departureId: string | null): Promise<Candidate[]> {
   if (passengerIds.length === 0) return [];
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('departure_passengers')
     .select('id, org_id, departure_id, reservation_id, full_name, email, phone')
     .eq('org_id', orgId)
     .in('id', passengerIds);
+
+  if (departureId) {
+    query = query.eq('departure_id', departureId);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return (data || []).map((p: any) => ({
