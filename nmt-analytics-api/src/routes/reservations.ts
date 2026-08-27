@@ -455,7 +455,6 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
             .insert({
               org_id: orgId,
               departure_id: departureId,
-              reservation_id: reservation.id,
               name: group_name || (rest.customerName ? rest.customerName + ' Grupa' : 'Grupa putnika'),
               color: groupColor,
               primary_passenger_name: createdPassengers[0]?.full_name || null,

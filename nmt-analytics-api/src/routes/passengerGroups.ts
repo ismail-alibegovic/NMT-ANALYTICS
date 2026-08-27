@@ -249,7 +249,7 @@ router.post(
       // Verify group belongs to org + fetch departure_id for cross-departure check
       const { data: group } = await supabaseAdmin
         .from('trip_passenger_groups')
-        .select('id, departure_id, reservation_id')
+        .select('id, departure_id')
         .eq('id', id)
         .eq('org_id', orgId)
         .single();
