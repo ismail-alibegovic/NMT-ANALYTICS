@@ -658,14 +658,14 @@ export default function DepartureDetail() {
           className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-gray-400 dark:hover:text-white"
         >
           <ChevronLeftIcon className="size-4" aria-hidden="true" />
-          Svi polasci
+          {t.departure.allDepartures}
         </button>
 
         <section className="mb-6 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-600 dark:text-brand-400">Radni prostor putovanja</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-600 dark:text-brand-400">{t.departure.travelWorkspace}</span>
                 {statusBadge(departure.status)}
               </div>
               <h1 className="text-2xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-3xl">{departure.packageName}</h1>
@@ -684,25 +684,25 @@ export default function DepartureDetail() {
                 </span>
                 <span className="inline-flex items-center gap-2">
                   <PlugInIcon className="size-4 text-gray-400" aria-hidden="true" />
-                  {capabilities?.hasFlight ? "Avionski prevoz" : capabilities?.hasBusTransport ? "Autobuski prevoz" : "Transport nije definisan"}
+                  {capabilities?.hasFlight ? t.departure.airTransport : capabilities?.hasBusTransport ? t.departure.busTransport : t.departure.noTransportDefined}
                 </span>
               </div>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
               <Button variant="outline" size="sm" onClick={() => setActiveTab("passengers")} className="justify-center gap-2">
-                <GroupIcon className="size-4" aria-hidden="true" /> Putnička lista
+                <GroupIcon className="size-4" aria-hidden="true" /> {t.departure.passengerList}
               </Button>
               <Button size="sm" onClick={() => navigate(`/reservations?departureId=${departure.id}`)} className="justify-center gap-2">
-                <ListIcon className="size-4" aria-hidden="true" /> Rezervacije
+                <ListIcon className="size-4" aria-hidden="true" /> {t.departure.reservationsBtn}
               </Button>
             </div>
           </div>
 
           <div className="grid border-t border-gray-200 dark:border-gray-800 sm:grid-cols-2 xl:grid-cols-4">
-            <WorkspaceMetric icon={GroupIcon} label="Putnici" value={`${totalGuests}`} detail={`${confirmedGuests} potvrđeno`} />
-            <WorkspaceMetric icon={DollarLineIcon} label="Naplaćeno" value={formatCurrency(totalPaid, currency)} detail={totalDebt > 0 ? `${formatCurrency(totalDebt, currency)} duga` : "Bez duga"} attention={totalDebt > 0} />
-            {capabilities?.hasAccommodation && <WorkspaceMetric icon={BoxIcon} label="Smještaj" value={`${hotelGroups.length}`} detail={allocations.length > 0 ? `${allocations.length} alokacija` : "Bez alokacije"} attention={allocations.length === 0} />}
-            <WorkspaceMetric icon={ListIcon} label="Operativna spremnost" value={`${readinessPct}%`} detail={`${readyCount} od ${readinessItems.length} stavki spremno`} attention={readinessPct < 100} />
+            <WorkspaceMetric icon={GroupIcon} label={t.departure.metricPassengers} value={`${totalGuests}`} detail={t.departure.metricConfirmedSuffix.replace("{n}", String(confirmedGuests))} />
+            <WorkspaceMetric icon={DollarLineIcon} label={t.departure.metricCollected} value={formatCurrency(totalPaid, currency)} detail={totalDebt > 0 ? t.departure.metricDebtSuffix.replace("{amount}", formatCurrency(totalDebt, currency)) : t.departure.metricNoDebt} attention={totalDebt > 0} />
+            {capabilities?.hasAccommodation && <WorkspaceMetric icon={BoxIcon} label={t.departure.metricAccommodation} value={`${hotelGroups.length}`} detail={allocations.length > 0 ? t.departure.metricAllocationsSuffix.replace("{n}", String(allocations.length)) : t.departure.metricNoAllocation} attention={allocations.length === 0} />}
+            <WorkspaceMetric icon={ListIcon} label={t.departure.metricReadiness} value={`${readinessPct}%`} detail={t.departure.metricReadySuffix.replace("{ready}", String(readyCount)).replace("{total}", String(readinessItems.length))} attention={readinessPct < 100} />
           </div>
         </section>
 
@@ -728,7 +728,7 @@ export default function DepartureDetail() {
               <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="font-semibold text-gray-950 dark:text-white">Operativna spremnost</h2>
+                    <h2 className="font-semibold text-gray-950 dark:text-white">{t.departure.metricReadiness}</h2>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Stvarno stanje ključnih priprema za ovaj polazak.</p>
                   </div>
                   <div className="flex items-center gap-3">
