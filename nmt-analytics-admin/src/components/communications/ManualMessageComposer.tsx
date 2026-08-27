@@ -4,6 +4,7 @@ import Input from '../form/input/InputField';
 import Label from '../form/Label';
 import Select from '../form/Select';
 import { getMessageTemplates, type MessageTemplate } from '../../api/messageTemplates';
+import { useT } from '../../lib/i18n/context';
 
 type ManualMessagePayload =
   | {
@@ -31,6 +32,8 @@ export default function ManualMessageComposer({
   onSend,
   onSent,
 }: ManualMessageComposerProps) {
+  const { t } = useT();
+  const c = t.communication.composer;
   const [channel, setChannel] = useState<'email' | 'sms'>(initialEmail ? 'email' : 'sms');
   const [recipient, setRecipient] = useState(initialEmail || initialPhone || '');
   const [subject, setSubject] = useState('');
@@ -87,12 +90,12 @@ export default function ManualMessageComposer({
       } else {
         await onSend({ channel, recipient, body });
       }
-      setSuccess(channel === 'email' ? 'Email sent.' : 'SMS sent.');
+      setSuccess(channel === 'email' ? c.emailSent : c.smsSent);
       setBody('');
       if (channel === 'email') setSubject('');
       onSent?.();
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Failed to send message.');
+      setError(err?.response?.data?.message || err?.message || c.sendError);
     } finally {
       setSending(false);
     }
@@ -101,13 +104,13 @@ export default function ManualMessageComposer({
   return (
     <section className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
-        <h3 className="font-semibold text-gray-950 dark:text-white">Pošalji poruku</h3>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Jedna ručna email ili SMS poruka za trenutni kontekst.</p>
+        <h3 className="font-semibold text-gray-950 dark:text-white">{c.title}</h3>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{c.subtitle}</p>
       </div>
       <div className="space-y-4 p-5 sm:p-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <Label>Kanal</Label>
+            <Label>{c.channel}</Label>
             <Select
               options={[
                 { value: 'email', label: 'Email' },
@@ -118,16 +121,16 @@ export default function ManualMessageComposer({
             />
           </div>
           <div>
-            <Label>Primaoc</Label>
+            <Label>{c.recipient}</Label>
             <Input value={recipient} onChange={(e) => setRecipient(e.target.value)} />
           </div>
         </div>
 
         <div>
-          <Label>Template</Label>
+          <Label>{c.template}</Label>
           <Select
             options={[
-              { value: '', label: 'No template' },
+              { value: '', label: c.noTemplate },
               ...templates.map((template) => ({ value: template.id, label: template.name })),
             ]}
             value={selectedTemplateId}
@@ -137,13 +140,13 @@ export default function ManualMessageComposer({
 
         {channel === 'email' && (
           <div>
-            <Label>Naslov</Label>
+            <Label>{c.subject}</Label>
             <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
           </div>
         )}
 
         <div>
-          <Label>Poruka</Label>
+          <Label>{c.message}</Label>
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
@@ -157,7 +160,7 @@ export default function ManualMessageComposer({
 
         <div className="flex justify-end">
           <Button size="sm" onClick={() => void submit()} disabled={sending}>
-            {sending ? 'Slanje...' : 'Pošalji'}
+            {sending ? c.sending : c.send}
           </Button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { DataTable, Column } from "../ui/DataTable";
 import Select from "../form/Select";
+import { useT } from "../../lib/i18n/context";
 import {
   CommunicationChannel,
   CommunicationHistoryItem,
@@ -32,12 +33,6 @@ const statusTone: Record<CommunicationStatus, string> = {
   skipped: "text-warning-600 dark:text-warning-400",
 };
 
-const statusLabel: Record<CommunicationStatus, string> = {
-  sent: "Sent",
-  failed: "Failed",
-  skipped: "Skipped",
-};
-
 const channelLabel: Record<CommunicationChannel, string> = {
   email: "Email",
   sms: "SMS",
@@ -46,13 +41,21 @@ const channelLabel: Record<CommunicationChannel, string> = {
 export default function CommunicationHistoryPanel({
   relatedDepartureId,
   relatedReservationId,
-  title = "Communication history",
+  title,
   refreshKey = 0,
 }: CommunicationHistoryPanelProps) {
+  const { t } = useT();
+  const c = t.communication.history;
   const [items, setItems] = useState<CommunicationHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [channel, setChannel] = useState<CommunicationChannel | "">("");
   const [status, setStatus] = useState<CommunicationStatus | "">("");
+
+  const statusLabel: Record<CommunicationStatus, string> = {
+    sent: c.statusSent,
+    failed: c.statusFailed,
+    skipped: c.statusSkipped,
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -84,7 +87,7 @@ export default function CommunicationHistoryPanel({
   const columns: Column<CommunicationHistoryItem>[] = useMemo(() => [
     {
       key: "created_at",
-      header: "Date",
+      header: c.colDate,
       render: (_value, item) => (
         <div className="min-w-[140px]">
           <div className="font-medium text-gray-900 dark:text-white">{formatDateTime(item.sent_at || item.created_at)}</div>
@@ -94,7 +97,7 @@ export default function CommunicationHistoryPanel({
     },
     {
       key: "channel",
-      header: "Channel",
+      header: c.colChannel,
       render: (value) => (
         <span className="font-medium text-gray-700 dark:text-gray-200">
           {channelLabel[value as CommunicationChannel] || String(value || "—")}
@@ -103,7 +106,7 @@ export default function CommunicationHistoryPanel({
     },
     {
       key: "recipient",
-      header: "Recipient",
+      header: c.colRecipient,
       render: (value, item) => (
         <div className="min-w-[220px]">
           <div className="font-medium text-gray-900 dark:text-white">{String(value || "—")}</div>
@@ -117,7 +120,7 @@ export default function CommunicationHistoryPanel({
     },
     {
       key: "status",
-      header: "Status",
+      header: c.colStatus,
       render: (value, item) => (
         <div className="min-w-[140px]">
           <div className={`font-medium ${statusTone[value as CommunicationStatus] || "text-gray-600 dark:text-gray-300"}`}>
@@ -131,38 +134,38 @@ export default function CommunicationHistoryPanel({
     },
     {
       key: "context",
-      header: "Related",
+      header: c.colRelated,
       render: (_value, item) => (
         <div className="min-w-[180px] text-xs text-gray-500 dark:text-gray-400">
           {item.departures ? (
             <div>
-              Departure: {item.departures.packages?.name || item.departures.id.slice(0, 8)}
+              {c.departure}: {item.departures.packages?.name || item.departures.id.slice(0, 8)}
             </div>
           ) : null}
           {item.reservations ? (
             <div>
-              Reservation: {item.reservations.customer_name || item.reservations.id.slice(0, 8)}
+              {c.reservation}: {item.reservations.customer_name || item.reservations.id.slice(0, 8)}
             </div>
           ) : null}
           {!item.departures && !item.reservations ? "—" : null}
         </div>
       ),
     },
-  ], []);
+  ], [c]);
 
   return (
     <section className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="font-semibold text-gray-950 dark:text-white">{title}</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Newest first. Read-only delivery history.</p>
+            <h3 className="font-semibold text-gray-950 dark:text-white">{title || c.title}</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{c.subtitle}</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="min-w-[140px]">
               <Select
                 options={[
-                  { value: "", label: "All channels" },
+                  { value: "", label: c.allChannels },
                   { value: "email", label: "Email" },
                   { value: "sms", label: "SMS" },
                 ]}
@@ -173,10 +176,10 @@ export default function CommunicationHistoryPanel({
             <div className="min-w-[140px]">
               <Select
                 options={[
-                  { value: "", label: "All statuses" },
-                  { value: "sent", label: "Sent" },
-                  { value: "failed", label: "Failed" },
-                  { value: "skipped", label: "Skipped" },
+                  { value: "", label: c.allStatuses },
+                  { value: "sent", label: c.statusSent },
+                  { value: "failed", label: c.statusFailed },
+                  { value: "skipped", label: c.statusSkipped },
                 ]}
                 defaultValue={status}
                 onChange={(value: string) => setStatus((value || "") as CommunicationStatus | "")}
@@ -190,7 +193,7 @@ export default function CommunicationHistoryPanel({
           data={items}
           columns={columns}
           loading={loading}
-          emptyMessage="No communication history for the current filters."
+          emptyMessage={c.empty}
         />
       </div>
     </section>

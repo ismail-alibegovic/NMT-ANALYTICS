@@ -847,7 +847,6 @@ export default function DepartureDetail() {
               </div>
               <CommunicationHistoryPanel
                 relatedDepartureId={departure.id}
-                title="Communication history"
                 refreshKey={historyRefreshKey}
               />
             </div>
