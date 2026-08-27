@@ -547,13 +547,18 @@ export default function DepartureDetail() {
     setPaxSaving(true);
     setPaxError(null);
     try {
-      await updateDeparturePassenger(targetPassenger.id, {
+      const payload: Record<string, string> = {
         full_name: paxForm.full_name.trim(),
-        phone: paxForm.phone?.trim() || null,
-        email: paxForm.email?.trim() || null,
-        nationality: paxForm.nationality?.trim() || null,
-        date_of_birth: paxForm.date_of_birth || null,
-      });
+      };
+      const phone = paxForm.phone?.trim();
+      const email = paxForm.email?.trim();
+      const nationality = paxForm.nationality?.trim();
+      const dateOfBirth = paxForm.date_of_birth?.trim();
+      if (phone) payload.phone = phone;
+      if (email) payload.email = email;
+      if (nationality) payload.nationality = nationality;
+      if (dateOfBirth) payload.date_of_birth = dateOfBirth;
+      await updateDeparturePassenger(targetPassenger.id, payload);
       const fresh = await getDeparturePassengers(id!);
       setManifest(fresh);
       setShowEditModal(false);
