@@ -1,122 +1,123 @@
--- ⚠️ RESTORED FROM LIVE: This version was recorded in supabase_migrations.schema_migrations
--- as 20260826163412 (vs the repository 20260826155105). The logical migration content is
--- identical — only the application timestamp differs.
---
--- This file documents the live migration history. On a fresh database, 20260826155105
--- applies the actual changes first; this migration is idempotent and safely re-asserts
--- the same state without errors.
+-- Restored from live Supabase migration history for project hacutwknfgufrqlgdiia.
+-- Do not replay manually in production; this version is already recorded as applied.
 
--- Re-assert helper functions (CREATE OR REPLACE is safe).
-CREATE OR REPLACE FUNCTION public.get_my_org_id()
-RETURNS uuid
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-DECLARE
-  v_org_id uuid;
-BEGIN
-  SET LOCAL row_security = off;
-  SELECT p.org_id INTO v_org_id
-  FROM public.profiles p
-  WHERE p.id = auth.uid()
-  LIMIT 1;
-  RETURN v_org_id;
-END;
-$$;
+begin;
 
-CREATE OR REPLACE FUNCTION public.get_my_role()
-RETURNS text
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-DECLARE
-  v_role text;
-BEGIN
-  SET LOCAL row_security = off;
-  SELECT p.role INTO v_role
-  FROM public.profiles p
-  WHERE p.id = auth.uid()
-  LIMIT 1;
-  RETURN v_role;
-END;
-$$;
+-- 1) Enable RLS on tenant-scoped tables that were exposed through the Data API.
+alter table public.accommodation_buildings enable row level security;
+alter table public.accommodation_floors enable row level security;
+alter table public.accommodation_rooms enable row level security;
+alter table public.accommodation_assignments enable row level security;
+alter table public.bus_seat_categories enable row level security;
+alter table public.campaigns enable row level security;
+alter table public.communication_history enable row level security;
+alter table public.message_templates enable row level security;
+alter table public.payment_links enable row level security;
+alter table public.role_permissions enable row level security;
 
-REVOKE EXECUTE ON FUNCTION public.get_my_org_id() FROM PUBLIC, anon;
-REVOKE EXECUTE ON FUNCTION public.get_my_role() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.get_my_org_id() TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.get_my_role() TO authenticated, service_role;
+-- Remove any stale policies with our canonical names before recreating them.
+drop policy if exists tenant_access_accommodation_buildings on public.accommodation_buildings;
+drop policy if exists tenant_access_accommodation_floors on public.accommodation_floors;
+drop policy if exists tenant_access_accommodation_rooms on public.accommodation_rooms;
+drop policy if exists tenant_access_accommodation_assignments on public.accommodation_assignments;
+drop policy if exists tenant_access_bus_seat_categories on public.bus_seat_categories;
+drop policy if exists tenant_access_campaigns on public.campaigns;
+drop policy if exists tenant_access_communication_history on public.communication_history;
+drop policy if exists tenant_access_message_templates on public.message_templates;
+drop policy if exists tenant_access_payment_links on public.payment_links;
 
--- Re-assert RLS (idempotent).
-ALTER TABLE public.communication_history ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.message_templates ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.campaigns ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.accommodation_buildings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.bus_seat_categories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.departure_passengers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.departure_passenger_groups ENABLE ROW LEVEL SECURITY;
+create policy tenant_access_accommodation_buildings on public.accommodation_buildings
+  for all to authenticated
+  using (org_id = (select public.get_my_org_id()))
+  with check (org_id = (select public.get_my_org_id()));
+create policy tenant_access_accommodation_floors on public.accommodation_floors
+  for all to authenticated
+  using (org_id = (select public.get_my_org_id()))
+  with check (org_id = (select public.get_my_org_id()));
+create policy tenant_access_accommodation_rooms on public.accommodation_rooms
+  for all to authenticated
+  using (org_id = (select public.get_my_org_id()))
+  with check (org_id = (select public.get_my_org_id()));
+create policy tenant_access_accommodation_assignments on public.accommodation_assignments
+  for all to authenticated
+  using (org_id = (select public.get_my_org_id()))
+  with check (org_id = (select public.get_my_org_id()));
+create policy tenant_access_bus_seat_categories on public.bus_seat_categories
+  for all to authenticated
+  using (org_id = (select public.get_my_org_id()))
+  with check (org_id = (select public.get_my_org_id()));
+create policy tenant_access_campaigns on public.campaigns
+  for all to authenticated
+  using (org_id = (select public.get_my_org_id()))
+  with check (org_id = (select public.get_my_org_id()));
+create policy tenant_access_communication_history on public.communication_history
+  for all to authenticated
+  using (org_id = (select public.get_my_org_id()))
+  with check (org_id = (select public.get_my_org_id()));
+create policy tenant_access_message_templates on public.message_templates
+  for all to authenticated
+  using (org_id = (select public.get_my_org_id()))
+  with check (org_id = (select public.get_my_org_id()));
+create policy tenant_access_payment_links on public.payment_links
+  for all to authenticated
+  using (org_id = (select public.get_my_org_id()))
+  with check (org_id = (select public.get_my_org_id()));
 
-REVOKE ALL ON TABLE public.communication_history FROM anon;
-REVOKE ALL ON TABLE public.message_templates FROM anon;
-REVOKE ALL ON TABLE public.campaigns FROM anon;
+-- role_permissions is global authorization metadata: never expose it through client roles.
+revoke all on table public.role_permissions from anon, authenticated;
+revoke all on table public.role_permissions from public;
 
--- Re-assert RLS policies idempotently.
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'communication_history_tenant' AND tablename = 'communication_history') THEN
-    CREATE POLICY communication_history_tenant ON public.communication_history
-    FOR ALL TO authenticated USING (org_id = (SELECT public.get_my_org_id()))
-    WITH CHECK (org_id = (SELECT public.get_my_org_id()));
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'message_templates_tenant' AND tablename = 'message_templates') THEN
-    CREATE POLICY message_templates_tenant ON public.message_templates
-    FOR ALL TO authenticated USING (org_id = (SELECT public.get_my_org_id()))
-    WITH CHECK (org_id = (SELECT public.get_my_org_id()));
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'campaigns_tenant' AND tablename = 'campaigns') THEN
-    CREATE POLICY campaigns_tenant ON public.campaigns
-    FOR ALL TO authenticated USING (org_id = (SELECT public.get_my_org_id()))
-    WITH CHECK (org_id = (SELECT public.get_my_org_id()));
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'accommodation_buildings_tenant' AND tablename = 'accommodation_buildings') THEN
-    CREATE POLICY accommodation_buildings_tenant ON public.accommodation_buildings
-    FOR ALL TO authenticated USING (org_id = (SELECT public.get_my_org_id()))
-    WITH CHECK (org_id = (SELECT public.get_my_org_id()));
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'bus_seat_categories_tenant' AND tablename = 'bus_seat_categories') THEN
-    CREATE POLICY bus_seat_categories_tenant ON public.bus_seat_categories
-    FOR ALL TO authenticated USING (org_id = (SELECT public.get_my_org_id()))
-    WITH CHECK (org_id = (SELECT public.get_my_org_id()));
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'departure_passengers_tenant' AND tablename = 'departure_passengers') THEN
-    CREATE POLICY departure_passengers_tenant ON public.departure_passengers
-    FOR ALL TO authenticated USING (org_id = (SELECT public.get_my_org_id()))
-    WITH CHECK (org_id = (SELECT public.get_my_org_id()));
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'departure_passenger_groups_tenant' AND tablename = 'departure_passenger_groups') THEN
-    CREATE POLICY departure_passenger_groups_tenant ON public.departure_passenger_groups
-    FOR ALL TO authenticated USING (org_id = (SELECT public.get_my_org_id()))
-    WITH CHECK (org_id = (SELECT public.get_my_org_id()));
-  END IF;
-END
-$$;
+-- Explicitly deny anonymous access to all newly protected tenant tables.
+revoke all on table public.accommodation_buildings from anon;
+revoke all on table public.accommodation_floors from anon;
+revoke all on table public.accommodation_rooms from anon;
+revoke all on table public.accommodation_assignments from anon;
+revoke all on table public.bus_seat_categories from anon;
+revoke all on table public.campaigns from anon;
+revoke all on table public.communication_history from anon;
+revoke all on table public.message_templates from anon;
+revoke all on table public.payment_links from anon;
 
-DO $$
-DECLARE
-  r record;
-BEGIN
-  FOR r IN
-    SELECT p.oid::regprocedure AS fn
-    FROM pg_proc p
-    JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public' AND p.prosecdef
-  LOOP
-    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon, authenticated', r.fn);
-    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role', r.fn);
-  END LOOP;
-END
-$$;
+-- Authenticated users may use these tables only through tenant RLS policies.
+grant select, insert, update, delete on table public.accommodation_buildings to authenticated;
+grant select, insert, update, delete on table public.accommodation_floors to authenticated;
+grant select, insert, update, delete on table public.accommodation_rooms to authenticated;
+grant select, insert, update, delete on table public.accommodation_assignments to authenticated;
+grant select, insert, update, delete on table public.bus_seat_categories to authenticated;
+grant select, insert, update, delete on table public.campaigns to authenticated;
+grant select, insert, update, delete on table public.communication_history to authenticated;
+grant select, insert, update, delete on table public.message_templates to authenticated;
+grant select, insert, update, delete on table public.payment_links to authenticated;
 
-GRANT EXECUTE ON FUNCTION public.get_my_org_id() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_my_role() TO authenticated;
+-- 2) Remove legacy permissive INSERT policies that bypass tenant isolation.
+drop policy if exists "Allow Insert for Authenticated" on public.reservations;
+drop policy if exists "Allow Insert for Authenticated" on public.customers;
+drop policy if exists "Allow Insert for Authenticated" on public.packages;
+
+-- 3) Lock down global permission helper from client execution.
+revoke execute on function public.has_permission(text,text,text) from public, anon, authenticated;
+grant execute on function public.has_permission(text,text,text) to service_role;
+
+-- 4) SECURITY DEFINER RPCs must not trust caller supplied org ids from browser roles.
+-- Keep them available to the API's service-role client only.
+revoke execute on function public.batch_update_seats_atomic(uuid,uuid,jsonb) from public, anon, authenticated;
+revoke execute on function public.create_reservation_atomic(uuid,uuid,jsonb,integer,text) from public, anon, authenticated;
+revoke execute on function public.get_dashboard_stats(uuid,timestamptz,timestamptz) from public, anon, authenticated;
+revoke execute on function public.get_reports_summary(uuid,timestamptz,timestamptz) from public, anon, authenticated;
+revoke execute on function public.get_revenue_analytics(uuid,timestamptz,timestamptz) from public, anon, authenticated;
+revoke execute on function public.get_revenue_by_day(uuid,timestamptz,timestamptz) from public, anon, authenticated;
+revoke execute on function public.get_total_revenue(uuid,timestamptz,timestamptz) from public, anon, authenticated;
+revoke execute on function public.increment_booked(uuid,integer) from public, anon, authenticated;
+revoke execute on function public.reserve_capacity_atomic(uuid,uuid,integer) from public, anon, authenticated;
+
+grant execute on function public.batch_update_seats_atomic(uuid,uuid,jsonb) to service_role;
+grant execute on function public.create_reservation_atomic(uuid,uuid,jsonb,integer,text) to service_role;
+grant execute on function public.get_dashboard_stats(uuid,timestamptz,timestamptz) to service_role;
+grant execute on function public.get_reports_summary(uuid,timestamptz,timestamptz) to service_role;
+grant execute on function public.get_revenue_analytics(uuid,timestamptz,timestamptz) to service_role;
+grant execute on function public.get_revenue_by_day(uuid,timestamptz,timestamptz) to service_role;
+grant execute on function public.get_total_revenue(uuid,timestamptz,timestamptz) to service_role;
+grant execute on function public.increment_booked(uuid,integer) to service_role;
+grant execute on function public.reserve_capacity_atomic(uuid,uuid,integer) to service_role;
+
+commit;

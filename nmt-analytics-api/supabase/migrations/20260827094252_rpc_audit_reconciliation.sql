@@ -1,5 +1,5 @@
--- ⚠️ RESTORED FROM LIVE: Applied to production with this timestamp instead of 20260827094121.
--- Content is identical to the local 20260827094121 version.
+-- Restored from live Supabase migration history for project hacutwknfgufrqlgdiia.
+-- Do not replay manually in production; this version is already recorded as applied.
 
 CREATE OR REPLACE FUNCTION public.create_reservation_atomic(
   p_org_id uuid,
