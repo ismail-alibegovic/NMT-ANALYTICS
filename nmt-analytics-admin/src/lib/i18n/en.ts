@@ -290,7 +290,8 @@ export const en = {
   },
   customers: {
     title: 'Clients', description: 'Manage your clients',
-    add: 'Add Client', edit: 'Edit Client', fullName: 'Full Name',
+    add: 'Add Client', edit: 'Edit Client',     fullName: 'Full Name',
+    partySize: 'Party Size',
     phone: 'Phone', email: 'Email', notes: 'Notes',
     totalReservations: 'Total Reservations', totalSpent: 'Total Spent',
     noCustomers: 'No clients found', search: 'Search clients...',
@@ -952,6 +953,7 @@ export const en = {
     deletePassenger: 'Remove Passenger',
     passengerDetails: 'Passenger Details',
     fullName: 'Full Name',
+     partySize: 'Party size',
     fullNamePlaceholder: 'e.g. Amina Hodžić',
     phonePlaceholder: 'e.g. +387 61 123 456',
     emailPlaceholder: 'e.g. amina@example.com',

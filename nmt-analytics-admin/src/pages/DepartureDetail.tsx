@@ -476,6 +476,26 @@ export default function DepartureDetail() {
 
   const allPassengerCols = enhancedPassengerCols;
 
+  // Lightweight columns for the grouped "Razvrstavanje" table. The /groups endpoint
+  // returns passenger rows shaped as { name, phone, partySize, roomType, hotel } —
+  // NOT the manifest shape — so the full manifest columns (fullName/reservationId/
+  // paidAmount) rendered "undefined". These columns read the actual fields.
+  const groupPassengerCols: Column<any>[] = [
+    { key: "name", header: t.departure.fullName, render: (v) => <span className="font-medium dark:text-white">{v ? String(v) : "—"}</span> },
+    { key: "phone", header: "Telefon", render: (v) => v ? <span className="text-gray-600 dark:text-gray-300">{String(v)}</span> : <span className="text-gray-400">—</span> },
+    { key: "partySize", header: t.departure.partySize, render: (v) => <span className="text-gray-600 dark:text-gray-300">{Number(v) || 1}</span> },
+    {
+      key: "roomType",
+      header: t.departure.room,
+      render: (v, item: any) => v ? (
+        <span className="text-xs">
+          <Badge color="light" size="sm">{String(v)}</Badge>
+          {item.hotel && <span className="ml-1 text-gray-400">{String(item.hotel)}</span>}
+        </span>
+      ) : <span className="text-xs text-gray-400">{t.departure.noRoom}</span>,
+    },
+  ];
+
   // Quick filters - combine doc readiness with unseated/noRoom
   const quickFiltered = useMemo(() => {
     let result = [...normPax];
@@ -931,7 +951,7 @@ export default function DepartureDetail() {
                       <Badge color="primary" size="sm">{g.count}</Badge>
                     </div>
                     <div className="p-4">
-                    <DataTable data={g.passengers} columns={allPassengerCols.slice(0, 6)} />
+                    <DataTable data={g.passengers} columns={groupPassengerCols} />
                     </div>
                   </div>
                 ))}

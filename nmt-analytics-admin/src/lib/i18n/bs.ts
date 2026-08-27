@@ -290,7 +290,8 @@ export const bs: Translations = {
   },
   customers: {
     title: 'Klijenti', description: 'Upravljanje klijentima',
-    add: 'Dodaj klijenta', edit: 'Uredi klijenta', fullName: 'Ime i prezime',
+    add: 'Dodaj klijenta', edit: 'Uredi klijenta',     fullName: 'Ime i prezime',
+    partySize: 'Broj osoba',
     phone: 'Telefon', email: 'Email', notes: 'Napomene',
     totalReservations: 'Ukupno rezervacija', totalSpent: 'Ukupno potrošeno',
     noCustomers: 'Nema klijenata', search: 'Traži klijente...',
@@ -952,6 +953,7 @@ export const bs: Translations = {
     deletePassenger: 'Ukloni putnika',
     passengerDetails: 'Podaci o putniku',
     fullName: 'Ime i prezime',
+     partySize: 'Broj osoba',
     fullNamePlaceholder: 'npr. Amina Hodžić',
     phonePlaceholder: 'npr. +387 61 123 456',
     emailPlaceholder: 'npr. amina@primjer.ba',
