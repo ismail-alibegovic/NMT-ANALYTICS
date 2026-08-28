@@ -6,11 +6,32 @@ import { supabaseAdmin } from './supabase';
 export const campaignChannelSchema = z.enum(['email', 'sms']);
 export const campaignStatusSchema = z.enum(['draft', 'sending', 'completed', 'failed']);
 
+export const campaignAudienceSchema = z.discriminatedUnion('audienceType', [
+  z.object({
+    audienceType: z.literal('all'),
+  }),
+  z.object({
+    audienceType: z.literal('departure'),
+    departureId: z.string().uuid(),
+  }),
+  z.object({
+    audienceType: z.literal('reservations'),
+    reservationIds: z.array(z.string().uuid()).min(1).max(100),
+  }),
+  z.object({
+    audienceType: z.literal('customers'),
+    customerIds: z.array(z.string().uuid()).min(1).max(100),
+  }),
+]);
+
 export const campaignCreateSchema = z.object({
   name: z.string().trim().min(1).max(120),
   channel: campaignChannelSchema,
+  template_id: z.string().uuid().nullable().optional(),
   subject: z.string().trim().max(200).nullable().optional(),
   body: z.string().trim().min(1).max(5000),
+  audience: campaignAudienceSchema.optional(),
+  recipient_count: z.number().int().min(0).optional(),
 }).superRefine((value, ctx) => {
   if (value.channel === 'email' && !value.subject?.trim()) {
     ctx.addIssue({ code: 'custom', path: ['subject'], message: 'Email campaigns require a subject' });
@@ -29,21 +50,6 @@ export const campaignUpdateSchema = campaignCreateSchema.partial().extend({
   body: z.string().trim().min(1).max(5000).optional(),
 });
 
-export const campaignAudienceSchema = z.discriminatedUnion('audienceType', [
-  z.object({
-    audienceType: z.literal('departure'),
-    departureId: z.string().uuid(),
-  }),
-  z.object({
-    audienceType: z.literal('reservations'),
-    reservationIds: z.array(z.string().uuid()).min(1).max(100),
-  }),
-  z.object({
-    audienceType: z.literal('customers'),
-    customerIds: z.array(z.string().uuid()).min(1).max(100),
-  }),
-]);
-
 export type CampaignAudienceInput = z.infer<typeof campaignAudienceSchema>;
 export type CampaignChannel = z.infer<typeof campaignChannelSchema>;
 export type CampaignStatus = z.infer<typeof campaignStatusSchema>;
@@ -53,10 +59,14 @@ export type CampaignRecord = {
   org_id: string;
   name: string;
   channel: CampaignChannel;
+  template_id: string | null;
   subject: string | null;
   body: string;
   status: CampaignStatus;
+  audience: CampaignAudienceInput | null;
+  recipient_count: number | null;
   created_at: string;
+  updated_at: string | null;
   sent_at: string | null;
 };
 
@@ -94,6 +104,7 @@ type CampaignDeps = {
   fetchDepartureContacts?: (orgId: string, departureId: string, channel: CampaignChannel) => Promise<AudienceContact[]>;
   fetchReservationContacts?: (orgId: string, reservationIds: string[], channel: CampaignChannel) => Promise<AudienceContact[]>;
   fetchCustomerContacts?: (orgId: string, customerIds: string[], channel: CampaignChannel) => Promise<AudienceContact[]>;
+  fetchAllCustomersContacts?: (orgId: string, channel: CampaignChannel) => Promise<AudienceContact[]>;
   logHistory?: typeof logCommunicationHistory;
   sendEmail?: typeof sendManualEmailForOrg;
   sendSms?: typeof sendManualSmsForOrg;
@@ -173,6 +184,21 @@ async function fetchReservationContactsDefault(orgId: string, reservationIds: st
   }));
 }
 
+async function fetchAllCustomersContactsDefault(orgId: string, channel: CampaignChannel): Promise<AudienceContact[]> {
+  const { data, error } = await supabaseAdmin
+    .from('customers')
+    .select('id, email, phone')
+    .eq('org_id', orgId);
+
+  if (error) throw error;
+
+  return (data || []).map((row: any) => ({
+    recipient: channel === 'email' ? row.email || null : row.phone || null,
+    relatedDepartureId: null,
+    relatedReservationId: null,
+  }));
+}
+
 async function fetchCustomerContactsDefault(orgId: string, customerIds: string[], channel: CampaignChannel): Promise<AudienceContact[]> {
   const { data, error } = await supabaseAdmin
     .from('customers')
@@ -212,9 +238,12 @@ export async function previewCampaignAudience(
   const fetchDepartureContacts = deps.fetchDepartureContacts || fetchDepartureContactsDefault;
   const fetchReservationContacts = deps.fetchReservationContacts || fetchReservationContactsDefault;
   const fetchCustomerContacts = deps.fetchCustomerContacts || fetchCustomerContactsDefault;
+  const fetchAllContacts = deps.fetchAllCustomersContacts || fetchAllCustomersContactsDefault;
 
   let contacts: AudienceContact[] = [];
-  if (audience.audienceType === 'departure') {
+  if (audience.audienceType === 'all') {
+    contacts = await fetchAllContacts(orgId, channel);
+  } else if (audience.audienceType === 'departure') {
     contacts = await fetchDepartureContacts(orgId, audience.departureId, channel);
   } else if (audience.audienceType === 'reservations') {
     contacts = await fetchReservationContacts(orgId, audience.reservationIds, channel);

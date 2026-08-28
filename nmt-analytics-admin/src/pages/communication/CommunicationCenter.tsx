@@ -5,6 +5,7 @@ import EmptyState from "../../components/ui/EmptyState";
 import SendMessage from "../../components/communications/SendMessage";
 import CommunicationHistoryPanel from "../../components/communications/CommunicationHistoryPanel";
 import TemplatesTab from "../../components/communications/TemplatesTab";
+import CampaignsTab from "../../components/communications/CampaignsTab";
 import type { MessageTemplate } from "../../api/messageTemplates";
 import { useT } from "../../lib/i18n/context";
 import {
@@ -110,8 +111,7 @@ export default function CommunicationCenter() {
         />
       )}
 
-      {activeTab === "campaigns" &&
-        placeholderPanel(c.campaigns.title, c.campaigns.description, c.campaigns.comingSoon)}
+      {activeTab === "campaigns" && <CampaignsTab />}
 
       {activeTab === "templates" && <TemplatesTab onUseTemplate={handleUseTemplate} />}
 
