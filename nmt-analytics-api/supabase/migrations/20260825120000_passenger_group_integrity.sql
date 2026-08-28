@@ -1,3 +1,8 @@
+-- RECONSTRUCTED MIGRATION SOURCE
+-- Live schema_migrations.statements is NULL for this version, so exact production SQL is not recoverable.
+-- Production has no FK from trip_passenger_groups.primary_passenger_id to departure_passengers.id.
+-- The original Git FK would make a fresh replay diverge from production, so the denormalized reference is preserved.
+
 -- ============================================================================
 -- Enforce passenger group canonical invariants
 -- 1. One passenger → at most ONE group (unique membership)

@@ -1,3 +1,7 @@
+-- RECONSTRUCTED MIGRATION SOURCE
+-- Live schema_migrations.statements is NULL for this version, so exact production SQL is not recoverable.
+-- Constraint names are aligned with production-visible schema metadata so fresh replay fingerprints converge.
+
 -- ============================================================================
 -- Phase 12 Step 10B — Accommodation Canonical Identity & Assignment Integrity
 -- ============================================================================

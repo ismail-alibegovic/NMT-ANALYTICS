@@ -1,3 +1,9 @@
+-- RECONSTRUCTED MIGRATION SOURCE
+-- Live schema_migrations.statements is NULL for this version, so exact production SQL is not recoverable.
+-- The original Git policy compared uuid org_id to text JWT claims and fails on clean replay.
+-- This uses the canonical Travline public.get_my_org_id() tenant helper and grants service_role access
+-- to match the known production security model for these server-managed operational tables.
+
 -- ============================================================
 -- Trip Passenger Groups (Društva putnika)
 -- Generic entity usable by bus seating, hotel allocation,

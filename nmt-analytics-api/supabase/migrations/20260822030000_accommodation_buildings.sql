@@ -1,3 +1,8 @@
+-- RECONSTRUCTED MIGRATION SOURCE
+-- Live schema_migrations.statements is NULL for this version, so exact production SQL is not recoverable.
+-- The original Git policies compared uuid org_id to text JWT claims and fail on clean replay.
+-- This uses public.get_my_org_id() and aligns accommodation_assignments with the current production shape.
+
 -- ============================================================
 -- Accommodation Module: Buildings → Floors → Rooms → Beds
 -- Supports: Hotel, Hostel, Studentski dom, Apartman, Other

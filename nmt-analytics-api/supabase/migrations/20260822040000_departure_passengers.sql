@@ -1,3 +1,8 @@
+-- RECONSTRUCTED MIGRATION SOURCE
+-- Live schema_migrations.statements is NULL for this version, so exact production SQL is not recoverable.
+-- The original Git policy compared uuid org_id to text JWT claims and fails on clean replay.
+-- This uses the canonical public.get_my_org_id() tenant helper and keeps the production seat uniqueness invariant.
+
 -- ============================================================
 -- Departure Passengers — real traveller entity
 -- Links Reservation → Passengers → Groups/Seats/Accommodation/Documents

@@ -1,3 +1,9 @@
+-- RECONSTRUCTED MIGRATION SOURCE
+-- Live schema_migrations.statements is NULL for this version, so exact production SQL is not recoverable.
+-- The original Git file referenced departure_passengers.customer_id and customers.first_name/last_name,
+-- but the production schema uses reservations.customer_id and customers.full_name.
+-- This preserves the intended temporary compatibility view without creating columns absent from production.
+
 -- Bus seat categories per departure
 CREATE TABLE IF NOT EXISTS bus_seat_categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
