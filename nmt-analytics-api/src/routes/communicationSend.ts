@@ -5,6 +5,12 @@ import { requireOrgContext } from '../middleware/requireOrgContext';
 import { requireMinimumRole } from '../middleware/requireRole';
 import { apiError } from '../lib/errors';
 import { sendManualEmailForOrg, sendManualSmsForOrg } from '../lib/manualMessaging';
+import { extractPlaceholders } from '../lib/templatePlaceholders';
+import {
+  loadTemplateContext,
+  resolveMessagePerRecipient,
+  type TemplateContext,
+} from '../lib/placeholderResolver';
 import {
   resolveRecipients,
   isBulkTarget,
@@ -12,7 +18,6 @@ import {
   type RecipientChannel,
   type RecipientTargetType,
 } from '../lib/recipientResolver';
-
 const router = Router();
 
 const targetSchema = z.object({
@@ -124,17 +129,72 @@ router.post(
       });
     }
 
+    // Load shared template context once (agency name, package, destination, dates, reservation status).
+    let templateContext: TemplateContext | null = null;
+    let hasTemplatePlaceholders = false;
+    try {
+      const allText = (channel === 'email' ? (subject ?? '') + ' ' + body : body).trim();
+      const found = extractPlaceholders(allText);
+      hasTemplatePlaceholders = found.length > 0;
+      if (hasTemplatePlaceholders) {
+        templateContext = await loadTemplateContext(orgId, resolution);
+      }
+    } catch (ctxErr) {
+      console.warn('[COMMUNICATION_SEND] Failed to load template context:', ctxErr);
+    }
+
+    // Pre-flight: resolve placeholders for every recipient and block if any
+    // supported placeholder cannot be resolved — never send literal {{tokens}}.
+    if (hasTemplatePlaceholders && templateContext) {
+      const unresolvedByContact: Record<string, string[]> = {};
+      for (const recipient of resolution.recipients) {
+        const resolved = resolveMessagePerRecipient(
+          subject ?? null,
+          body,
+          recipient,
+          templateContext,
+        );
+        if (resolved.unresolved.length > 0) {
+          unresolvedByContact[recipient.contact] = resolved.unresolved;
+        }
+      }
+      if (Object.keys(unresolvedByContact).length > 0) {
+        const allUnresolved = Array.from(
+          new Set(Object.values(unresolvedByContact).flat()),
+        );
+        return apiError(res, 422, 'UNRESOLVED_PLACEHOLDERS',
+          `Cannot send: the following placeholders could not be resolved: ${allUnresolved.join(', ')}`,
+          { unresolved: allUnresolved, recipients: unresolvedByContact },
+        );
+      }
+    }
+
     let sent = 0;
     const failures: { contact: string; error: string }[] = [];
 
     for (const recipient of resolution.recipients) {
+      // Per-recipient placeholder resolution.
+      let resolvedSubject = subject ?? null;
+      let resolvedBody = body;
+      if (hasTemplatePlaceholders && templateContext) {
+        const msg = resolveMessagePerRecipient(subject ?? null, body, recipient, templateContext);
+        resolvedSubject = msg.subject;
+        resolvedBody = msg.body;
+        if (msg.unresolved.length > 0) {
+          failures.push({
+            contact: recipient.contact,
+            error: `Unresolved placeholders for this recipient: ${msg.unresolved.join(', ')}`,
+          });
+          continue;
+        }
+      }
       try {
         if (channel === 'email') {
           await sendManualEmailForOrg({
             channel: 'email',
             recipient: recipient.contact,
-            subject: subject!,
-            body,
+            subject: resolvedSubject!,
+            body: resolvedBody,
             orgId,
             relatedReservationId: recipient.reservationId ?? resolution.relatedReservationId,
             relatedDepartureId: recipient.departureId ?? resolution.relatedDepartureId,
@@ -143,7 +203,7 @@ router.post(
           await sendManualSmsForOrg({
             channel: 'sms',
             recipient: recipient.contact,
-            body,
+            body: resolvedBody,
             orgId,
             relatedReservationId: recipient.reservationId ?? resolution.relatedReservationId,
             relatedDepartureId: recipient.departureId ?? resolution.relatedDepartureId,

@@ -6,6 +6,8 @@ export type RecipientTargetType = 'direct' | 'reservation' | 'passenger' | 'grou
 export interface ResolvedRecipient {
   contact: string;
   name: string | null;
+  email: string | null;
+  phone: string | null;
   passengerId?: string | null;
   reservationId?: string | null;
   departureId?: string | null;
@@ -117,6 +119,8 @@ function buildResolution(
     recipients.push({
       contact: normalized,
       name: c.name,
+      email: c.email ?? null,
+      phone: c.phone ?? null,
       passengerId: c.passengerId ?? null,
       reservationId: c.reservationId ?? null,
       departureId: c.departureId ?? null,
