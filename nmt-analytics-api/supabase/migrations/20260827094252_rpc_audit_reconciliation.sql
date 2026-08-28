@@ -1,3 +1,6 @@
+-- Restored from live Supabase migration history for project hacutwknfgufrqlgdiia.
+-- Do not replay manually in production; this version is already recorded as applied.
+
 CREATE OR REPLACE FUNCTION public.create_reservation_atomic(
   p_org_id uuid,
   p_departure_id uuid,

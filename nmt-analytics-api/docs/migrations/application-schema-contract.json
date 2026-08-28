@@ -1,0 +1,180 @@
+{
+  "explicit_required_columns": {
+    "audit_logs": [
+      "org_id",
+      "user_id",
+      "action",
+      "entity",
+      "entity_id",
+      "details"
+    ],
+    "documents": [
+      "name",
+      "type",
+      "size",
+      "storage_path",
+      "uploaded_by",
+      "template_id",
+      "entity_type",
+      "entity_id",
+      "payload"
+    ],
+    "org_settings": [
+      "id",
+      "org_id",
+      "key",
+      "value"
+    ],
+    "organizations": [
+      "phone",
+      "email",
+      "address",
+      "currency",
+      "timezone",
+      "tax_id",
+      "bank_account",
+      "invoice_footer",
+      "invoice_notes",
+      "communication_settings",
+      "sms_sender_name",
+      "sms_sender_number",
+      "whatsapp_sender",
+      "agency_profiles",
+      "enabled_capabilities",
+      "onboarding_skipped"
+    ],
+    "sub_agents": [
+      "portal_token_hash",
+      "portal_token_expires_at",
+      "portal_last_seen_at"
+    ]
+  },
+  "fresh_missing_required_objects": [],
+  "fresh_rpc_matches": [
+    {
+      "args": "p_departure_id uuid, p_org_id uuid, p_assignments jsonb, OUT applied_count integer, OUT error_detail text",
+      "proname": "apply_accommodation_assignments_atomic"
+    },
+    {
+      "args": "p_org_id uuid, p_departure_id uuid, p_assignments jsonb",
+      "proname": "batch_update_seats_atomic"
+    },
+    {
+      "args": "p_org_id uuid, p_departure_id uuid, p_customer_data jsonb, p_party_size integer, p_status text",
+      "proname": "create_reservation_atomic"
+    },
+    {
+      "args": "",
+      "proname": "notify_upcoming_departures"
+    },
+    {
+      "args": "p_departure_id uuid, p_org_id uuid, p_party_size integer",
+      "proname": "reserve_capacity_atomic"
+    },
+    {
+      "args": "form_slug text, submission_data jsonb",
+      "proname": "submit_public_form"
+    }
+  ],
+  "production_missing_required_objects": [],
+  "production_rpc_matches": [
+    {
+      "args": "p_departure_id uuid, p_org_id uuid, p_assignments jsonb, OUT applied_count integer, OUT error_detail text",
+      "proname": "apply_accommodation_assignments_atomic"
+    },
+    {
+      "args": "p_org_id uuid, p_departure_id uuid, p_assignments jsonb",
+      "proname": "batch_update_seats_atomic"
+    },
+    {
+      "args": "p_org_id uuid, p_departure_id uuid, p_customer_data jsonb, p_party_size integer, p_status text",
+      "proname": "create_reservation_atomic"
+    },
+    {
+      "args": "",
+      "proname": "notify_upcoming_departures"
+    },
+    {
+      "args": "p_departure_id uuid, p_org_id uuid, p_party_size integer",
+      "proname": "reserve_capacity_atomic"
+    },
+    {
+      "args": "form_slug text, submission_data jsonb",
+      "proname": "submit_public_form"
+    }
+  ],
+  "rpc_names_referenced": [
+    "apply_accommodation_assignments_atomic",
+    "batch_update_seats_atomic",
+    "create_reservation_atomic",
+    "notify_upcoming_departures",
+    "reserve_capacity_atomic",
+    "submit_public_form"
+  ],
+  "summary": {
+    "audit_logs_insert_contract": "PASS",
+    "columns_inspected_count": 38,
+    "fresh_missing_required_objects": [],
+    "method": "Regex scan of nmt-analytics-api/src for supabase .from() and .rpc(), plus explicit critical contract assertions requested for audit_logs, organizations, documents, org_settings, and sub_agents. Production checks are read-only via Supabase Management API.",
+    "organization_settings_contract": "PASS",
+    "production_missing_required_objects": [],
+    "rpcs_inspected_count": 6,
+    "tables_inspected_count": 54
+  },
+  "tables_inspected": [
+    "PDF",
+    "accommodation_assignments",
+    "accommodation_buildings",
+    "accommodation_floors",
+    "accommodation_rooms",
+    "audit_logs",
+    "campaigns",
+    "commission_rules",
+    "communication_history",
+    "contracts",
+    "customers",
+    "departure_passengers",
+    "departures",
+    "document_templates",
+    "documents",
+    "eturista_submissions",
+    "excursion_passengers",
+    "fiscal_submissions",
+    "flights",
+    "hotel_allocations",
+    "hotel_rooms",
+    "hotels",
+    "inquiries",
+    "itineraries",
+    "itinerary_items",
+    "itinerary_versions",
+    "message_templates",
+    "notifications",
+    "org_branding",
+    "org_modules",
+    "org_settings",
+    "organizations",
+    "package_hotels",
+    "package_services",
+    "packages",
+    "payment_links",
+    "payments",
+    "pdf",
+    "profiles",
+    "public_form_submissions",
+    "public_forms",
+    "quotation_items",
+    "quotations",
+    "receipts",
+    "reservations",
+    "sub_agent_sales",
+    "sub_agents",
+    "supplier_services",
+    "suppliers",
+    "transactions",
+    "trip_passenger_group_members",
+    "trip_passenger_groups",
+    "waiver_templates",
+    "waiver_tokens"
+  ]
+}

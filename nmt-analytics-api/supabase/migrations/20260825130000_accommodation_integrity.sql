@@ -1,3 +1,7 @@
+-- RECONSTRUCTED MIGRATION SOURCE
+-- Live schema_migrations.statements is NULL for this version, so exact production SQL is not recoverable.
+-- Constraint names are aligned with production-visible schema metadata so fresh replay fingerprints converge.
+
 -- ============================================================================
 -- Phase 12 Step 10B — Accommodation Canonical Identity & Assignment Integrity
 -- ============================================================================
@@ -15,17 +19,12 @@ ALTER TABLE accommodation_assignments
 
 -- Add FK to departure_passengers
 ALTER TABLE accommodation_assignments
-  ADD CONSTRAINT fk_aa_passenger
+  ADD CONSTRAINT fk_accommodation_assignments_passenger
     FOREIGN KEY (passenger_id) REFERENCES departure_passengers(id) ON DELETE CASCADE;
 
 -- One passenger = exactly one active accommodation assignment
 ALTER TABLE accommodation_assignments
-  ADD CONSTRAINT uq_aa_passenger UNIQUE (passenger_id);
-
--- 2. Index to support efficient assign/move validation
-CREATE INDEX IF NOT EXISTS idx_aa_passenger_assign
-  ON accommodation_assignments(passenger_id)
-  WHERE passenger_id IS NOT NULL;
+  ADD CONSTRAINT uq_accommodation_assignments_passenger UNIQUE (passenger_id);
 
 -- ============================================================================
 -- 3. Atomic room-capacity check RPC for manual assignment

@@ -1,0 +1,2497 @@
+{
+  "explained_differences": [
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens",
+      "object_type": "table",
+      "reason": "Genuine untracked production object \u2014 not in any migration or archive. Not referenced by application code (nmt-analytics-api/src or nmt-analytics-admin/src). Likely manually created during development.",
+      "source": "production schema_migrations (no matching migration); app code grep returns no references"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "payments.provider",
+      "object_type": "column",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "payments.provider_payment_id",
+      "object_type": "column",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.access_count",
+      "object_type": "column",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.created_at",
+      "object_type": "column",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.expires_at",
+      "object_type": "column",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.id",
+      "object_type": "column",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.issued_by",
+      "object_type": "column",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.last_accessed_at",
+      "object_type": "column",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.org_id",
+      "object_type": "column",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.reservation_id",
+      "object_type": "column",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.revoked_at",
+      "object_type": "column",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.token_hash",
+      "object_type": "column",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "notifications.created_at",
+      "object_type": "column",
+      "reason": "Application-owned canonical fresh difference for notifications.created_at, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "payments.org_id",
+      "object_type": "column",
+      "reason": "Application-owned canonical fresh difference for payments.org_id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "payments.payment_date",
+      "object_type": "column",
+      "reason": "Application-owned canonical fresh difference for payments.payment_date, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "profiles.org_id",
+      "object_type": "column",
+      "reason": "Application-owned canonical fresh difference for profiles.org_id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "profiles.role",
+      "object_type": "column",
+      "reason": "Application-owned canonical fresh difference for profiles.role, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "quotations.global_markup_percent",
+      "object_type": "column",
+      "reason": "Application-owned canonical fresh difference for quotations.global_markup_percent, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "quotations.reference",
+      "object_type": "column",
+      "reason": "Application-owned canonical fresh difference for quotations.reference, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "quotations.valid_until",
+      "object_type": "column",
+      "reason": "Application-owned canonical fresh difference for quotations.valid_until, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.id",
+      "object_type": "primary_key",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "profiles.org_id->organizations.id",
+      "object_type": "foreign_key",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.org_id->organizations.id",
+      "object_type": "foreign_key",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.reservation_id->reservations.id",
+      "object_type": "foreign_key",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "audit_logs.user_id->users.id",
+      "object_type": "foreign_key",
+      "reason": "Application-owned canonical fresh difference for audit_logs.user_id->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "contracts.created_by->users.id",
+      "object_type": "foreign_key",
+      "reason": "Application-owned canonical fresh difference for contracts.created_by->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "notifications.user_id->users.id",
+      "object_type": "foreign_key",
+      "reason": "Application-owned canonical fresh difference for notifications.user_id->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "payment_links.created_by->users.id",
+      "object_type": "foreign_key",
+      "reason": "Application-owned canonical fresh difference for payment_links.created_by->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "payments.org_id->organizations.id",
+      "object_type": "foreign_key",
+      "reason": "Application-owned canonical fresh difference for payments.org_id->organizations.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "payments.reservation_id->reservations.id",
+      "object_type": "foreign_key",
+      "reason": "Application-owned canonical fresh difference for payments.reservation_id->reservations.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "profiles.id->users.id",
+      "object_type": "foreign_key",
+      "reason": "Application-owned canonical fresh difference for profiles.id->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "public_forms.created_by->users.id",
+      "object_type": "foreign_key",
+      "reason": "Application-owned canonical fresh difference for public_forms.created_by->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "receipts.issued_by->users.id",
+      "object_type": "foreign_key",
+      "reason": "Application-owned canonical fresh difference for receipts.issued_by->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "sub_agent_tokens.issued_by->users.id",
+      "object_type": "foreign_key",
+      "reason": "Application-owned canonical fresh difference for sub_agent_tokens.issued_by->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "sub_agents.created_by->users.id",
+      "object_type": "foreign_key",
+      "reason": "Application-owned canonical fresh difference for sub_agents.created_by->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "tours.org_id->organizations.id",
+      "object_type": "foreign_key",
+      "reason": "Application-owned canonical fresh difference for tours.org_id->organizations.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.token_hash",
+      "object_type": "unique_constraint",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "quotations.reference",
+      "object_type": "unique_constraint",
+      "reason": "Application-owned canonical fresh difference for quotations.reference, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens::CREATE INDEX ON trip_tokens (issued_by)",
+      "object_type": "index",
+      "reason": "Index belongs to production-only trip_tokens table. The table is absent from numbered legacy 001-026 and active migrations, and application grep found no trip_tokens references under nmt-analytics-api/src or nmt-analytics-admin/src.",
+      "source": "pre027-state-ledger.json plus app-code grep for trip_tokens"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens::CREATE INDEX ON trip_tokens (org_id)",
+      "object_type": "index",
+      "reason": "Index belongs to production-only trip_tokens table. The table is absent from numbered legacy 001-026 and active migrations, and application grep found no trip_tokens references under nmt-analytics-api/src or nmt-analytics-admin/src.",
+      "source": "pre027-state-ledger.json plus app-code grep for trip_tokens"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens::CREATE INDEX ON trip_tokens (reservation_id)",
+      "object_type": "index",
+      "reason": "Index belongs to production-only trip_tokens table. The table is absent from numbered legacy 001-026 and active migrations, and application grep found no trip_tokens references under nmt-analytics-api/src or nmt-analytics-admin/src.",
+      "source": "pre027-state-ledger.json plus app-code grep for trip_tokens"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens::CREATE INDEX ON trip_tokens (token_hash)",
+      "object_type": "index",
+      "reason": "Index belongs to production-only trip_tokens table. The table is absent from numbered legacy 001-026 and active migrations, and application grep found no trip_tokens references under nmt-analytics-api/src or nmt-analytics-admin/src.",
+      "source": "pre027-state-ledger.json plus app-code grep for trip_tokens"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "notifications::CREATE INDEX ON notifications (created_at DESC)",
+      "object_type": "index",
+      "reason": "Application-owned canonical fresh difference for notifications::CREATE INDEX ON notifications (created_at DESC), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "notifications::CREATE INDEX ON notifications (is_read) WHERE (is_read = false)",
+      "object_type": "index",
+      "reason": "Application-owned canonical fresh difference for notifications::CREATE INDEX ON notifications (is_read) WHERE (is_read = false), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "notifications::CREATE INDEX ON notifications (org_id, user_id)",
+      "object_type": "index",
+      "reason": "Application-owned canonical fresh difference for notifications::CREATE INDEX ON notifications (org_id, user_id), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "quotations::CREATE INDEX ON quotations (org_id, reference)",
+      "object_type": "index",
+      "reason": "Application-owned canonical fresh difference for quotations::CREATE INDEX ON quotations (org_id, reference), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "tours::CREATE INDEX ON tours (org_id)",
+      "object_type": "index",
+      "reason": "Application-owned canonical fresh difference for tours::CREATE INDEX ON tours (org_id), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "D",
+      "direction": "changed",
+      "object": "trip_tokens",
+      "object_type": "rls",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "audit_logs.Admins can read logs for their org",
+      "object_type": "policy",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "document_templates.Admins can manage templates for their org",
+      "object_type": "policy",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "documents.Admin Delete Docs",
+      "object_type": "policy",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "documents.Admin Insert Docs",
+      "object_type": "policy",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "documents.Admin View Docs",
+      "object_type": "policy",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "documents.Org Access",
+      "object_type": "policy",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "documents.Org admins can delete documents",
+      "object_type": "policy",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "documents.Org admins can upload documents",
+      "object_type": "policy",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "documents.Org admins can view documents",
+      "object_type": "policy",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "documents.Users can create documents for their org",
+      "object_type": "policy",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "documents.Users can read documents for their org",
+      "object_type": "policy",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "org_modules.Admins can manage modules for their org",
+      "object_type": "policy",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "org_settings.Tenant manage org_settings",
+      "object_type": "policy",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.Tenant access - Trip tokens",
+      "object_type": "policy",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_fresh",
+      "object": "document_templates.Admins can manage templates for their org",
+      "object_type": "policy",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_fresh",
+      "object": "documents.Org Access",
+      "object_type": "policy",
+      "reason": "Production-only legacy/public-schema drift detected by full fingerprint. It is not required for current clean replay; retained as explained difference pending separate production cleanup/reconciliation review.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "org_settings.Directors can manage org settings",
+      "object_type": "policy",
+      "reason": "Application-owned canonical fresh difference for org_settings.Directors can manage org settings, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "trip_passenger_group_members.trip_passenger_group_members org isolation",
+      "object_type": "policy",
+      "reason": "Application-owned canonical fresh difference for trip_passenger_group_members.trip_passenger_group_members org isolation, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "auto_notify_payment()",
+      "object_type": "function",
+      "reason": "Legacy orphan trigger function \u2014 not in any migration or archive. Not referenced by application code. Superseded by the canonical trg_payment_financial_truth/trg_reservation_total_financial_truth layer (20260825100000_financial_truth_restore.sql).",
+      "source": "production triggers; no archive/migration source"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "auto_notify_reservation()",
+      "object_type": "function",
+      "reason": "Legacy orphan trigger function \u2014 not in any migration or archive. Not referenced by application code. Superseded by canonical financial truth layer.",
+      "source": "production triggers; no archive/migration source"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "auto_update_reservation_status()",
+      "object_type": "function",
+      "reason": "Legacy orphan trigger function \u2014 not in any migration or archive. Not referenced by application code. Superseded by canonical financial truth layer.",
+      "source": "production triggers; no archive/migration source"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "get_reservation_payment_status_stats(p_org_id uuid)",
+      "object_type": "function",
+      "reason": "Untracked helper function \u2014 not in any migration or archive. Not referenced by application code. No evidence of required business logic.",
+      "source": "production pg_proc; no archive/migration source"
+    },
+    {
+      "category": "C",
+      "direction": "only_prod",
+      "object": "pgrst_reload_schema()",
+      "object_type": "function",
+      "reason": "Platform object \u2014 standard PostgREST schema cache reload helper. Not a Travline application object.",
+      "source": "PostgREST built-in"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "recalc_reservation_paid_amount(p_org_id uuid, p_reservation_id uuid)",
+      "object_type": "function",
+      "reason": "Legacy helper \u2014 not in any migration or archive. Not referenced by application code. Superseded by recalc_reservation_financial_truth.",
+      "source": "production pg_proc; no archive/migration source"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "test_func()",
+      "object_type": "function",
+      "reason": "Obvious test/debug leftover \u2014 not in any migration. Not referenced by application.",
+      "source": "production pg_proc; no archive/migration source"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trg_payments_recalc_reservation()",
+      "object_type": "function",
+      "reason": "Legacy orphan trigger function \u2014 not in any active migration. Superseded by canonical trg_payment_financial_truth (20260825100000). Production has 3 duplicate copies of this trigger on payments.",
+      "source": "production triggers; no archive/migration source"
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "armor(bytea)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "armor(bytea, text[], text[])",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "assign_passenger_to_room(p_passenger_id uuid, p_room_id uuid, p_org_id uuid, p_user_id uuid, p_bed_label text DEFAULT NULL::text)",
+      "object_type": "function",
+      "reason": "Application-owned canonical fresh difference for assign_passenger_to_room(p_passenger_id uuid, p_room_id uuid, p_org_id uuid, p_user_id uuid, p_bed_label text DEFAULT NULL::text), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "crypt(text, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "dearmor(text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "decrypt(bytea, bytea, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "decrypt_iv(bytea, bytea, bytea, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "digest(bytea, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "digest(text, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "encrypt(bytea, bytea, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "encrypt_iv(bytea, bytea, bytea, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "gen_random_bytes(integer)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "gen_random_uuid()",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "gen_salt(text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "gen_salt(text, integer)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "hmac(bytea, bytea, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "hmac(text, text, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "move_passenger_room(p_passenger_id uuid, p_dest_room_id uuid, p_org_id uuid, p_user_id uuid, p_bed_label text DEFAULT NULL::text)",
+      "object_type": "function",
+      "reason": "Application-owned canonical fresh difference for move_passenger_room(p_passenger_id uuid, p_dest_room_id uuid, p_org_id uuid, p_user_id uuid, p_bed_label text DEFAULT NULL::text), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_armor_headers(text, OUT key text, OUT value text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_key_id(bytea)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_pub_decrypt(bytea, bytea)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_pub_decrypt(bytea, bytea, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_pub_decrypt(bytea, bytea, text, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_pub_decrypt_bytea(bytea, bytea)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_pub_decrypt_bytea(bytea, bytea, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_pub_decrypt_bytea(bytea, bytea, text, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_pub_encrypt(text, bytea)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_pub_encrypt(text, bytea, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_pub_encrypt_bytea(bytea, bytea)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_pub_encrypt_bytea(bytea, bytea, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_sym_decrypt(bytea, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_sym_decrypt(bytea, text, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_sym_decrypt_bytea(bytea, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_sym_decrypt_bytea(bytea, text, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_sym_encrypt(text, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_sym_encrypt(text, text, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_sym_encrypt_bytea(bytea, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "pgp_sym_encrypt_bytea(bytea, text, text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "update_group_member_count()",
+      "object_type": "function",
+      "reason": "Application-owned canonical fresh difference for update_group_member_count(), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "uuid_generate_v1()",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "uuid_generate_v1mc()",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "uuid_generate_v3(namespace uuid, name text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "uuid_generate_v4()",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "uuid_generate_v5(namespace uuid, name text)",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "uuid_nil()",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "uuid_ns_dns()",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "uuid_ns_oid()",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "uuid_ns_url()",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "C",
+      "direction": "only_fresh",
+      "object": "uuid_ns_x500()",
+      "object_type": "function",
+      "reason": "Platform extension function from pgcrypto/uuid-ossp present in disposable replay but not exposed in production public metadata; not Travline application-owned.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "apply_accommodation_assignments_atomic(p_departure_id uuid, p_org_id uuid, p_assignments jsonb, OUT applied_count integer, OUT error_detail text)",
+      "object_type": "function",
+      "reason": "Application-owned canonical fresh difference for apply_accommodation_assignments_atomic(p_departure_id uuid, p_org_id uuid, p_assignments jsonb, OUT applied_count integer, OUT error_detail text), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "get_dashboard_stats(p_org_id uuid, p_date_from timestamp with time zone, p_date_to timestamp with time zone)",
+      "object_type": "function",
+      "reason": "Application-owned canonical fresh difference for get_dashboard_stats(p_org_id uuid, p_date_from timestamp with time zone, p_date_to timestamp with time zone), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "get_reports_summary(p_org_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone)",
+      "object_type": "function",
+      "reason": "Application-owned canonical fresh difference for get_reports_summary(p_org_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "get_revenue_analytics(p_org_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone)",
+      "object_type": "function",
+      "reason": "Application-owned canonical fresh difference for get_revenue_analytics(p_org_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "has_permission(user_role text, check_resource text, check_action text)",
+      "object_type": "function",
+      "reason": "Application-owned canonical fresh difference for has_permission(user_role text, check_resource text, check_action text), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "submit_public_form(form_slug text, submission_data jsonb)",
+      "object_type": "function",
+      "reason": "Application-owned canonical fresh difference for submit_public_form(form_slug text, submission_data jsonb), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "trg_sync_accommodation_bed_json()",
+      "object_type": "function",
+      "reason": "Application-owned canonical fresh difference for trg_sync_accommodation_bed_json(), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "trg_validate_accommodation_assignment()",
+      "object_type": "function",
+      "reason": "Application-owned canonical fresh difference for trg_validate_accommodation_assignment(), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "update_reservation_paid_amount()",
+      "object_type": "function",
+      "reason": "Application-owned canonical fresh difference for update_reservation_paid_amount(), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "update_updated_at_column()",
+      "object_type": "function",
+      "reason": "Application-owned canonical fresh difference for update_updated_at_column(), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "payments.payments_recalc_reservation",
+      "object_type": "trigger",
+      "reason": "Legacy duplicate trigger (3 copies exist in production). Superseded by trg_payment_financial_truth.",
+      "source": "production triggers; no archive/migration source"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "payments.trg_auto_notify_payment",
+      "object_type": "trigger",
+      "reason": "Legacy trigger on auto_notify_payment() \u2014 superseded by canonical financial truth.",
+      "source": "production triggers; no archive/migration source"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "payments.trg_auto_update_reservation_status",
+      "object_type": "trigger",
+      "reason": "Legacy trigger on auto_update_reservation_status() \u2014 superseded by canonical financial truth. 2 duplicate copies exist in production.",
+      "source": "production triggers; no archive/migration source"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "reservations.trg_auto_notify_reservation",
+      "object_type": "trigger",
+      "reason": "Legacy trigger on auto_notify_reservation() \u2014 superseded by canonical financial truth.",
+      "source": "production triggers; no archive/migration source"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "reservations.trg_reservation_total_financial_truth",
+      "object_type": "trigger",
+      "reason": "Legacy duplicate trigger. Migration 20260825100000 created trg_reservation_total_changed which provides equivalent functionality. The production trigger can be dropped as a no-op cleanup without changing behavior.",
+      "source": "Legacy manually-created trigger predating migration 20260825100000. Production definition: CREATE TRIGGER trg_reservation_total_financial_truth AFTER UPDATE OF total_amount ON public.reservations FOR EACH ROW WHEN ((old.total_amount IS DISTINCT FROM new.total_amount)) EXECUTE FUNCTION trg_reservation_total_financial_truth(). Functionally redundant with trg_reservation_total_changed (migration 20260825100000) which also calls the same function. Both triggers coexist in production."
+    },
+    {
+      "category": "B",
+      "direction": "only_fresh",
+      "object": "trip_passenger_group_members.trg_group_member_count",
+      "object_type": "trigger",
+      "reason": "Application-owned canonical fresh difference for trip_passenger_group_members.trg_group_member_count, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "B",
+      "direction": "changed",
+      "object": "eturista_submissions_view",
+      "object_type": "view",
+      "reason": "Application-owned canonical fresh difference for eturista_submissions_view, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+      "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.service_role.DELETE",
+      "object_type": "grant",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.service_role.INSERT",
+      "object_type": "grant",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.service_role.REFERENCES",
+      "object_type": "grant",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.service_role.SELECT",
+      "object_type": "grant",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.service_role.TRIGGER",
+      "object_type": "grant",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.service_role.TRUNCATE",
+      "object_type": "grant",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    },
+    {
+      "category": "D",
+      "direction": "only_prod",
+      "object": "trip_tokens.service_role.UPDATE",
+      "object_type": "grant",
+      "reason": "Production-only legacy trip_tokens object. Current application code and active migrations do not reference trip_tokens; retained as explained production drift, not baseline or pending migration behavior.",
+      "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    }
+  ],
+  "raw_differences": [
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens",
+      "object_type": "table"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "payments.provider",
+      "object_type": "column"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "payments.provider_payment_id",
+      "object_type": "column"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.access_count",
+      "object_type": "column"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.created_at",
+      "object_type": "column"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.expires_at",
+      "object_type": "column"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.id",
+      "object_type": "column"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.issued_by",
+      "object_type": "column"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.last_accessed_at",
+      "object_type": "column"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.org_id",
+      "object_type": "column"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.reservation_id",
+      "object_type": "column"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.revoked_at",
+      "object_type": "column"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.token_hash",
+      "object_type": "column"
+    },
+    {
+      "details": {
+        "fresh": {
+          "column_default": "now()",
+          "data_type": "timestamp with time zone",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "YES",
+          "udt_name": "timestamptz"
+        },
+        "prod": {
+          "column_default": "now()",
+          "data_type": "timestamp with time zone",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "NO",
+          "udt_name": "timestamptz"
+        }
+      },
+      "direction": "changed",
+      "object": "notifications.created_at",
+      "object_type": "column"
+    },
+    {
+      "details": {
+        "fresh": {
+          "column_default": "",
+          "data_type": "uuid",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "NO",
+          "udt_name": "uuid"
+        },
+        "prod": {
+          "column_default": "",
+          "data_type": "uuid",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "YES",
+          "udt_name": "uuid"
+        }
+      },
+      "direction": "changed",
+      "object": "payments.org_id",
+      "object_type": "column"
+    },
+    {
+      "details": {
+        "fresh": {
+          "column_default": "",
+          "data_type": "date",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "YES",
+          "udt_name": "date"
+        },
+        "prod": {
+          "column_default": "now()",
+          "data_type": "date",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "YES",
+          "udt_name": "date"
+        }
+      },
+      "direction": "changed",
+      "object": "payments.payment_date",
+      "object_type": "column"
+    },
+    {
+      "details": {
+        "fresh": {
+          "column_default": "",
+          "data_type": "uuid",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "YES",
+          "udt_name": "uuid"
+        },
+        "prod": {
+          "column_default": "",
+          "data_type": "uuid",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "NO",
+          "udt_name": "uuid"
+        }
+      },
+      "direction": "changed",
+      "object": "profiles.org_id",
+      "object_type": "column"
+    },
+    {
+      "details": {
+        "fresh": {
+          "column_default": "'agent'",
+          "data_type": "text",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "NO",
+          "udt_name": "text"
+        },
+        "prod": {
+          "column_default": "'viewer'",
+          "data_type": "text",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "NO",
+          "udt_name": "text"
+        }
+      },
+      "direction": "changed",
+      "object": "profiles.role",
+      "object_type": "column"
+    },
+    {
+      "details": {
+        "fresh": {
+          "column_default": "0",
+          "data_type": "numeric",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "NO",
+          "udt_name": "numeric"
+        },
+        "prod": {
+          "column_default": "0",
+          "data_type": "numeric",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "YES",
+          "udt_name": "numeric"
+        }
+      },
+      "direction": "changed",
+      "object": "quotations.global_markup_percent",
+      "object_type": "column"
+    },
+    {
+      "details": {
+        "fresh": {
+          "column_default": "",
+          "data_type": "text",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "NO",
+          "udt_name": "text"
+        },
+        "prod": {
+          "column_default": "",
+          "data_type": "text",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "YES",
+          "udt_name": "text"
+        }
+      },
+      "direction": "changed",
+      "object": "quotations.reference",
+      "object_type": "column"
+    },
+    {
+      "details": {
+        "fresh": {
+          "column_default": "",
+          "data_type": "date",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "YES",
+          "udt_name": "date"
+        },
+        "prod": {
+          "column_default": "",
+          "data_type": "timestamp with time zone",
+          "generation_expression": "",
+          "is_generated": "NEVER",
+          "is_nullable": "YES",
+          "udt_name": "timestamptz"
+        }
+      },
+      "direction": "changed",
+      "object": "quotations.valid_until",
+      "object_type": "column"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.id",
+      "object_type": "primary_key"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "profiles.org_id->organizations.id",
+      "object_type": "foreign_key"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.org_id->organizations.id",
+      "object_type": "foreign_key"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.reservation_id->reservations.id",
+      "object_type": "foreign_key"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "audit_logs.user_id->users.id",
+      "object_type": "foreign_key"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "contracts.created_by->users.id",
+      "object_type": "foreign_key"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "notifications.user_id->users.id",
+      "object_type": "foreign_key"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "payment_links.created_by->users.id",
+      "object_type": "foreign_key"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "payments.org_id->organizations.id",
+      "object_type": "foreign_key"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "payments.reservation_id->reservations.id",
+      "object_type": "foreign_key"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "profiles.id->users.id",
+      "object_type": "foreign_key"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "public_forms.created_by->users.id",
+      "object_type": "foreign_key"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "receipts.issued_by->users.id",
+      "object_type": "foreign_key"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "sub_agent_tokens.issued_by->users.id",
+      "object_type": "foreign_key"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "sub_agents.created_by->users.id",
+      "object_type": "foreign_key"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "tours.org_id->organizations.id",
+      "object_type": "foreign_key"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.token_hash",
+      "object_type": "unique_constraint"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "quotations.reference",
+      "object_type": "unique_constraint"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens::CREATE INDEX ON trip_tokens (issued_by)",
+      "object_type": "index"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens::CREATE INDEX ON trip_tokens (org_id)",
+      "object_type": "index"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens::CREATE INDEX ON trip_tokens (reservation_id)",
+      "object_type": "index"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens::CREATE INDEX ON trip_tokens (token_hash)",
+      "object_type": "index"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "notifications::CREATE INDEX ON notifications (created_at DESC)",
+      "object_type": "index"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "notifications::CREATE INDEX ON notifications (is_read) WHERE (is_read = false)",
+      "object_type": "index"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "notifications::CREATE INDEX ON notifications (org_id, user_id)",
+      "object_type": "index"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "quotations::CREATE INDEX ON quotations (org_id, reference)",
+      "object_type": "index"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "tours::CREATE INDEX ON tours (org_id)",
+      "object_type": "index"
+    },
+    {
+      "details": {
+        "fresh": null,
+        "prod": [
+          true,
+          false
+        ]
+      },
+      "direction": "changed",
+      "object": "trip_tokens",
+      "object_type": "rls"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "audit_logs.Admins can read logs for their org",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "document_templates.Admins can manage templates for their org",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "documents.Admin Delete Docs",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "documents.Admin Insert Docs",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "documents.Admin View Docs",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "documents.Org Access",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "documents.Org admins can delete documents",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "documents.Org admins can upload documents",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "documents.Org admins can view documents",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "documents.Users can create documents for their org",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "documents.Users can read documents for their org",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "org_modules.Admins can manage modules for their org",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "org_settings.Tenant manage org_settings",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.Tenant access - Trip tokens",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "document_templates.Admins can manage templates for their org",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "documents.Org Access",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "org_settings.Directors can manage org settings",
+      "object_type": "policy"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "trip_passenger_group_members.trip_passenger_group_members org isolation",
+      "object_type": "policy"
+    },
+    {
+      "details": {
+        "prod_extension": null
+      },
+      "direction": "only_prod",
+      "object": "auto_notify_payment()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "prod_extension": null
+      },
+      "direction": "only_prod",
+      "object": "auto_notify_reservation()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "prod_extension": null
+      },
+      "direction": "only_prod",
+      "object": "auto_update_reservation_status()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "prod_extension": null
+      },
+      "direction": "only_prod",
+      "object": "get_reservation_payment_status_stats(p_org_id uuid)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "prod_extension": null
+      },
+      "direction": "only_prod",
+      "object": "pgrst_reload_schema()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "prod_extension": null
+      },
+      "direction": "only_prod",
+      "object": "recalc_reservation_paid_amount(p_org_id uuid, p_reservation_id uuid)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "prod_extension": null
+      },
+      "direction": "only_prod",
+      "object": "test_func()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "prod_extension": null
+      },
+      "direction": "only_prod",
+      "object": "trg_payments_recalc_reservation()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "armor(bytea)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "armor(bytea, text[], text[])",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": null
+      },
+      "direction": "only_fresh",
+      "object": "assign_passenger_to_room(p_passenger_id uuid, p_room_id uuid, p_org_id uuid, p_user_id uuid, p_bed_label text DEFAULT NULL::text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "crypt(text, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "dearmor(text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "decrypt(bytea, bytea, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "decrypt_iv(bytea, bytea, bytea, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "digest(bytea, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "digest(text, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "encrypt(bytea, bytea, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "encrypt_iv(bytea, bytea, bytea, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "gen_random_bytes(integer)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "gen_random_uuid()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "gen_salt(text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "gen_salt(text, integer)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "hmac(bytea, bytea, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "hmac(text, text, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": null
+      },
+      "direction": "only_fresh",
+      "object": "move_passenger_room(p_passenger_id uuid, p_dest_room_id uuid, p_org_id uuid, p_user_id uuid, p_bed_label text DEFAULT NULL::text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_armor_headers(text, OUT key text, OUT value text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_key_id(bytea)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_pub_decrypt(bytea, bytea)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_pub_decrypt(bytea, bytea, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_pub_decrypt(bytea, bytea, text, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_pub_decrypt_bytea(bytea, bytea)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_pub_decrypt_bytea(bytea, bytea, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_pub_decrypt_bytea(bytea, bytea, text, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_pub_encrypt(text, bytea)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_pub_encrypt(text, bytea, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_pub_encrypt_bytea(bytea, bytea)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_pub_encrypt_bytea(bytea, bytea, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_sym_decrypt(bytea, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_sym_decrypt(bytea, text, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_sym_decrypt_bytea(bytea, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_sym_decrypt_bytea(bytea, text, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_sym_encrypt(text, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_sym_encrypt(text, text, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_sym_encrypt_bytea(bytea, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "pgcrypto"
+      },
+      "direction": "only_fresh",
+      "object": "pgp_sym_encrypt_bytea(bytea, text, text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": null
+      },
+      "direction": "only_fresh",
+      "object": "update_group_member_count()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "uuid-ossp"
+      },
+      "direction": "only_fresh",
+      "object": "uuid_generate_v1()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "uuid-ossp"
+      },
+      "direction": "only_fresh",
+      "object": "uuid_generate_v1mc()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "uuid-ossp"
+      },
+      "direction": "only_fresh",
+      "object": "uuid_generate_v3(namespace uuid, name text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "uuid-ossp"
+      },
+      "direction": "only_fresh",
+      "object": "uuid_generate_v4()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "uuid-ossp"
+      },
+      "direction": "only_fresh",
+      "object": "uuid_generate_v5(namespace uuid, name text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "uuid-ossp"
+      },
+      "direction": "only_fresh",
+      "object": "uuid_nil()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "uuid-ossp"
+      },
+      "direction": "only_fresh",
+      "object": "uuid_ns_dns()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "uuid-ossp"
+      },
+      "direction": "only_fresh",
+      "object": "uuid_ns_oid()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "uuid-ossp"
+      },
+      "direction": "only_fresh",
+      "object": "uuid_ns_url()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh_extension": "uuid-ossp"
+      },
+      "direction": "only_fresh",
+      "object": "uuid_ns_x500()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "SETOF record",
+          "secdef": false,
+          "volatility": "v"
+        },
+        "prod": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "SETOF record",
+          "secdef": false,
+          "volatility": "v"
+        }
+      },
+      "direction": "changed",
+      "object": "apply_accommodation_assignments_atomic(p_departure_id uuid, p_org_id uuid, p_assignments jsonb, OUT applied_count integer, OUT error_detail text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "jsonb",
+          "secdef": true,
+          "volatility": "v"
+        },
+        "prod": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "jsonb",
+          "secdef": true,
+          "volatility": "v"
+        }
+      },
+      "direction": "changed",
+      "object": "get_dashboard_stats(p_org_id uuid, p_date_from timestamp with time zone, p_date_to timestamp with time zone)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "jsonb",
+          "secdef": true,
+          "volatility": "v"
+        },
+        "prod": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "jsonb",
+          "secdef": true,
+          "volatility": "v"
+        }
+      },
+      "direction": "changed",
+      "object": "get_reports_summary(p_org_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "jsonb",
+          "secdef": true,
+          "volatility": "v"
+        },
+        "prod": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "jsonb",
+          "secdef": true,
+          "volatility": "v"
+        }
+      },
+      "direction": "changed",
+      "object": "get_revenue_analytics(p_org_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "boolean",
+          "secdef": false,
+          "volatility": "i"
+        },
+        "prod": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "boolean",
+          "secdef": false,
+          "volatility": "i"
+        }
+      },
+      "direction": "changed",
+      "object": "has_permission(user_role text, check_resource text, check_action text)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "jsonb",
+          "secdef": true,
+          "volatility": "v"
+        },
+        "prod": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "jsonb",
+          "secdef": true,
+          "volatility": "v"
+        }
+      },
+      "direction": "changed",
+      "object": "submit_public_form(form_slug text, submission_data jsonb)",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "trigger",
+          "secdef": false,
+          "volatility": "v"
+        },
+        "prod": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "trigger",
+          "secdef": false,
+          "volatility": "v"
+        }
+      },
+      "direction": "changed",
+      "object": "trg_sync_accommodation_bed_json()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "trigger",
+          "secdef": false,
+          "volatility": "v"
+        },
+        "prod": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "trigger",
+          "secdef": false,
+          "volatility": "v"
+        }
+      },
+      "direction": "changed",
+      "object": "trg_validate_accommodation_assignment()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "trigger",
+          "secdef": true,
+          "volatility": "v"
+        },
+        "prod": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "trigger",
+          "secdef": true,
+          "volatility": "v"
+        }
+      },
+      "direction": "changed",
+      "object": "update_reservation_paid_amount()",
+      "object_type": "function"
+    },
+    {
+      "details": {
+        "fresh": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "trigger",
+          "secdef": false,
+          "volatility": "v"
+        },
+        "prod": {
+          "extension_name": null,
+          "proconfig": "{\"search_path=public, pg_temp\"}",
+          "ret": "trigger",
+          "secdef": false,
+          "volatility": "v"
+        }
+      },
+      "direction": "changed",
+      "object": "update_updated_at_column()",
+      "object_type": "function"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "payments.payments_recalc_reservation",
+      "object_type": "trigger"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "payments.trg_auto_notify_payment",
+      "object_type": "trigger"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "payments.trg_auto_update_reservation_status",
+      "object_type": "trigger"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "reservations.trg_auto_notify_reservation",
+      "object_type": "trigger"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "reservations.trg_reservation_total_financial_truth",
+      "object_type": "trigger"
+    },
+    {
+      "details": {},
+      "direction": "only_fresh",
+      "object": "trip_passenger_group_members.trg_group_member_count",
+      "object_type": "trigger"
+    },
+    {
+      "details": {
+        "fresh": " SELECT fiscal_submissions.id,\n    fiscal_submissions.org_id,\n    fiscal_submissions.departure_id,\n    fiscal_submissions.guest_count,\n    fiscal_submissions.payload,\n    fiscal_submissions.response_status,\n    fiscal_submissions.response_body,\n    fiscal_submissions.submitted_at,\n    fiscal_submissions.created_at\n   FROM fiscal_submissions\n  WHERE (fiscal_submissions.market = 'RS'::text);",
+        "prod": " SELECT id,\n    org_id,\n    departure_id,\n    guest_count,\n    payload,\n    response_status,\n    response_body,\n    submitted_at,\n    created_at\n   FROM fiscal_submissions\n  WHERE (market = 'RS'::text);"
+      },
+      "direction": "changed",
+      "object": "eturista_submissions_view",
+      "object_type": "view"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.service_role.DELETE",
+      "object_type": "grant"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.service_role.INSERT",
+      "object_type": "grant"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.service_role.REFERENCES",
+      "object_type": "grant"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.service_role.SELECT",
+      "object_type": "grant"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.service_role.TRIGGER",
+      "object_type": "grant"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.service_role.TRUNCATE",
+      "object_type": "grant"
+    },
+    {
+      "details": {},
+      "direction": "only_prod",
+      "object": "trip_tokens.service_role.UPDATE",
+      "object_type": "grant"
+    }
+  ],
+  "summary": {
+    "explained_difference_count": 148,
+    "fresh_functions": 76,
+    "fresh_tables": 58,
+    "prod_functions": 35,
+    "prod_tables": 59,
+    "raw_difference_count": 148,
+    "unexplained_difference_count": 0
+  },
+  "unexplained_differences": []
+}
