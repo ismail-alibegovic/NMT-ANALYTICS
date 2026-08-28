@@ -237,7 +237,7 @@ describe('CampaignsTab', () => {
     render(<CampaignsTab />);
     await waitFor(() => expect(screen.getByText('Welcome blast')).toBeInTheDocument());
 
-    const firstCard = screen.getByText('Welcome blast').closest('.rounded-xl');
+    const firstCard = screen.getByText('Welcome blast').closest('.rounded-xl') as HTMLElement | null;
     if (!firstCard) throw new Error('Campaign card not found');
 
     fireEvent.click(within(firstCard).getByText('Delete'));
