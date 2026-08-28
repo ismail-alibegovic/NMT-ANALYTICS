@@ -5,12 +5,18 @@ import { requireOrgContext } from '../middleware/requireOrgContext';
 import { requireMinimumRole } from '../middleware/requireRole';
 import { apiError } from '../lib/errors';
 import { supabaseAdmin } from '../lib/supabase';
+import { validatePlaceholders } from '../lib/templatePlaceholders';
 
 const router = Router();
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const TEMPLATE_SELECT = 'id, org_id, name, channel, subject, body, is_active, created_at, updated_at';
 
 const listQuerySchema = z.object({
   channel: z.enum(['email', 'sms']).optional(),
   activeOnly: z.coerce.boolean().optional().default(false),
+  search: z.string().trim().optional(),
 });
 
 const createSchema = z.object({
@@ -29,12 +35,23 @@ const createSchema = z.object({
   if (value.channel === 'sms' && value.body.length > 320) {
     ctx.addIssue({ code: 'custom', path: ['body'], message: 'SMS templates must be 320 characters or less' });
   }
+
+  const unsupported = validatePlaceholders(value.body, value.subject);
+  if (unsupported.length > 0) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['body'],
+      message: `Unsupported placeholders: ${unsupported.join(', ')}`,
+    });
+  }
 });
 
-const updateSchema = createSchema.partial().extend({
+const updateSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   channel: z.enum(['email', 'sms']).optional(),
+  subject: z.string().trim().max(200).nullable().optional(),
   body: z.string().trim().min(1).max(5000).optional(),
+  is_active: z.boolean().optional(),
 }).superRefine((value, ctx) => {
   const nextChannel = value.channel;
   if (nextChannel === 'email' && value.subject !== undefined && !value.subject?.trim()) {
@@ -46,7 +63,22 @@ const updateSchema = createSchema.partial().extend({
   if (nextChannel === 'sms' && value.body && value.body.length > 320) {
     ctx.addIssue({ code: 'custom', path: ['body'], message: 'SMS templates must be 320 characters or less' });
   }
+
+  if (value.body) {
+    const unsupported = validatePlaceholders(value.body, value.subject);
+    if (unsupported.length > 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['body'],
+        message: `Unsupported placeholders: ${unsupported.join(', ')}`,
+      });
+    }
+  }
 });
+
+function isValidUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
 
 router.use(authenticateToken, requireOrgContext, requireMinimumRole('director'));
 
@@ -59,12 +91,15 @@ router.get('/message-templates', async (req: Request, res: Response) => {
   const orgId = req.orgId!;
   let query = supabaseAdmin
     .from('message_templates')
-    .select('id, org_id, name, channel, subject, body, is_active, created_at, updated_at')
+    .select(TEMPLATE_SELECT)
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
   if (parsed.data.channel) query = query.eq('channel', parsed.data.channel);
   if (parsed.data.activeOnly) query = query.eq('is_active', true);
+  if (parsed.data.search) {
+    query = query.ilike('name', `%${parsed.data.search}%`);
+  }
 
   const { data, error } = await query;
   if (error) {
@@ -72,6 +107,27 @@ router.get('/message-templates', async (req: Request, res: Response) => {
   }
 
   return res.json({ data: data || [] });
+});
+
+router.get('/message-templates/:id', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidUuid(id)) {
+    return apiError(res, 400, 'INVALID_UUID', 'Invalid template ID format');
+  }
+
+  const orgId = req.orgId!;
+  const { data, error } = await supabaseAdmin
+    .from('message_templates')
+    .select(TEMPLATE_SELECT)
+    .eq('id', id)
+    .eq('org_id', orgId)
+    .single();
+
+  if (error || !data) {
+    return apiError(res, 404, 'NOT_FOUND', 'Message template not found');
+  }
+
+  return res.json(data);
 });
 
 router.post('/message-templates', async (req: Request, res: Response) => {
@@ -93,7 +149,7 @@ router.post('/message-templates', async (req: Request, res: Response) => {
   const { data, error } = await supabaseAdmin
     .from('message_templates')
     .insert(payload)
-    .select('id, org_id, name, channel, subject, body, is_active, created_at, updated_at')
+    .select(TEMPLATE_SELECT)
     .single();
 
   if (error) {
@@ -104,13 +160,17 @@ router.post('/message-templates', async (req: Request, res: Response) => {
 });
 
 router.patch('/message-templates/:id', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidUuid(id)) {
+    return apiError(res, 400, 'INVALID_UUID', 'Invalid template ID format');
+  }
+
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) {
     return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid template payload', parsed.error.issues);
   }
 
   const orgId = req.orgId!;
-  const { id } = req.params;
 
   const { data: existing, error: existingError } = await supabaseAdmin
     .from('message_templates')
@@ -146,7 +206,7 @@ router.patch('/message-templates/:id', async (req: Request, res: Response) => {
     .update(updates)
     .eq('id', id)
     .eq('org_id', orgId)
-    .select('id, org_id, name, channel, subject, body, is_active, created_at, updated_at')
+    .select(TEMPLATE_SELECT)
     .single();
 
   if (error) {
@@ -157,22 +217,65 @@ router.patch('/message-templates/:id', async (req: Request, res: Response) => {
 });
 
 router.delete('/message-templates/:id', async (req: Request, res: Response) => {
-  const orgId = req.orgId!;
   const { id } = req.params;
+  if (!isValidUuid(id)) {
+    return apiError(res, 400, 'INVALID_UUID', 'Invalid template ID format');
+  }
 
-  const { data, error } = await supabaseAdmin
+  const orgId = req.orgId!;
+
+  const { error } = await supabaseAdmin
     .from('message_templates')
-    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .delete()
     .eq('id', id)
-    .eq('org_id', orgId)
-    .select('id')
-    .single();
+    .eq('org_id', orgId);
 
-  if (error || !data) {
-    return apiError(res, 404, 'NOT_FOUND', 'Message template not found');
+  if (error) {
+    return apiError(res, 500, 'DELETE_FAILED', 'Failed to delete message template', error.message);
   }
 
   return res.json({ success: true });
+});
+
+router.post('/message-templates/:id/duplicate', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidUuid(id)) {
+    return apiError(res, 400, 'INVALID_UUID', 'Invalid template ID format');
+  }
+
+  const orgId = req.orgId!;
+
+  const { data: source, error: sourceError } = await supabaseAdmin
+    .from('message_templates')
+    .select(TEMPLATE_SELECT)
+    .eq('id', id)
+    .eq('org_id', orgId)
+    .single();
+
+  if (sourceError || !source) {
+    return apiError(res, 404, 'NOT_FOUND', 'Message template not found');
+  }
+
+  const payload = {
+    org_id: orgId,
+    name: `${source.name} (copy)`,
+    channel: source.channel,
+    subject: source.subject,
+    body: source.body,
+    is_active: true,
+  };
+
+  const { data, error } = await supabaseAdmin
+    .from('message_templates')
+    .insert(payload)
+    .select(TEMPLATE_SELECT)
+    .single();
+
+  if (error) {
+    return apiError(res, 500, 'DUPLICATE_FAILED', 'Failed to duplicate message template', error.message);
+  }
+
+  return res.status(201).json(data);
 });
 
 export default router;

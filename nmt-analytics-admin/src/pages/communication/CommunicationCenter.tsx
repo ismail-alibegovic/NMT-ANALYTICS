@@ -4,6 +4,7 @@ import PageMeta from "../../components/common/PageMeta";
 import EmptyState from "../../components/ui/EmptyState";
 import SendMessage from "../../components/communications/SendMessage";
 import CommunicationHistoryPanel from "../../components/communications/CommunicationHistoryPanel";
+import TemplatesTab from "../../components/communications/TemplatesTab";
 import { useT } from "../../lib/i18n/context";
 import {
   GridIcon,
@@ -98,8 +99,7 @@ export default function CommunicationCenter() {
       {activeTab === "campaigns" &&
         placeholderPanel(c.campaigns.title, c.campaigns.description, c.campaigns.comingSoon)}
 
-      {activeTab === "templates" &&
-        placeholderPanel(c.templates.title, c.templates.description, c.templates.comingSoon)}
+      {activeTab === "templates" && <TemplatesTab />}
 
       {activeTab === "history" && <CommunicationHistoryPanel refreshKey={historyRefreshKey} />}
 
