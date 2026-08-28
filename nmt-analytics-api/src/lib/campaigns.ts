@@ -70,11 +70,11 @@ export type CampaignRecord = {
   status: CampaignStatus;
   audience: CampaignAudienceInput | null;
   recipient_count: number | null;
+  scheduled_at: string | null;
   created_at: string;
   updated_at: string | null;
   sent_at: string | null;
 };
-
 type AudienceContact = {
   recipient: string | null;
   name?: string | null;
@@ -451,4 +451,166 @@ export async function sendCampaign(
     preview,
     sentAt,
   };
+}
+
+// ─── Scheduling ──────────────────────────────────────────────────────────────
+
+export interface ScheduleResult {
+  campaignId: string;
+  scheduledAt: string;
+}
+
+export interface CancelScheduleResult {
+  campaignId: string;
+  previousStatus: string;
+}
+
+export interface DueCampaignsResult {
+  processed: number;
+  succeeded: number;
+  failed: number;
+  results: Array<{ campaignId: string; status: string; sentCount?: number; failedCount?: number }>;
+}
+
+export async function scheduleCampaign(orgId: string, campaignId: string, scheduledAt: string): Promise<ScheduleResult> {
+  const now = new Date().toISOString();
+  const scheduledDate = new Date(scheduledAt);
+  if (isNaN(scheduledDate.getTime()) || scheduledDate.toISOString() <= now) {
+    throw new Error('Scheduled time must be in the future');
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('campaigns')
+    .update({ status: 'scheduled', scheduled_at: scheduledAt, updated_at: now })
+    .eq('id', campaignId)
+    .eq('org_id', orgId)
+    .eq('status', 'draft')
+    .select('id, scheduled_at')
+    .single();
+
+  if (error || !data) {
+    throw new Error('NOT_DRAFT_OR_NOT_FOUND');
+  }
+
+  return { campaignId: data.id, scheduledAt: data.scheduled_at };
+}
+
+export async function rescheduleCampaign(orgId: string, campaignId: string, scheduledAt: string): Promise<ScheduleResult> {
+  const now = new Date().toISOString();
+  const scheduledDate = new Date(scheduledAt);
+  if (isNaN(scheduledDate.getTime()) || scheduledDate.toISOString() <= now) {
+    throw new Error('Scheduled time must be in the future');
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('campaigns')
+    .update({ scheduled_at: scheduledAt, updated_at: now })
+    .eq('id', campaignId)
+    .eq('org_id', orgId)
+    .eq('status', 'scheduled')
+    .select('id, scheduled_at')
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message || 'Scheduled campaign not found');
+  }
+
+  return { campaignId: data.id, scheduledAt: data.scheduled_at };
+}
+
+export async function cancelSchedule(orgId: string, campaignId: string): Promise<CancelScheduleResult> {
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabaseAdmin
+    .from('campaigns')
+    .update({ status: 'draft', scheduled_at: null, updated_at: now })
+    .eq('id', campaignId)
+    .eq('org_id', orgId)
+    .eq('status', 'scheduled')
+    .select('id, status')
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message || 'Scheduled campaign not found');
+  }
+
+  return { campaignId: data.id, previousStatus: 'scheduled' };
+}
+
+// Atomically claim a campaign for sending (used by both manual launch and scheduler).
+// Works for both 'draft' and 'scheduled' campaigns.
+async function startCampaignSend(campaignId: string, orgId: string, fromStatus?: string): Promise<CampaignRecord | null> {
+  const statusFilters = fromStatus ? [fromStatus] : ['draft', 'scheduled'];
+  const now = new Date().toISOString();
+
+  // Build query dynamically
+  let query = supabaseAdmin
+    .from('campaigns')
+    .update({ status: 'sending', updated_at: now })
+    .eq('id', campaignId)
+    .eq('org_id', orgId);
+
+  if (statusFilters.length === 1) {
+    query = query.eq('status', statusFilters[0]);
+  } else {
+    query = query.in('status', statusFilters);
+  }
+
+  const { data, error } = await query.select('*').single();
+
+  if (error || !data) return null;
+  return data as CampaignRecord;
+}
+
+// Reconstruct audience from stored audience_type/audience_data columns
+function reconstructAudience(row: any): CampaignAudienceInput | null {
+  if (!row.audience_type) return null;
+  return { audienceType: row.audience_type, ...(row.audience_data || {}) } as CampaignAudienceInput;
+}
+
+export async function processDueScheduledCampaigns(): Promise<DueCampaignsResult> {
+  const now = new Date().toISOString();
+
+  const { data: due, error: fetchError } = await supabaseAdmin
+    .from('campaigns')
+    .select('*')
+    .eq('status', 'scheduled')
+    .lte('scheduled_at', now)
+    .order('scheduled_at', { ascending: true });
+
+  if (fetchError || !due) {
+    console.error('Failed to fetch due campaigns', fetchError);
+    return { processed: 0, succeeded: 0, failed: 0, results: [] };
+  }
+
+  const results: DueCampaignsResult['results'] = [];
+  let succeeded = 0;
+  let failed = 0;
+
+  for (const campaign of due) {
+    const audience = reconstructAudience(campaign);
+    if (!audience) continue;
+    const claimed = await startCampaignSend(campaign.id, campaign.org_id, "scheduled");
+    if (!claimed) {
+      results.push({ campaignId: campaign.id, status: 'already-processing' });
+      continue;
+    }
+
+    try {
+      const sendResult = await sendCampaign(campaign as CampaignRecord, audience);
+      results.push({ campaignId: campaign.id, status: sendResult.status, sentCount: sendResult.sentCount, failedCount: sendResult.failedCount });
+      succeeded += 1;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`Campaign ${campaign.id} processing failed:`, message);
+      results.push({ campaignId: campaign.id, status: 'processing-error' });
+      failed += 1;
+      await supabaseAdmin
+        .from('campaigns')
+        .update({ status: 'failed', updated_at: new Date().toISOString() })
+        .eq('id', campaign.id);
+    }
+  }
+
+  return { processed: due.length, succeeded, failed, results };
 }

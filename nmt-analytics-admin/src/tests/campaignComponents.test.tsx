@@ -21,6 +21,9 @@ vi.mock('../api/campaigns', () => ({
   deleteCampaign: (...args: any[]) => deleteCampaign(...args),
   launchCampaign: (...args: any[]) => launchCampaign(...args),
   previewCampaignAudience: (...args: any[]) => previewCampaignAudience(...args),
+  scheduleCampaign: vi.fn(),
+  rescheduleCampaign: vi.fn(),
+  cancelSchedule: vi.fn(),
 }));
 
 vi.mock('../api/messageTemplates', () => ({
@@ -48,6 +51,7 @@ vi.mock('../icons', () => {
     PaperPlaneIcon: stub,
     TrashBinIcon: stub,
     ChevronDownIcon: stub,
+    CalenderIcon: stub,
   };
 });
 
@@ -112,6 +116,21 @@ vi.mock('../lib/i18n/context', () => {
         deleteError: 'Failed to delete campaign.',
         templateNone: 'No template',
         untitledDeparture: 'Untitled departure',
+        statusScheduled: 'Scheduled',
+        scheduledAt: 'Scheduled for {date}',
+        schedule: 'Schedule',
+        scheduleTitle: 'Schedule campaign',
+        scheduleDesc: 'Set a future date and time when this campaign should send automatically.',
+        scheduleDate: 'Date and time',
+        schedulePast: 'Scheduled time must be in the future.',
+        scheduleButton: 'Schedule',
+        reschedule: 'Reschedule',
+        cancelSchedule: 'Cancel schedule',
+        cancelScheduleConfirm: 'Cancel schedule for this campaign?',
+        cancelScheduleConfirmDesc: '{name} will return to draft status.',
+        cancelScheduleSuccess: 'Schedule cancelled. Campaign is now a draft.',
+        scheduledSuccess: 'Campaign scheduled.',
+        rescheduledSuccess: 'Campaign re-scheduled.',
         audiences: {
           all: 'All customers',
           departure: 'Customers from a departure',

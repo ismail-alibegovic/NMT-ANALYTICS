@@ -13,6 +13,9 @@ import {
   campaignUpdateSchema,
   previewCampaignAudience,
   sendCampaign,
+  scheduleCampaign,
+  rescheduleCampaign,
+  cancelSchedule,
   type CampaignRecord,
 } from '../lib/campaigns';
 import { validatePlaceholders } from '../lib/templatePlaceholders';
@@ -44,6 +47,7 @@ const campaignSelect = `
   audience_data,
   status,
   recipient_count,
+  scheduled_at,
   created_at,
   updated_at,
   sent_at
@@ -77,6 +81,7 @@ function mapCampaign(row: any) {
     audience: row.audience_type ? { audienceType: row.audience_type, ...(row.audience_data || {}) } : null,
     status: row.status,
     recipient_count: row.recipient_count ?? 0,
+    scheduled_at: row.scheduled_at ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
     sent_at: row.sent_at ?? null,
@@ -284,6 +289,10 @@ router.patch('/campaigns/:id', async (req: Request, res: Response) => {
     return apiError(res, 404, 'NOT_FOUND', 'Campaign not found');
   }
 
+  if (existing.status !== 'draft') {
+    return apiError(res, 409, 'CAMPAIGN_LOCKED', 'Only draft campaigns can be edited');
+  }
+
   const nextChannel = (parsed.data.channel ?? existing.channel) as 'email' | 'sms';
   const nextSubject = parsed.data.subject !== undefined ? parsed.data.subject : existing.subject;
   const nextBody = parsed.data.body !== undefined ? parsed.data.body : existing.body;
@@ -347,13 +356,17 @@ router.delete('/campaigns/:id', async (req: Request, res: Response) => {
 
   const { data: existing, error: existingError } = await supabaseAdmin
     .from('campaigns')
-    .select('id')
+    .select('id, status')
     .eq('id', id)
     .eq('org_id', req.orgId!)
     .single();
 
   if (existingError || !existing) {
     return apiError(res, 404, 'NOT_FOUND', 'Campaign not found');
+  }
+
+  if (existing.status !== 'draft') {
+    return apiError(res, 409, 'CAMPAIGN_LOCKED', 'Only draft campaigns can be deleted');
   }
 
   const { error } = await supabaseAdmin
@@ -394,6 +407,67 @@ router.post('/campaigns/:id/preview', async (req: Request, res: Response) => {
     return res.json(preview);
   } catch (previewError: any) {
     return apiError(res, 500, 'PREVIEW_FAILED', 'Failed to preview audience', previewError?.message || String(previewError));
+  }
+});
+
+const scheduleBodySchema = z.object({
+  scheduled_at: z.string().min(1),
+});
+
+router.post('/campaigns/:id/schedule', async (req: Request, res: Response) => {
+  const id = parseCampaignId(req.params.id, res);
+  if (!id) return;
+
+  const parsed = scheduleBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid schedule payload', parsed.error.issues);
+  }
+
+  try {
+    const result = await scheduleCampaign(req.orgId!, id, parsed.data.scheduled_at);
+    return res.json(result);
+  } catch (err: any) {
+    if (err?.message === 'Scheduled time must be in the future') {
+      return apiError(res, 400, 'INVALID_SCHEDULE_TIME', err.message);
+    }
+    if (err?.message === 'NOT_DRAFT_OR_NOT_FOUND') {
+      const { data: exists } = await supabaseAdmin.from('campaigns').select('id').eq('id', id).eq('org_id', req.orgId!).single();
+      if (!exists) return apiError(res, 404, 'NOT_FOUND', 'Campaign not found');
+      return apiError(res, 409, 'CAMPAIGN_NOT_DRAFT', 'Only draft campaigns can be scheduled');
+    }
+    return apiError(res, 404, 'NOT_FOUND', 'Campaign not found or cannot be scheduled', err?.message || String(err));
+  }
+});
+
+router.patch('/campaigns/:id/schedule', async (req: Request, res: Response) => {
+  const id = parseCampaignId(req.params.id, res);
+  if (!id) return;
+
+  const parsed = scheduleBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid schedule payload', parsed.error.issues);
+  }
+
+  try {
+    const result = await rescheduleCampaign(req.orgId!, id, parsed.data.scheduled_at);
+    return res.json(result);
+  } catch (err: any) {
+    if (err?.message === 'Scheduled time must be in the future') {
+      return apiError(res, 400, 'INVALID_SCHEDULE_TIME', err.message);
+    }
+    return apiError(res, 404, 'NOT_FOUND', 'Scheduled campaign not found', err?.message || String(err));
+  }
+});
+
+router.post('/campaigns/:id/schedule/cancel', async (req: Request, res: Response) => {
+  const id = parseCampaignId(req.params.id, res);
+  if (!id) return;
+
+  try {
+    const result = await cancelSchedule(req.orgId!, id);
+    return res.json(result);
+  } catch (err: any) {
+    return apiError(res, 404, 'NOT_FOUND', 'Scheduled campaign not found', err?.message || String(err));
   }
 });
 
@@ -467,6 +541,7 @@ router.post('/campaigns/:id/send', async (req: Request, res: Response) => {
         status: lockedCampaign.status,
         audience,
         recipient_count: lockedCampaign.recipient_count ?? preview.sendableRecipients,
+        scheduled_at: lockedCampaign.scheduled_at ?? null,
         created_at: lockedCampaign.created_at,
         updated_at: lockedCampaign.updated_at ?? lockTimestamp,
         sent_at: lockedCampaign.sent_at ?? null,

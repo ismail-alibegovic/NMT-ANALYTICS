@@ -7,13 +7,16 @@ import { Skeleton } from '../ui/Skeleton';
 import { useT } from '../../lib/i18n/context';
 import { useToast } from '../../context/ToastContext';
 import {
+  cancelSchedule,
   deleteCampaign,
   getCampaigns,
   launchCampaign,
+  scheduleCampaign,
+  rescheduleCampaign,
   type Campaign,
   type CampaignChannel,
 } from '../../api/campaigns';
-import { ListIcon, PaperPlaneIcon, PencilIcon, PlusIcon, TrashBinIcon } from '../../icons';
+import { CalenderIcon, ListIcon, PaperPlaneIcon, PencilIcon, PlusIcon, TrashBinIcon } from '../../icons';
 import CampaignEditorModal from './CampaignEditorModal';
 
 type ChannelFilter = 'all' | CampaignChannel;
@@ -42,6 +45,12 @@ export default function CampaignsTab() {
   } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [launching, setLaunching] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleTarget, setScheduleTarget] = useState<Campaign | null>(null);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduling, setScheduling] = useState(false);
+  const [cancelScheduleTarget, setCancelScheduleTarget] = useState<Campaign | null>(null);
+  const [cancellingSchedule, setCancellingSchedule] = useState(false);
 
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
@@ -128,10 +137,68 @@ export default function CampaignsTab() {
     }
   };
 
+  const handleSchedule = async () => {
+    if (!scheduleTarget || !scheduleDate) return;
+    setScheduling(true);
+    try {
+      await scheduleCampaign(scheduleTarget.id, new Date(scheduleDate).toISOString());
+      success(s.scheduledSuccess);
+      setScheduleOpen(false);
+      setScheduleTarget(null);
+      setScheduleDate('');
+      await fetchCampaigns();
+    } catch (err) {
+      showError((err as { message?: string }).message || s.saveError);
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const handleReschedule = async () => {
+    if (!scheduleTarget || !scheduleDate) return;
+    setScheduling(true);
+    try {
+      await rescheduleCampaign(scheduleTarget.id, new Date(scheduleDate).toISOString());
+      success(s.rescheduledSuccess);
+      setScheduleOpen(false);
+      setScheduleTarget(null);
+      setScheduleDate('');
+      await fetchCampaigns();
+    } catch (err) {
+      showError((err as { message?: string }).message || s.saveError);
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const handleCancelSchedule = async () => {
+    if (!cancelScheduleTarget) return;
+    setCancellingSchedule(true);
+    try {
+      await cancelSchedule(cancelScheduleTarget.id);
+      success(s.cancelScheduleSuccess);
+      setCancelScheduleTarget(null);
+      await fetchCampaigns();
+    } catch (err) {
+      showError((err as { message?: string }).message || s.saveError);
+    } finally {
+      setCancellingSchedule(false);
+    }
+  };
+
+  const openScheduleModal = (campaign: Campaign) => {
+    setScheduleTarget(campaign);
+    setScheduleDate(campaign.scheduled_at
+      ? new Date(campaign.scheduled_at).toISOString().slice(0, 16)
+      : new Date(Date.now() + 3600000).toISOString().slice(0, 16));
+    setScheduleOpen(true);
+  };
+
   const statusBadge = (status: Campaign['status']) => {
     if (status === 'completed') return <Badge variant="light" color="success" size="sm">{s.statusCompleted}</Badge>;
     if (status === 'failed') return <Badge variant="light" color="error" size="sm">{s.statusFailed}</Badge>;
     if (status === 'sending') return <Badge variant="light" color="warning" size="sm">{s.statusSending}</Badge>;
+    if (status === 'scheduled') return <Badge variant="light" color="info" size="sm">{s.statusScheduled}</Badge>;
     return <Badge variant="light" color="warning" size="sm">{s.statusDraft}</Badge>;
   };
 
@@ -229,6 +296,14 @@ export default function CampaignsTab() {
                     </p>
                     <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
                       <span>{s.recipientCount.replace('{count}', String(campaign.recipient_count || 0))}</span>
+                      {campaign.scheduled_at ? (
+                        <span>
+                          {s.scheduledAt.replace(
+                            '{date}',
+                            new Date(campaign.scheduled_at).toLocaleString(locale),
+                          )}
+                        </span>
+                      ) : null}
                       <span>
                         {s.updatedAt.replace(
                           '{date}',
@@ -247,6 +322,36 @@ export default function CampaignsTab() {
                         onClick={() => openLaunchConfirm(campaign)}
                       >
                         {s.launch}
+                      </Button>
+                    ) : null}
+                    {isDraft ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        startIcon={<CalenderIcon className="size-4" />}
+                        onClick={() => openScheduleModal(campaign)}
+                      >
+                        {s.schedule}
+                      </Button>
+                    ) : null}
+                    {campaign.status === 'scheduled' ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        startIcon={<CalenderIcon className="size-4" />}
+                        onClick={() => openScheduleModal(campaign)}
+                      >
+                        {s.reschedule}
+                      </Button>
+                    ) : null}
+                    {campaign.status === 'scheduled' ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        startIcon={<TrashBinIcon className="size-4" />}
+                        onClick={() => setCancelScheduleTarget(campaign)}
+                      >
+                        {s.cancelSchedule}
                       </Button>
                     ) : null}
                     <Button
@@ -277,6 +382,64 @@ export default function CampaignsTab() {
           })}
         </div>
       ) : null}
+
+      <Modal isOpen={scheduleOpen} onClose={() => { if (!scheduling) { setScheduleOpen(false); setScheduleTarget(null); setScheduleDate(''); } }} showCloseButton>
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-950 dark:text-white">
+              {scheduleTarget?.status === 'scheduled' ? s.reschedule : s.scheduleTitle}
+            </h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {scheduleTarget?.status === 'scheduled' ? s.scheduleDesc : s.scheduleDesc}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{s.scheduleDate}</label>
+            <input
+              type="datetime-local"
+              value={scheduleDate}
+              onChange={(e) => setScheduleDate(e.target.value)}
+              min={new Date().toISOString().slice(0, 16)}
+              className="mt-1 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:text-white/90 dark:placeholder:text-white/30"
+            />
+            {scheduleDate && new Date(scheduleDate).toISOString() <= new Date().toISOString() ? (
+              <p className="mt-1 text-xs text-error-500">{s.schedulePast}</p>
+            ) : null}
+          </div>
+
+          <div className="flex items-center justify-end gap-3">
+            <Button variant="outline" onClick={() => { setScheduleOpen(false); setScheduleTarget(null); setScheduleDate(''); }} disabled={scheduling}>
+              {s.cancel}
+            </Button>
+            <Button
+              onClick={scheduleTarget?.status === 'scheduled' ? handleReschedule : handleSchedule}
+              disabled={scheduling || !scheduleDate || new Date(scheduleDate).toISOString() <= new Date().toISOString()}
+            >
+              {scheduling ? s.saving : scheduleTarget?.status === 'scheduled' ? s.reschedule : s.scheduleButton}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={cancelScheduleTarget !== null} onClose={() => setCancelScheduleTarget(null)} showCloseButton>
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-950 dark:text-white">{s.cancelScheduleConfirm}</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {s.cancelScheduleConfirmDesc.replace('{name}', cancelScheduleTarget?.name || '')}
+            </p>
+          </div>
+          <div className="flex items-center justify-end gap-3">
+            <Button variant="outline" onClick={() => setCancelScheduleTarget(null)}>
+              {s.cancel}
+            </Button>
+            <Button onClick={handleCancelSchedule} disabled={cancellingSchedule}>
+              {cancellingSchedule ? s.saving : s.cancelSchedule}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <CampaignEditorModal
         isOpen={editorOpen}

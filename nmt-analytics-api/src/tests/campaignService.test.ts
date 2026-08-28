@@ -49,6 +49,7 @@ const baseCampaign: CampaignRecord = {
   recipient_count: 0,
   created_at: '2026-08-24T00:00:00.000Z',
   updated_at: '2026-08-24T00:00:00.000Z',
+  scheduled_at: null,
   sent_at: null,
 };
 

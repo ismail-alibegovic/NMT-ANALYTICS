@@ -330,4 +330,56 @@ describe('campaign routes', () => {
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('INVALID_AUDIENCE');
   });
+
+  it('schedules a draft campaign', async () => {
+    const future = new Date(Date.now() + 86400000).toISOString();
+    const res = await request(app()).post(`/settings/campaigns/${draftId}/schedule`).send({ scheduled_at: future });
+    expect(res.status).toBe(200);
+    expect(res.body.campaignId).toBe(draftId);
+    expect(campaigns[0].status).toBe('scheduled');
+  });
+
+  it('rejects scheduling with past time', async () => {
+    const past = new Date(Date.now() - 86400000).toISOString();
+    const res = await request(app()).post(`/settings/campaigns/${draftId}/schedule`).send({ scheduled_at: past });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INVALID_SCHEDULE_TIME');
+  });
+
+  it('rejects scheduling a non-draft campaign', async () => {
+    campaigns[0].status = 'scheduled';
+    const future = new Date(Date.now() + 86400000).toISOString();
+    const res = await request(app()).post(`/settings/campaigns/${draftId}/schedule`).send({ scheduled_at: future });
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('CAMPAIGN_NOT_DRAFT');
+  });
+
+  it('reschedules a scheduled campaign', async () => {
+    campaigns[0].status = 'scheduled';
+    const future = new Date(Date.now() + 172800000).toISOString();
+    const res = await request(app()).patch(`/settings/campaigns/${draftId}/schedule`).send({ scheduled_at: future });
+    expect(res.status).toBe(200);
+    expect(campaigns[0].scheduled_at).toBe(future);
+  });
+
+  it('cancels schedule back to draft', async () => {
+    campaigns[0].status = 'scheduled';
+    campaigns[0].scheduled_at = new Date(Date.now() + 86400000).toISOString();
+    const res = await request(app()).post(`/settings/campaigns/${draftId}/schedule/cancel`).send();
+    expect(res.status).toBe(200);
+    expect(campaigns[0].status).toBe('draft');
+    expect(campaigns[0].scheduled_at).toBeNull();
+  });
+
+  it('rejects schedule cancel for non-scheduled campaign', async () => {
+    const res = await request(app()).post(`/settings/campaigns/${draftId}/schedule/cancel`).send();
+    expect(res.status).toBe(404);
+  });
+
+  it('rejects cross-org schedule', async () => {
+    currentOrgId = 'org-2';
+    const future = new Date(Date.now() + 86400000).toISOString();
+    const res = await request(app()).post(`/settings/campaigns/${draftId}/schedule`).send({ scheduled_at: future });
+    expect(res.status).toBe(404);
+  });
 });

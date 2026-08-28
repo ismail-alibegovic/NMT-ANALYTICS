@@ -1,7 +1,7 @@
 import { del, get, patch, post } from './client';
 
 export type CampaignChannel = 'email' | 'sms';
-export type CampaignStatus = 'draft' | 'sending' | 'completed' | 'failed';
+export type CampaignStatus = 'draft' | 'sending' | 'scheduled' | 'completed' | 'failed';
 export type CampaignAudienceType = 'all' | 'departure' | 'reservations' | 'customers';
 
 export type CampaignAudiencePayload =
@@ -23,6 +23,7 @@ export interface Campaign {
   recipient_count: number;
   created_at: string;
   updated_at: string | null;
+  scheduled_at: string | null;
   sent_at: string | null;
 }
 
@@ -81,6 +82,21 @@ export async function previewCampaignAudience(payload: {
   template_id?: string | null;
 }) {
   const { data } = await post<CampaignPreview>('/settings/campaigns/preview', payload);
+  return data;
+}
+
+export async function scheduleCampaign(id: string, scheduledAt: string) {
+  const { data } = await post<{ campaignId: string; scheduledAt: string }>(`/settings/campaigns/${id}/schedule`, { scheduled_at: scheduledAt });
+  return data;
+}
+
+export async function rescheduleCampaign(id: string, scheduledAt: string) {
+  const { data } = await patch<{ campaignId: string; scheduledAt: string }>(`/settings/campaigns/${id}/schedule`, { scheduled_at: scheduledAt });
+  return data;
+}
+
+export async function cancelSchedule(id: string) {
+  const { data } = await post<{ campaignId: string; previousStatus: string }>(`/settings/campaigns/${id}/schedule/cancel`);
   return data;
 }
 
