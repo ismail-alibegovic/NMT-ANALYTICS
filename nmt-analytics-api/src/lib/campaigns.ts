@@ -362,6 +362,7 @@ export async function sendCampaign(
 
   let sentCount = 0;
   let failedCount = 0;
+  let unresolvedCount = 0;
 
   for (const recipient of preview.recipients) {
     let resolvedSubject = campaign.subject;
@@ -387,6 +388,7 @@ export async function sendCampaign(
       );
 
       if (resolved.unresolved.length > 0) {
+        unresolvedCount += 1;
         await logHistory({
           orgId: campaign.org_id,
           channel: campaign.channel,
@@ -444,7 +446,7 @@ export async function sendCampaign(
     status: finalStatus,
     sentCount,
     failedCount,
-    skippedCount: preview.skipped.length,
+    skippedCount: preview.skipped.length + unresolvedCount,
     totalRecipients: preview.sendableRecipients,
     preview,
     sentAt,

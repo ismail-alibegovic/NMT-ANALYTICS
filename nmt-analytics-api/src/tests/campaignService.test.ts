@@ -164,7 +164,7 @@ describe('campaign service', () => {
       bodyPreview: 'Trip Antalya Escape for Amina from {{customerPhone}}',
     }));
     expect(result.sentCount).toBe(0);
-    expect(result.skippedCount).toBe(0);
+    expect(result.skippedCount).toBe(1);
     expect(result.status).toBe('failed');
   });
 
