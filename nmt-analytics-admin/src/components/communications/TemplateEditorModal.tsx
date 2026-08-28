@@ -50,7 +50,6 @@ export default function TemplateEditorModal({
   template,
 }: TemplateEditorModalProps) {
   const { t: _t } = useT();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const s: any = _t.communication.templates;
   const { success, error } = useToast();
 
@@ -97,7 +96,6 @@ export default function TemplateEditorModal({
   const smsCharCount = previewBody.length;
 
   const validate = (): boolean => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const next: Record<string, string> = {};
     if (!name.trim()) next.name = s.form.nameRequired;
     if (channel === 'email' && !subject.trim()) next.subject = s.form.subjectRequired;

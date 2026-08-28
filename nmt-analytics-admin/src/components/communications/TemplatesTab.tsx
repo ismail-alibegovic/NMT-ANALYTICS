@@ -16,6 +16,7 @@ import {
 } from '../../api/messageTemplates';
 import {
   CopyIcon,
+  PaperPlaneIcon,
   PencilIcon,
   PlusIcon,
   TrashBinIcon,
@@ -24,9 +25,12 @@ import {
 
 type ChannelFilter = 'all' | MessageTemplateChannel;
 
-export default function TemplatesTab() {
+interface TemplatesTabProps {
+  onUseTemplate?: (template: MessageTemplate) => void;
+}
+
+export default function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
   const { t: _t } = useT();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const s: any = _t.communication.templates;
   const { success, error: showError } = useToast();
 
@@ -255,6 +259,15 @@ export default function TemplatesTab() {
               </div>
 
               <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100 sm:shrink-0">
+                {onUseTemplate && (
+                  <button
+                    title={s.useTemplate}
+                    onClick={() => onUseTemplate(tpl)}
+                    className="rounded-lg p-2 text-gray-400 hover:bg-brand-100 hover:text-brand-600 dark:hover:bg-brand-900/30 dark:hover:text-brand-400"
+                  >
+                    <PaperPlaneIcon className="size-4" />
+                  </button>
+                )}
                 <button
                   title={s.edit}
                   onClick={() => openEdit(tpl)}

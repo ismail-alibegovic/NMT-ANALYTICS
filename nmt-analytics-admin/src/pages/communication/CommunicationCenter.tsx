@@ -5,6 +5,7 @@ import EmptyState from "../../components/ui/EmptyState";
 import SendMessage from "../../components/communications/SendMessage";
 import CommunicationHistoryPanel from "../../components/communications/CommunicationHistoryPanel";
 import TemplatesTab from "../../components/communications/TemplatesTab";
+import type { MessageTemplate } from "../../api/messageTemplates";
 import { useT } from "../../lib/i18n/context";
 import {
   GridIcon,
@@ -27,6 +28,10 @@ export default function CommunicationCenter() {
   const activeTab: TabKey = tabParam && TAB_ORDER.includes(tabParam) ? tabParam : "overview";
 
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+  const [sendPreset, setSendPreset] = useState<{
+    template: MessageTemplate;
+    channel: MessageTemplate["channel"];
+  } | null>(null);
 
   const tabIcon: Record<TabKey, ReactElement> = useMemo(
     () => ({
@@ -44,6 +49,11 @@ export default function CommunicationCenter() {
     const next = new URLSearchParams(searchParams);
     next.set("tab", tab);
     setSearchParams(next, { replace: true });
+  };
+
+  const handleUseTemplate = (template: MessageTemplate) => {
+    setSendPreset({ template, channel: template.channel });
+    setTab("send");
   };
 
   const placeholderPanel = (title: string, description: string, comingSoon: string) => (
@@ -93,13 +103,17 @@ export default function CommunicationCenter() {
       )}
 
       {activeTab === "send" && (
-        <SendMessage onSent={() => setHistoryRefreshKey((value) => value + 1)} />
+        <SendMessage
+          onSent={() => setHistoryRefreshKey((value) => value + 1)}
+          presetTemplate={sendPreset?.template ?? null}
+          presetChannel={sendPreset?.channel ?? null}
+        />
       )}
 
       {activeTab === "campaigns" &&
         placeholderPanel(c.campaigns.title, c.campaigns.description, c.campaigns.comingSoon)}
 
-      {activeTab === "templates" && <TemplatesTab />}
+      {activeTab === "templates" && <TemplatesTab onUseTemplate={handleUseTemplate} />}
 
       {activeTab === "history" && <CommunicationHistoryPanel refreshKey={historyRefreshKey} />}
 

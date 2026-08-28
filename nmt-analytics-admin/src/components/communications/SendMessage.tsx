@@ -4,6 +4,7 @@ import Input from '../form/input/InputField';
 import Label from '../form/Label';
 import Select from '../form/Select';
 import { useT } from '../../lib/i18n/context';
+import { Modal } from '../ui/modal';
 import { getMessageTemplates, type MessageTemplate } from '../../api/messageTemplates';
 import { getDepartures, getDeparturePassengers, getPassengerGroups, type Departure, type DeparturePassenger } from '../../api/departures';
 import { getReservations, type Reservation } from '../../api/reservations';
@@ -17,6 +18,8 @@ import {
 
 interface SendMessageProps {
   onSent?: () => void;
+  presetTemplate?: MessageTemplate | null;
+  presetChannel?: RecipientChannel | null;
 }
 
 type Option = { value: string; label: string };
@@ -28,7 +31,7 @@ const BULK_TARGETS: RecipientTargetType[] = ['group', 'departure'];
 const SMS_MAX_LENGTH = 320;
 const EMAIL_MAX_LENGTH = 5000;
 
-export default function SendMessage({ onSent }: SendMessageProps) {
+export default function SendMessage({ onSent, presetTemplate, presetChannel }: SendMessageProps) {
   const { t, lang } = useT();
   const s = t.communication.send;
   const dateLocale = lang === 'bs' ? 'bs-BA' : 'en-US';
@@ -61,6 +64,10 @@ export default function SendMessage({ onSent }: SendMessageProps) {
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Overwrite confirmation
+  const [pendingTemplate, setPendingTemplate] = useState<MessageTemplate | null>(null);
+  const hasEditedContent = subject.trim().length > 0 || body.trim().length > 0;
 
   const isBulk = BULK_TARGETS.includes(targetType);
 
@@ -211,12 +218,32 @@ export default function SendMessage({ onSent }: SendMessageProps) {
     [reservations],
   );
 
+  const applyTemplateDirect = (template: MessageTemplate) => {
+    setSelectedTemplateId(template.id);
+    if (template.channel === 'email') setSubject(template.subject || '');
+    setBody(template.body || '');
+  };
+
+  // Apply preset template from "Use Template" action in Templates tab
+  useEffect(() => {
+    if (!presetTemplate) return;
+    if (presetChannel) {
+      setChannel(presetChannel);
+      resetPreview();
+    }
+    applyTemplateDirect(presetTemplate);
+    // Only fire once per preset change — ignore subsequent re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetTemplate?.id]);
+
   const applyTemplate = (templateId: string) => {
-    setSelectedTemplateId(templateId);
     const template = templates.find((item) => item.id === templateId);
     if (!template) return;
-    if (channel === 'email') setSubject(template.subject || '');
-    setBody(template.body || '');
+    if (hasEditedContent) {
+      setPendingTemplate(template);
+      return;
+    }
+    applyTemplateDirect(template);
   };
 
   // Build the target payload sent to the resolver/send endpoints.
@@ -320,6 +347,15 @@ export default function SendMessage({ onSent }: SendMessageProps) {
     !smsOverLimit &&
     (channel !== 'email' || subject.trim().length > 0) &&
     (!isBulk || confirmed);
+
+  const confirmOverwrite = () => {
+    if (pendingTemplate) {
+      applyTemplateDirect(pendingTemplate);
+      setPendingTemplate(null);
+    }
+  };
+
+  const cancelOverwrite = () => setPendingTemplate(null);
 
   const cardClass =
     'rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6';
@@ -572,6 +608,23 @@ export default function SendMessage({ onSent }: SendMessageProps) {
 
       {error && <p className="text-sm text-error-600 dark:text-error-400">{error}</p>}
       {success && <p className="text-sm text-success-600 dark:text-success-500">{success}</p>}
+
+      <Modal isOpen={pendingTemplate !== null} onClose={cancelOverwrite} showCloseButton>
+        <div className="flex flex-col gap-4">
+          <h3 className="text-lg font-semibold text-gray-950 dark:text-white">
+            {s.overwriteTitle}
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{s.overwriteDesc}</p>
+          <div className="flex items-center justify-end gap-3">
+            <Button variant="outline" onClick={cancelOverwrite}>
+              {s.overwriteKeep}
+            </Button>
+            <Button variant="primary" onClick={confirmOverwrite}>
+              {s.overwriteConfirm}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
