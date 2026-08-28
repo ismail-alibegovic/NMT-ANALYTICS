@@ -23,6 +23,7 @@ export interface Campaign {
   recipient_count: number;
   created_at: string;
   updated_at: string | null;
+  sent_at: string | null;
 }
 
 export interface CampaignPreview {
@@ -34,6 +35,10 @@ export interface CampaignPreview {
   skippedInvalid: number;
   skippedDuplicates: number;
   sampleRecipients: string[];
+  skipped?: Array<{
+    recipient: string;
+    reason: string;
+  }>;
 }
 
 export interface CampaignPayload {
@@ -76,5 +81,18 @@ export async function previewCampaignAudience(payload: {
   template_id?: string | null;
 }) {
   const { data } = await post<CampaignPreview>('/settings/campaigns/preview', payload);
+  return data;
+}
+
+export async function launchCampaign(id: string) {
+  const { data } = await post<{
+    status: CampaignStatus;
+    sentCount: number;
+    failedCount: number;
+    skippedCount: number;
+    totalRecipients: number;
+    sentAt: string;
+    preview: CampaignPreview;
+  }>(`/settings/campaigns/${id}/send`, {});
   return data;
 }

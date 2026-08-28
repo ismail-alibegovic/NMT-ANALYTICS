@@ -9,10 +9,11 @@ import { useToast } from '../../context/ToastContext';
 import {
   deleteCampaign,
   getCampaigns,
+  launchCampaign,
   type Campaign,
   type CampaignChannel,
 } from '../../api/campaigns';
-import { ListIcon, PencilIcon, PlusIcon, TrashBinIcon } from '../../icons';
+import { ListIcon, PaperPlaneIcon, PencilIcon, PlusIcon, TrashBinIcon } from '../../icons';
 import CampaignEditorModal from './CampaignEditorModal';
 
 type ChannelFilter = 'all' | CampaignChannel;
@@ -31,7 +32,16 @@ export default function CampaignsTab() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Campaign | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
+  const [launchTarget, setLaunchTarget] = useState<Campaign | null>(null);
+  const [launchPreview, setLaunchPreview] = useState<{ sendableRecipients: number; skippedCount: number } | null>(null);
+  const [launchResult, setLaunchResult] = useState<{
+    sentCount: number;
+    failedCount: number;
+    skippedCount: number;
+    status: string;
+  } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [launching, setLaunching] = useState(false);
 
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
@@ -63,6 +73,22 @@ export default function CampaignsTab() {
     });
   }, [campaigns, channelFilter, search]);
 
+  const openLaunchConfirm = (campaign: Campaign) => {
+    setLaunchTarget(campaign);
+    setLaunchResult(null);
+    setLaunchPreview({
+      sendableRecipients: campaign.recipient_count || 0,
+      skippedCount: 0,
+    });
+  };
+
+  const closeLaunchModal = () => {
+    if (launching) return;
+    setLaunchTarget(null);
+    setLaunchPreview(null);
+    setLaunchResult(null);
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -70,12 +96,43 @@ export default function CampaignsTab() {
       await deleteCampaign(deleteTarget.id);
       success(s.deleted);
       setDeleteTarget(null);
-      fetchCampaigns();
+      await fetchCampaigns();
     } catch (err) {
       showError((err as { message?: string }).message || s.deleteError);
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleLaunch = async () => {
+    if (!launchTarget) return;
+    setLaunching(true);
+    try {
+      const result = await launchCampaign(launchTarget.id);
+      setLaunchPreview({
+        sendableRecipients: result.totalRecipients,
+        skippedCount: result.skippedCount,
+      });
+      setLaunchResult({
+        sentCount: result.sentCount,
+        failedCount: result.failedCount,
+        skippedCount: result.skippedCount,
+        status: result.status,
+      });
+      success(s.launchSuccess);
+      await fetchCampaigns();
+    } catch (err) {
+      showError((err as { message?: string }).message || s.launchError);
+    } finally {
+      setLaunching(false);
+    }
+  };
+
+  const statusBadge = (status: Campaign['status']) => {
+    if (status === 'completed') return <Badge variant="light" color="success" size="sm">{s.statusCompleted}</Badge>;
+    if (status === 'failed') return <Badge variant="light" color="error" size="sm">{s.statusFailed}</Badge>;
+    if (status === 'sending') return <Badge variant="light" color="warning" size="sm">{s.statusSending}</Badge>;
+    return <Badge variant="light" color="warning" size="sm">{s.statusDraft}</Badge>;
   };
 
   return (
@@ -147,63 +204,77 @@ export default function CampaignsTab() {
 
       {!loading && !loadError && filtered.length > 0 ? (
         <div className="space-y-2">
-          {filtered.map((campaign) => (
-            <div
-              key={campaign.id}
-              className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]"
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="truncate text-sm font-semibold text-gray-950 dark:text-white">{campaign.name}</h4>
-                    <Badge variant="light" color={campaign.channel === 'email' ? 'info' : 'dark'} size="sm">
-                      {campaign.channel === 'email' ? s.filterEmail : s.filterSms}
-                    </Badge>
-                    <Badge variant="light" color="warning" size="sm">
-                      {s.statusDraft}
-                    </Badge>
+          {filtered.map((campaign) => {
+            const isDraft = campaign.status === 'draft';
+            const isSending = campaign.status === 'sending';
+            const canEdit = campaign.status === 'draft';
+            const canDelete = campaign.status !== 'sending';
+            return (
+              <div
+                key={campaign.id}
+                className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="truncate text-sm font-semibold text-gray-950 dark:text-white">{campaign.name}</h4>
+                      <Badge variant="light" color={campaign.channel === 'email' ? 'info' : 'dark'} size="sm">
+                        {campaign.channel === 'email' ? s.filterEmail : s.filterSms}
+                      </Badge>
+                      {statusBadge(campaign.status)}
+                    </div>
+                    <p className="mt-1 line-clamp-1 text-xs text-gray-500 dark:text-gray-400">
+                      {campaign.subject ? `${campaign.subject} · ` : ''}
+                      {campaign.body}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                      <span>{s.recipientCount.replace('{count}', String(campaign.recipient_count || 0))}</span>
+                      <span>
+                        {s.updatedAt.replace(
+                          '{date}',
+                          new Date(campaign.updated_at || campaign.created_at).toLocaleDateString(locale),
+                        )}
+                      </span>
+                    </div>
                   </div>
-                  <p className="mt-1 line-clamp-1 text-xs text-gray-500 dark:text-gray-400">
-                    {campaign.subject ? `${campaign.subject} · ` : ''}
-                    {campaign.body}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-                    <span>{s.recipientCount.replace('{count}', String(campaign.recipient_count || 0))}</span>
-                    <span>
-                      {s.updatedAt.replace(
-                        '{date}',
-                        campaign.updated_at
-                          ? new Date(campaign.updated_at).toLocaleDateString(locale)
-                          : new Date(campaign.created_at).toLocaleDateString(locale),
-                      )}
-                    </span>
-                  </div>
-                </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    startIcon={<PencilIcon className="size-4" />}
-                    onClick={() => {
-                      setEditTarget(campaign);
-                      setEditorOpen(true);
-                    }}
-                  >
-                    {s.edit}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    startIcon={<TrashBinIcon className="size-4" />}
-                    onClick={() => setDeleteTarget(campaign)}
-                  >
-                    {s.delete}
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    {isDraft ? (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        startIcon={<PaperPlaneIcon className="size-4" />}
+                        onClick={() => openLaunchConfirm(campaign)}
+                      >
+                        {s.launch}
+                      </Button>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      startIcon={<PencilIcon className="size-4" />}
+                      onClick={() => {
+                        setEditTarget(campaign);
+                        setEditorOpen(true);
+                      }}
+                      disabled={!canEdit}
+                    >
+                      {s.edit}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      startIcon={<TrashBinIcon className="size-4" />}
+                      onClick={() => setDeleteTarget(campaign)}
+                      disabled={!canDelete || isSending}
+                    >
+                      {s.delete}
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : null}
 
@@ -236,6 +307,76 @@ export default function CampaignsTab() {
             <Button onClick={handleDelete} disabled={deleting}>
               {deleting ? s.deleting : s.deleteConfirm}
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={launchTarget !== null} onClose={closeLaunchModal} showCloseButton>
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-950 dark:text-white">
+              {launchResult ? s.launchSummaryTitle : s.launchConfirmTitle}
+            </h3>
+            {launchResult ? (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {s.launchSummaryDesc.replace('{name}', launchTarget?.name || '')}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {s.launchConfirmDesc.replace('{name}', launchTarget?.name || '')}
+              </p>
+            )}
+          </div>
+
+          {launchTarget ? (
+            <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm dark:border-gray-800 dark:bg-white/[0.03]">
+              <div className="flex items-center justify-between py-1">
+                <span>{s.launchFields.name}</span>
+                <strong>{launchTarget.name}</strong>
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <span>{s.launchFields.channel}</span>
+                <strong>{launchTarget.channel === 'email' ? s.filterEmail : s.filterSms}</strong>
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <span>{s.launchFields.sendable}</span>
+                <strong>{launchPreview?.sendableRecipients ?? launchTarget.recipient_count ?? 0}</strong>
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <span>{s.launchFields.skipped}</span>
+                <strong>{launchPreview?.skippedCount ?? 0}</strong>
+              </div>
+              {launchResult ? (
+                <>
+                  <div className="mt-3 border-t border-gray-200 pt-3 dark:border-gray-800" />
+                  <div className="flex items-center justify-between py-1">
+                    <span>{s.launchFields.sent}</span>
+                    <strong>{launchResult.sentCount}</strong>
+                  </div>
+                  <div className="flex items-center justify-between py-1">
+                    <span>{s.launchFields.failed}</span>
+                    <strong>{launchResult.failedCount}</strong>
+                  </div>
+                  <div className="flex items-center justify-between py-1">
+                    <span>{s.launchFields.finalStatus}</span>
+                    <strong>{launchResult.status}</strong>
+                  </div>
+                </>
+              ) : (
+                <p className="mt-3 text-xs text-warning-600 dark:text-warning-400">{s.launchWarning}</p>
+              )}
+            </div>
+          ) : null}
+
+          <div className="flex items-center justify-end gap-3">
+            <Button variant="outline" onClick={closeLaunchModal} disabled={launching}>
+              {launchResult ? s.close : s.cancel}
+            </Button>
+            {!launchResult ? (
+              <Button onClick={handleLaunch} disabled={launching}>
+                {launching ? s.launching : s.launchConfirm}
+              </Button>
+            ) : null}
           </div>
         </div>
       </Modal>

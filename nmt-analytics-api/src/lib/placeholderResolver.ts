@@ -19,6 +19,11 @@ export interface ResolvedMessage {
   unresolved: string[];
 }
 
+export interface RecipientTemplateScope {
+  relatedReservationId?: string | null;
+  relatedDepartureId?: string | null;
+}
+
 function formatDate(ts: string | null | undefined): string | null {
   if (!ts) return null;
   const d = new Date(ts);
@@ -61,9 +66,9 @@ async function fetchDepartureAndPackage(
   }
 }
 
-export async function loadTemplateContext(
+export async function loadTemplateContextForScope(
   orgId: string,
-  resolution: RecipientResolution,
+  scope: RecipientTemplateScope,
 ): Promise<TemplateContext> {
   const ctx: TemplateContext = {
     agencyName: null,
@@ -81,13 +86,13 @@ export async function loadTemplateContext(
     .maybeSingle();
   ctx.agencyName = org?.name ?? null;
 
-  let departureId = resolution.relatedDepartureId ?? null;
+  let departureId = scope.relatedDepartureId ?? null;
 
-  if (resolution.relatedReservationId) {
+  if (scope.relatedReservationId) {
     const { data: reservation } = await supabaseAdmin
       .from('reservations')
       .select('id, status, departure_id')
-      .eq('id', resolution.relatedReservationId)
+      .eq('id', scope.relatedReservationId)
       .maybeSingle();
 
     if (reservation) {
@@ -101,6 +106,16 @@ export async function loadTemplateContext(
   await fetchDepartureAndPackage(ctx, departureId);
 
   return ctx;
+}
+
+export async function loadTemplateContext(
+  orgId: string,
+  resolution: RecipientResolution,
+): Promise<TemplateContext> {
+  return loadTemplateContextForScope(orgId, {
+    relatedReservationId: resolution.relatedReservationId,
+    relatedDepartureId: resolution.relatedDepartureId,
+  });
 }
 
 export function resolveForRecipient(

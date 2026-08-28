@@ -12,6 +12,8 @@ import {
   campaignStatusSchema,
   campaignUpdateSchema,
   previewCampaignAudience,
+  sendCampaign,
+  type CampaignRecord,
 } from '../lib/campaigns';
 import { validatePlaceholders } from '../lib/templatePlaceholders';
 
@@ -77,6 +79,7 @@ function mapCampaign(row: any) {
     recipient_count: row.recipient_count ?? 0,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    sent_at: row.sent_at ?? null,
   };
 }
 
@@ -394,8 +397,103 @@ router.post('/campaigns/:id/preview', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/campaigns/:id/send', async (_req: Request, res: Response) => {
-  return apiError(res, 400, 'CAMPAIGN_SENDING_DISABLED', 'Campaign sending is not enabled in this phase');
+router.post('/campaigns/:id/send', async (req: Request, res: Response) => {
+  const id = parseCampaignId(req.params.id, res);
+  if (!id) return;
+
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from('campaigns')
+    .select(campaignSelect)
+    .eq('id', id)
+    .eq('org_id', req.orgId!)
+    .single();
+
+  if (existingError || !existing) {
+    return apiError(res, 404, 'NOT_FOUND', 'Campaign not found');
+  }
+
+  if (existing.status !== 'draft') {
+    return apiError(res, 400, 'CAMPAIGN_LOCKED', 'Only draft campaigns can be launched');
+  }
+
+  const audience = existing.audience_type
+    ? { audienceType: existing.audience_type, ...(existing.audience_data || {}) }
+    : null;
+
+  if (!audience) {
+    return apiError(res, 400, 'INVALID_AUDIENCE', 'Campaign must have a valid audience before launch');
+  }
+
+  let preview;
+  try {
+    preview = await previewCampaignAudience(req.orgId!, existing.channel, audience);
+  } catch (previewError: any) {
+    return apiError(res, 500, 'PREVIEW_FAILED', 'Failed to preview audience', previewError?.message || String(previewError));
+  }
+
+  if (preview.sendableRecipients === 0) {
+    return apiError(res, 422, 'NO_SENDABLE_RECIPIENTS', 'Campaign has no sendable recipients', preview);
+  }
+
+  const lockTimestamp = new Date().toISOString();
+  const { data: lockedCampaign, error: lockError } = await supabaseAdmin
+    .from('campaigns')
+    .update({
+      status: 'sending',
+      updated_at: lockTimestamp,
+      recipient_count: preview.sendableRecipients,
+      sent_at: null,
+    })
+    .eq('id', id)
+    .eq('org_id', req.orgId!)
+    .eq('status', 'draft')
+    .select(campaignSelect)
+    .single();
+
+  if (lockError || !lockedCampaign) {
+    return apiError(res, 409, 'CAMPAIGN_LOCKED', 'Campaign is already being sent or was already launched');
+  }
+
+  try {
+    const result = await sendCampaign(
+      {
+        id: lockedCampaign.id,
+        org_id: lockedCampaign.org_id,
+        name: lockedCampaign.name,
+        channel: lockedCampaign.channel,
+        template_id: lockedCampaign.template_id ?? null,
+        subject: lockedCampaign.subject ?? null,
+        body: lockedCampaign.body,
+        status: lockedCampaign.status,
+        audience,
+        recipient_count: lockedCampaign.recipient_count ?? preview.sendableRecipients,
+        created_at: lockedCampaign.created_at,
+        updated_at: lockedCampaign.updated_at ?? lockTimestamp,
+        sent_at: lockedCampaign.sent_at ?? null,
+      } satisfies CampaignRecord,
+      audience,
+    );
+
+    return res.json(result);
+  } catch (sendError: any) {
+    const sentAt = new Date().toISOString();
+    await supabaseAdmin
+      .from('campaigns')
+      .update({ status: 'failed', sent_at: sentAt, updated_at: sentAt })
+      .eq('id', id)
+      .eq('org_id', req.orgId!);
+
+    if (
+      sendError?.message === 'SMTP_NOT_CONFIGURED' ||
+      sendError?.message === 'SMS_NOT_CONFIGURED' ||
+      sendError?.message === 'SMS_SENDER_MISSING'
+    ) {
+      return apiError(res, 400, sendError.message, sendError.message);
+    }
+
+    console.error('[campaigns] send failed:', sendError);
+    return apiError(res, 500, 'SEND_FAILED', 'Failed to launch campaign', sendError?.message || String(sendError));
+  }
 });
 
 export default router;

@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import { sendManualEmailForOrg, sendManualSmsForOrg } from './manualMessaging';
 import { logCommunicationHistory } from './communicationHistory';
+import {
+  loadTemplateContextForScope,
+  resolveMessagePerRecipient,
+} from './placeholderResolver';
 import { supabaseAdmin } from './supabase';
+import { extractPlaceholders } from './templatePlaceholders';
 
 export const campaignChannelSchema = z.enum(['email', 'sms']);
 export const campaignStatusSchema = z.enum(['draft', 'sending', 'completed', 'failed']);
@@ -72,6 +77,9 @@ export type CampaignRecord = {
 
 type AudienceContact = {
   recipient: string | null;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
   relatedDepartureId?: string | null;
   relatedReservationId?: string | null;
 };
@@ -95,6 +103,9 @@ type AudiencePreview = {
   skipped: SkippedRecipient[];
   recipients: Array<{
     recipient: string;
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
     relatedDepartureId?: string | null;
     relatedReservationId?: string | null;
   }>;
@@ -140,6 +151,7 @@ async function fetchDepartureContactsDefault(orgId: string, departureId: string,
       departure_id,
       customer_phone,
       customers (
+        full_name,
         email,
         phone
       )
@@ -153,6 +165,9 @@ async function fetchDepartureContactsDefault(orgId: string, departureId: string,
     recipient: channel === 'email'
       ? row.customers?.email || null
       : row.customer_phone || row.customers?.phone || null,
+    name: row.customers?.full_name || null,
+    email: row.customers?.email || null,
+    phone: row.customer_phone || row.customers?.phone || null,
     relatedDepartureId: row.departure_id || departureId,
     relatedReservationId: row.id,
   }));
@@ -166,6 +181,7 @@ async function fetchReservationContactsDefault(orgId: string, reservationIds: st
       departure_id,
       customer_phone,
       customers (
+        full_name,
         email,
         phone
       )
@@ -179,6 +195,9 @@ async function fetchReservationContactsDefault(orgId: string, reservationIds: st
     recipient: channel === 'email'
       ? row.customers?.email || null
       : row.customer_phone || row.customers?.phone || null,
+    name: row.customers?.full_name || null,
+    email: row.customers?.email || null,
+    phone: row.customer_phone || row.customers?.phone || null,
     relatedDepartureId: row.departure_id || null,
     relatedReservationId: row.id,
   }));
@@ -187,13 +206,16 @@ async function fetchReservationContactsDefault(orgId: string, reservationIds: st
 async function fetchAllCustomersContactsDefault(orgId: string, channel: CampaignChannel): Promise<AudienceContact[]> {
   const { data, error } = await supabaseAdmin
     .from('customers')
-    .select('id, email, phone')
+    .select('id, full_name, name, email, phone')
     .eq('org_id', orgId);
 
   if (error) throw error;
 
   return (data || []).map((row: any) => ({
     recipient: channel === 'email' ? row.email || null : row.phone || null,
+    name: row.full_name || row.name || null,
+    email: row.email || null,
+    phone: row.phone || null,
     relatedDepartureId: null,
     relatedReservationId: null,
   }));
@@ -202,7 +224,7 @@ async function fetchAllCustomersContactsDefault(orgId: string, channel: Campaign
 async function fetchCustomerContactsDefault(orgId: string, customerIds: string[], channel: CampaignChannel): Promise<AudienceContact[]> {
   const { data, error } = await supabaseAdmin
     .from('customers')
-    .select('id, email, phone')
+    .select('id, full_name, name, email, phone')
     .eq('org_id', orgId)
     .in('id', customerIds);
 
@@ -210,6 +232,9 @@ async function fetchCustomerContactsDefault(orgId: string, customerIds: string[]
 
   return (data || []).map((row: any) => ({
     recipient: channel === 'email' ? row.email || null : row.phone || null,
+    name: row.full_name || row.name || null,
+    email: row.email || null,
+    phone: row.phone || null,
     relatedDepartureId: null,
     relatedReservationId: null,
   }));
@@ -286,6 +311,9 @@ export async function previewCampaignAudience(
     seen.add(normalized.normalized);
     recipients.push({
       recipient: normalized.normalized,
+      name: contact.name ?? null,
+      email: contact.email ?? null,
+      phone: contact.phone ?? null,
       relatedDepartureId: contact.relatedDepartureId ?? null,
       relatedReservationId: contact.relatedReservationId ?? null,
     });
@@ -315,9 +343,8 @@ export async function sendCampaign(
   const sendSms = deps.sendSms || sendManualSmsForOrg;
   const updateCampaign = deps.updateCampaign || updateCampaignDefault;
 
-  await updateCampaign(campaign.id, campaign.org_id, { status: 'sending', sent_at: null });
-
   const preview = await previewCampaignAudience(campaign.org_id, campaign.channel, audience, deps);
+  const hasPlaceholders = extractPlaceholders(`${campaign.subject ?? ''}\n${campaign.body}`).length > 0;
 
   for (const skipped of preview.skipped) {
     await logHistory({
@@ -337,13 +364,54 @@ export async function sendCampaign(
   let failedCount = 0;
 
   for (const recipient of preview.recipients) {
+    let resolvedSubject = campaign.subject;
+    let resolvedBody = campaign.body;
+
+    if (hasPlaceholders) {
+      const context = await loadTemplateContextForScope(campaign.org_id, {
+        relatedReservationId: recipient.relatedReservationId ?? null,
+        relatedDepartureId: recipient.relatedDepartureId ?? null,
+      });
+      const resolved = resolveMessagePerRecipient(
+        campaign.subject,
+        campaign.body,
+        {
+          contact: recipient.recipient,
+          name: recipient.name ?? null,
+          email: recipient.email ?? (campaign.channel === 'email' ? recipient.recipient : null),
+          phone: recipient.phone ?? (campaign.channel === 'sms' ? recipient.recipient : null),
+          reservationId: recipient.relatedReservationId ?? null,
+          departureId: recipient.relatedDepartureId ?? null,
+        },
+        context,
+      );
+
+      if (resolved.unresolved.length > 0) {
+        await logHistory({
+          orgId: campaign.org_id,
+          channel: campaign.channel,
+          recipient: recipient.recipient,
+          subject: resolved.subject,
+          bodyPreview: resolved.body,
+          status: 'skipped',
+          errorMessage: `unresolved_placeholders:${resolved.unresolved.join(',')}`,
+          relatedDepartureId: recipient.relatedDepartureId ?? null,
+          relatedReservationId: recipient.relatedReservationId ?? null,
+        });
+        continue;
+      }
+
+      resolvedSubject = resolved.subject;
+      resolvedBody = resolved.body;
+    }
+
     try {
       if (campaign.channel === 'email') {
         await sendEmail({
           channel: 'email',
           recipient: recipient.recipient,
-          subject: campaign.subject || '',
-          body: campaign.body,
+          subject: resolvedSubject || '',
+          body: resolvedBody,
           orgId: campaign.org_id,
           relatedDepartureId: recipient.relatedDepartureId ?? null,
           relatedReservationId: recipient.relatedReservationId ?? null,
@@ -352,7 +420,7 @@ export async function sendCampaign(
         await sendSms({
           channel: 'sms',
           recipient: recipient.recipient,
-          body: campaign.body,
+          body: resolvedBody,
           orgId: campaign.org_id,
           relatedDepartureId: recipient.relatedDepartureId ?? null,
           relatedReservationId: recipient.relatedReservationId ?? null,

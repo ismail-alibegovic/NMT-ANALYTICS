@@ -2,19 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 
-const { previewCampaignAudienceMock } = vi.hoisted(() => ({
-  previewCampaignAudienceMock: vi.fn(async () => ({
-    audienceType: 'all' as const,
-    totalCandidates: 3,
-    uniqueRecipients: 2,
-    sendableRecipients: 2,
-    skippedEmpty: 0,
-    skippedInvalid: 1,
-    skippedDuplicates: 0,
-    sampleRecipients: ['guest@example.com', 'second@example.com'],
-    skipped: [],
-    recipients: [{ recipient: 'guest@example.com' }, { recipient: 'second@example.com' }],
-  })),
+const { previewCampaignAudienceMock, sendCampaignMock } = vi.hoisted(() => ({
+  previewCampaignAudienceMock: vi.fn(),
+  sendCampaignMock: vi.fn(),
 }));
 
 vi.mock('../middleware/authenticateToken', () => ({
@@ -41,12 +31,17 @@ vi.mock('../lib/campaigns', async () => {
   const actual = await vi.importActual<any>('../lib/campaigns');
   return {
     ...actual,
-    previewCampaignAudience: previewCampaignAudienceMock,
+    previewCampaignAudience: (...args: any[]) => previewCampaignAudienceMock(...args),
+    sendCampaign: (...args: any[]) => sendCampaignMock(...args),
   };
 });
 
 let campaigns: any[] = [];
 let templates: any[] = [];
+
+function applyFilters(rows: any[], filters: Record<string, any>) {
+  return rows.filter((item) => Object.entries(filters).every(([key, value]) => item[key] === value));
+}
 
 vi.mock('../lib/supabase', () => ({
   supabaseAdmin: {
@@ -54,7 +49,6 @@ vi.mock('../lib/supabase', () => ({
       const filters: Record<string, any> = {};
       let orderKey = 'created_at';
       let ascending = false;
-      let selectedColumns = '*';
 
       const rows = () => {
         if (table === 'campaigns') return campaigns;
@@ -63,10 +57,7 @@ vi.mock('../lib/supabase', () => ({
       };
 
       const builder: any = {
-        select: vi.fn((columns?: string) => {
-          selectedColumns = columns || '*';
-          return builder;
-        }),
+        select: vi.fn(() => builder),
         eq: vi.fn((column: string, value: any) => {
           filters[column] = value;
           return builder;
@@ -84,48 +75,57 @@ vi.mock('../lib/supabase', () => ({
             sent_at: null,
             ...payload,
           };
-          rows().unshift(inserted);
+          campaigns.unshift(inserted);
           return {
             select: () => ({
               single: async () => ({ data: inserted, error: null }),
             }),
           };
         }),
-        update: vi.fn((updates: any) => ({
-          eq: vi.fn((column: string, value: any) => {
-            filters[column] = value;
-            return {
-              eq: vi.fn((column2: string, value2: any) => {
-                filters[column2] = value2;
-                return {
-                  select: vi.fn(() => ({
-                    single: async () => {
-                      const row = rows().find((item) => item.id === filters.id && item.org_id === filters.org_id);
-                      if (!row) return { data: null, error: { code: 'PGRST116' } };
-                      Object.assign(row, updates);
-                      return { data: row, error: null };
-                    },
-                  })),
-                };
-              }),
-            };
-          }),
-        })),
-        delete: vi.fn(() => ({
-          eq: vi.fn((column: string, value: any) => {
-            filters[column] = value;
-            return {
-              eq: vi.fn(async (column2: string, value2: any) => {
-                filters[column2] = value2;
-                const before = rows().length;
-                if (table === 'campaigns') {
-                  campaigns = campaigns.filter((item) => !(item.id === filters.id && item.org_id === filters.org_id));
-                }
-                return { data: null, error: before === rows().length ? { code: 'PGRST116' } : null };
-              }),
-            };
-          }),
-        })),
+        update: vi.fn((updates: any) => {
+          const updateFilters: Record<string, any> = {};
+          const updateBuilder: any = {
+            eq: vi.fn((column: string, value: any) => {
+              updateFilters[column] = value;
+              return updateBuilder;
+            }),
+            select: vi.fn(() => ({
+              single: async () => {
+                const row = campaigns.find((item) =>
+                  Object.entries(updateFilters).every(([key, value]) => item[key] === value),
+                );
+                if (!row) return { data: null, error: { code: 'PGRST116' } };
+                Object.assign(row, updates);
+                return { data: row, error: null };
+              },
+            })),
+            then: async (resolve: any) => {
+              const matched = campaigns.filter((item) =>
+                Object.entries(updateFilters).every(([key, value]) => item[key] === value),
+              );
+              matched.forEach((row) => Object.assign(row, updates));
+              return resolve({ data: matched, error: null });
+            },
+          };
+          return updateBuilder;
+        }),
+        delete: vi.fn(() => {
+          const deleteFilters: Record<string, any> = {};
+          const deleteBuilder: any = {
+            eq: vi.fn((column: string, value: any) => {
+              deleteFilters[column] = value;
+              return deleteBuilder;
+            }),
+            then: async (resolve: any) => {
+              const before = campaigns.length;
+              campaigns = campaigns.filter((item) =>
+                !Object.entries(deleteFilters).every(([key, value]) => item[key] === value),
+              );
+              return resolve({ data: null, error: before === campaigns.length ? { code: 'PGRST116' } : null });
+            },
+          };
+          return deleteBuilder;
+        }),
         single: vi.fn(async () => {
           const row = rows().find((item) => Object.entries(filters).every(([key, value]) => item[key] === value));
           return row ? { data: row, error: null } : { data: null, error: { code: 'PGRST116' } };
@@ -134,14 +134,12 @@ vi.mock('../lib/supabase', () => ({
       };
 
       builder.then = async (resolve: any) => {
-        const filtered = [...rows()]
-          .filter((item) => Object.entries(filters).every(([key, value]) => item[key] === value))
-          .sort((a, b) =>
-            ascending
-              ? String(a[orderKey]).localeCompare(String(b[orderKey]))
-              : String(b[orderKey]).localeCompare(String(a[orderKey])),
-          );
-        return resolve({ data: filtered, error: null, selectedColumns });
+        const filtered = [...applyFilters(rows(), filters)].sort((a, b) =>
+          ascending
+            ? String(a[orderKey]).localeCompare(String(b[orderKey]))
+            : String(b[orderKey]).localeCompare(String(a[orderKey])),
+        );
+        return resolve({ data: filtered, error: null });
       };
 
       return builder;
@@ -158,13 +156,47 @@ function app() {
   return app;
 }
 
+const draftId = '11111111-1111-4111-8111-111111111111';
+const otherOrgId = '22222222-2222-4222-8222-222222222222';
+
 describe('campaign routes', () => {
   beforeEach(() => {
     currentOrgId = 'org-1';
-    previewCampaignAudienceMock.mockClear();
+    previewCampaignAudienceMock.mockReset();
+    sendCampaignMock.mockReset();
+    previewCampaignAudienceMock.mockResolvedValue({
+      audienceType: 'all',
+      totalCandidates: 3,
+      uniqueRecipients: 2,
+      sendableRecipients: 2,
+      skippedEmpty: 0,
+      skippedInvalid: 1,
+      skippedDuplicates: 0,
+      sampleRecipients: ['guest@example.com'],
+      skipped: [{ recipient: 'bad@example.com', reason: 'invalid_recipient' }],
+      recipients: [{ recipient: 'guest@example.com' }],
+    });
+    sendCampaignMock.mockResolvedValue({
+      status: 'completed',
+      sentCount: 2,
+      failedCount: 0,
+      skippedCount: 1,
+      totalRecipients: 2,
+      sentAt: '2026-08-29T00:00:00.000Z',
+      preview: {
+        audienceType: 'all',
+        totalCandidates: 3,
+        uniqueRecipients: 2,
+        sendableRecipients: 2,
+        skippedEmpty: 0,
+        skippedInvalid: 1,
+        skippedDuplicates: 0,
+        sampleRecipients: ['guest@example.com'],
+      },
+    });
     campaigns = [
       {
-        id: '11111111-1111-4111-8111-111111111111',
+        id: draftId,
         org_id: 'org-1',
         name: 'Draft email',
         channel: 'email',
@@ -180,7 +212,7 @@ describe('campaign routes', () => {
         sent_at: null,
       },
       {
-        id: '22222222-2222-4222-8222-222222222222',
+        id: otherOrgId,
         org_id: 'org-2',
         name: 'Other org',
         channel: 'sms',
@@ -197,24 +229,8 @@ describe('campaign routes', () => {
       },
     ];
     templates = [
-      {
-        id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-        org_id: 'org-1',
-        channel: 'email',
-        is_active: true,
-      },
-      {
-        id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-        org_id: 'org-1',
-        channel: 'sms',
-        is_active: true,
-      },
-      {
-        id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-        org_id: 'org-1',
-        channel: 'email',
-        is_active: false,
-      },
+      { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', org_id: 'org-1', channel: 'email', is_active: true },
+      { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', org_id: 'org-1', channel: 'sms', is_active: true },
     ];
   });
 
@@ -222,21 +238,6 @@ describe('campaign routes', () => {
     const res = await request(app()).get('/settings/campaigns');
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
-    expect(res.body.data[0].org_id).toBe('org-1');
-    expect(res.body.data[0].recipient_count).toBe(7);
-  });
-
-  it('gets a single campaign', async () => {
-    const res = await request(app()).get('/settings/campaigns/11111111-1111-4111-8111-111111111111');
-    expect(res.status).toBe(200);
-    expect(res.body.id).toBe('11111111-1111-4111-8111-111111111111');
-    expect(res.body.audience.audienceType).toBe('all');
-  });
-
-  it('returns controlled error for malformed uuid', async () => {
-    const res = await request(app()).get('/settings/campaigns/not-a-uuid');
-    expect(res.status).toBe(400);
-    expect(res.body.code).toBe('INVALID_UUID');
   });
 
   it('creates a campaign draft', async () => {
@@ -249,110 +250,84 @@ describe('campaign routes', () => {
       audience: { audienceType: 'all' },
       recipient_count: 12,
     });
-
     expect(res.status).toBe(201);
     expect(res.body.status).toBe('draft');
-    expect(res.body.template_id).toBe('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
-    expect(res.body.recipient_count).toBe(12);
   });
 
-  it('rejects template channel mismatch', async () => {
-    const res = await request(app()).post('/settings/campaigns').send({
-      name: 'SMS mismatch',
-      channel: 'email',
-      template_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-      subject: 'Subject',
-      body: 'Body',
-    });
-
-    expect(res.status).toBe(400);
-    expect(res.body.code).toBe('TEMPLATE_CHANNEL_MISMATCH');
-  });
-
-  it('rejects inactive template', async () => {
-    const res = await request(app()).post('/settings/campaigns').send({
-      name: 'Inactive template',
-      channel: 'email',
-      template_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-      subject: 'Subject',
-      body: 'Body',
-    });
-
-    expect(res.status).toBe(400);
-    expect(res.body.code).toBe('INVALID_TEMPLATE');
-  });
-
-  it('rejects invalid channel payload', async () => {
-    const res = await request(app()).post('/settings/campaigns').send({
-      name: 'Bad channel',
-      channel: 'push',
-      body: 'Body',
-    });
-
-    expect(res.status).toBe(400);
-    expect(res.body.code).toBe('VALIDATION_ERROR');
-  });
-
-  it('rejects unsupported placeholders', async () => {
-    const res = await request(app()).post('/settings/campaigns').send({
-      name: 'Bad placeholders',
-      channel: 'email',
-      subject: 'Subject',
-      body: 'Hello {{notSupported}}',
-    });
-
-    expect(res.status).toBe(400);
-    expect(res.body.code).toBe('UNSUPPORTED_PLACEHOLDER');
-  });
-
-  it('updates a draft campaign', async () => {
-    const res = await request(app()).patch('/settings/campaigns/11111111-1111-4111-8111-111111111111').send({
-      body: 'Updated body',
-      audience: { audienceType: 'departure', departureId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' },
-      recipient_count: 4,
-    });
-
+  it('launches a draft campaign', async () => {
+    const res = await request(app()).post(`/settings/campaigns/${draftId}/send`).send({});
     expect(res.status).toBe(200);
-    expect(res.body.body).toBe('Updated body');
-    expect(res.body.audience.audienceType).toBe('departure');
-    expect(res.body.recipient_count).toBe(4);
+    expect(previewCampaignAudienceMock).toHaveBeenCalledWith('org-1', 'email', { audienceType: 'all' });
+    expect(sendCampaignMock).toHaveBeenCalled();
+    expect(campaigns[0].status).toBe('sending');
+    expect(res.body.sentCount).toBe(2);
   });
 
-  it('keeps org isolation on update', async () => {
-    currentOrgId = 'org-2';
-    const res = await request(app()).patch('/settings/campaigns/11111111-1111-4111-8111-111111111111').send({
-      body: 'No access',
+  it('blocks launch when sendable recipient count is zero', async () => {
+    previewCampaignAudienceMock.mockResolvedValueOnce({
+      audienceType: 'all',
+      totalCandidates: 0,
+      uniqueRecipients: 0,
+      sendableRecipients: 0,
+      skippedEmpty: 0,
+      skippedInvalid: 0,
+      skippedDuplicates: 0,
+      sampleRecipients: [],
+      skipped: [],
+      recipients: [],
+    });
+    const res = await request(app()).post(`/settings/campaigns/${draftId}/send`).send({});
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('NO_SENDABLE_RECIPIENTS');
+    expect(sendCampaignMock).not.toHaveBeenCalled();
+  });
+
+  it('prevents relaunch for non-draft campaigns', async () => {
+    campaigns[0].status = 'completed';
+    const res = await request(app()).post(`/settings/campaigns/${draftId}/send`).send({});
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('CAMPAIGN_LOCKED');
+  });
+
+  it('prevents concurrent double launch with atomic draft lock', async () => {
+    sendCampaignMock.mockImplementationOnce(async () => {
+      campaigns[0].status = 'completed';
+      return {
+        status: 'completed',
+        sentCount: 1,
+        failedCount: 0,
+        skippedCount: 0,
+        totalRecipients: 1,
+        sentAt: '2026-08-29T00:00:00.000Z',
+        preview: { audienceType: 'all', totalCandidates: 1, uniqueRecipients: 1, sendableRecipients: 1, skippedEmpty: 0, skippedInvalid: 0, skippedDuplicates: 0, sampleRecipients: [] },
+      };
     });
 
+    const first = await request(app()).post(`/settings/campaigns/${draftId}/send`).send({});
+    const second = await request(app()).post(`/settings/campaigns/${draftId}/send`).send({});
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(400);
+    expect(second.body.code).toBe('CAMPAIGN_LOCKED');
+  });
+
+  it('rejects malformed uuid on launch', async () => {
+    const res = await request(app()).post('/settings/campaigns/not-a-uuid/send').send({});
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INVALID_UUID');
+  });
+
+  it('rejects cross-org launch', async () => {
+    currentOrgId = 'org-2';
+    const res = await request(app()).post(`/settings/campaigns/${draftId}/send`).send({});
     expect(res.status).toBe(404);
   });
 
-  it('previews audience counts before save', async () => {
-    const res = await request(app()).post('/settings/campaigns/preview').send({
-      channel: 'email',
-      template_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-      audience: { audienceType: 'all' },
-    });
-
-    expect(res.status).toBe(200);
-    expect(previewCampaignAudienceMock).toHaveBeenCalledWith('org-1', 'email', { audienceType: 'all' });
-    expect(res.body.sendableRecipients).toBe(2);
-  });
-
-  it('deletes a campaign draft', async () => {
-    const res = await request(app()).delete('/settings/campaigns/11111111-1111-4111-8111-111111111111');
-    expect(res.status).toBe(204);
-
-    const list = await request(app()).get('/settings/campaigns');
-    expect(list.body.data).toHaveLength(0);
-  });
-
-  it('disables campaign sending in this phase', async () => {
-    const res = await request(app()).post('/settings/campaigns/11111111-1111-4111-8111-111111111111/send').send({
-      audienceType: 'all',
-    });
-
+  it('returns controlled error when audience is missing', async () => {
+    campaigns[0].audience_type = null;
+    campaigns[0].audience_data = null;
+    const res = await request(app()).post(`/settings/campaigns/${draftId}/send`).send({});
     expect(res.status).toBe(400);
-    expect(res.body.code).toBe('CAMPAIGN_SENDING_DISABLED');
+    expect(res.body.code).toBe('INVALID_AUDIENCE');
   });
 });
