@@ -348,272 +348,272 @@
     "category": "B",
     "object": "audit_logs.entity_type",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for audit_logs.entity_type, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "audit_logs.ip_address",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for audit_logs.ip_address, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "audit_logs.metadata",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for audit_logs.metadata, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "audit_logs.new_data",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for audit_logs.new_data, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "audit_logs.old_data",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for audit_logs.old_data, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "audit_logs.user_agent",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for audit_logs.user_agent, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "documents.file_path",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for documents.file_path, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "documents.status",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for documents.status, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "documents.updated_at",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for documents.updated_at, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "hotel_rooms.bed_config",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for hotel_rooms.bed_config, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "hotel_rooms.beds_count",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for hotel_rooms.beds_count, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "org_settings.smtp_enabled",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for org_settings.smtp_enabled, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "org_settings.smtp_from_email",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for org_settings.smtp_from_email, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "org_settings.smtp_from_name",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for org_settings.smtp_from_name, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "org_settings.smtp_host",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for org_settings.smtp_host, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "org_settings.smtp_pass_encrypted",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for org_settings.smtp_pass_encrypted, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "org_settings.smtp_port",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for org_settings.smtp_port, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "org_settings.smtp_user",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for org_settings.smtp_user, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "organizations.logo_url",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for organizations.logo_url, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "organizations.primary_color",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for organizations.primary_color, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "organizations.secondary_color",
     "object_type": "column",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for organizations.secondary_color, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "audit_logs.entity_id",
     "object_type": "column",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for audit_logs.entity_id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "audit_logs.org_id",
     "object_type": "column",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for audit_logs.org_id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "documents.entity_id",
     "object_type": "column",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for documents.entity_id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "documents.entity_type",
     "object_type": "column",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for documents.entity_type, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "documents.payload",
     "object_type": "column",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for documents.payload, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "notifications.created_at",
     "object_type": "column",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for notifications.created_at, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "payments.org_id",
     "object_type": "column",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for payments.org_id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "payments.payment_date",
     "object_type": "column",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for payments.payment_date, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "profiles.org_id",
     "object_type": "column",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for profiles.org_id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "profiles.role",
     "object_type": "column",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for profiles.role, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "quotations.global_markup_percent",
     "object_type": "column",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotations.global_markup_percent, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "quotations.reference",
     "object_type": "column",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotations.reference, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "quotations.valid_until",
     "object_type": "column",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotations.valid_until, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
@@ -636,8 +636,8 @@
     "category": "B",
     "object": "org_settings.org_id",
     "object_type": "primary_key",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for org_settings.org_id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
@@ -676,96 +676,96 @@
     "category": "B",
     "object": "audit_logs.user_id->users.id",
     "object_type": "foreign_key",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for audit_logs.user_id->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "contracts.created_by->users.id",
     "object_type": "foreign_key",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for contracts.created_by->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "notifications.user_id->users.id",
     "object_type": "foreign_key",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for notifications.user_id->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "payment_links.created_by->users.id",
     "object_type": "foreign_key",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for payment_links.created_by->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "payments.org_id->organizations.id",
     "object_type": "foreign_key",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for payments.org_id->organizations.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "payments.reservation_id->reservations.id",
     "object_type": "foreign_key",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for payments.reservation_id->reservations.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "profiles.id->users.id",
     "object_type": "foreign_key",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for profiles.id->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "public_forms.created_by->users.id",
     "object_type": "foreign_key",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for public_forms.created_by->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "receipts.issued_by->users.id",
     "object_type": "foreign_key",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for receipts.issued_by->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "sub_agent_tokens.issued_by->users.id",
     "object_type": "foreign_key",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for sub_agent_tokens.issued_by->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "sub_agents.created_by->users.id",
     "object_type": "foreign_key",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for sub_agents.created_by->users.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "tours.org_id->organizations.id",
     "object_type": "foreign_key",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for tours.org_id->organizations.id, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
@@ -796,8 +796,8 @@
     "category": "B",
     "object": "quotations.reference",
     "object_type": "unique_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotations.reference, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
@@ -1588,704 +1588,704 @@
     "category": "B",
     "object": "accommodation_buildings::((type = ANY (ARRAY['hotel'::text, 'hostel'::text, 'dormitory'::text, 'apartment'::text, 'other'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for accommodation_buildings::((type = ANY (ARRAY['hotel'::text, 'hostel'::text, 'dormitory'::text, 'apartment'::text, 'other'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "accommodation_rooms::((type = ANY (ARRAY['single'::text, 'double'::text, 'triple'::text, 'quadruple'::text, 'custom'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for accommodation_rooms::((type = ANY (ARRAY['single'::text, 'double'::text, 'triple'::text, 'quadruple'::text, 'custom'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "audit_logs::entity_type IS NOT NULL",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for audit_logs::entity_type IS NOT NULL, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "campaigns::((channel = ANY (ARRAY['email'::text, 'sms'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for campaigns::((channel = ANY (ARRAY['email'::text, 'sms'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "campaigns::((status = ANY (ARRAY['draft'::text, 'sending'::text, 'completed'::text, 'failed'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for campaigns::((status = ANY (ARRAY['draft'::text, 'sending'::text, 'completed'::text, 'failed'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "commission_rules::(((commission_pct >= (0)::numeric) AND (commission_pct <= (100)::numeric)))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for commission_rules::(((commission_pct >= (0)::numeric) AND (commission_pct <= (100)::numeric))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "commission_rules::(((markup_pct >= (0)::numeric) AND (markup_pct <= (100)::numeric)))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for commission_rules::(((markup_pct >= (0)::numeric) AND (markup_pct <= (100)::numeric))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "commission_rules::(((service_type IS NULL) OR (service_type = ANY (ARRAY['hotel'::text, 'transport'::text, 'tour'::text, 'insurance'::text, 'extra'::text]))))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for commission_rules::(((service_type IS NULL) OR (service_type = ANY (ARRAY['hotel'::text, 'transport'::text, 'tour'::text, 'insurance'::text, 'extra'::text])))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "commission_rules::((partner_type = ANY (ARRAY['bronze'::text, 'silver'::text, 'gold'::text, 'platinum'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for commission_rules::((partner_type = ANY (ARRAY['bronze'::text, 'silver'::text, 'gold'::text, 'platinum'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "communication_history::((channel = ANY (ARRAY['email'::text, 'sms'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for communication_history::((channel = ANY (ARRAY['email'::text, 'sms'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "communication_history::((status = ANY (ARRAY['sent'::text, 'failed'::text, 'skipped'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for communication_history::((status = ANY (ARRAY['sent'::text, 'failed'::text, 'skipped'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "customers::((status = ANY (ARRAY['active'::text, 'lead'::text, 'archived'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for customers::((status = ANY (ARRAY['active'::text, 'lead'::text, 'archived'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "departure_passengers::((id_document_type = ANY (ARRAY['passport'::text, 'id_card'::text, 'none'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for departure_passengers::((id_document_type = ANY (ARRAY['passport'::text, 'id_card'::text, 'none'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "departures::((booked <= capacity))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for departures::((booked <= capacity)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "departures::((booked >= 0))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for departures::((booked >= 0)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "departures::((status = ANY (ARRAY['active'::text, 'cancelled'::text, 'completed'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for departures::((status = ANY (ARRAY['active'::text, 'cancelled'::text, 'completed'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "departures::((transport_type = ANY (ARRAY['bus'::text, 'flight'::text, 'none'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for departures::((transport_type = ANY (ARRAY['bus'::text, 'flight'::text, 'none'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "documents::entity_id IS NOT NULL",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for documents::entity_id IS NOT NULL, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "documents::entity_type IS NOT NULL",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for documents::entity_type IS NOT NULL, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "documents::payload IS NOT NULL",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for documents::payload IS NOT NULL, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "fiscal_submissions::((market = ANY (ARRAY['RS'::text, 'HR'::text, 'BA_FBIH'::text, 'BA_RS'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for fiscal_submissions::((market = ANY (ARRAY['RS'::text, 'HR'::text, 'BA_FBIH'::text, 'BA_RS'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "hotels::(((stars IS NULL) OR ((stars >= 1) AND (stars <= 5))))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for hotels::(((stars IS NULL) OR ((stars >= 1) AND (stars <= 5)))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "inquiries::(((budget IS NULL) OR (budget >= (0)::numeric)))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for inquiries::(((budget IS NULL) OR (budget >= (0)::numeric))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "inquiries::((source = ANY (ARRAY['web'::text, 'phone'::text, 'email'::text, 'walk_in'::text, 'partner'::text, 'social'::text, 'referral'::text, 'public_form'::text, 'other'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for inquiries::((source = ANY (ARRAY['web'::text, 'phone'::text, 'email'::text, 'walk_in'::text, 'partner'::text, 'social'::text, 'referral'::text, 'public_form'::text, 'other'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "inquiries::((stage = ANY (ARRAY['new'::text, 'qualified'::text, 'proposal'::text, 'follow_up'::text, 'won'::text, 'lost'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for inquiries::((stage = ANY (ARRAY['new'::text, 'qualified'::text, 'proposal'::text, 'follow_up'::text, 'won'::text, 'lost'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "inquiries::((travelers > 0))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for inquiries::((travelers > 0)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "inquiries::((trip_type = ANY (ARRAY['scheduled_group'::text, 'tailor_made'::text, 'accommodation_only'::text, 'flight_only'::text, 'corporate'::text, 'pilgrimage'::text, 'excursion'::text, 'transfer'::text, 'other'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for inquiries::((trip_type = ANY (ARRAY['scheduled_group'::text, 'tailor_made'::text, 'accommodation_only'::text, 'flight_only'::text, 'corporate'::text, 'pilgrimage'::text, 'excursion'::text, 'transfer'::text, 'other'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "itineraries::((current_version > 0))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for itineraries::((current_version > 0)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "itineraries::((status = ANY (ARRAY['draft'::text, 'active'::text, 'archived'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for itineraries::((status = ANY (ARRAY['draft'::text, 'active'::text, 'archived'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "itineraries::((travelers > 0))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for itineraries::((travelers > 0)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "itineraries::((trip_type = ANY (ARRAY['scheduled_group'::text, 'tailor_made'::text, 'accommodation_only'::text, 'flight_only'::text, 'corporate'::text, 'pilgrimage'::text, 'excursion'::text, 'transfer'::text, 'other'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for itineraries::((trip_type = ANY (ARRAY['scheduled_group'::text, 'tailor_made'::text, 'accommodation_only'::text, 'flight_only'::text, 'corporate'::text, 'pilgrimage'::text, 'excursion'::text, 'transfer'::text, 'other'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "itinerary_items::(((markup_percent >= (0)::numeric) AND (markup_percent <= (1000)::numeric)))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for itinerary_items::(((markup_percent >= (0)::numeric) AND (markup_percent <= (1000)::numeric))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "itinerary_items::((category = ANY (ARRAY['accommodation'::text, 'transport'::text, 'flight'::text, 'guide'::text, 'activity'::text, 'meal'::text, 'insurance'::text, 'visa'::text, 'ticket'::text, 'venue'::text, 'equipment'::text, 'other'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for itinerary_items::((category = ANY (ARRAY['accommodation'::text, 'transport'::text, 'flight'::text, 'guide'::text, 'activity'::text, 'meal'::text, 'insurance'::text, 'visa'::text, 'ticket'::text, 'venue'::text, 'equipment'::text, 'other'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "itinerary_items::((day_number > 0))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for itinerary_items::((day_number > 0)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "itinerary_items::((net_unit_price >= (0)::numeric))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for itinerary_items::((net_unit_price >= (0)::numeric)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "itinerary_items::((quantity > (0)::numeric))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for itinerary_items::((quantity > (0)::numeric)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "itinerary_items::((unit = ANY (ARRAY['per_person'::text, 'per_room'::text, 'per_night'::text, 'per_vehicle'::text, 'per_group'::text, 'per_booking'::text, 'per_day'::text, 'per_hour'::text, 'fixed'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for itinerary_items::((unit = ANY (ARRAY['per_person'::text, 'per_room'::text, 'per_night'::text, 'per_vehicle'::text, 'per_group'::text, 'per_booking'::text, 'per_day'::text, 'per_hour'::text, 'fixed'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "itinerary_versions::((version_number > 0))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for itinerary_versions::((version_number > 0)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "message_templates::((channel = ANY (ARRAY['email'::text, 'sms'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for message_templates::((channel = ANY (ARRAY['email'::text, 'sms'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "notifications::((type = ANY (ARRAY['new_reservation'::text, 'payment_received'::text, 'departure_reminder'::text, 'payment_overdue'::text, 'system'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for notifications::((type = ANY (ARRAY['new_reservation'::text, 'payment_received'::text, 'departure_reminder'::text, 'payment_overdue'::text, 'system'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "org_settings::smtp_enabled IS NOT NULL",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for org_settings::smtp_enabled IS NOT NULL, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "organizations::((agency_profiles <@ ARRAY['retail_agency'::text, 'group_tours'::text, 'dmc_incoming'::text, 'tour_operator'::text]))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for organizations::((agency_profiles <@ ARRAY['retail_agency'::text, 'group_tours'::text, 'dmc_incoming'::text, 'tour_operator'::text])), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "organizations::((enabled_capabilities <@ ARRAY['customer_sales'::text, 'scheduled_departures'::text, 'group_operations'::text, 'tailor_made_itineraries'::text, 'supplier_management'::text, 'accommodation_operations'::text, 'transport_operations'::text, 'inventory_contracting'::text, 'b2b_distribution'::text, 'document_generation'::text, 'customer_finance'::text, 'supplier_finance'::text]))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for organizations::((enabled_capabilities <@ ARRAY['customer_sales'::text, 'scheduled_departures'::text, 'group_operations'::text, 'tailor_made_itineraries'::text, 'supplier_management'::text, 'accommodation_operations'::text, 'transport_operations'::text, 'inventory_contracting'::text, 'b2b_distribution'::text, 'document_generation'::text, 'customer_finance'::text, 'supplier_finance'::text])), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "organizations::((plan = ANY (ARRAY['trial'::text, 'core'::text, 'pro'::text, 'full'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for organizations::((plan = ANY (ARRAY['trial'::text, 'core'::text, 'pro'::text, 'full'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "package_services::(((markup_pct >= (0)::numeric) AND (markup_pct <= (100)::numeric)))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for package_services::(((markup_pct >= (0)::numeric) AND (markup_pct <= (100)::numeric))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "package_services::(((room_type IS NULL) OR (room_type = ANY (ARRAY['single'::text, 'double'::text, 'triple'::text, 'apartment'::text]))))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for package_services::(((room_type IS NULL) OR (room_type = ANY (ARRAY['single'::text, 'double'::text, 'triple'::text, 'apartment'::text])))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "package_services::((service_type = ANY (ARRAY['hotel'::text, 'transport'::text, 'tour'::text, 'insurance'::text, 'extra'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for package_services::((service_type = ANY (ARRAY['hotel'::text, 'transport'::text, 'tour'::text, 'insurance'::text, 'extra'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "packages::(((transport_type IS NULL) OR (transport_type = ANY (ARRAY['bus'::text, 'flight'::text, 'none'::text]))))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for packages::(((transport_type IS NULL) OR (transport_type = ANY (ARRAY['bus'::text, 'flight'::text, 'none'::text])))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "packages::((trip_type = ANY (ARRAY['beach'::text, 'city'::text, 'pilgrimage'::text, 'honeymoon'::text, 'ski'::text, 'adventure'::text, 'cruise'::text, 'cultural'::text, 'wellness'::text, 'other'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for packages::((trip_type = ANY (ARRAY['beach'::text, 'city'::text, 'pilgrimage'::text, 'honeymoon'::text, 'ski'::text, 'adventure'::text, 'cruise'::text, 'cultural'::text, 'wellness'::text, 'other'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "payments::((amount > (0)::numeric))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for payments::((amount > (0)::numeric)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "payments::((status = ANY (ARRAY['pending'::text, 'succeeded'::text, 'failed'::text, 'refunded'::text, 'cancelled'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for payments::((status = ANY (ARRAY['pending'::text, 'succeeded'::text, 'failed'::text, 'refunded'::text, 'cancelled'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "payments::org_id IS NOT NULL",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for payments::org_id IS NOT NULL, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "plan_module_map::((plan = ANY (ARRAY['trial'::text, 'core'::text, 'pro'::text, 'full'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for plan_module_map::((plan = ANY (ARRAY['trial'::text, 'core'::text, 'pro'::text, 'full'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "profiles::((role = ANY (ARRAY['super_admin'::text, 'director'::text, 'manager'::text, 'agent'::text, 'viewer'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for profiles::((role = ANY (ARRAY['super_admin'::text, 'director'::text, 'manager'::text, 'agent'::text, 'viewer'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "quotation_items::(((markup_percent >= (0)::numeric) AND (markup_percent <= (1000)::numeric)))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotation_items::(((markup_percent >= (0)::numeric) AND (markup_percent <= (1000)::numeric))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "quotation_items::((day_number > 0))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotation_items::((day_number > 0)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "quotation_items::((net_unit_price >= (0)::numeric))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotation_items::((net_unit_price >= (0)::numeric)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "quotation_items::((quantity > (0)::numeric))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotation_items::((quantity > (0)::numeric)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "quotations::((((itinerary_id IS NULL) AND (itinerary_version_id IS NULL)) OR ((itinerary_id IS NOT NULL) AND (itinerary_version_id IS NOT NULL))))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotations::((((itinerary_id IS NULL) AND (itinerary_version_id IS NULL)) OR ((itinerary_id IS NOT NULL) AND (itinerary_version_id IS NOT NULL)))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "quotations::(((global_markup_percent >= (0)::numeric) AND (global_markup_percent <= (1000)::numeric)))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotations::(((global_markup_percent >= (0)::numeric) AND (global_markup_percent <= (1000)::numeric))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "quotations::((markup_strategy = ANY (ARRAY['uniform'::text, 'per_item'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotations::((markup_strategy = ANY (ARRAY['uniform'::text, 'per_item'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "quotations::((status = ANY (ARRAY['draft'::text, 'sent'::text, 'accepted'::text, 'rejected'::text, 'expired'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotations::((status = ANY (ARRAY['draft'::text, 'sent'::text, 'accepted'::text, 'rejected'::text, 'expired'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "quotations::global_markup_percent IS NOT NULL",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotations::global_markup_percent IS NOT NULL, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "quotations::reference IS NOT NULL",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotations::reference IS NOT NULL, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "receipts::(((payment_method IS NULL) OR (payment_method = ANY (ARRAY['cash'::text, 'card'::text, 'bank'::text]))))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for receipts::(((payment_method IS NULL) OR (payment_method = ANY (ARRAY['cash'::text, 'card'::text, 'bank'::text])))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "receipts::((receipt_type = ANY (ARRAY['advance'::text, 'final'::text, 'refund'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for receipts::((receipt_type = ANY (ARRAY['advance'::text, 'final'::text, 'refund'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "reservations::(((transport_type IS NULL) OR (transport_type = ANY (ARRAY['bus'::text, 'flight'::text, 'none'::text]))))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for reservations::(((transport_type IS NULL) OR (transport_type = ANY (ARRAY['bus'::text, 'flight'::text, 'none'::text])))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "reservations::((paid_amount <= total_amount))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for reservations::((paid_amount <= total_amount)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "reservations::((paid_amount >= (0)::numeric))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for reservations::((paid_amount >= (0)::numeric)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "reservations::((party_size > 0))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for reservations::((party_size > 0)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "reservations::((payment_status = ANY (ARRAY['unpaid'::text, 'partial'::text, 'paid'::text, 'refunded'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for reservations::((payment_status = ANY (ARRAY['unpaid'::text, 'partial'::text, 'paid'::text, 'refunded'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "reservations::((source = ANY (ARRAY['web'::text, 'phone'::text, 'agent'::text, 'walk-in'::text, 'other'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for reservations::((source = ANY (ARRAY['web'::text, 'phone'::text, 'agent'::text, 'walk-in'::text, 'other'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "reservations::((status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'cancelled'::text, 'completed'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for reservations::((status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'cancelled'::text, 'completed'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "sub_agents::(((markup_pct >= (0)::numeric) AND (markup_pct <= (100)::numeric)))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for sub_agents::(((markup_pct >= (0)::numeric) AND (markup_pct <= (100)::numeric))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "sub_agents::((partner_type = ANY (ARRAY['bronze'::text, 'silver'::text, 'gold'::text, 'platinum'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for sub_agents::((partner_type = ANY (ARRAY['bronze'::text, 'silver'::text, 'gold'::text, 'platinum'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "supplier_services::(((default_markup >= (0)::numeric) AND (default_markup <= (1000)::numeric)))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for supplier_services::(((default_markup >= (0)::numeric) AND (default_markup <= (1000)::numeric))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "supplier_services::(((max_quantity IS NULL) OR (max_quantity >= (0)::numeric)))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for supplier_services::(((max_quantity IS NULL) OR (max_quantity >= (0)::numeric))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "supplier_services::(((min_quantity IS NULL) OR (min_quantity >= (0)::numeric)))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for supplier_services::(((min_quantity IS NULL) OR (min_quantity >= (0)::numeric))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "supplier_services::(((tax_rate >= (0)::numeric) AND (tax_rate <= (100)::numeric)))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for supplier_services::(((tax_rate >= (0)::numeric) AND (tax_rate <= (100)::numeric))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "supplier_services::((category = ANY (ARRAY['accommodation'::text, 'transport'::text, 'flight'::text, 'guide'::text, 'activity'::text, 'meal'::text, 'insurance'::text, 'visa'::text, 'ticket'::text, 'venue'::text, 'equipment'::text, 'other'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for supplier_services::((category = ANY (ARRAY['accommodation'::text, 'transport'::text, 'flight'::text, 'guide'::text, 'activity'::text, 'meal'::text, 'insurance'::text, 'visa'::text, 'ticket'::text, 'venue'::text, 'equipment'::text, 'other'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "supplier_services::((net_price >= (0)::numeric))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for supplier_services::((net_price >= (0)::numeric)), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "supplier_services::((unit = ANY (ARRAY['per_person'::text, 'per_room'::text, 'per_night'::text, 'per_vehicle'::text, 'per_group'::text, 'per_booking'::text, 'per_day'::text, 'per_hour'::text, 'fixed'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for supplier_services::((unit = ANY (ARRAY['per_person'::text, 'per_room'::text, 'per_night'::text, 'per_vehicle'::text, 'per_group'::text, 'per_booking'::text, 'per_day'::text, 'per_hour'::text, 'fixed'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "suppliers::((category = ANY (ARRAY['accommodation'::text, 'transport'::text, 'airline'::text, 'guide'::text, 'activity'::text, 'restaurant'::text, 'insurance'::text, 'visa'::text, 'ticket'::text, 'venue'::text, 'equipment'::text, 'other'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for suppliers::((category = ANY (ARRAY['accommodation'::text, 'transport'::text, 'airline'::text, 'guide'::text, 'activity'::text, 'restaurant'::text, 'insurance'::text, 'visa'::text, 'ticket'::text, 'venue'::text, 'equipment'::text, 'other'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "suppliers::((status = ANY (ARRAY['active'::text, 'inactive'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for suppliers::((status = ANY (ARRAY['active'::text, 'inactive'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "transactions::((status = ANY (ARRAY['pending'::text, 'succeeded'::text, 'failed'::text, 'refunded'::text, 'cancelled'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for transactions::((status = ANY (ARRAY['pending'::text, 'succeeded'::text, 'failed'::text, 'refunded'::text, 'cancelled'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "transactions::((type = ANY (ARRAY['payment'::text, 'refund'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for transactions::((type = ANY (ARRAY['payment'::text, 'refund'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "trip_passenger_groups::((accommodation_preference = ANY (ARRAY['same_room'::text, 'adjacent_rooms'::text, 'same_floor'::text, 'nearby'::text, 'no_preference'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for trip_passenger_groups::((accommodation_preference = ANY (ARRAY['same_room'::text, 'adjacent_rooms'::text, 'same_floor'::text, 'nearby'::text, 'no_preference'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "trip_passenger_groups::((seating_preference = ANY (ARRAY['keep_together'::text, 'prefer_together'::text, 'no_preference'::text])))",
     "object_type": "check_constraint",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for trip_passenger_groups::((seating_preference = ANY (ARRAY['keep_together'::text, 'prefer_together'::text, 'no_preference'::text]))), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
@@ -2436,64 +2436,64 @@
     "category": "B",
     "object": "audit_logs::CREATE INDEX idx_audit_logs_entity ON public.audit_logs (entity_type, entity_id)",
     "object_type": "index",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for audit_logs::CREATE INDEX idx_audit_logs_entity ON public.audit_logs (entity_type, entity_id), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "audit_logs::CREATE INDEX idx_audit_logs_org_created ON public.audit_logs (org_id, created_at DESC)",
     "object_type": "index",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for audit_logs::CREATE INDEX idx_audit_logs_org_created ON public.audit_logs (org_id, created_at DESC), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "notifications::CREATE INDEX idx_notifications_created_at ON public.notifications (created_at DESC)",
     "object_type": "index",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for notifications::CREATE INDEX idx_notifications_created_at ON public.notifications (created_at DESC), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "notifications::CREATE INDEX idx_notifications_is_read ON public.notifications (is_read) WHERE (is_read = false)",
     "object_type": "index",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for notifications::CREATE INDEX idx_notifications_is_read ON public.notifications (is_read) WHERE (is_read = false), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "notifications::CREATE INDEX idx_notifications_org_user ON public.notifications (org_id, user_id)",
     "object_type": "index",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for notifications::CREATE INDEX idx_notifications_org_user ON public.notifications (org_id, user_id), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "quotations::CREATE INDEX idx_quotations_org_reference ON public.quotations (org_id, reference)",
     "object_type": "index",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotations::CREATE INDEX idx_quotations_org_reference ON public.quotations (org_id, reference), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "quotations::CREATE INDEX idx_quotations_ref ON public.quotations (org_id, reference)",
     "object_type": "index",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for quotations::CREATE INDEX idx_quotations_ref ON public.quotations (org_id, reference), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "tours::CREATE INDEX idx_fk_tours_4cb4782933 ON public.tours (org_id)",
     "object_type": "index",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for tours::CREATE INDEX idx_fk_tours_4cb4782933 ON public.tours (org_id), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
@@ -2620,16 +2620,16 @@
     "category": "B",
     "object": "org_settings.Directors can manage org settings",
     "object_type": "policy",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for org_settings.Directors can manage org settings, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "trip_passenger_group_members.trip_passenger_group_members org isolation",
     "object_type": "policy",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for trip_passenger_group_members.trip_passenger_group_members org isolation, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
@@ -2652,8 +2652,8 @@
     "category": "B",
     "object": "assign_passenger_to_room(p_passenger_id uuid, p_room_id uuid, p_org_id uuid, p_user_id uuid, p_bed_label text DEFAULT NULL::text)",
     "object_type": "function",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for assign_passenger_to_room(p_passenger_id uuid, p_room_id uuid, p_org_id uuid, p_user_id uuid, p_bed_label text DEFAULT NULL::text), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
@@ -2772,8 +2772,8 @@
     "category": "B",
     "object": "move_passenger_room(p_passenger_id uuid, p_dest_room_id uuid, p_org_id uuid, p_user_id uuid, p_bed_label text DEFAULT NULL::text)",
     "object_type": "function",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for move_passenger_room(p_passenger_id uuid, p_dest_room_id uuid, p_org_id uuid, p_user_id uuid, p_bed_label text DEFAULT NULL::text), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
@@ -2940,8 +2940,8 @@
     "category": "B",
     "object": "update_group_member_count()",
     "object_type": "function",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for update_group_member_count(), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
@@ -3028,144 +3028,144 @@
     "category": "B",
     "object": "apply_accommodation_assignments_atomic(p_departure_id uuid, p_org_id uuid, p_assignments jsonb, OUT applied_count integer, OUT error_detail text)",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for apply_accommodation_assignments_atomic(p_departure_id uuid, p_org_id uuid, p_assignments jsonb, OUT applied_count integer, OUT error_detail text), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "get_dashboard_stats(p_org_id uuid, p_date_from timestamp with time zone, p_date_to timestamp with time zone)",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for get_dashboard_stats(p_org_id uuid, p_date_from timestamp with time zone, p_date_to timestamp with time zone), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "get_my_org_id()",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for get_my_org_id(), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "get_my_role()",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for get_my_role(), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "get_reports_summary(p_org_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone)",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for get_reports_summary(p_org_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "get_revenue_analytics(p_org_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone)",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for get_revenue_analytics(p_org_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "get_revenue_by_day(p_org_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone)",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for get_revenue_by_day(p_org_id uuid, p_start_date timestamp with time zone, p_end_date timestamp with time zone), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "get_total_revenue(p_org_id uuid, p_start_date timestamp with time zone DEFAULT NULL::timestamp with time zone, p_end_date timestamp with time zone DEFAULT NULL::timestamp with time zone)",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for get_total_revenue(p_org_id uuid, p_start_date timestamp with time zone DEFAULT NULL::timestamp with time zone, p_end_date timestamp with time zone DEFAULT NULL::timestamp with time zone), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "has_permission(user_role text, check_resource text, check_action text)",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for has_permission(user_role text, check_resource text, check_action text), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "increment_booked(row_id uuid, amount integer)",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for increment_booked(row_id uuid, amount integer), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "submit_public_form(form_slug text, submission_data jsonb)",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for submit_public_form(form_slug text, submission_data jsonb), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "trg_sync_accommodation_bed_json()",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for trg_sync_accommodation_bed_json(), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "trg_validate_accommodation_assignment()",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for trg_validate_accommodation_assignment(), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "update_reservation_paid_amount()",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for update_reservation_paid_amount(), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "update_updated_at_column()",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for update_updated_at_column(), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "validate_payment_currency()",
     "object_type": "function",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for validate_payment_currency(), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "trip_passenger_group_members.trg_group_member_count",
     "object_type": "trigger",
-    "reason": "Fresh-only object produced by the reconstructed local migration chain or pending local migrations before production history reconciliation. It is explicitly surfaced for review and not hidden.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for trip_passenger_group_members.trg_group_member_count, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
     "category": "B",
     "object": "eturista_submissions_view",
     "object_type": "view",
-    "reason": "Changed metadata between fresh replay and current production, surfaced by the full fingerprint. Difference is explained for review; production was not modified.",
-    "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+    "reason": "Application-owned canonical fresh difference for eturista_submissions_view, retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   },
   {
     "application_references_found": null,
@@ -5190,5 +5190,77 @@
     "object_type": "grant",
     "reason": "Service-role maintenance privilege metadata differs between Supabase production and disposable local replay. Client role grants are still compared separately; this does not expose anon/authenticated access.",
     "source": "Generated from full normalized fingerprint raw_differences; see fresh-vs-production-schema-diff.json for direction/details."
+  },
+  {
+    "application_references_found": false,
+    "category": "D",
+    "object": "trip_tokens::CREATE INDEX ON trip_tokens (issued_by)",
+    "object_type": "index",
+    "reason": "Index belongs to production-only trip_tokens table. The table is absent from numbered legacy 001-026 and active migrations, and application grep found no trip_tokens references under nmt-analytics-api/src or nmt-analytics-admin/src.",
+    "source": "pre027-state-ledger.json plus app-code grep for trip_tokens"
+  },
+  {
+    "application_references_found": false,
+    "category": "D",
+    "object": "trip_tokens::CREATE INDEX ON trip_tokens (org_id)",
+    "object_type": "index",
+    "reason": "Index belongs to production-only trip_tokens table. The table is absent from numbered legacy 001-026 and active migrations, and application grep found no trip_tokens references under nmt-analytics-api/src or nmt-analytics-admin/src.",
+    "source": "pre027-state-ledger.json plus app-code grep for trip_tokens"
+  },
+  {
+    "application_references_found": false,
+    "category": "D",
+    "object": "trip_tokens::CREATE INDEX ON trip_tokens (reservation_id)",
+    "object_type": "index",
+    "reason": "Index belongs to production-only trip_tokens table. The table is absent from numbered legacy 001-026 and active migrations, and application grep found no trip_tokens references under nmt-analytics-api/src or nmt-analytics-admin/src.",
+    "source": "pre027-state-ledger.json plus app-code grep for trip_tokens"
+  },
+  {
+    "application_references_found": false,
+    "category": "D",
+    "object": "trip_tokens::CREATE INDEX ON trip_tokens (token_hash)",
+    "object_type": "index",
+    "reason": "Index belongs to production-only trip_tokens table. The table is absent from numbered legacy 001-026 and active migrations, and application grep found no trip_tokens references under nmt-analytics-api/src or nmt-analytics-admin/src.",
+    "source": "pre027-state-ledger.json plus app-code grep for trip_tokens"
+  },
+  {
+    "application_references_found": null,
+    "category": "B",
+    "object": "notifications::CREATE INDEX ON notifications (created_at DESC)",
+    "object_type": "index",
+    "reason": "Application-owned canonical fresh difference for notifications::CREATE INDEX ON notifications (created_at DESC), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+  },
+  {
+    "application_references_found": null,
+    "category": "B",
+    "object": "notifications::CREATE INDEX ON notifications (is_read) WHERE (is_read = false)",
+    "object_type": "index",
+    "reason": "Application-owned canonical fresh difference for notifications::CREATE INDEX ON notifications (is_read) WHERE (is_read = false), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+  },
+  {
+    "application_references_found": null,
+    "category": "B",
+    "object": "notifications::CREATE INDEX ON notifications (org_id, user_id)",
+    "object_type": "index",
+    "reason": "Application-owned canonical fresh difference for notifications::CREATE INDEX ON notifications (org_id, user_id), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+  },
+  {
+    "application_references_found": null,
+    "category": "B",
+    "object": "quotations::CREATE INDEX ON quotations (org_id, reference)",
+    "object_type": "index",
+    "reason": "Application-owned canonical fresh difference for quotations::CREATE INDEX ON quotations (org_id, reference), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
+  },
+  {
+    "application_references_found": null,
+    "category": "B",
+    "object": "tours::CREATE INDEX ON tours (org_id)",
+    "object_type": "index",
+    "reason": "Application-owned canonical fresh difference for tours::CREATE INDEX ON tours (org_id), retained only because production history reconciliation has not executed yet. It is not a blanket allowlist: the object remains surfaced in raw_differences and is counted as Category B.",
+    "source": "active migration chain plus application-schema-contract.json; production reconciliation pending, no production change executed in this task"
   }
 ]

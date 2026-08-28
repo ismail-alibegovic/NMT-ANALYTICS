@@ -17,6 +17,7 @@ Output: docs/migrations/fresh-vs-production-schema-diff.json
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -111,10 +112,12 @@ PROD_UNIQUE = _p(
     "ORDER BY tc.table_name, kcu.ordinal_position")
 
 PROD_CHECK = _p(
-    "SELECT tc.table_name, cc.check_clause FROM information_schema.table_constraints tc "
-    "JOIN information_schema.check_constraints cc ON tc.constraint_name=cc.constraint_name "
-    "WHERE tc.constraint_type='CHECK' AND tc.table_schema='public' "
-    "ORDER BY tc.table_name")
+    "SELECT c.relname AS table_name, con.conname, pg_get_constraintdef(con.oid, true) AS check_clause "
+    "FROM pg_constraint con JOIN pg_class c ON c.oid=con.conrelid "
+    "JOIN pg_namespace n ON n.oid=c.relnamespace "
+    "WHERE n.nspname='public' AND con.contype='c' "
+    "AND con.conname NOT LIKE '%_not_null' "
+    "ORDER BY c.relname, con.conname")
 
 PROD_INDEXES = _p(
     "SELECT i.relname AS indexname, t.relname AS tablename, pg_get_indexdef(i.oid) AS indexdef "
@@ -137,8 +140,10 @@ PROD_FUNCTIONS = _p(
     "SELECT p.proname, pg_get_function_arguments(p.oid) AS args, "
     "pg_get_function_result(p.oid) AS ret, p.prosecdef AS secdef, "
     "p.provolatile AS volatility, COALESCE(p.proconfig::text,'') AS proconfig, "
-    "md5(pg_get_functiondef(p.oid)) AS defhash "
+    "pg_get_functiondef(p.oid) AS definition, e.extname AS extension_name "
     "FROM pg_proc p JOIN pg_namespace n ON p.pronamespace=n.oid "
+    "LEFT JOIN pg_depend d ON d.objid=p.oid AND d.deptype='e' "
+    "LEFT JOIN pg_extension e ON e.oid=d.refobjid "
     "WHERE n.nspname='public' AND p.prokind='f' ORDER BY p.proname, pg_get_function_arguments(p.oid)")
 
 PROD_TRIGGERS = _p(
@@ -191,10 +196,13 @@ FRESH_UNIQUE = psql(
     "AND tc.table_schema='public' ORDER BY tc.table_name, kcu.ordinal_position) r")
 
 FRESH_CHECK = psql(
-    "SELECT json_agg(row_to_json(r)) FROM (SELECT tc.table_name, cc.check_clause "
-    "FROM information_schema.table_constraints tc JOIN information_schema.check_constraints cc "
-    "ON tc.constraint_name=cc.constraint_name WHERE tc.constraint_type='CHECK' "
-    "AND tc.table_schema='public' ORDER BY tc.table_name) r")
+    "SELECT json_agg(row_to_json(r)) FROM (SELECT c.relname AS table_name, con.conname, "
+    "pg_get_constraintdef(con.oid, true) AS check_clause "
+    "FROM pg_constraint con JOIN pg_class c ON c.oid=con.conrelid "
+    "JOIN pg_namespace n ON n.oid=c.relnamespace "
+    "WHERE n.nspname='public' AND con.contype='c' "
+    "AND con.conname NOT LIKE '%_not_null' "
+    "ORDER BY c.relname, con.conname) r")
 
 FRESH_INDEXES = psql(
     "SELECT json_agg(row_to_json(r)) FROM (SELECT i.relname AS indexname, t.relname AS tablename, "
@@ -217,8 +225,12 @@ FRESH_POLICIES = psql(
 FRESH_FUNCTIONS = psql(
     "SELECT json_agg(row_to_json(r)) FROM (SELECT p.proname, pg_get_function_arguments(p.oid) AS args, "
     "pg_get_function_result(p.oid) AS ret, p.prosecdef AS secdef, p.provolatile AS volatility, "
-    "COALESCE(p.proconfig::text,'') AS proconfig, md5(pg_get_functiondef(p.oid)) AS defhash "
-    "FROM pg_proc p JOIN pg_namespace n ON p.pronamespace=n.oid WHERE n.nspname='public' "
+    "COALESCE(p.proconfig::text,'') AS proconfig, pg_get_functiondef(p.oid) AS definition, "
+    "e.extname AS extension_name "
+    "FROM pg_proc p JOIN pg_namespace n ON p.pronamespace=n.oid "
+    "LEFT JOIN pg_depend d ON d.objid=p.oid AND d.deptype='e' "
+    "LEFT JOIN pg_extension e ON e.oid=d.refobjid "
+    "WHERE n.nspname='public' "
     "AND p.prokind='f' ORDER BY p.proname, pg_get_function_arguments(p.oid)) r")
 
 FRESH_TRIGGERS = psql(
@@ -244,14 +256,46 @@ FRESH_GRANTS = psql(
 print("building diff...", file=sys.stderr)
 
 
+def norm_sql(s):
+    if s is None:
+        return ""
+    s = s.strip()
+    s = re.sub(r"\bpublic\.", "", s)
+    s = re.sub(r"::(text|uuid|jsonb|numeric|integer|bigint|timestamp with time zone|date|boolean)\b", "", s)
+    s = re.sub(r"\bARRAY\[([^\]]+)\]", r"ARRAY[\1]", s)
+    s = re.sub(r"\s+", " ", s)
+    previous = None
+    while previous != s:
+        previous = s
+        s = re.sub(r"\(\(([^()]+)\)\)", r"(\1)", s)
+    return s
+
+
 def norm_indexdef(d):
-    return d.replace(" USING btree", "").strip()
+    s = norm_sql(d)
+    s = re.sub(r"^CREATE\s+(UNIQUE\s+)?INDEX\s+\S+\s+ON\s+", r"CREATE \1INDEX ON ", s, flags=re.I)
+    s = s.replace(" USING btree ", " ")
+    return s.strip()
+
+
+def norm_check_clause(s):
+    return norm_sql(s)
+
+
+def norm_func_def(s):
+    s = norm_sql(s)
+    s = re.sub(r"\s*--.*", "", s)
+    s = re.sub(r"\s+", " ", s)
+    return s.strip()
 
 
 def col_fingerprint(r):
-    return {x: r.get(x) for x in
+    fp = {x: r.get(x) for x in
             ("data_type", "is_nullable", "column_default", "is_generated",
              "generation_expression", "udt_name")}
+    fp["column_default"] = norm_sql(fp.get("column_default"))
+    fp["generation_expression"] = norm_sql(fp.get("generation_expression"))
+    return fp
 
 
 RAW = []  # list of normalized diff records
@@ -305,8 +349,8 @@ for k in sorted(prod_uq - fresh_uq):
 for k in sorted(fresh_uq - prod_uq):
     emit("unique_constraint", "only_fresh", f"{k[0]}.{k[1]}")
 
-prod_ck = {(r["table_name"], r["check_clause"]) for r in PROD_CHECK}
-fresh_ck = {(r["table_name"], r["check_clause"]) for r in FRESH_CHECK}
+prod_ck = {(r["table_name"], norm_check_clause(r["check_clause"])) for r in PROD_CHECK}
+fresh_ck = {(r["table_name"], norm_check_clause(r["check_clause"])) for r in FRESH_CHECK}
 for k in sorted(prod_ck - fresh_ck):
     emit("check_constraint", "only_prod", f"{k[0]}::{k[1]}")
 for k in sorted(fresh_ck - prod_ck):
@@ -345,16 +389,36 @@ def func_sig(r):
 prod_func = {func_sig(r): r for r in PROD_FUNCTIONS}
 fresh_func = {func_sig(r): r for r in FRESH_FUNCTIONS}
 for s in sorted(set(prod_func) - set(fresh_func)):
-    emit("function", "only_prod", f"{s[0]}({s[1]})")
+    p = prod_func[s]
+    emit("function", "only_prod", f"{s[0]}({s[1]})",
+         {"prod_extension": p.get("extension_name")})
 for s in sorted(set(fresh_func) - set(prod_func)):
-    emit("function", "only_fresh", f"{s[0]}({s[1]})")
+    f = fresh_func[s]
+    emit("function", "only_fresh", f"{s[0]}({s[1]})",
+         {"fresh_extension": f.get("extension_name")})
 for s in sorted(set(prod_func) & set(fresh_func)):
     p = prod_func[s]
     f = fresh_func[s]
-    if p.get("defhash") != f.get("defhash"):
+    p_fp = {
+        "ret": p.get("ret"),
+        "secdef": p.get("secdef"),
+        "volatility": p.get("volatility"),
+        "proconfig": norm_sql(p.get("proconfig")),
+        "definition": norm_func_def(p.get("definition")),
+        "extension_name": p.get("extension_name"),
+    }
+    f_fp = {
+        "ret": f.get("ret"),
+        "secdef": f.get("secdef"),
+        "volatility": f.get("volatility"),
+        "proconfig": norm_sql(f.get("proconfig")),
+        "definition": norm_func_def(f.get("definition")),
+        "extension_name": f.get("extension_name"),
+    }
+    if p_fp != f_fp:
         emit("function", "changed", f"{s[0]}({s[1]})",
-             {"prod_secdef": p.get("secdef"), "fresh_secdef": f.get("secdef"),
-              "prod_defhash": p.get("defhash"), "fresh_defhash": f.get("defhash")})
+             {"prod": {k: v for k, v in p_fp.items() if k != "definition"},
+              "fresh": {k: v for k, v in f_fp.items() if k != "definition"}})
 
 # --- triggers
 def trig_key(r):

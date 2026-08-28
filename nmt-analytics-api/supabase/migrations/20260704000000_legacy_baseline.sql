@@ -9,9 +9,11 @@ CREATE TABLE public.organizations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   slug text UNIQUE NOT NULL,
-  logo_url text,
-  primary_color text DEFAULT '#1D4ED8',
-  secondary_color text DEFAULT '#111827',
+  phone text,
+  email text,
+  address text,
+  currency text DEFAULT 'BAM',
+  timezone text DEFAULT 'Europe/Sarajevo',
   created_at timestamptz DEFAULT now()
 );
 
@@ -155,21 +157,18 @@ CREATE TABLE public.payments (
 );
 
 CREATE TABLE public.org_settings (
-  org_id uuid PRIMARY KEY REFERENCES public.organizations(id) ON DELETE CASCADE,
-  smtp_host text,
-  smtp_port integer,
-  smtp_user text,
-  smtp_pass_encrypted text,
-  smtp_from_email text,
-  smtp_from_name text,
-  smtp_enabled boolean NOT NULL DEFAULT false,
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  key text NOT NULL,
+  value jsonb NOT NULL DEFAULT '{}'::jsonb,
   invoice_primary_color text DEFAULT '#1D4ED8',
   invoice_secondary_color text DEFAULT '#111827',
   invoice_logo_url text,
   invoice_footer_text text DEFAULT 'Thank you for your business!',
   invoice_show_qr boolean DEFAULT false,
   created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE (org_id, key)
 );
 
 CREATE TABLE public.org_modules (
@@ -196,13 +195,15 @@ CREATE TABLE public.documents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   template_id uuid REFERENCES public.document_templates(id) ON DELETE CASCADE,
-  entity_type text NOT NULL,
-  entity_id uuid NOT NULL,
-  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-  file_path text,
-  status text DEFAULT 'generated',
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
+  entity_type text,
+  entity_id uuid,
+  payload jsonb,
+  name text,
+  type text,
+  size bigint,
+  storage_path text,
+  uploaded_by uuid REFERENCES public.profiles(id),
+  created_at timestamptz DEFAULT now()
 );
 
 CREATE TABLE public.role_permissions (
@@ -229,16 +230,12 @@ CREATE TABLE public.notifications (
 
 CREATE TABLE public.audit_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+  org_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   action text NOT NULL,
-  entity_type text NOT NULL,
-  entity_id uuid,
-  old_data jsonb,
-  new_data jsonb,
-  metadata jsonb,
-  ip_address text,
-  user_agent text,
+  entity text NOT NULL,
+  entity_id uuid NOT NULL,
+  details jsonb DEFAULT '{}'::jsonb,
   created_at timestamptz DEFAULT now()
 );
 
@@ -298,8 +295,8 @@ CREATE INDEX idx_notifications_is_read ON public.notifications(is_read) WHERE is
 CREATE INDEX idx_payment_links_code ON public.payment_links(code);
 CREATE INDEX idx_payment_links_org ON public.payment_links(org_id);
 CREATE INDEX idx_payment_links_reservation ON public.payment_links(reservation_id);
-CREATE INDEX idx_audit_logs_org_created ON public.audit_logs(org_id, created_at DESC);
-CREATE INDEX idx_audit_logs_entity ON public.audit_logs(entity_type, entity_id);
+CREATE INDEX idx_audit_logs_org_id_created_at ON public.audit_logs(org_id, created_at);
+CREATE INDEX idx_audit_logs_entity_id ON public.audit_logs(entity_id);
 
 CREATE OR REPLACE FUNCTION public.get_my_org_id()
 RETURNS uuid
