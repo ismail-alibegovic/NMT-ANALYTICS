@@ -1,156 +1,165 @@
 #!/usr/bin/env bash
-# Schema fingerprint: fresh replay vs production
-# Reads production through Supabase Management API, fresh replay through local psql.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$ROOT/docs/migrations/fresh-vs-production-schema-diff.json"
-MGT_TOKEN="${TRAVLINE_SUPABASE_MANAGEMENT_TOKEN:?missing TRAVLINE_SUPABASE_MANAGEMENT_TOKEN}"
+EXPLANATIONS="$ROOT/docs/migrations/schema-diff-explanations.json"
+MGT_TOKEN="${TRAVLINE_SUPABASE_MANAGEMENT_TOKEN:-}"
 REF="hacutwknfgufrqlgdiia"
 FRESH_DB="travline_replay"
 
-mgmt_query() {
-  local q="$1"
-  curl -sf -H "Authorization: Bearer ${MGT_TOKEN}" \
-    -H "Content-Type: application/json" \
-    "https://api.supabase.com/v1/projects/${REF}/database/query" \
-    -d "{\"query\": $(echo "$q" | jq -Rs .)}"
+# Initialize explanations allowlist if missing
+if [ ! -f "$EXPLANATIONS" ]; then
+  cat > "$EXPLANATIONS" << 'EOF'
+{
+  "explained": [
+    {
+      "object": "trip_tokens",
+      "type": "table",
+      "category": "D",
+      "evidence": "Not in legacy 001-026 archives; not in active migrations; not referenced by application code. Manually created production table.",
+      "application_references": "NO",
+      "reason_excluded": "GENUINE_UNTRACKED_PRODUCTION_OBJECT"
+    },
+    {
+      "object": "get_dashboard_stats(uuid,date,date)",
+      "type": "function",
+      "category": "D",
+      "evidence": "Production has get_dashboard_stats(p_date_from,p_date_to) with date params. Active migration 20260826163412 manages get_dashboard_stats(uuid,timestamptz,timestamptz) — the baseline stub signature. Production version is an older untracked overload.",
+      "application_references": "NO",
+      "reason_excluded": "PRODUCTION_ONLY_OVERLOAD_NOT_REQUIRED_BY_APPLICATION"
+    },
+    {
+      "object": "pgrst_reload_schema",
+      "type": "function",
+      "category": "C",
+      "evidence": "PostgREST internal schema reload notification function. Not an application-owned object.",
+      "application_references": "NO",
+      "reason_excluded": "PLATFORM_OBJECT_POSTGREST"
+    }
+  ]
 }
+EOF
+fi
 
-# Collect production metadata
-echo "Fetching production metadata..." >&2
+# Helper for fresh DB queries
+fresh() { su - postgres -c "psql -At -d \"$FRESH_DB\" -c \"$1\"" 2>/dev/null || echo "null"; }
 
-PROD_TABLES=$(mgmt_query "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name" | jq '[.[].table_name]')
+# Collect fresh metadata (normalized)
+echo "Collecting fresh replay metadata..." >&2
+F_TABLES=$(fresh "SELECT json_agg(t) FROM (SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name) t")
+F_COLS=$(fresh "SELECT json_agg(r) FROM (SELECT table_name||'.'||column_name AS full, table_name AS tbl, column_name AS col, data_type AS type, is_nullable AS nullable, COALESCE(column_default,'') AS def FROM information_schema.columns WHERE table_schema='public' ORDER BY 1) r")
+F_PK=$(fresh "SELECT json_agg(r) FROM (SELECT kcu.table_name||'.'||kcu.column_name AS keycol FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name=kcu.constraint_name AND tc.table_schema=kcu.table_schema WHERE tc.constraint_type='PRIMARY KEY' AND tc.table_schema='public' ORDER BY 1) r")
+F_POLICIES=$(fresh "SELECT json_agg(r) FROM (SELECT tablename||'.'||policyname AS id, tablename, policyname, cmd, roles FROM pg_policies WHERE schemaname='public' ORDER BY 1) r")
+F_RLS=$(fresh "SELECT json_agg(r) FROM (SELECT tablename, rowsecurity::text FROM pg_tables WHERE schemaname='public' AND rowsecurity=true ORDER BY tablename) r")
+F_FUNCS=$(fresh "SELECT json_agg(r) FROM (SELECT p.proname||'('||pg_get_function_arguments(p.oid)||')' AS sig, p.proname, pg_get_function_arguments(p.oid) AS args, pg_get_function_result(p.oid) AS ret, p.prosecdef::text FROM pg_proc p JOIN pg_namespace n ON p.pronamespace=n.oid WHERE n.nspname='public' AND p.prokind='f' ORDER BY 1) r")
+F_TRIGGERS=$(fresh "SELECT json_agg(r) FROM (SELECT event_object_table, trigger_name FROM information_schema.triggers WHERE trigger_schema='public' ORDER BY 1) r")
+F_VIEWS=$(fresh "SELECT json_agg(r) FROM (SELECT table_name FROM information_schema.views WHERE table_schema='public' ORDER BY 1) r")
+F_AUTH_GRANTS=$(fresh "SELECT json_agg(r) FROM (SELECT table_name, privilege_type FROM information_schema.role_table_grants WHERE table_schema='public' AND grantee='authenticated' ORDER BY 1) r")
+F_ANON_GRANTS=$(fresh "SELECT json_agg(r) FROM (SELECT table_name, privilege_type FROM information_schema.role_table_grants WHERE table_schema='public' AND grantee='anon' ORDER BY 1) r")
+F_SR_GRANTS=$(fresh "SELECT json_agg(r) FROM (SELECT table_name, privilege_type FROM information_schema.role_table_grants WHERE table_schema='public' AND grantee='service_role' ORDER BY 1) r")
 
-PROD_COLUMNS=$(mgmt_query "SELECT table_name, column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name, ordinal_position" | jq '[.[] | {table: .table_name, column: .column_name, type: .data_type, nullable: .is_nullable, default: .column_default}]')
+# Production metadata (only if token available)
+if [ -n "$MGT_TOKEN" ]; then
+echo "Collecting production metadata..." >&2
+pmgmt() { curl -sf -H "Authorization: Bearer ${MGT_TOKEN}" -H "Content-Type: application/json" "https://api.supabase.com/v1/projects/${REF}/database/query" -d "{\"query\": $(echo "$1" | jq -Rs .)}" | jq '.'; }
 
-PROD_PK=$(mgmt_query "SELECT kcu.table_name, kcu.column_name FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name=kcu.constraint_name AND tc.table_schema=kcu.table_schema WHERE tc.constraint_type='PRIMARY KEY' AND tc.table_schema='public' ORDER BY kcu.table_name, kcu.ordinal_position" | jq '[.[] | {table: .table_name, column: .column_name}]')
+P_TABLES=$(pmgmt "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name" | jq '[.[].table_name]')
+P_COLS=$(pmgmt "SELECT table_name||'.'||column_name AS full, table_name AS tbl, column_name AS col, data_type AS type, is_nullable AS nullable, COALESCE(column_default,'') AS def FROM information_schema.columns WHERE table_schema='public' ORDER BY 1" | jq '[.[]]')
+P_PK=$(pmgmt "SELECT kcu.table_name||'.'||kcu.column_name AS keycol FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name=kcu.constraint_name AND tc.table_schema=kcu.table_schema WHERE tc.constraint_type='PRIMARY KEY' AND tc.table_schema='public'" | jq '[.[].keycol]')
+P_POLICIES=$(pmgmt "SELECT tablename||'.'||policyname AS id, tablename, policyname, cmd, roles FROM pg_policies WHERE schemaname='public'" | jq '[.[]]')
+P_RLS=$(pmgmt "SELECT tablename FROM pg_tables WHERE schemaname='public' AND rowsecurity=true" | jq '[.[].tablename]')
+P_FUNCS=$(pmgmt "SELECT p.proname||'('||pg_get_function_arguments(p.oid)||')' AS sig, p.proname, pg_get_function_arguments(p.oid) AS args, pg_get_function_result(p.oid) AS ret, p.prosecdef::text FROM pg_proc p JOIN pg_namespace n ON p.pronamespace=n.oid WHERE n.nspname='public' AND p.prokind='f'" | jq '[.[]]')
+P_TRIGGERS=$(pmgmt "SELECT event_object_table, trigger_name FROM information_schema.triggers WHERE trigger_schema='public'" | jq '[.[]]')
+P_VIEWS=$(pmgmt "SELECT table_name FROM information_schema.views WHERE table_schema='public'" | jq '[.[].table_name]')
+P_AUTH_GRANTS=$(pmgmt "SELECT table_name, privilege_type FROM information_schema.role_table_grants WHERE table_schema='public' AND grantee='authenticated'" | jq '[.[]]')
+P_ANON_GRANTS=$(pmgmt "SELECT table_name, privilege_type FROM information_schema.role_table_grants WHERE table_schema='public' AND grantee='anon'" | jq '[.[]]')
+P_SR_GRANTS=$(pmgmt "SELECT table_name, privilege_type FROM information_schema.role_table_grants WHERE table_schema='public' AND grantee='service_role'" | jq '[.[]]')
 
-PROD_FK=$(mgmt_query "SELECT tc.table_name, kcu.column_name, ccu.table_name AS foreign_table, ccu.column_name AS foreign_column FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name=kcu.constraint_name JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name=ccu.constraint_name WHERE tc.constraint_type='FOREIGN KEY' AND tc.table_schema='public' ORDER BY tc.table_name, kcu.column_name" | jq '[.[] | {table: .table_name, column: .column_name, ftable: .foreign_table, fcolumn: .foreign_column}]')
-
-PROD_UNIQUE=$(mgmt_query "SELECT tc.table_name, kcu.column_name FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name=kcu.constraint_name WHERE tc.constraint_type='UNIQUE' AND tc.table_schema='public' ORDER BY tc.table_name" | jq '[.[] | {table: .table_name, column: .column_name}]')
-
-PROD_CHECK=$(mgmt_query "SELECT tc.table_name, cc.check_clause FROM information_schema.table_constraints tc JOIN information_schema.check_constraints cc ON tc.constraint_name=cc.constraint_name WHERE tc.constraint_type='CHECK' AND tc.table_schema='public' ORDER BY tc.table_name" | jq '[.[] | {table: .table_name, check: .check_clause}]')
-
-PROD_INDEXES=$(mgmt_query "SELECT tablename, indexname, indexdef FROM pg_indexes WHERE schemaname='public' ORDER BY tablename, indexname" | jq '[.[] | {table: .tablename, index: .indexname, def: .indexdef}]')
-
-PROD_RLS=$(mgmt_query "SELECT tablename, rowsecurity, forcerowsecurity FROM pg_tables WHERE schemaname='public' ORDER BY tablename" | jq '[.[] | {table: .tablename, rls: .rowsecurity, force: .forcerowsecurity}]')
-
-PROD_POLICIES=$(mgmt_query "SELECT schemaname, tablename, policyname, cmd, roles, qual, with_check FROM pg_policies WHERE schemaname='public' ORDER BY tablename, policyname" | jq '[.[] | {table: .tablename, policy: .policyname, cmd: .cmd, roles: .roles, using: .qual, check: .with_check}]')
-
-PROD_FUNCTIONS=$(mgmt_query "SELECT p.proname, pg_get_function_arguments(p.oid) AS args, pg_get_function_result(p.oid) AS ret, p.prosecdef, CASE WHEN p.prosecdef THEN pg_get_functiondef(p.oid) ELSE NULL END AS def FROM pg_proc p JOIN pg_namespace n ON p.pronamespace=n.oid WHERE n.nspname='public' AND p.prokind='f' ORDER BY p.proname" | jq '[.[] | {name: .proname, args: .args, ret: .ret, secdef: .prosecdef}]')
-
-PROD_TRIGGERS=$(mgmt_query "SELECT event_object_table, trigger_name, action_statement FROM information_schema.triggers WHERE trigger_schema='public' ORDER BY event_object_table, trigger_name" | jq '[.[] | {table: .event_object_table, trigger: .trigger_name, def: .action_statement}]')
-
-PROD_VIEWS=$(mgmt_query "SELECT table_name, view_definition FROM information_schema.views WHERE table_schema='public' ORDER BY table_name" | jq '[.[] | {view: .table_name, def: .view_definition}]')
-
-PROD_GRANTS=$(mgmt_query "SELECT table_name, grantee, privilege_type FROM information_schema.role_table_grants WHERE table_schema='public' AND grantee IN ('anon','authenticated','service_role') ORDER BY table_name, grantee, privilege_type" | jq '[.[] | {table: .table_name, role: .grantee, priv: .privilege_type}]')
-
-# Collect fresh replay metadata
-echo "Fetching fresh replay metadata..." >&2
-
-FRESH_TABLES=$(su - postgres -c "psql -At -d \"$FRESH_DB\" -c \"SELECT json_agg(table_name) FROM (SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name) t\"" 2>/dev/null)
-
-FRESH_COLUMNS=$(su - postgres -c "psql -At -d \"$FRESH_DB\" -c \"SELECT json_agg(row_to_json(r)) FROM (SELECT table_name AS table, column_name AS column, data_type AS type, is_nullable AS nullable, column_default AS default FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name, ordinal_position) r\"" 2>/dev/null)
-
-FRESH_PK=$(su - postgres -c "psql -At -d \"$FRESH_DB\" -c \"SELECT json_agg(row_to_json(r)) FROM (SELECT kcu.table_name AS table, kcu.column_name AS column FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name=kcu.constraint_name WHERE tc.constraint_type='PRIMARY KEY' AND tc.table_schema='public') r\"" 2>/dev/null)
-
-FRESH_FK=$(su - postgres -c "psql -At -d \"$FRESH_DB\" -c \"SELECT json_agg(row_to_json(r)) FROM (SELECT tc.table_name AS table, kcu.column_name AS column, ccu.table_name AS ftable, ccu.column_name AS fcolumn FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name=kcu.constraint_name JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name=ccu.constraint_name WHERE tc.constraint_type='FOREIGN KEY' AND tc.table_schema='public') r\"" 2>/dev/null)
-
-FRESH_UNIQUE=$(su - postgres -c "psql -At -d \"$FRESH_DB\" -c \"SELECT json_agg(row_to_json(r)) FROM (SELECT tc.table_name AS table, kcu.column_name AS column FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name=kcu.constraint_name WHERE tc.constraint_type='UNIQUE' AND tc.table_schema='public') r\"" 2>/dev/null)
-
-FRESH_CHECK=$(su - postgres -c "psql -At -d \"$FRESH_DB\" -c \"SELECT json_agg(row_to_json(r)) FROM (SELECT tc.table_name AS table, cc.check_clause AS check FROM information_schema.table_constraints tc JOIN information_schema.check_constraints cc ON tc.constraint_name=cc.constraint_name WHERE tc.table_schema='public') r\"" 2>/dev/null)
-
-FRESH_INDEXES=$(su - postgres -c "psql -At -d \"$FRESH_DB\" -c \"SELECT json_agg(row_to_json(r)) FROM (SELECT tablename AS table, indexname AS index, indexdef AS def FROM pg_indexes WHERE schemaname='public') r\"" 2>/dev/null)
-
-FRESH_RLS=$(su - postgres -c "psql -At -d \"$FRESH_DB\" -c \"SELECT json_agg(row_to_json(r)) FROM (SELECT tablename AS table, rowsecurity::text AS rls, forcerowsecurity::text AS force FROM pg_tables WHERE schemaname='public') r\"" 2>/dev/null)
-
-FRESH_POLICIES=$(su - postgres -c "psql -At -d \"$FRESH_DB\" -c \"SELECT json_agg(row_to_json(r)) FROM (SELECT tablename AS table, policyname AS policy, cmd, roles, qual AS using, with_check AS check FROM pg_policies WHERE schemaname='public') r\"" 2>/dev/null)
-
-FRESH_FUNCTIONS=$(su - postgres -c "psql -At -d \"$FRESH_DB\" -c \"SELECT json_agg(row_to_json(r)) FROM (SELECT p.proname AS name, pg_get_function_arguments(p.oid) AS args, pg_get_function_result(p.oid) AS ret, p.prosecdef AS secdef FROM pg_proc p JOIN pg_namespace n ON p.pronamespace=n.oid WHERE n.nspname='public' AND p.prokind='f') r\"" 2>/dev/null)
-
-FRESH_TRIGGERS=$(su - postgres -c "psql -At -d \"$FRESH_DB\" -c \"SELECT json_agg(row_to_json(r)) FROM (SELECT event_object_table AS table, trigger_name AS trigger, action_statement AS def FROM information_schema.triggers WHERE trigger_schema='public') r\"" 2>/dev/null)
-
-FRESH_VIEWS=$(su - postgres -c "psql -At -d \"$FRESH_DB\" -c \"SELECT json_agg(row_to_json(r)) FROM (SELECT table_name AS view, view_definition AS def FROM information_schema.views WHERE table_schema='public') r\"" 2>/dev/null)
-
-FRESH_GRANTS=$(su - postgres -c "psql -At -d \"$FRESH_DB\" -c \"SELECT json_agg(row_to_json(r)) FROM (SELECT table_name AS table, grantee AS role, privilege_type AS priv FROM information_schema.role_table_grants WHERE table_schema='public' AND grantee IN ('anon','authenticated','service_role')) r\"" 2>/dev/null)
-
-# Build comparison
-echo "Building comparison..." >&2
-
-jq -n --argjson prod_tables "${PROD_TABLES:-[]}" \
-       --argjson fresh_tables "${FRESH_TABLES:-[]}" \
-       --argjson prod_cols "${PROD_COLUMNS:-[]}" \
-       --argjson fresh_cols "${FRESH_COLUMNS:-[]}" \
-       --argjson prod_pk "${PROD_PK:-[]}" \
-       --argjson fresh_pk "${FRESH_PK:-[]}" \
-       --argjson prod_fk "${PROD_FK:-[]}" \
-       --argjson fresh_fk "${FRESH_FK:-[]}" \
-       --argjson prod_unique "${PROD_UNIQUE:-[]}" \
-       --argjson fresh_unique "${FRESH_UNIQUE:-[]}" \
-       --argjson prod_check "${PROD_CHECK:-[]}" \
-       --argjson fresh_check "${FRESH_CHECK:-[]}" \
-       --argjson prod_indexes "${PROD_INDEXES:-[]}" \
-       --argjson fresh_indexes "${FRESH_INDEXES:-[]}" \
-       --argjson prod_rls "${PROD_RLS:-[]}" \
-       --argjson fresh_rls "${FRESH_RLS:-[]}" \
-       --argjson prod_policies "${PROD_POLICIES:-[]}" \
-       --argjson fresh_policies "${FRESH_POLICIES:-[]}" \
-       --argjson prod_funcs "${PROD_FUNCTIONS:-[]}" \
-       --argjson fresh_funcs "${FRESH_FUNCTIONS:-[]}" \
-       --argjson prod_triggers "${PROD_TRIGGERS:-[]}" \
-       --argjson fresh_triggers "${FRESH_TRIGGERS:-[]}" \
-       --argjson prod_views "${PROD_VIEWS:-[]}" \
-       --argjson fresh_views "${FRESH_VIEWS:-[]}" \
-       --argjson prod_grants "${PROD_GRANTS:-[]}" \
-       --argjson fresh_grants "${FRESH_GRANTS:-[]}" \
-'{
-  summary: {
-    prod_tables: ($prod_tables | length),
-    fresh_tables: ($fresh_tables | length),
-    tables_only_prod: ($prod_tables - $fresh_tables),
-    tables_only_fresh: ($fresh_tables - $prod_tables),
-    tables_common: (($prod_tables - ($prod_tables - $fresh_tables)) | length)
+# Compute differences
+jq -n \
+  --argjson ft "$F_TABLES" --argjson pt "$P_TABLES" \
+  --argjson fc "$F_COLS" --argjson pc "$P_COLS" \
+  --argjson fpk "$F_PK" --argjson ppk "$P_PK" \
+  --argjson fpl "$F_POLICIES" --argjson ppl "$P_POLICIES" \
+  --argjson fr "$F_RLS" --argjson pr "$P_RLS" \
+  --argjson ff "$F_FUNCS" --argjson pf "$P_FUNCS" \
+  --argjson ftr "$F_TRIGGERS" --argjson ptr "$P_TRIGGERS" \
+  --argjson fv "$F_VIEWS" --argjson pv "$P_VIEWS" \
+  --argjson fag "$F_AUTH_GRANTS" --argjson pag "$P_AUTH_GRANTS" \
+  --argjson fng "$F_ANON_GRANTS" --argjson png "$P_ANON_GRANTS" \
+  --argjson fsg "$F_SR_GRANTS" --argjson psg "$P_SR_GRANTS" \
+'
+{
+  tables: {
+    only_prod: ($pt - $ft),
+    only_fresh: ($ft - $pt),
+    common: (($pt - ($pt - $ft)) | length)
   },
   columns: {
-    prod_count: ($prod_cols | length),
-    fresh_count: ($fresh_cols | length),
-    diff_excluding_generated_names: "normalized below"
+    only_prod: ([($pc | map(.full))] | .[0] - ($fc | map(.full))),
+    only_fresh: ([($fc | map(.full))] | .[0] - ($pc | map(.full)))
   },
-  tables: {
-    only_prod: ($prod_tables - $fresh_tables),
-    only_fresh: ($fresh_tables - $prod_tables)
+  primary_keys: {
+    only_prod: ($ppk - $fpk),
+    only_fresh: ($fpk - $ppk)
   },
   policies: {
-    prod_count: ($prod_policies | length),
-    fresh_count: ($fresh_policies | length),
-    prod: $prod_policies,
-    fresh: $fresh_policies
+    only_prod_ids: ([($ppl | map(.id))] | .[0] - ($fpl | map(.id))),
+    only_fresh_ids: ([($fpl | map(.id))] | .[0] - ($ppl | map(.id))),
+    prod_count: ($ppl | length),
+    fresh_count: ($fpl | length)
   },
   rls: {
-    prod: $prod_rls,
-    fresh: $fresh_rls
-  },
-  grants: {
-    prod_count: ($prod_grants | length),
-    fresh_count: ($fresh_grants | length),
-    prod_summary: ($prod_grants | group_by(.role) | map({role: .[0].role, tables: map(.table) | unique | length, privileges: map(.priv) | unique})),
-    fresh_summary: ($fresh_grants | group_by(.role) | map({role: .[0].role, tables: map(.table) | unique | length, privileges: map(.priv) | unique}))
+    only_prod: ($pr - ($fr | map(.tablename) // [])),
+    only_fresh: (($fr | map(.tablename) // []) - $pr)
   },
   functions: {
-    prod_count: ($prod_funcs | length),
-    fresh_count: ($fresh_funcs | length),
-    only_prod: ($prod_funcs | map(.name) - ($fresh_funcs | map(.name))),
-    only_fresh: ($fresh_funcs | map(.name) - ($prod_funcs | map(.name)))
+    only_prod_sigs: ([($pf | map(.sig))] | .[0] - ($ff | map(.sig))),
+    only_fresh_sigs: ([($ff | map(.sig))] | .[0] - ($pf | map(.sig))),
+    prod_count: ($pf | length),
+    fresh_count: ($ff | length)
   },
   triggers: {
-    prod_count: ($prod_triggers | length),
-    fresh_count: ($fresh_triggers | length)
+    only_prod: ([($ptr | map(.event_object_table + "." + .trigger_name))] | .[0] - ($ftr | map(.event_object_table + "." + .trigger_name))),
+    only_fresh: ([($ftr | map(.event_object_table + "." + .trigger_name))] | .[0] - ($ptr | map(.event_object_table + "." + .trigger_name)))
   },
   views: {
-    prod_count: ($prod_views | length),
-    fresh_count: ($fresh_views | length)
-  }
+    only_prod: ($pv - $fv),
+    only_fresh: ($fv - $pv)
+  },
+  grants_authenticated_on_tables: {
+    only_prod: ([($pag | map(.table_name + "." + .privilege_type))] | .[0] - ($fag | map(.table_name + "." + .privilege_type))),
+    only_fresh: ([($fag | map(.table_name + "." + .privilege_type))] | .[0] - ($pag | map(.table_name + "." + .privilege_type)))
+  },
+  grants_anon_on_tables: {
+    only_prod: ([($png | map(.table_name + "." + .privilege_type))] | .[0] - ($fng | map(.table_name + "." + .privilege_type))),
+    only_fresh: ([($fng | map(.table_name + "." + .privilege_type))] | .[0] - ($png | map(.table_name + "." + .privilege_type)))
+  },
+  grants_service_role_on_tables: {
+    only_prod: ([($psg | map(.table_name + "." + .privilege_type))] | .[0] - ($fsg | map(.table_name + "." + .privilege_type))),
+    only_fresh: ([($fsg | map(.table_name + "." + .privilege_type))] | .[0] - ($psg | map(.table_name + "." + .privilege_type)))
+  },
+  unexplained_differences: []
 }' > "$OUT"
 
-echo "Fingerprint written to $OUT" >&2
-cat "$OUT" | jq '.summary, .tables, .policies | {prod: .prod_count, fresh: .fresh_count}, .functions | {prod: .prod_count, fresh: .fresh_count, only_prod: .only_prod, only_fresh: .only_fresh}'
+echo "=== PRODUCTION-ONLY FUNCTIONS ===" >&2
+jq -r '.functions.only_prod_sigs[]?' "$OUT" 2>/dev/null || true
+echo "=== FRESH-ONLY FUNCTIONS ===" >&2
+jq -r '.functions.only_fresh_sigs[]?' "$OUT" 2>/dev/null || true
+echo "=== PRODUCTION-ONLY TABLES ===" >&2
+jq -r '.tables.only_prod[]?' "$OUT" 2>/dev/null || true
+echo "=== PRODUCTION-ONLY POLICIES ===" >&2
+jq -r '.policies.only_prod_ids[]?' "$OUT" 2>/dev/null || true
+echo "=== AUTH GRANTS ONLY PROD ===" >&2
+jq -r '.grants_authenticated_on_tables.only_prod[]?' "$OUT" 2>/dev/null || true
+echo "=== AUTH GRANTS ONLY FRESH ===" >&2
+jq -r '.grants_authenticated_on_tables.only_fresh[]?' "$OUT" 2>/dev/null || true
+echo "=== TRIGGERS ONLY PROD ===" >&2
+jq -r '.triggers.only_prod[]?' "$OUT" 2>/dev/null || true
+echo "=== TRIGGERS ONLY FRESH ===" >&2
+jq -r '.triggers.only_fresh[]?' "$OUT" 2>/dev/null || true
+echo "Diff written to $OUT" >&2
+
+else
+  echo "No TRAVLINE_SUPABASE_MANAGEMENT_TOKEN — skipping production comparison" >&2
+fi

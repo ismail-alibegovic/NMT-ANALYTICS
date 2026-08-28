@@ -1,0 +1,114 @@
+[
+  {
+    "object_type": "table",
+    "object": "trip_tokens",
+    "category": "D",
+    "reason": "Genuine untracked production object \u2014 not in any migration or archive. Not referenced by application code (nmt-analytics-api/src or nmt-analytics-admin/src). Likely manually created during development.",
+    "source": "production schema_migrations (no matching migration); app code grep returns no references",
+    "application_references_found": false
+  },
+  {
+    "object_type": "function",
+    "object": "auto_notify_payment()",
+    "category": "D",
+    "reason": "Legacy orphan trigger function \u2014 not in any migration or archive. Not referenced by application code. Superseded by the canonical trg_payment_financial_truth/trg_reservation_total_financial_truth layer (20260825100000_financial_truth_restore.sql).",
+    "source": "production triggers; no archive/migration source",
+    "application_references_found": false
+  },
+  {
+    "object_type": "function",
+    "object": "auto_notify_reservation()",
+    "category": "D",
+    "reason": "Legacy orphan trigger function \u2014 not in any migration or archive. Not referenced by application code. Superseded by canonical financial truth layer.",
+    "source": "production triggers; no archive/migration source",
+    "application_references_found": false
+  },
+  {
+    "object_type": "function",
+    "object": "auto_update_reservation_status()",
+    "category": "D",
+    "reason": "Legacy orphan trigger function \u2014 not in any migration or archive. Not referenced by application code. Superseded by canonical financial truth layer.",
+    "source": "production triggers; no archive/migration source",
+    "application_references_found": false
+  },
+  {
+    "object_type": "function",
+    "object": "trg_payments_recalc_reservation()",
+    "category": "D",
+    "reason": "Legacy orphan trigger function \u2014 not in any active migration. Superseded by canonical trg_payment_financial_truth (20260825100000). Production has 3 duplicate copies of this trigger on payments.",
+    "source": "production triggers; no archive/migration source",
+    "application_references_found": false
+  },
+  {
+    "object_type": "function",
+    "object": "recalc_reservation_paid_amount(p_org_id uuid, p_reservation_id uuid)",
+    "category": "D",
+    "reason": "Legacy helper \u2014 not in any migration or archive. Not referenced by application code. Superseded by recalc_reservation_financial_truth.",
+    "source": "production pg_proc; no archive/migration source",
+    "application_references_found": false
+  },
+  {
+    "object_type": "function",
+    "object": "get_reservation_payment_status_stats(p_org_id uuid)",
+    "category": "D",
+    "reason": "Untracked helper function \u2014 not in any migration or archive. Not referenced by application code. No evidence of required business logic.",
+    "source": "production pg_proc; no archive/migration source",
+    "application_references_found": false
+  },
+  {
+    "object_type": "function",
+    "object": "test_func()",
+    "category": "D",
+    "reason": "Obvious test/debug leftover \u2014 not in any migration. Not referenced by application.",
+    "source": "production pg_proc; no archive/migration source",
+    "application_references_found": false
+  },
+  {
+    "object_type": "function",
+    "object": "pgrst_reload_schema()",
+    "category": "C",
+    "reason": "Platform object \u2014 standard PostgREST schema cache reload helper. Not a Travline application object.",
+    "source": "PostgREST built-in",
+    "application_references_found": false
+  },
+  {
+    "object_type": "trigger",
+    "object": "payments.payments_recalc_reservation",
+    "category": "D",
+    "reason": "Legacy duplicate trigger (3 copies exist in production). Superseded by trg_payment_financial_truth.",
+    "source": "production triggers; no archive/migration source",
+    "application_references_found": false
+  },
+  {
+    "object_type": "trigger",
+    "object": "payments.trg_auto_notify_payment",
+    "category": "D",
+    "reason": "Legacy trigger on auto_notify_payment() \u2014 superseded by canonical financial truth.",
+    "source": "production triggers; no archive/migration source",
+    "application_references_found": false
+  },
+  {
+    "object_type": "trigger",
+    "object": "payments.trg_auto_update_reservation_status",
+    "category": "D",
+    "reason": "Legacy trigger on auto_update_reservation_status() \u2014 superseded by canonical financial truth. 2 duplicate copies exist in production.",
+    "source": "production triggers; no archive/migration source",
+    "application_references_found": false
+  },
+  {
+    "object_type": "trigger",
+    "object": "reservations.trg_auto_notify_reservation",
+    "category": "D",
+    "reason": "Legacy trigger on auto_notify_reservation() \u2014 superseded by canonical financial truth.",
+    "source": "production triggers; no archive/migration source",
+    "application_references_found": false
+  },
+  {
+    "object_type": "trigger",
+    "object": "reservations.trg_reservation_total_financial_truth",
+    "category": "D",
+    "source": "Legacy manually-created trigger predating migration 20260825100000. Production definition: CREATE TRIGGER trg_reservation_total_financial_truth AFTER UPDATE OF total_amount ON public.reservations FOR EACH ROW WHEN ((old.total_amount IS DISTINCT FROM new.total_amount)) EXECUTE FUNCTION trg_reservation_total_financial_truth(). Functionally redundant with trg_reservation_total_changed (migration 20260825100000) which also calls the same function. Both triggers coexist in production.",
+    "reason": "Legacy duplicate trigger. Migration 20260825100000 created trg_reservation_total_changed which provides equivalent functionality. The production trigger can be dropped as a no-op cleanup without changing behavior.",
+    "application_references_found": false
+  }
+]
