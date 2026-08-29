@@ -1,12 +1,27 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm ci --prefix nmt-analytics-admin",
+  "installCommand": "npm ci --prefix nmt-analytics-api && npm ci --prefix nmt-analytics-admin",
   "buildCommand": "bash scripts/vercel-build.sh",
   "outputDirectory": "nmt-analytics-admin/dist",
+  "env": {
+    "TRAVLINE_SUPABASE_URL": "https://hacutwknfgufrqlgdiia.supabase.co",
+    "ADMIN_URL": "https://travline-ten.vercel.app",
+    "DEV_BYPASS_AUTH": "false",
+    "DEV_AUTO_BOOTSTRAP": "false"
+  },
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 60
+    }
+  },
   "rewrites": [
     {
+      "source": "/api",
+      "destination": "/api/index"
+    },
+    {
       "source": "/api/:path*",
-      "destination": "https://travline-sprypine.zocomputer.io/api/:path*"
+      "destination": "/api/index"
     },
     {
       "source": "/((?!api(?:/|$)).*)",
