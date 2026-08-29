@@ -57,6 +57,8 @@ import internalJobsRoutes from './internal';
 
 const router = Router();
 
+router.use('/', internalJobsRoutes);
+
 router.use('/', publicRoutes);
 router.use('/', signupRoutes);
 router.use('/', subAgentPortalRoutes);
@@ -118,6 +120,5 @@ router.use('/', departurePassengersRoutes);
 router.use('/', roomingRoutes);
 router.use('/', seatsRoutes);
 router.use('/', publicFormsRoutes);
-router.use('/', internalJobsRoutes);
 
 export default router;
