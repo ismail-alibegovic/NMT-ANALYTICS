@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useT } from "../../lib/i18n/context";
+import { useToast } from "../../context/ToastContext";
 import Button from "../ui/button/Button";
 import Badge from "../ui/badge/Badge";
 import type { DeparturePassenger,
@@ -40,6 +41,7 @@ interface MoveTarget {
 
 export default function RoomingWorkspace({ departureId, passengers }: Props) {
   const { t } = useT();
+  const { success: showSuccess } = useToast();
   const rm = t.departures.rooming;
   const [buildings, setBuildings] = useState<AccommodationBuilding[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,12 +76,25 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     setApplying(true);
     setError(null);
     try {
-      await applyRoomingProposal(departureId, [new Date().toISOString()]);
+      const proposalItems = proposal.items ?? proposal.assignments ?? [];
+      const assignmentIds = proposalItems.map((item) => item.passengerId);
+      const proposalAssignments = proposalItems.map((item) => ({
+        passengerId: item.passengerId,
+        roomId: item.roomId,
+      }));
+
+      await applyRoomingProposal(departureId, assignmentIds, proposalAssignments);
       setShowProposal(false);
       setProposal(null);
       setRefetchKey((k) => k + 1);
+      showSuccess(rm.proposalApplied || "Rooming proposal applied.");
     } catch (err: any) {
-      if (err?.message?.includes('stale') || err?.message?.includes('changed')) {
+      if (
+        err?.message?.includes("stale") ||
+        err?.message?.includes("changed") ||
+        err?.message?.includes("Proposal no longer matches") ||
+        err?.message?.includes("No matching passengers")
+      ) {
         setError(rm.proposalStale || 'State changed since proposal — please regenerate.');
         setProposal(null);
         setShowProposal(false);

@@ -1225,6 +1225,7 @@ export const bs: Translations = {
       proposalFailed: 'Generisanje prijedloga rasporeda nije uspjelo',
       proposalApplyFailed: 'Primjena prijedloga rasporeda nije uspjela',
       proposalStale: 'Stanje rasporeda se promijenilo. Generiši novi prijedlog.',
+      proposalApplied: 'Prijedlog rasporeda je primijenjen.',
       moveFailed: 'Premještanje nije uspjelo',
     },
   },

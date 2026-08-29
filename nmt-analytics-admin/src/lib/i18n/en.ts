@@ -1225,6 +1225,7 @@ export const en = {
       proposalFailed: 'Failed to generate rooming proposal',
       proposalApplyFailed: 'Failed to apply rooming proposal',
       proposalStale: 'Rooming state changed. Generate a fresh proposal.',
+      proposalApplied: 'Rooming proposal applied.',
       moveFailed: 'Move failed',
     },
   },
