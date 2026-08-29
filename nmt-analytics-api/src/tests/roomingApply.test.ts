@@ -48,6 +48,9 @@ let assignments: AssignmentRow[] = []
 let groups: GroupRow[] = []
 let rpcMode: 'success' | 'capacity_conflict' = 'success'
 let lastRpcAssignments: Array<{ passengerId: string; roomId: string; passengerName: string }> = []
+let reversePassengerOrder = false
+let reverseGroupOrder = false
+let reverseRoomOrder = false
 
 function resetStores() {
   passengers = [
@@ -70,6 +73,9 @@ function resetStores() {
   ]
   rpcMode = 'success'
   lastRpcAssignments = []
+  reversePassengerOrder = false
+  reverseGroupOrder = false
+  reverseRoomOrder = false
 }
 
 vi.mock('../middleware/authenticateToken', () => ({
@@ -109,8 +115,9 @@ function createSelectQuery(table: string, columns: string) {
 
   function resolve() {
     if (table === 'departure_passengers') {
+      const rows = reversePassengerOrder ? [...passengers].reverse() : passengers
       return {
-        data: passengers.filter((row) => {
+        data: rows.filter((row) => {
           if (filters.org_id && row.org_id !== filters.org_id) return false
           if (filters.departure_id && row.departure_id !== filters.departure_id) return false
           return true
@@ -137,8 +144,9 @@ function createSelectQuery(table: string, columns: string) {
     }
 
     if (table === 'trip_passenger_groups') {
+      const rows = reverseGroupOrder ? [...groups].reverse() : groups
       return {
-        data: groups.filter((row) => {
+        data: rows.filter((row) => {
           if (filters.org_id && row.org_id !== filters.org_id) return false
           if (filters.departure_id && row.departure_id !== filters.departure_id) return false
           return true
@@ -178,7 +186,22 @@ function createSelectQuery(table: string, columns: string) {
           error: null,
         }
       }
-
+      const rooms = [
+        {
+          id: ROOM_ALPHA,
+          room_number: '101',
+          type: 'double',
+          capacity: 2,
+          assignments: assignments.filter((row) => row.room_id === ROOM_ALPHA).map((row) => ({ id: `${row.passenger_id}-a`, passenger_id: row.passenger_id })),
+        },
+        {
+          id: ROOM_BETA,
+          room_number: '102',
+          type: 'single',
+          capacity: 1,
+          assignments: assignments.filter((row) => row.room_id === ROOM_BETA).map((row) => ({ id: `${row.passenger_id}-b`, passenger_id: row.passenger_id })),
+        },
+      ]
       return {
         data: [
           {
@@ -189,22 +212,7 @@ function createSelectQuery(table: string, columns: string) {
                 id: FLOOR_ID,
                 floor_number: 1,
                 label: '1',
-                rooms: [
-                  {
-                    id: ROOM_ALPHA,
-                    room_number: '101',
-                    type: 'double',
-                    capacity: 2,
-                    assignments: assignments.filter((row) => row.room_id === ROOM_ALPHA).map((row) => ({ id: `${row.passenger_id}-a`, passenger_id: row.passenger_id })),
-                  },
-                  {
-                    id: ROOM_BETA,
-                    room_number: '102',
-                    type: 'single',
-                    capacity: 1,
-                    assignments: assignments.filter((row) => row.room_id === ROOM_BETA).map((row) => ({ id: `${row.passenger_id}-b`, passenger_id: row.passenger_id })),
-                  },
-                ],
+                rooms: reverseRoomOrder ? [...rooms].reverse() : rooms,
               },
             ],
           },
@@ -369,5 +377,32 @@ describe('rooming apply route', () => {
         expect.objectContaining({ passengerId: PASSENGER_TWO, roomId: ROOM_ALPHA }),
       ]),
     )
+  })
+
+  it('does not falsely mark a reviewed proposal stale when equal-capacity inputs are returned in a different order', async () => {
+    const proposalRes = await request(createApp())
+      .post(`/api/departures/${DEPARTURE_ID}/rooming/proposal`)
+      .set('x-test-org', TEST_ORG)
+      .send({})
+
+    expect(proposalRes.status).toBe(200)
+
+    reversePassengerOrder = true
+    reverseGroupOrder = true
+    reverseRoomOrder = true
+
+    const applyRes = await request(createApp())
+      .post(`/api/departures/${DEPARTURE_ID}/rooming/apply`)
+      .set('x-test-org', TEST_ORG)
+      .send({
+        assignmentIds: proposalRes.body.assignments.map((item: { passengerId: string }) => item.passengerId),
+        proposalAssignments: proposalRes.body.assignments.map((item: { passengerId: string; roomId: string }) => ({
+          passengerId: item.passengerId,
+          roomId: item.roomId,
+        })),
+      })
+
+    expect(applyRes.status).toBe(200)
+    expect(applyRes.body.applied).toBe(proposalRes.body.assignments.length)
   })
 })
