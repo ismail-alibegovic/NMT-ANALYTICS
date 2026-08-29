@@ -195,7 +195,7 @@ export default function AutomationTab() {
                 <Button size="sm" variant="outline" onClick={() => openEdit(rule)}>
                   <PencilIcon className="size-4" />
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setDeleteTarget(rule)}>
+                <Button size="sm" variant="outline" title={a.delete} onClick={() => setDeleteTarget(rule)}>
                   <TrashBinIcon className="size-4 text-red-500" />
                 </Button>
               </div>
