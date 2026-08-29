@@ -1,30 +1,38 @@
-import { useState, useEffect } from "react";
-import { useParams } from "react-router";
-import { get, post } from "../api/client";
+import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router';
+import { get, post } from '../api/client';
+import { useT } from '../lib/i18n/context';
 
-interface Field {
+type PublicFieldType = 'short_text' | 'long_text' | 'email' | 'phone' | 'number' | 'date' | 'select' | 'multiselect' | 'checkbox';
+
+type PublicField = {
   id: string;
-  type: string;
+  type: PublicFieldType;
   label: string;
   required: boolean;
   options?: string[];
-  mapTo?: string;
-}
+};
 
-interface FormData {
+type PublicFormResponse = {
   title: string;
   description: string | null;
-  fields: Field[];
+  fields: PublicField[];
   thankYouMessage: string | null;
-}
+};
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^[+\d][\d\s\-()/]{5,24}$/;
 
 export default function PublicFormRenderer() {
   const { slug } = useParams<{ slug: string }>();
-  const [form, setForm] = useState<FormData | null>(null);
+  const { t } = useT();
+  const c = t.publicForms.public;
+
+  const [form, setForm] = useState<PublicFormResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [answers, setAnswers] = useState<Record<string, any>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [answers, setAnswers] = useState<Record<string, unknown>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -32,264 +40,310 @@ export default function PublicFormRenderer() {
   useEffect(() => {
     if (!slug) return;
     setLoading(true);
-    get(`/public/forms/${slug}`)
-      .then((res: any) => {
-        if (res?.data) {
-          setForm(res.data);
-          setError(null);
+    setError(null);
+    setSubmitted(false);
+    get<PublicFormResponse>(`/public/forms/${slug}`)
+      .then((response) => {
+        if (response?.data) {
+          setForm(response.data);
+          setAnswers({});
+          setFieldErrors({});
+          setSubmitError(null);
         } else {
-          setError("Form not found");
+          setError(c.notFound);
         }
       })
-      .catch((e: any) => {
-        if (e?.response?.status === 404) setError("Form not found");
-        else setError("Failed to load form");
+      .catch((err: any) => {
+        if (err?.response?.status === 404) setError(c.notFound);
+        else setError(c.loadError);
       })
       .finally(() => setLoading(false));
-  }, [slug]);
+  }, [slug, c.loadError, c.notFound]);
 
-  const validate = (): boolean => {
+  const requiredFieldCount = useMemo(
+    () => (form?.fields || []).filter((field) => field.required).length,
+    [form],
+  );
+
+  function setAnswer(id: string, value: unknown) {
+    setAnswers((current) => ({ ...current, [id]: value }));
+    setFieldErrors((current) => {
+      if (!current[id]) return current;
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  }
+
+  function validate() {
     if (!form) return false;
-    const newErrors: Record<string, string> = {};
-    for (const field of form.fields) {
-      const value = answers[field.id];
-      if (field.required && (value === undefined || value === null || (typeof value === "string" && value.trim() === ""))) {
-        newErrors[field.id] = `${field.label} is required`;
-      }
-      if (value !== undefined && value !== null && value !== "") {
-        if (field.type === "email" && typeof value === "string") {
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-            newErrors[field.id] = "Invalid email address";
-          }
-        }
-        if (field.type === "phone" && typeof value === "string") {
-          if (value.length < 6) {
-            newErrors[field.id] = "Phone number too short";
-          }
-        }
-      }
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+    const nextErrors: Record<string, string> = {};
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    form.fields.forEach((field) => {
+      const value = answers[field.id];
+      const empty =
+        value === undefined ||
+        value === null ||
+        (typeof value === 'string' && value.trim() === '') ||
+        (Array.isArray(value) && value.length === 0);
+
+      if (field.required && empty) {
+        nextErrors[field.id] = c.required.replace('{label}', field.label);
+        return;
+      }
+
+      if (empty) return;
+
+      if (field.type === 'email' && (typeof value !== 'string' || !EMAIL_REGEX.test(value.trim()))) {
+        nextErrors[field.id] = c.invalidEmail;
+      }
+
+      if (field.type === 'phone' && (typeof value !== 'string' || !PHONE_REGEX.test(value.trim()))) {
+        nextErrors[field.id] = c.invalidPhone;
+      }
+
+      if (field.type === 'number') {
+        const numericValue =
+          typeof value === 'number'
+            ? value
+            : typeof value === 'string' && value.trim() !== ''
+              ? Number(value)
+              : Number.NaN;
+        if (!Number.isFinite(numericValue)) {
+          nextErrors[field.id] = c.invalidNumber;
+        }
+      }
+    });
+
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     if (!validate()) return;
     setSubmitting(true);
     setSubmitError(null);
+
     try {
       await post(`/public/forms/${slug}`, answers);
       setSubmitted(true);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || "Submission failed";
-      setSubmitError(msg);
+      setSubmitError(err?.response?.data?.message || err?.message || c.submitError);
     } finally {
       setSubmitting(false);
     }
-  };
+  }
 
-  const updateAnswer = (id: string, value: any) => {
-    setAnswers((prev) => ({ ...prev, [id]: value }));
-    if (errors[id]) {
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-    }
-  };
-
-  const renderField = (field: Field) => {
-    const value = answers[field.id] ?? "";
-    const fieldError = errors[field.id];
-
-    const baseInput = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none";
-    const errorInput = "border-red-500 focus:border-red-500 focus:ring-red-500";
+  function renderField(field: PublicField) {
+    const value = answers[field.id];
+    const hasError = !!fieldErrors[field.id];
+    const baseClass = `w-full rounded-xl border px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:ring-2 dark:text-white ${
+      hasError
+        ? 'border-red-400 focus:border-red-500 focus:ring-red-500/15 dark:border-red-500'
+        : 'border-gray-300 focus:border-brand-500 focus:ring-brand-500/15 dark:border-gray-700'
+    } bg-white dark:bg-gray-900`;
 
     switch (field.type) {
-      case "long_text":
+      case 'long_text':
         return (
           <textarea
             id={field.id}
             rows={4}
-            className={`${baseInput} ${fieldError ? errorInput : ""}`}
-            value={value}
-            onChange={(e) => updateAnswer(field.id, e.target.value)}
-            placeholder={field.label}
+            className={baseClass}
+            value={typeof value === 'string' ? value : ''}
+            onChange={(event) => setAnswer(field.id, event.target.value)}
+            disabled={submitting}
           />
         );
-      case "email":
+      case 'email':
         return (
           <input
             id={field.id}
             type="email"
-            className={`${baseInput} ${fieldError ? errorInput : ""}`}
-            value={value}
-            onChange={(e) => updateAnswer(field.id, e.target.value)}
-            placeholder={field.label}
+            inputMode="email"
+            autoComplete="email"
+            className={baseClass}
+            value={typeof value === 'string' ? value : ''}
+            onChange={(event) => setAnswer(field.id, event.target.value)}
+            disabled={submitting}
           />
         );
-      case "phone":
+      case 'phone':
         return (
           <input
             id={field.id}
             type="tel"
-            className={`${baseInput} ${fieldError ? errorInput : ""}`}
-            value={value}
-            onChange={(e) => updateAnswer(field.id, e.target.value)}
-            placeholder={field.label}
+            inputMode="tel"
+            autoComplete="tel"
+            className={baseClass}
+            value={typeof value === 'string' ? value : ''}
+            onChange={(event) => setAnswer(field.id, event.target.value)}
+            disabled={submitting}
           />
         );
-      case "number":
+      case 'number':
         return (
           <input
             id={field.id}
             type="number"
-            className={`${baseInput} ${fieldError ? errorInput : ""}`}
-            value={value}
-            onChange={(e) => updateAnswer(field.id, parseFloat(e.target.value) || 0)}
-            placeholder={field.label}
+            inputMode="decimal"
+            className={baseClass}
+            value={typeof value === 'number' || typeof value === 'string' ? value : ''}
+            onChange={(event) => setAnswer(field.id, event.target.value)}
+            disabled={submitting}
           />
         );
-      case "date":
+      case 'date':
         return (
           <input
             id={field.id}
             type="date"
-            className={`${baseInput} ${fieldError ? errorInput : ""}`}
-            value={value}
-            onChange={(e) => updateAnswer(field.id, e.target.value)}
+            className={baseClass}
+            value={typeof value === 'string' ? value : ''}
+            onChange={(event) => setAnswer(field.id, event.target.value)}
+            disabled={submitting}
           />
         );
-      case "select":
+      case 'select':
         return (
           <select
             id={field.id}
-            className={`${baseInput} ${fieldError ? errorInput : ""}`}
-            value={value}
-            onChange={(e) => updateAnswer(field.id, e.target.value)}
+            className={baseClass}
+            value={typeof value === 'string' ? value : ''}
+            onChange={(event) => setAnswer(field.id, event.target.value)}
+            disabled={submitting}
           >
-            <option value="">-- Select --</option>
-            {(field.options || []).map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
+            <option value="">{c.selectPlaceholder}</option>
+            {(field.options || []).map((option) => (
+              <option key={option} value={option}>{option}</option>
             ))}
           </select>
         );
-      case "multiselect":
+      case 'multiselect':
         return (
-          <div className="space-y-1">
-            {(field.options || []).map((opt) => {
-              const selected = Array.isArray(answers[field.id]) ? answers[field.id].includes(opt) : false;
+          <div className="space-y-2">
+            {(field.options || []).map((option) => {
+              const selectedValues = Array.isArray(value) ? value : [];
+              const checked = selectedValues.includes(option);
               return (
-                <label key={opt} className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+                <label key={option} className="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-800">
                   <input
                     type="checkbox"
-                    checked={selected}
+                    checked={checked}
                     onChange={() => {
-                      const current = Array.isArray(answers[field.id]) ? [...answers[field.id]] : [];
-                      const next = current.includes(opt)
-                        ? current.filter((v: string) => v !== opt)
-                        : [...current, opt];
-                      updateAnswer(field.id, next);
+                      const current = Array.isArray(value) ? [...value] : [];
+                      const next = checked ? current.filter((item) => item !== option) : [...current, option];
+                      setAnswer(field.id, next);
                     }}
-                    className="rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                    disabled={submitting}
                   />
-                  {opt}
+                  <span>{option}</span>
                 </label>
               );
             })}
           </div>
         );
-      case "checkbox":
+      case 'checkbox':
         return (
-          <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+          <label className="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-3 text-sm dark:border-gray-800">
             <input
               id={field.id}
               type="checkbox"
-              checked={!!value}
-              onChange={(e) => updateAnswer(field.id, e.target.checked)}
-              className="rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+              checked={value === true}
+              onChange={(event) => setAnswer(field.id, event.target.checked)}
+              disabled={submitting}
             />
-            {field.label}
+            <span>{field.label}</span>
           </label>
         );
-      case "short_text":
+      case 'short_text':
       default:
         return (
           <input
             id={field.id}
             type="text"
-            className={`${baseInput} ${fieldError ? errorInput : ""}`}
-            value={value}
-            onChange={(e) => updateAnswer(field.id, e.target.value)}
-            placeholder={field.label}
+            className={baseClass}
+            value={typeof value === 'string' ? value : ''}
+            onChange={(event) => setAnswer(field.id, event.target.value)}
+            disabled={submitting}
           />
         );
     }
-  };
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500" />
-      </div>
+      <main className="min-h-[100dvh] bg-gray-50 px-4 py-10 dark:bg-gray-950">
+        <div className="mx-auto max-w-xl animate-pulse space-y-4 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+          <div className="h-8 w-2/3 rounded bg-gray-200 dark:bg-gray-800" />
+          <div className="h-4 w-full rounded bg-gray-200 dark:bg-gray-800" />
+          <div className="h-4 w-5/6 rounded bg-gray-200 dark:bg-gray-800" />
+          <div className="h-11 w-full rounded bg-gray-200 dark:bg-gray-800" />
+          <div className="h-11 w-full rounded bg-gray-200 dark:bg-gray-800" />
+        </div>
+      </main>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 p-6">
-        <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-8 text-center">
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Form Unavailable</h1>
-          <p className="text-gray-500 dark:text-gray-400">{error}</p>
+      <main className="min-h-[100dvh] bg-gray-50 px-4 py-10 dark:bg-gray-950">
+        <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-gray-800 dark:bg-gray-900">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{c.unavailableTitle}</h1>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{error}</p>
         </div>
-      </div>
+      </main>
     );
   }
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 p-6">
-        <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-8 text-center">
-          <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+      <main className="min-h-[100dvh] bg-gray-50 px-4 py-10 dark:bg-gray-950">
+        <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-gray-800 dark:bg-gray-900">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400">
+            ✓
           </div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Thank You</h1>
-          <p className="text-gray-500 dark:text-gray-400">
-            {form?.thankYouMessage || "Your submission has been received."}
+          <h1 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">{c.successTitle}</h1>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            {form?.thankYouMessage || c.successFallback}
           </p>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-start justify-center bg-gray-50 dark:bg-gray-950 p-4 pt-12 sm:p-8 sm:pt-16">
-      <div className="max-w-lg w-full bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 sm:p-8">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-1">{form?.title}</h1>
-        {form?.description && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{form.description}</p>
-        )}
+    <main className="min-h-[100dvh] bg-gray-50 px-4 py-6 dark:bg-gray-950 sm:py-10">
+      <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{form?.title}</h1>
+          {form?.description && <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">{form.description}</p>}
+          {requiredFieldCount > 0 && (
+            <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+              {c.requiredHint.replace('{count}', String(requiredFieldCount))}
+            </p>
+          )}
+        </div>
 
         {submitError && (
-          <div className="mb-6 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-400">
+          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-900/20 dark:text-red-300">
             {submitError}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form noValidate onSubmit={handleSubmit} className="space-y-5">
           {(form?.fields || []).map((field) => (
             <div key={field.id}>
-              <label htmlFor={field.id} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                {field.label}
-                {field.required && <span className="text-red-500 ml-0.5">*</span>}
-              </label>
+              {field.type !== 'checkbox' && (
+                <label htmlFor={field.id} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {field.label}
+                  {field.required && <span className="ml-1 text-red-500">*</span>}
+                </label>
+              )}
               {renderField(field)}
-              {errors[field.id] && (
-                <p className="mt-1 text-xs text-red-500">{errors[field.id]}</p>
+              {fieldErrors[field.id] && (
+                <p className="mt-1.5 text-xs text-red-500">{fieldErrors[field.id]}</p>
               )}
             </div>
           ))}
@@ -297,12 +351,12 @@ export default function PublicFormRenderer() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 px-4 transition-colors"
+            className="w-full rounded-xl bg-brand-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? "Submitting..." : "Submit"}
+            {submitting ? c.submitting : c.submit}
           </button>
         </form>
       </div>
-    </div>
+    </main>
   );
 }

@@ -9,6 +9,17 @@ export interface FormField {
   mapTo?: string;
 }
 
+export type PublicFormMapTo =
+  | 'contact_name'
+  | 'email'
+  | 'phone'
+  | 'destination'
+  | 'travel_start'
+  | 'travel_end'
+  | 'travelers'
+  | 'budget'
+  | 'trip_type';
+
 export interface PublicForm {
   id: string;
   orgId: string;
@@ -29,7 +40,7 @@ export interface FormSubmission {
   id: string;
   formId: string;
   inquiryId: string | null;
-  answers: Record<string, any>;
+  answers: Record<string, unknown>;
   submittedAt: string;
 }
 
