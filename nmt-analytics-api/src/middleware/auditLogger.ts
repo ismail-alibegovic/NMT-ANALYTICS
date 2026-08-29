@@ -35,6 +35,7 @@ export type AuditEntity =
   | 'package_service'
   | 'hotel'
   | 'flight'
+  | 'departure_flight'
   | 'eturista_submission'
   | 'fiscal_submission'
   | 'notification'

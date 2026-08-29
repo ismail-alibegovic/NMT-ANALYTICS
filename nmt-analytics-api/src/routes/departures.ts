@@ -680,7 +680,7 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
       hasAccommodation,
     );
 
-    // Resolve linked flight details
+    // Resolve linked flight details (legacy single-flight reference)
     let linkedFlight = null;
     if ((departure as any).flight_id) {
       const { data: fl, error: flErr } = await supabaseAdmin
@@ -692,10 +692,30 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
       if (!flErr && fl) linkedFlight = fl;
     }
 
+    // Resolve ordered flight itinerary segments (Flight Operations 2.0)
+    let flightSegments: any[] = [];
+    const { data: segments, error: segmentsErr } = await supabaseAdmin
+      .from('departure_flights')
+      .select('id, flight_id, direction, segment_order, flights(id, airline, flight_number, departure_airport, arrival_airport, departure_time, arrival_time, capacity, active)')
+      .eq('departure_id', (departure as any).id)
+      .eq('org_id', orgId)
+      .order('direction', { ascending: true })
+      .order('segment_order', { ascending: true });
+    if (!segmentsErr && segments) {
+      flightSegments = segments.map((s: any) => ({
+        id: s.id,
+        flightId: s.flight_id,
+        direction: s.direction,
+        segmentOrder: s.segment_order,
+        flight: s.flights ?? null,
+      }));
+    }
+
     const base = transformDeparture(departure);
     res.json({
       ...base,
       linkedFlight,
+      flightSegments,
       packageServices,
       packageHotels,
       hotelAllocations,
