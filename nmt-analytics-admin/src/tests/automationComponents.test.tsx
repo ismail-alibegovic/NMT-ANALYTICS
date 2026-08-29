@@ -194,7 +194,7 @@ describe('AutomationTab', () => {
     render(<AutomationTab />);
     await screen.findByText('Departure reminder');
     const deleteButtons = screen.getAllByRole('button').filter(
-      (b) => !b.textContent && b.querySelector('svg')
+      (b) => b.title === 'Delete'
     );
     expect(deleteButtons.length).toBeGreaterThanOrEqual(1);
     fireEvent.click(deleteButtons[0]);
