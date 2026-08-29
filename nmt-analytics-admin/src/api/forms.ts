@@ -46,7 +46,8 @@ export interface FormSubmission {
 
 export async function getForms(): Promise<PublicForm[]> {
   const res = await get('/forms');
-  return (res.data || []) as PublicForm[];
+  const payload = res.data as { data?: PublicForm[] } | PublicForm[];
+  return (Array.isArray(payload) ? payload : payload?.data || []) as PublicForm[];
 }
 
 export async function getForm(id: string): Promise<PublicForm> {
@@ -70,5 +71,6 @@ export async function deleteForm(id: string): Promise<void> {
 
 export async function getFormSubmissions(formId: string): Promise<FormSubmission[]> {
   const res = await get(`/forms/${formId}/submissions`);
-  return (res.data || []) as FormSubmission[];
+  const payload = res.data as { data?: FormSubmission[] } | FormSubmission[];
+  return (Array.isArray(payload) ? payload : payload?.data || []) as FormSubmission[];
 }

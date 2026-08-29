@@ -11,6 +11,8 @@ import Input from '../../components/form/input/InputField';
 import Label from '../../components/form/Label';
 import { useToast } from '../../context/ToastContext';
 import { useT } from '../../lib/i18n/context';
+import { useApp } from '../../context/AppContext';
+import { hasAccess } from '../../types/roles';
 import {
   createForm,
   deleteForm,
@@ -112,11 +114,15 @@ export default function PublicForms() {
   const c = t.publicForms;
   const common = t.common;
   const { success, error: showError } = useToast();
+  const { userContext } = useApp();
+  const canWrite = hasAccess('manager', userContext?.role);
 
   const [forms, setForms] = useState<PublicForm[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [departures, setDepartures] = useState<Departure[]>([]);
   const [loading, setLoading] = useState(true);
+  const [packagesError, setPackagesError] = useState(false);
+  const [departuresError, setDeparturesError] = useState(false);
   const [search, setSearch] = useState('');
   const [editorOpen, setEditorOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<PublicForm | null>(null);
@@ -132,19 +138,36 @@ export default function PublicForms() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [formsData, packagesData, departuresData] = await Promise.all([
-        getForms(),
-        getPackages({ page: 1, limit: 200 }),
-        getDepartures({ page: 1, limit: 200 }),
-      ]);
+      const formsData = await getForms();
       setForms(formsData || []);
-      setPackages(packagesData.data || []);
-      setDepartures(departuresData.data || []);
     } catch (err: any) {
       showError(err?.message || c.loadError);
-    } finally {
       setLoading(false);
+      return;
     }
+    setLoading(false);
+
+    // Optional context — loaded independently so a failure in packages or
+    // departures never makes the forms management page unusable.
+    getPackages({ page: 1, limit: 200 })
+      .then((packagesData) => {
+        setPackages(packagesData.data || []);
+        setPackagesError(false);
+      })
+      .catch(() => {
+        setPackages([]);
+        setPackagesError(true);
+      });
+
+    getDepartures({ page: 1, limit: 200 })
+      .then((departuresData) => {
+        setDepartures(departuresData.data || []);
+        setDeparturesError(false);
+      })
+      .catch(() => {
+        setDepartures([]);
+        setDeparturesError(true);
+      });
   }, [c.loadError, showError]);
 
   useEffect(() => {
@@ -172,6 +195,8 @@ export default function PublicForms() {
     if (!draft.packageId) return departures;
     return departures.filter((departure) => departure.package_id === draft.packageId);
   }, [departures, draft.packageId]);
+
+  const contextError = packagesError ? c.packagesLoadError : departuresError ? c.departuresLoadError : null;
 
   const publicBase = typeof window !== 'undefined' ? window.location.origin : '';
 
@@ -228,12 +253,22 @@ export default function PublicForms() {
         const publicLink = `${publicBase}/public/forms/${form.slug}`;
         return (
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => openEdit(form)} title={c.edit}>
-              <PencilIcon className="size-4" />
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => void handleDuplicate(form)} title={c.duplicate}>
-              <CopyIcon className="size-4" />
-            </Button>
+            {canWrite && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => openEdit(form)} title={c.edit}>
+                  <PencilIcon className="size-4" />
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => void handleDuplicate(form)} title={c.duplicate}>
+                  <CopyIcon className="size-4" />
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => void handleToggle(form)}>
+                  {form.active ? c.deactivate : c.activate}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setDeleteTarget(form)} title={common.delete}>
+                  <TrashBinIcon className="size-4" />
+                </Button>
+              </>
+            )}
             <Button size="sm" variant="outline" onClick={() => void copyPublicLink(publicLink)} title={c.copyLink}>
               <CopyIcon className="size-4" />
             </Button>
@@ -244,12 +279,6 @@ export default function PublicForms() {
             </Link>
             <Button size="sm" variant="outline" onClick={() => setSubmissionsTarget(form)}>
               {c.viewSubmissions}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => void handleToggle(form)}>
-              {form.active ? c.deactivate : c.activate}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setDeleteTarget(form)} title={common.delete}>
-              <TrashBinIcon className="size-4" />
             </Button>
           </div>
         );
@@ -440,8 +469,19 @@ export default function PublicForms() {
         searchPlaceholder={c.searchPlaceholder}
         searchValue={search}
         onSearchChange={setSearch}
-        createButton={{ label: c.newForm, onClick: openCreate }}
+        createButton={canWrite ? { label: c.newForm, onClick: openCreate } : undefined}
       />
+
+      {!canWrite && !loading && (
+        <div className="mb-4 rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800 dark:border-warning-800 dark:bg-warning-900/20 dark:text-warning-200">
+          {c.readOnlyNotice}
+        </div>
+      )}
+      {contextError && (
+        <div className="mb-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2 text-sm text-orange-700 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300">
+          {contextError}
+        </div>
+      )}
 
       {loading ? (
         <DataTable data={[]} columns={columns} loading emptyMessage={c.emptyDescription} />
@@ -449,7 +489,7 @@ export default function PublicForms() {
         <EmptyState
           title={search.trim() ? c.emptyFilteredTitle : c.emptyTitle}
           description={search.trim() ? c.emptyFilteredDescription : c.emptyDescription}
-          action={search.trim() ? undefined : { label: c.newForm, onClick: openCreate }}
+          action={search.trim() || !canWrite ? undefined : { label: c.newForm, onClick: openCreate }}
         />
       ) : (
         <DataTable data={filteredForms} columns={columns} emptyMessage={c.emptyDescription} />
