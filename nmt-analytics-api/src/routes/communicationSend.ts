@@ -7,9 +7,8 @@ import { apiError } from '../lib/errors';
 import { sendManualEmailForOrg, sendManualSmsForOrg } from '../lib/manualMessaging';
 import { extractPlaceholders } from '../lib/templatePlaceholders';
 import {
-  loadTemplateContext,
+  loadTemplateContextForScope,
   resolveMessagePerRecipient,
-  type TemplateContext,
 } from '../lib/placeholderResolver';
 import {
   resolveRecipients,
@@ -130,24 +129,24 @@ router.post(
     }
 
     // Load shared template context once (agency name, package, destination, dates, reservation status).
-    let templateContext: TemplateContext | null = null;
     let hasTemplatePlaceholders = false;
     try {
       const allText = (channel === 'email' ? (subject ?? '') + ' ' + body : body).trim();
       const found = extractPlaceholders(allText);
       hasTemplatePlaceholders = found.length > 0;
-      if (hasTemplatePlaceholders) {
-        templateContext = await loadTemplateContext(orgId, resolution);
-      }
     } catch (ctxErr) {
       console.warn('[COMMUNICATION_SEND] Failed to load template context:', ctxErr);
     }
 
     // Pre-flight: resolve placeholders for every recipient and block if any
     // supported placeholder cannot be resolved — never send literal {{tokens}}.
-    if (hasTemplatePlaceholders && templateContext) {
+    if (hasTemplatePlaceholders) {
       const unresolvedByContact: Record<string, string[]> = {};
       for (const recipient of resolution.recipients) {
+        const templateContext = await loadTemplateContextForScope(orgId, {
+          relatedReservationId: recipient.reservationId ?? resolution.relatedReservationId,
+          relatedDepartureId: recipient.departureId ?? resolution.relatedDepartureId,
+        });
         const resolved = resolveMessagePerRecipient(
           subject ?? null,
           body,
@@ -176,7 +175,11 @@ router.post(
       // Per-recipient placeholder resolution.
       let resolvedSubject = subject ?? null;
       let resolvedBody = body;
-      if (hasTemplatePlaceholders && templateContext) {
+      if (hasTemplatePlaceholders) {
+        const templateContext = await loadTemplateContextForScope(orgId, {
+          relatedReservationId: recipient.reservationId ?? resolution.relatedReservationId,
+          relatedDepartureId: recipient.departureId ?? resolution.relatedDepartureId,
+        });
         const msg = resolveMessagePerRecipient(subject ?? null, body, recipient, templateContext);
         resolvedSubject = msg.subject;
         resolvedBody = msg.body;

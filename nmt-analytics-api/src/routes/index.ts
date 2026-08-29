@@ -53,6 +53,7 @@ import departurePassengersRoutes from './departurePassengers';
 import roomingRoutes from './rooming';
 import seatsRoutes from './seats';
 import publicFormsRoutes from './publicForms';
+import internalJobsRoutes from './internal';
 
 const router = Router();
 
@@ -117,5 +118,6 @@ router.use('/', departurePassengersRoutes);
 router.use('/', roomingRoutes);
 router.use('/', seatsRoutes);
 router.use('/', publicFormsRoutes);
+router.use('/', internalJobsRoutes);
 
 export default router;

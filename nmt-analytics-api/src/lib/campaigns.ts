@@ -1,16 +1,42 @@
 import { z } from 'zod';
 import { sendManualEmailForOrg, sendManualSmsForOrg } from './manualMessaging';
 import { logCommunicationHistory } from './communicationHistory';
+import {
+  loadTemplateContextForScope,
+  resolveMessagePerRecipient,
+} from './placeholderResolver';
 import { supabaseAdmin } from './supabase';
+import { extractPlaceholders } from './templatePlaceholders';
 
 export const campaignChannelSchema = z.enum(['email', 'sms']);
 export const campaignStatusSchema = z.enum(['draft', 'sending', 'completed', 'failed']);
 
+export const campaignAudienceSchema = z.discriminatedUnion('audienceType', [
+  z.object({
+    audienceType: z.literal('all'),
+  }),
+  z.object({
+    audienceType: z.literal('departure'),
+    departureId: z.string().uuid(),
+  }),
+  z.object({
+    audienceType: z.literal('reservations'),
+    reservationIds: z.array(z.string().uuid()).min(1).max(100),
+  }),
+  z.object({
+    audienceType: z.literal('customers'),
+    customerIds: z.array(z.string().uuid()).min(1).max(100),
+  }),
+]);
+
 export const campaignCreateSchema = z.object({
   name: z.string().trim().min(1).max(120),
   channel: campaignChannelSchema,
+  template_id: z.string().uuid().nullable().optional(),
   subject: z.string().trim().max(200).nullable().optional(),
   body: z.string().trim().min(1).max(5000),
+  audience: campaignAudienceSchema.optional(),
+  recipient_count: z.number().int().min(0).optional(),
 }).superRefine((value, ctx) => {
   if (value.channel === 'email' && !value.subject?.trim()) {
     ctx.addIssue({ code: 'custom', path: ['subject'], message: 'Email campaigns require a subject' });
@@ -29,21 +55,6 @@ export const campaignUpdateSchema = campaignCreateSchema.partial().extend({
   body: z.string().trim().min(1).max(5000).optional(),
 });
 
-export const campaignAudienceSchema = z.discriminatedUnion('audienceType', [
-  z.object({
-    audienceType: z.literal('departure'),
-    departureId: z.string().uuid(),
-  }),
-  z.object({
-    audienceType: z.literal('reservations'),
-    reservationIds: z.array(z.string().uuid()).min(1).max(100),
-  }),
-  z.object({
-    audienceType: z.literal('customers'),
-    customerIds: z.array(z.string().uuid()).min(1).max(100),
-  }),
-]);
-
 export type CampaignAudienceInput = z.infer<typeof campaignAudienceSchema>;
 export type CampaignChannel = z.infer<typeof campaignChannelSchema>;
 export type CampaignStatus = z.infer<typeof campaignStatusSchema>;
@@ -53,15 +64,22 @@ export type CampaignRecord = {
   org_id: string;
   name: string;
   channel: CampaignChannel;
+  template_id: string | null;
   subject: string | null;
   body: string;
   status: CampaignStatus;
+  audience: CampaignAudienceInput | null;
+  recipient_count: number | null;
+  scheduled_at: string | null;
   created_at: string;
+  updated_at: string | null;
   sent_at: string | null;
 };
-
 type AudienceContact = {
   recipient: string | null;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
   relatedDepartureId?: string | null;
   relatedReservationId?: string | null;
 };
@@ -85,6 +103,9 @@ type AudiencePreview = {
   skipped: SkippedRecipient[];
   recipients: Array<{
     recipient: string;
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
     relatedDepartureId?: string | null;
     relatedReservationId?: string | null;
   }>;
@@ -94,6 +115,7 @@ type CampaignDeps = {
   fetchDepartureContacts?: (orgId: string, departureId: string, channel: CampaignChannel) => Promise<AudienceContact[]>;
   fetchReservationContacts?: (orgId: string, reservationIds: string[], channel: CampaignChannel) => Promise<AudienceContact[]>;
   fetchCustomerContacts?: (orgId: string, customerIds: string[], channel: CampaignChannel) => Promise<AudienceContact[]>;
+  fetchAllCustomersContacts?: (orgId: string, channel: CampaignChannel) => Promise<AudienceContact[]>;
   logHistory?: typeof logCommunicationHistory;
   sendEmail?: typeof sendManualEmailForOrg;
   sendSms?: typeof sendManualSmsForOrg;
@@ -129,6 +151,7 @@ async function fetchDepartureContactsDefault(orgId: string, departureId: string,
       departure_id,
       customer_phone,
       customers (
+        full_name,
         email,
         phone
       )
@@ -142,6 +165,9 @@ async function fetchDepartureContactsDefault(orgId: string, departureId: string,
     recipient: channel === 'email'
       ? row.customers?.email || null
       : row.customer_phone || row.customers?.phone || null,
+    name: row.customers?.full_name || null,
+    email: row.customers?.email || null,
+    phone: row.customer_phone || row.customers?.phone || null,
     relatedDepartureId: row.departure_id || departureId,
     relatedReservationId: row.id,
   }));
@@ -155,6 +181,7 @@ async function fetchReservationContactsDefault(orgId: string, reservationIds: st
       departure_id,
       customer_phone,
       customers (
+        full_name,
         email,
         phone
       )
@@ -168,15 +195,36 @@ async function fetchReservationContactsDefault(orgId: string, reservationIds: st
     recipient: channel === 'email'
       ? row.customers?.email || null
       : row.customer_phone || row.customers?.phone || null,
+    name: row.customers?.full_name || null,
+    email: row.customers?.email || null,
+    phone: row.customer_phone || row.customers?.phone || null,
     relatedDepartureId: row.departure_id || null,
     relatedReservationId: row.id,
+  }));
+}
+
+async function fetchAllCustomersContactsDefault(orgId: string, channel: CampaignChannel): Promise<AudienceContact[]> {
+  const { data, error } = await supabaseAdmin
+    .from('customers')
+    .select('id, full_name, name, email, phone')
+    .eq('org_id', orgId);
+
+  if (error) throw error;
+
+  return (data || []).map((row: any) => ({
+    recipient: channel === 'email' ? row.email || null : row.phone || null,
+    name: row.full_name || row.name || null,
+    email: row.email || null,
+    phone: row.phone || null,
+    relatedDepartureId: null,
+    relatedReservationId: null,
   }));
 }
 
 async function fetchCustomerContactsDefault(orgId: string, customerIds: string[], channel: CampaignChannel): Promise<AudienceContact[]> {
   const { data, error } = await supabaseAdmin
     .from('customers')
-    .select('id, email, phone')
+    .select('id, full_name, name, email, phone')
     .eq('org_id', orgId)
     .in('id', customerIds);
 
@@ -184,6 +232,9 @@ async function fetchCustomerContactsDefault(orgId: string, customerIds: string[]
 
   return (data || []).map((row: any) => ({
     recipient: channel === 'email' ? row.email || null : row.phone || null,
+    name: row.full_name || row.name || null,
+    email: row.email || null,
+    phone: row.phone || null,
     relatedDepartureId: null,
     relatedReservationId: null,
   }));
@@ -212,9 +263,12 @@ export async function previewCampaignAudience(
   const fetchDepartureContacts = deps.fetchDepartureContacts || fetchDepartureContactsDefault;
   const fetchReservationContacts = deps.fetchReservationContacts || fetchReservationContactsDefault;
   const fetchCustomerContacts = deps.fetchCustomerContacts || fetchCustomerContactsDefault;
+  const fetchAllContacts = deps.fetchAllCustomersContacts || fetchAllCustomersContactsDefault;
 
   let contacts: AudienceContact[] = [];
-  if (audience.audienceType === 'departure') {
+  if (audience.audienceType === 'all') {
+    contacts = await fetchAllContacts(orgId, channel);
+  } else if (audience.audienceType === 'departure') {
     contacts = await fetchDepartureContacts(orgId, audience.departureId, channel);
   } else if (audience.audienceType === 'reservations') {
     contacts = await fetchReservationContacts(orgId, audience.reservationIds, channel);
@@ -257,6 +311,9 @@ export async function previewCampaignAudience(
     seen.add(normalized.normalized);
     recipients.push({
       recipient: normalized.normalized,
+      name: contact.name ?? null,
+      email: contact.email ?? null,
+      phone: contact.phone ?? null,
       relatedDepartureId: contact.relatedDepartureId ?? null,
       relatedReservationId: contact.relatedReservationId ?? null,
     });
@@ -286,9 +343,8 @@ export async function sendCampaign(
   const sendSms = deps.sendSms || sendManualSmsForOrg;
   const updateCampaign = deps.updateCampaign || updateCampaignDefault;
 
-  await updateCampaign(campaign.id, campaign.org_id, { status: 'sending', sent_at: null });
-
   const preview = await previewCampaignAudience(campaign.org_id, campaign.channel, audience, deps);
+  const hasPlaceholders = extractPlaceholders(`${campaign.subject ?? ''}\n${campaign.body}`).length > 0;
 
   for (const skipped of preview.skipped) {
     await logHistory({
@@ -306,15 +362,58 @@ export async function sendCampaign(
 
   let sentCount = 0;
   let failedCount = 0;
+  let unresolvedCount = 0;
 
   for (const recipient of preview.recipients) {
+    let resolvedSubject = campaign.subject;
+    let resolvedBody = campaign.body;
+
+    if (hasPlaceholders) {
+      const context = await loadTemplateContextForScope(campaign.org_id, {
+        relatedReservationId: recipient.relatedReservationId ?? null,
+        relatedDepartureId: recipient.relatedDepartureId ?? null,
+      });
+      const resolved = resolveMessagePerRecipient(
+        campaign.subject,
+        campaign.body,
+        {
+          contact: recipient.recipient,
+          name: recipient.name ?? null,
+          email: recipient.email ?? (campaign.channel === 'email' ? recipient.recipient : null),
+          phone: recipient.phone ?? (campaign.channel === 'sms' ? recipient.recipient : null),
+          reservationId: recipient.relatedReservationId ?? null,
+          departureId: recipient.relatedDepartureId ?? null,
+        },
+        context,
+      );
+
+      if (resolved.unresolved.length > 0) {
+        unresolvedCount += 1;
+        await logHistory({
+          orgId: campaign.org_id,
+          channel: campaign.channel,
+          recipient: recipient.recipient,
+          subject: resolved.subject,
+          bodyPreview: resolved.body,
+          status: 'skipped',
+          errorMessage: `unresolved_placeholders:${resolved.unresolved.join(',')}`,
+          relatedDepartureId: recipient.relatedDepartureId ?? null,
+          relatedReservationId: recipient.relatedReservationId ?? null,
+        });
+        continue;
+      }
+
+      resolvedSubject = resolved.subject;
+      resolvedBody = resolved.body;
+    }
+
     try {
       if (campaign.channel === 'email') {
         await sendEmail({
           channel: 'email',
           recipient: recipient.recipient,
-          subject: campaign.subject || '',
-          body: campaign.body,
+          subject: resolvedSubject || '',
+          body: resolvedBody,
           orgId: campaign.org_id,
           relatedDepartureId: recipient.relatedDepartureId ?? null,
           relatedReservationId: recipient.relatedReservationId ?? null,
@@ -323,7 +422,7 @@ export async function sendCampaign(
         await sendSms({
           channel: 'sms',
           recipient: recipient.recipient,
-          body: campaign.body,
+          body: resolvedBody,
           orgId: campaign.org_id,
           relatedDepartureId: recipient.relatedDepartureId ?? null,
           relatedReservationId: recipient.relatedReservationId ?? null,
@@ -347,9 +446,171 @@ export async function sendCampaign(
     status: finalStatus,
     sentCount,
     failedCount,
-    skippedCount: preview.skipped.length,
+    skippedCount: preview.skipped.length + unresolvedCount,
     totalRecipients: preview.sendableRecipients,
     preview,
     sentAt,
   };
+}
+
+// ─── Scheduling ──────────────────────────────────────────────────────────────
+
+export interface ScheduleResult {
+  campaignId: string;
+  scheduledAt: string;
+}
+
+export interface CancelScheduleResult {
+  campaignId: string;
+  previousStatus: string;
+}
+
+export interface DueCampaignsResult {
+  processed: number;
+  succeeded: number;
+  failed: number;
+  results: Array<{ campaignId: string; status: string; sentCount?: number; failedCount?: number }>;
+}
+
+export async function scheduleCampaign(orgId: string, campaignId: string, scheduledAt: string): Promise<ScheduleResult> {
+  const now = new Date().toISOString();
+  const scheduledDate = new Date(scheduledAt);
+  if (isNaN(scheduledDate.getTime()) || scheduledDate.toISOString() <= now) {
+    throw new Error('Scheduled time must be in the future');
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('campaigns')
+    .update({ status: 'scheduled', scheduled_at: scheduledAt, updated_at: now })
+    .eq('id', campaignId)
+    .eq('org_id', orgId)
+    .eq('status', 'draft')
+    .select('id, scheduled_at')
+    .single();
+
+  if (error || !data) {
+    throw new Error('NOT_DRAFT_OR_NOT_FOUND');
+  }
+
+  return { campaignId: data.id, scheduledAt: data.scheduled_at };
+}
+
+export async function rescheduleCampaign(orgId: string, campaignId: string, scheduledAt: string): Promise<ScheduleResult> {
+  const now = new Date().toISOString();
+  const scheduledDate = new Date(scheduledAt);
+  if (isNaN(scheduledDate.getTime()) || scheduledDate.toISOString() <= now) {
+    throw new Error('Scheduled time must be in the future');
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('campaigns')
+    .update({ scheduled_at: scheduledAt, updated_at: now })
+    .eq('id', campaignId)
+    .eq('org_id', orgId)
+    .eq('status', 'scheduled')
+    .select('id, scheduled_at')
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message || 'Scheduled campaign not found');
+  }
+
+  return { campaignId: data.id, scheduledAt: data.scheduled_at };
+}
+
+export async function cancelSchedule(orgId: string, campaignId: string): Promise<CancelScheduleResult> {
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabaseAdmin
+    .from('campaigns')
+    .update({ status: 'draft', scheduled_at: null, updated_at: now })
+    .eq('id', campaignId)
+    .eq('org_id', orgId)
+    .eq('status', 'scheduled')
+    .select('id, status')
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message || 'Scheduled campaign not found');
+  }
+
+  return { campaignId: data.id, previousStatus: 'scheduled' };
+}
+
+// Atomically claim a campaign for sending (used by both manual launch and scheduler).
+// Works for both 'draft' and 'scheduled' campaigns.
+async function startCampaignSend(campaignId: string, orgId: string, fromStatus?: string): Promise<CampaignRecord | null> {
+  const statusFilters = fromStatus ? [fromStatus] : ['draft', 'scheduled'];
+  const now = new Date().toISOString();
+
+  // Build query dynamically
+  let query = supabaseAdmin
+    .from('campaigns')
+    .update({ status: 'sending', updated_at: now })
+    .eq('id', campaignId)
+    .eq('org_id', orgId);
+
+  if (statusFilters.length === 1) {
+    query = query.eq('status', statusFilters[0]);
+  } else {
+    query = query.in('status', statusFilters);
+  }
+
+  const { data, error } = await query.select('*').single();
+
+  if (error || !data) return null;
+  return data as CampaignRecord;
+}
+
+// Reconstruct audience from stored audience_type/audience_data columns
+function reconstructAudience(row: any): CampaignAudienceInput | null {
+  if (!row.audience_type) return null;
+  return { audienceType: row.audience_type, ...(row.audience_data || {}) } as CampaignAudienceInput;
+}
+
+export async function processDueScheduledCampaigns(): Promise<DueCampaignsResult> {
+  const now = new Date().toISOString();
+
+  const { data: due, error: fetchError } = await supabaseAdmin
+    .from('campaigns')
+    .select('*')
+    .eq('status', 'scheduled')
+    .lte('scheduled_at', now)
+    .order('scheduled_at', { ascending: true });
+
+  if (fetchError || !due) {
+    console.error('Failed to fetch due campaigns', fetchError);
+    return { processed: 0, succeeded: 0, failed: 0, results: [] };
+  }
+
+  const results: DueCampaignsResult['results'] = [];
+  let succeeded = 0;
+  let failed = 0;
+
+  for (const campaign of due) {
+    const audience = reconstructAudience(campaign);
+    if (!audience) continue;
+    const claimed = await startCampaignSend(campaign.id, campaign.org_id, "scheduled");
+    if (!claimed) {
+      results.push({ campaignId: campaign.id, status: 'already-processing' });
+      continue;
+    }
+
+    try {
+      const sendResult = await sendCampaign(campaign as CampaignRecord, audience);
+      results.push({ campaignId: campaign.id, status: sendResult.status, sentCount: sendResult.sentCount, failedCount: sendResult.failedCount });
+      succeeded += 1;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`Campaign ${campaign.id} processing failed:`, message);
+      results.push({ campaignId: campaign.id, status: 'processing-error' });
+      failed += 1;
+      await supabaseAdmin
+        .from('campaigns')
+        .update({ status: 'failed', updated_at: new Date().toISOString() })
+        .eq('id', campaign.id);
+    }
+  }
+
+  return { processed: due.length, succeeded, failed, results };
 }
