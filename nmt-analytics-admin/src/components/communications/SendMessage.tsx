@@ -167,7 +167,7 @@ export default function SendMessage({ onSent, presetTemplate, presetChannel }: S
         const depLabel = dep ? `${dep.packageName || dep.destination || ''}` : '';
         const rows = list.map((g) => ({
           value: g.id,
-          label: `${g.name || 'Grupa'} · ${g.members?.length ?? 0}${depLabel ? ` · ${depLabel}` : ''}`,
+          label: `${g.name || s.groupFallback} · ${g.members?.length ?? 0}${depLabel ? ` · ${depLabel}` : ''}`,
         }));
         if (mounted) setGroups(rows);
       } catch {
@@ -409,7 +409,7 @@ export default function SendMessage({ onSent, presetTemplate, presetChannel }: S
                   setDirectValue(e.target.value);
                   resetPreview();
                 }}
-                placeholder={channel === 'email' ? 'ime@primjer.com' : '+38761...'}
+                placeholder={channel === 'email' ? s.emailPlaceholder : s.smsPlaceholder}
               />
             </div>
           )}
