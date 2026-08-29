@@ -345,6 +345,7 @@ describe('CampaignEditorModal', () => {
     render(<CampaignEditorModal isOpen={true} onClose={vi.fn()} onSaved={vi.fn()} campaign={null} />);
 
     await waitFor(() => expect(getMessageTemplates).toHaveBeenCalled());
+    await screen.findByRole('option', { name: 'Email template' });
     fireEvent.change(screen.getByLabelText('Template'), {
       target: { value: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
     });
