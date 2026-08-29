@@ -1,6 +1,8 @@
 name: Vercel Readiness
 
 on:
+  push:
+    branches: [infra/vercel-independent]
   pull_request:
     branches: [main]
 
