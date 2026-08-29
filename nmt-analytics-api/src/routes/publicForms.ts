@@ -160,13 +160,23 @@ router.patch('/forms/:id', authenticateToken, requireOrgContext, requireMinimumR
   const parsed = updateFormSchema.safeParse(req.body);
   if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid form update', parsed.error.issues);
 
+  const { data: existing, error: loadErr } = await supabaseAdmin
+    .from('public_forms')
+    .select('id, package_id, departure_id')
+    .eq('id', req.params.id)
+    .eq('org_id', req.orgId!)
+    .maybeSingle();
+  if (loadErr || !existing) return apiError(res, 404, 'NOT_FOUND', 'Form not found');
+
   const b = parsed.data;
   if (b.fields) {
     const fieldErr = validateFieldSet(b.fields);
     if (fieldErr) return apiError(res, 400, 'VALIDATION_ERROR', fieldErr);
   }
   if (b.packageId !== undefined || b.departureId !== undefined) {
-    const ctxErr = await validateContextResources(req.orgId!, b.packageId, b.departureId);
+    const effectivePackageId = b.packageId !== undefined ? b.packageId : existing.package_id;
+    const effectiveDepartureId = b.departureId !== undefined ? b.departureId : existing.departure_id;
+    const ctxErr = await validateContextResources(req.orgId!, effectivePackageId, effectiveDepartureId);
     if (ctxErr) return apiError(res, 400, 'VALIDATION_ERROR', ctxErr);
   }
 
