@@ -3,7 +3,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import Flights from '../pages/operations/Flights'
 
-const mockFlights = [
+const { mockFlights } = vi.hoisted(() => ({
+  mockFlights: [
   {
     id: 'f1', orgId: 'o1', airline: 'Turkish Airlines', flightNumber: 'TK101',
     departureAirport: 'SJJ', arrivalAirport: 'IST',
@@ -19,20 +20,17 @@ const mockFlights = [
     capacity: 186, basePrice: 180, currency: 'KM', notes: null, active: false,
     linkedDepartureCount: 0, linkedDepartures: [],
   },
-]
+  ],
+}))
 
-vi.mock('../api/flights', async () => {
-  const actual = await vi.importActual<typeof import('../api/flights')>('../api/flights')
-  return {
-    ...actual,
-    getFlights: vi.fn(async () => ({ data: mockFlights, total: 2 })),
-    getFlight: vi.fn(async (id: string) => mockFlights.find((f: { id: string }) => f.id === id) || mockFlights[0]),
-    createFlight: vi.fn(async () => ({})),
-    updateFlight: vi.fn(async () => ({})),
-    toggleFlightActive: vi.fn(async () => ({})),
-    deleteFlight: vi.fn(async () => undefined),
-  }
-})
+vi.mock('../api/flights', () => ({
+  getFlights: vi.fn(async () => ({ data: mockFlights, total: 2 })),
+  getFlight: vi.fn(async (id: string) => mockFlights.find((f: { id: string }) => f.id === id) || mockFlights[0]),
+  createFlight: vi.fn(async () => ({})),
+  updateFlight: vi.fn(async () => ({})),
+  toggleFlightActive: vi.fn(async () => ({})),
+  deleteFlight: vi.fn(async () => undefined),
+}))
 
 vi.mock('../api/operations', async () => {
   const actual = await vi.importActual<typeof import('../api/operations')>('../api/operations')
