@@ -230,6 +230,17 @@ router.patch('/flights/:id', authenticateToken, requireOrgContext, requireMinimu
       if (!r.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', r.error.issues);
 
       const orgId = req.orgId!;
+
+      // Load the existing flight scoped by id + org — 404 when absent.
+      const { data: existing, error: loadErr } = await supabaseAdmin
+        .from('flights')
+        .select('*')
+        .eq('id', id)
+        .eq('org_id', orgId)
+        .maybeSingle();
+      if (loadErr) throw loadErr;
+      if (!existing) return apiError(res, 404, 'NOT_FOUND', 'Flight not found');
+
       const updates: Record<string, unknown> = {};
       const v = r.data;
       if (v.airline !== undefined) updates.airline = v.airline;
@@ -243,6 +254,23 @@ router.patch('/flights/:id', authenticateToken, requireOrgContext, requireMinimu
       if (v.currency !== undefined) updates.currency = v.currency;
       if (v.notes !== undefined) updates.notes = v.notes;
       if (v.active !== undefined) updates.active = v.active;
+
+      // Final-state validation: merge PATCH values over existing row so
+      // single-field changes are checked against the unmodified counterpart.
+      const finalDepartureAirport = String(updates.departure_airport ?? existing.departure_airport ?? '');
+      const finalArrivalAirport = String(updates.arrival_airport ?? existing.arrival_airport ?? '');
+      if (finalDepartureAirport && finalArrivalAirport && finalDepartureAirport === finalArrivalAirport) {
+        return apiError(res, 400, 'VALIDATION_ERROR', 'Departure and arrival airports cannot be identical');
+      }
+      const finalDepartureTime = updates.departure_time ?? existing.departure_time;
+      const finalArrivalTime = updates.arrival_time ?? existing.arrival_time;
+      if (finalDepartureTime && finalArrivalTime) {
+        const dep = new Date(String(finalDepartureTime)).getTime();
+        const arr = new Date(String(finalArrivalTime)).getTime();
+        if (!Number.isNaN(dep) && !Number.isNaN(arr) && arr <= dep) {
+          return apiError(res, 400, 'VALIDATION_ERROR', 'Arrival must be after departure');
+        }
+      }
 
       const { data, error } = await supabaseAdmin
         .from('flights')
@@ -477,55 +505,25 @@ router.put('/departures/:departureId/flights/reorder', authenticateToken, requir
       if (!r.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', r.error.issues);
       const orgId = req.orgId!;
 
-      const { data: dep, error: depErr } = await supabaseAdmin
-        .from('departures')
-        .select('id')
-        .eq('id', departureId)
-        .eq('org_id', orgId)
-        .maybeSingle();
-      if (depErr) throw depErr;
-      if (!dep) return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
+      // Single atomic DB unit: departure-org ownership, segment-set match,
+      // duplicate checks, temp + final positions — all inside one PostgreSQL
+      // function; any failure rolls back everything. The RPC also enforces
+      // org scoping, so no separate ownership query is needed.
+      const { data: reordered, error: rpcErr } = await supabaseAdmin
+        .rpc('reorder_departure_flights_atomic', {
+          p_org_id: orgId,
+          p_departure_id: departureId,
+          p_segments: r.data.segments,
+        });
 
-      const requestedIds = new Set(r.data.segments.map((s: any) => s.id));
-      const { data: existing } = await supabaseAdmin
-        .from('departure_flights')
-        .select('id')
-        .eq('departure_id', departureId)
-        .eq('org_id', orgId);
-
-      if (!existing || existing.length === 0) {
-        return apiError(res, 400, 'NOT_FOUND', 'No flight segments found for this departure');
-      }
-
-      for (const seg of r.data.segments) {
-        if (!existing.some((e: any) => e.id === seg.id)) {
-          return apiError(res, 400, 'VALIDATION_ERROR', 'Segment not found in this departure');
-        }
-      }
-
-      const OFFSET = 100000;
-
-      // Phase 1: move all to temp non-conflicting positions
-      for (let i = 0; i < r.data.segments.length; i++) {
-        const seg = r.data.segments[i];
-        const { error: e1 } = await supabaseAdmin
-          .from('departure_flights')
-          .update({ segment_order: OFFSET + i })
-          .eq('id', seg.id)
-          .eq('departure_id', departureId)
-          .eq('org_id', orgId);
-        if (e1) throw e1;
-      }
-
-      // Phase 2: set final direction + segment_order
-      for (const seg of r.data.segments) {
-        const { error: e2 } = await supabaseAdmin
-          .from('departure_flights')
-          .update({ direction: seg.direction, segment_order: seg.segmentOrder })
-          .eq('id', seg.id)
-          .eq('departure_id', departureId)
-          .eq('org_id', orgId);
-        if (e2) throw e2;
+      if (rpcErr) {
+        const detail = String((rpcErr as any).message || '');
+        if (detail.includes('departure_not_found_in_org')) return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
+        if (detail.includes('incomplete_segment_set') || detail.includes('segment_not_in_departure') || detail.includes('empty_segment_set'))
+          return apiError(res, 400, 'VALIDATION_ERROR', 'Segment set does not match this departure itinerary');
+        if (detail.includes('duplicate_segment_ids') || detail.includes('duplicate_direction_order_targets'))
+          return apiError(res, 400, 'VALIDATION_ERROR', 'Duplicate segment or ordering target in payload');
+        throw rpcErr;
       }
 
       // Return final ordered list

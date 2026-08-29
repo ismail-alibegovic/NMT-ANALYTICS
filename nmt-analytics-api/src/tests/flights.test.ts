@@ -2,6 +2,8 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import express, { type NextFunction, type Request, type Response } from 'express'
 import request from 'supertest'
 
+let supabaseAdmin: any
+
 const ORG = '00000000-0000-4000-8000-000000000001'
 const OTHER_ORG = '00000000-0000-4000-8000-0000000000ff'
 const FLIGHT_A = 'aa000000-0000-4000-8000-000000000001'
@@ -79,10 +81,12 @@ const chainFor = (table: string) => {
   return chains[table]
 }
 
+const rpcState = vi.hoisted(() => ({ data: null as any, error: null as any }))
+
 vi.mock('../lib/supabase', () => ({
   supabaseAdmin: {
     from: (table: string) => chainFor(table),
-    rpc: vi.fn(async () => ({ data: null, error: null })),
+    rpc: vi.fn(async () => ({ data: rpcState.data, error: rpcState.error })),
   },
 }))
 
@@ -90,7 +94,10 @@ vi.mock('../middleware/authenticateToken', () => ({
   authenticateToken: (_req: Request, _res: Response, next: NextFunction) => next(),
 }))
 vi.mock('../middleware/requireOrgContext', () => ({
-  requireOrgContext: (_req: Request, _res: Response, next: NextFunction) => next(),
+  requireOrgContext: (req: any, _res: Response, next: NextFunction) => {
+    req.orgId = ORG
+    next()
+  },
 }))
 vi.mock('../middleware/requireRole', () => ({
   requireMinimumRole: () => (_req: Request, _res: Response, next: NextFunction) => next(),
@@ -108,10 +115,13 @@ beforeAll(async () => {
   app.use(express.json())
   const router = (await import('../routes/flights')).default
   app.use('/api', router)
+  ;({ supabaseAdmin } = await import('../lib/supabase'))
 })
 
 beforeEach(() => {
   for (const key of Object.keys(chains)) delete chains[key]
+  rpcState.data = null
+  rpcState.error = null
 })
 
 const validPayload = {
@@ -165,6 +175,7 @@ describe('POST /api/flights — validation', () => {
 
 describe('PATCH /api/flights/:id — update & toggle', () => {
   it('updates flight fields and normalizes airports', async () => {
+    chainFor('flights').__queue.push({ data: makeFlight(), error: null })
     chainFor('flights').__queue.push({ data: makeFlight({ arrival_airport: 'BER' }), error: null })
     const res = await request(app).patch(`/api/flights/${FLIGHT_A}`).send({ arrivalAirport: 'ber' })
     expect(res.status).toBe(200)
@@ -172,6 +183,7 @@ describe('PATCH /api/flights/:id — update & toggle', () => {
   })
 
   it('toggles active via PATCH', async () => {
+    chainFor('flights').__queue.push({ data: makeFlight(), error: null })
     chainFor('flights').__queue.push({ data: makeFlight({ active: false }), error: null })
     const res = await request(app).patch(`/api/flights/${FLIGHT_A}`).send({ active: false })
     expect(res.status).toBe(200)
@@ -182,6 +194,54 @@ describe('PATCH /api/flights/:id — update & toggle', () => {
     chainFor('flights').__queue.push({ data: makeFlight(), error: null })
     const res = await request(app).patch(`/api/flights/${FLIGHT_A}`).send({ departureAirport: '12' })
     expect(res.status).toBe(400)
+  })
+
+  it('rejects arrivalAirport equal to existing departureAirport (partial PATCH)', async () => {
+    chainFor('flights').__queue.push({ data: makeFlight(), error: null })
+    const res = await request(app).patch(`/api/flights/${FLIGHT_A}`).send({ arrivalAirport: 'SJJ' })
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects departureAirport equal to existing arrivalAirport (partial PATCH)', async () => {
+    chainFor('flights').__queue.push({ data: makeFlight(), error: null })
+    const res = await request(app).patch(`/api/flights/${FLIGHT_A}`).send({ departureAirport: 'IST' })
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects arrivalTime before existing departureTime (partial PATCH)', async () => {
+    chainFor('flights').__queue.push({ data: makeFlight(), error: null })
+    const res = await request(app).patch(`/api/flights/${FLIGHT_A}`).send({ arrivalTime: '2026-09-10T07:00:00Z' })
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects departureTime after existing arrivalTime (partial PATCH)', async () => {
+    chainFor('flights').__queue.push({ data: makeFlight(), error: null })
+    const res = await request(app).patch(`/api/flights/${FLIGHT_A}`).send({ departureTime: '2026-09-10T12:00:00Z' })
+    expect(res.status).toBe(400)
+  })
+
+  it('accepts valid partial airport/time update against final state', async () => {
+    chainFor('flights').__queue.push({ data: makeFlight(), error: null })
+    chainFor('flights').__queue.push({ data: makeFlight({ arrival_airport: 'ZRH', arrival_time: '2026-09-10T12:30:00Z' }), error: null })
+    const res = await request(app).patch(`/api/flights/${FLIGHT_A}`).send({
+      arrivalAirport: 'ZRH',
+      arrivalTime: '2026-09-10T12:30:00Z',
+    })
+    expect(res.status).toBe(200)
+    expect(res.body.arrivalAirport).toBe('ZRH')
+  })
+
+  it('returns 404 when flight does not exist in org', async () => {
+    chainFor('flights').__queue.push({ data: null, error: null })
+    const res = await request(app).patch(`/api/flights/${FLIGHT_C}`).send({ active: false })
+    expect(res.status).toBe(404)
+  })
+
+  it('accepts partial update of an unrelated field without touching context', async () => {
+    chainFor('flights').__queue.push({ data: makeFlight(), error: null })
+    chainFor('flights').__queue.push({ data: makeFlight({ notes: 'gate B7' }), error: null })
+    const res = await request(app).patch(`/api/flights/${FLIGHT_A}`).send({ notes: 'gate B7' })
+    expect(res.status).toBe(200)
   })
 })
 
@@ -292,36 +352,84 @@ describe('Departure flight segments', () => {
     expect(chainFor('flights').delete).not.toHaveBeenCalled()
   })
 
-  it('bulk reorder persists direction and segment order', async () => {
-    chainFor('departures').__queue.push({ data: { id: DEPARTURE, org_id: ORG }, error: null })
-    // existing segment ids check
-    chainFor('departure_flights').__queue.push({ data: [{ id: SEGMENT_1 }, { id: SEGMENT_2 }], error: null })
-    // phase 1: two temp updates
-    chainFor('departure_flights').__queue.push({ data: null, error: null })
-    chainFor('departure_flights').__queue.push({ data: null, error: null })
-    // phase 2: two final updates
-    chainFor('departure_flights').__queue.push({ data: null, error: null })
-    chainFor('departure_flights').__queue.push({ data: null, error: null })
-    // final ordered list
+  it('atomic reorder: calls the RPC once and returns the ordered list', async () => {
+    rpcState.data = [
+      { id: SEGMENT_2, departure_id: DEPARTURE, flight_id: FLIGHT_B, direction: 'outbound', segment_order: 1, created_at: '2026-09-01T00:00:00Z', flights: [] },
+      { id: SEGMENT_1, departure_id: DEPARTURE, flight_id: FLIGHT_A, direction: 'outbound', segment_order: 2, created_at: '2026-09-01T00:00:00Z', flights: [makeFlight()] },
+    ]
     chainFor('departure_flights').__queue.push({
-      data: [
-        { id: SEGMENT_2, departure_id: DEPARTURE, flight_id: FLIGHT_B, direction: 'outbound', segment_order: 1, created_at: '2026-09-01T00:00:00Z', flights: [] },
-        { id: SEGMENT_1, departure_id: DEPARTURE, flight_id: FLIGHT_A, direction: 'outbound', segment_order: 2, created_at: '2026-09-01T00:00:00Z', flights: [makeFlight()] },
-      ],
+      data: rpcState.data,
       error: null,
     })
+    const payload = {
+      segments: [
+        { id: SEGMENT_1, direction: 'outbound', segmentOrder: 2 },
+        { id: SEGMENT_2, direction: 'outbound', segmentOrder: 1 },
+      ],
+    }
+    const res = await request(app)
+      .put(`/api/departures/${DEPARTURE}/flights/reorder`)
+      .send(payload)
+    expect(res.status).toBe(200)
+    expect(res.body.data[0].segmentOrder).toBe(1)
+    // ONE DB unit: single rpc call with full payload, no row-by-row updates
+    expect(supabaseAdmin.rpc).toHaveBeenCalledTimes(1)
+    expect(supabaseAdmin.rpc).toHaveBeenCalledWith('reorder_departure_flights_atomic', {
+      p_org_id: ORG,
+      p_departure_id: DEPARTURE,
+      p_segments: payload.segments,
+    })
+    expect(chainFor('departure_flights').update).not.toHaveBeenCalled()
+  })
+
+  it('rejects duplicate direction/order targets (RPC error)', async () => {
+    rpcState.error = { message: 'duplicate_direction_order_targets' }
     const res = await request(app)
       .put(`/api/departures/${DEPARTURE}/flights/reorder`)
       .send({
         segments: [
-          { id: SEGMENT_1, direction: 'outbound', segmentOrder: 2 },
-          { id: SEGMENT_2, direction: 'outbound', segmentOrder: 1 },
+          { id: SEGMENT_1, direction: 'outbound', segmentOrder: 0 },
+          { id: SEGMENT_2, direction: 'outbound', segmentOrder: 0 },
         ],
       })
-    expect(res.status).toBe(200)
-    expect(res.body.data[0].segmentOrder).toBe(1)
-    // 2 temp updates + 2 final updates
-    expect(chainFor('departure_flights').update).toHaveBeenCalledTimes(4)
+    expect(res.status).toBe(400)
+    expect(chainFor('departure_flights').update).not.toHaveBeenCalled()
+  })
+
+  it('rejects cross-org / foreign segment (RPC error)', async () => {
+    rpcState.error = { message: 'segment_not_in_departure' }
+    const res = await request(app)
+      .put(`/api/departures/${DEPARTURE}/flights/reorder`)
+      .send({ segments: [{ id: SEGMENT_3, direction: 'outbound', segmentOrder: 0 }] })
+    expect(res.status).toBe(400)
+    expect(chainFor('departure_flights').update).not.toHaveBeenCalled()
+  })
+
+  it('rejects incomplete/invalid segment set (RPC error)', async () => {
+    rpcState.error = { message: 'incomplete_segment_set' }
+    const res = await request(app)
+      .put(`/api/departures/${DEPARTURE}/flights/reorder`)
+      .send({ segments: [{ id: SEGMENT_1, direction: 'outbound', segmentOrder: 0 }] })
+    expect(res.status).toBe(400)
+    expect(chainFor('departure_flights').update).not.toHaveBeenCalled()
+  })
+
+  it('returns 404 when departure is not in org (RPC error)', async () => {
+    rpcState.error = { message: 'departure_not_found_in_org' }
+    const res = await request(app)
+      .put(`/api/departures/${DEPARTURE}/flights/reorder`)
+      .send({ segments: [{ id: SEGMENT_1, direction: 'outbound', segmentOrder: 0 }] })
+    expect(res.status).toBe(404)
+  })
+
+  it('failed reorder leaves no partial temporary ordering', async () => {
+    // The RPC raises and rolls back — endpoint must not perform ANY row updates itself.
+    rpcState.error = { message: 'duplicate_direction_order_targets' }
+    await request(app)
+      .put(`/api/departures/${DEPARTURE}/flights/reorder`)
+      .send({ segments: [{ id: SEGMENT_1, direction: 'return', segmentOrder: 3 }] })
+    expect(chainFor('departure_flights').update).not.toHaveBeenCalled()
+    expect(chainFor('flights').update).not.toHaveBeenCalled()
   })
 
   it('rejects reorder with negative segment order', async () => {

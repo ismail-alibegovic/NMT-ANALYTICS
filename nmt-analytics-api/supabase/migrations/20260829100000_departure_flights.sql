@@ -41,3 +41,246 @@ SELECT d.org_id, d.id, d.flight_id, 'outbound', 0
 FROM public.departures d
 WHERE d.flight_id IS NOT NULL
 ON CONFLICT (departure_id, direction, segment_order) DO NOTHING;
+
+-- 4) Atomic itinerary reorder RPC ----------------------------------------------
+-- Single transaction: validates departure ownership, exact segment set,
+-- no duplicate ids / (direction, segment_order) targets, applies temporary
+-- positions then final positions, rolls back everything on any error.
+
+CREATE OR REPLACE FUNCTION public.reorder_departure_flights_atomic(
+  p_org_id UUID,
+  p_departure_id UUID,
+  p_segments JSONB
+)
+RETURNS TABLE (
+  id UUID,
+  flight_id UUID,
+  direction TEXT,
+  segment_order INT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_segment_count INT;
+  v_existing_count INT;
+  v_dup_ids INT;
+  v_dup_targets INT;
+  v_foreign INT;
+BEGIN
+  -- Departure must exist inside the org
+  IF NOT EXISTS (
+    SELECT 1 FROM public.departures d
+    WHERE d.id = p_departure_id AND d.org_id = p_org_id
+  ) THEN
+    RAISE EXCEPTION 'departure_not_found_in_org';
+  END IF;
+
+  v_segment_count := jsonb_array_length(p_segments);
+  IF v_segment_count < 1 THEN
+    RAISE EXCEPTION 'empty_segment_set';
+  END IF;
+
+  -- No duplicate segment ids
+  SELECT COUNT(*) INTO v_dup_ids
+  FROM (
+    SELECT seg->>'id' AS sid, COUNT(*) AS c
+    FROM jsonb_array_elements(p_segments) seg
+    GROUP BY 1 HAVING COUNT(*) > 1
+  ) dups;
+  IF v_dup_ids > 0 THEN
+    RAISE EXCEPTION 'duplicate_segment_ids';
+  END IF;
+
+  -- No duplicate (direction, segment_order) targets
+  SELECT COUNT(*) INTO v_dup_targets
+  FROM (
+    SELECT seg->>'direction' AS dir, (seg->>'segmentOrder')::int AS ord, COUNT(*) AS c
+    FROM jsonb_array_elements(p_segments) seg
+    GROUP BY 1, 2 HAVING COUNT(*) > 1
+  ) dups;
+  IF v_dup_targets > 0 THEN
+    RAISE EXCEPTION 'duplicate_direction_order_targets';
+  END IF;
+
+  -- All supplied segments must exist in this departure + org
+  SELECT COUNT(*) INTO v_foreign
+  FROM jsonb_array_elements(p_segments) seg
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.departure_flights df
+    WHERE df.id = (seg->>'id')::uuid
+      AND df.departure_id = p_departure_id
+      AND df.org_id = p_org_id
+  );
+  IF v_foreign > 0 THEN
+    RAISE EXCEPTION 'segment_not_in_departure';
+  END IF;
+
+  -- Submitted set must exactly match the departure itinerary
+  SELECT COUNT(*) INTO v_existing_count
+  FROM public.departure_flights df
+  WHERE df.departure_id = p_departure_id AND df.org_id = p_org_id;
+  IF v_existing_count <> v_segment_count THEN
+    RAISE EXCEPTION 'incomplete_segment_set';
+  END IF;
+
+  BEGIN
+    -- Phase 1: temporary non-conflicting positions
+    FOR i IN 0 .. (v_segment_count - 1) LOOP
+      UPDATE public.departure_flights df
+      SET segment_order = 100000 + i
+      WHERE df.id = (p_segments->i->>'id')::uuid
+        AND df.departure_id = p_departure_id
+        AND df.org_id = p_org_id;
+    END LOOP;
+
+    -- Phase 2: final direction + order
+    FOR i IN 0 .. (v_segment_count - 1) LOOP
+      UPDATE public.departure_flights df
+      SET direction = p_segments->i->>'direction',
+          segment_order = (p_segments->i->>'segmentOrder')::int
+      WHERE df.id = (p_segments->i->>'id')::uuid
+        AND df.departure_id = p_departure_id
+        AND df.org_id = p_org_id;
+    END LOOP;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE;  -- roll back the whole function call
+  END;
+
+  RETURN QUERY
+  SELECT df.id, df.flight_id, df.direction, df.segment_order
+  FROM public.departure_flights df
+  WHERE df.departure_id = p_departure_id AND df.org_id = p_org_id
+  ORDER BY df.direction, df.segment_order;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.reorder_departure_flights_atomic(UUID, UUID, JSONB) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.reorder_departure_flights_atomic(UUID, UUID, JSONB) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.reorder_departure_flights_atomic(UUID, UUID, JSONB) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.reorder_departure_flights_atomic(UUID, UUID, JSONB) TO service_role;
+
+COMMENT ON FUNCTION public.reorder_departure_flights_atomic(UUID, UUID, JSONB)
+  IS 'Atomic two-phase departure itinerary reorder; service_role only';
+
+-- 4) Atomic itinerary reorder RPC ----------------------------------------------
+-- Reorders the FULL segment set of a departure in ONE transaction/function call.
+-- Validates org ownership, exact segment-set match, duplicate ids and duplicate
+-- (direction, segment_order) targets; performs temporary-position + final-position
+-- updates inside the function so any error rolls back everything.
+CREATE OR REPLACE FUNCTION public.reorder_departure_flights_atomic(
+  p_org_id UUID,
+  p_departure_id UUID,
+  p_segments JSONB
+)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $fn$
+DECLARE
+  v_existing_count INT;
+  v_supplied_count INT;
+  v_rec RECORD;
+  v_offsets INT[];
+  v_i INT;
+  v_seen_ids TEXT;
+  v_seen_targets TEXT;
+  v_seg JSONB;
+  v_dir TEXT;
+  v_order INT;
+  v_seg_id UUID;
+BEGIN
+  -- Departure must exist in this org
+  IF NOT EXISTS (
+    SELECT 1 FROM public.departures d
+    WHERE d.id = p_departure_id AND d.org_id = p_org_id
+  ) THEN
+    RAISE EXCEPTION 'departure_not_found_in_org';
+  END IF;
+
+  v_supplied_count := COALESCE(jsonb_array_length(p_segments), 0);
+  IF v_supplied_count = 0 THEN
+    RAISE EXCEPTION 'empty_segment_set';
+  END IF;
+
+  -- Duplicate segment ids in payload
+  v_seen_ids := '';
+  FOR v_i IN 0 .. v_supplied_count - 1 LOOP
+    v_seg := p_segments -> v_i;
+    v_seg_id := (v_seg ->> 'id')::uuid;
+    IF v_seen_ids LIKE '%' || v_seg_id::text || '%' THEN
+      RAISE EXCEPTION 'duplicate_segment_ids';
+    END IF;
+    v_seen_ids := v_seen_ids || v_seg_id::text || '|';
+  END LOOP;
+
+  -- Duplicate (direction, segment_order) targets in payload
+  v_seen_targets := '';
+  FOR v_rec IN
+    SELECT (p_segments -> v_i ->> 'direction') AS dir,
+           (p_segments -> v_i ->> 'segmentOrder') AS ord
+    FROM generate_series(0, v_supplied_count - 1) AS v_i
+  LOOP
+    IF v_seen_targets LIKE '%' || v_rec.dir || ':' || v_rec.ord || '%' THEN
+      RAISE EXCEPTION 'duplicate_direction_order_targets';
+    END IF;
+    v_seen_targets := v_seen_targets || v_rec.dir || ':' || v_rec.ord || '|';
+  END LOOP;
+
+  -- Every supplied segment must belong to this departure + org;
+  -- the submitted set must exactly match the departure itinerary.
+  SELECT COUNT(*) INTO v_existing_count
+  FROM public.departure_flights df
+  WHERE df.departure_id = p_departure_id AND df.org_id = p_org_id;
+
+  FOR v_i IN 0 .. v_supplied_count - 1 LOOP
+    v_seg := p_segments -> v_i;
+    v_seg_id := (v_seg ->> 'id')::uuid;
+    IF NOT EXISTS (
+      SELECT 1 FROM public.departure_flights df
+      WHERE df.id = v_seg_id
+        AND df.departure_id = p_departure_id
+        AND df.org_id = p_org_id
+    ) THEN
+      RAISE EXCEPTION 'segment_not_in_departure';
+    END IF;
+  END LOOP;
+
+  IF v_existing_count <> v_supplied_count THEN
+    RAISE EXCEPTION 'incomplete_segment_set';
+  END IF;
+
+  -- Phase 1 (same transaction): park every segment at unique temporary orders
+  v_offsets := ARRAY(SELECT 100000 + v_i FROM generate_series(0, v_supplied_count - 1) AS v_i);
+  FOR v_i IN 0 .. v_supplied_count - 1 LOOP
+    v_seg := p_segments -> v_i;
+    v_seg_id := (v_seg ->> 'id')::uuid;
+    UPDATE public.departure_flights
+    SET segment_order = v_offsets[v_i + 1]
+    WHERE id = v_seg_id
+      AND departure_id = p_departure_id
+      AND org_id = p_org_id;
+  END LOOP;
+
+  -- Phase 2 (same transaction): final direction + segment_order
+  FOR v_i IN 0 .. v_supplied_count - 1 LOOP
+    v_seg := p_segments -> v_i;
+    v_seg_id := (v_seg ->> 'id')::uuid;
+    v_dir := v_seg ->> 'direction';
+    UPDATE public.departure_flights
+    SET direction = v_dir,
+        segment_order = (v_seg ->> 'segmentOrder')::int
+    WHERE id = v_seg_id
+      AND departure_id = p_departure_id
+      AND org_id = p_org_id;
+  END LOOP;
+END;
+$fn$;
+
+-- Security: service_role only
+REVOKE EXECUTE ON FUNCTION public.reorder_departure_flights_atomic(UUID, UUID, JSONB) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.reorder_departure_flights_atomic FROM anon;
+REVOKE EXECUTE ON FUNCTION public.reorder_departure_flights_atomic FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.reorder_departure_flights_atomic TO service_role;
+ALTER FUNCTION public.reorder_departure_flights_atomic(UUID, UUID, JSONB) SECURITY DEFINER;
+ALTER FUNCTION public.reorder_departure_flights_atomic(UUID, UUID, JSONB) SET search_path = public;
