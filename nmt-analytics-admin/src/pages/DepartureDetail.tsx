@@ -19,6 +19,8 @@ import Select from "../components/form/Select";
 import {
   AlertIcon,
   AngleRightIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
   BoxIcon,
   CalenderIcon,
   CheckLineIcon,
@@ -27,6 +29,8 @@ import {
   GroupIcon,
   ListIcon,
   PlugInIcon,
+  PlusIcon,
+  TrashBinIcon,
 } from "../icons";
 import {
   getDeparture,
@@ -44,7 +48,7 @@ import {
   DepartureGroup,
   updateDeparturePassenger,
 } from "../api/departures";
-import { getFlights, type Flight } from "../api/flights";
+import { getFlights, getDepartureFlightSegments, linkFlightToDeparture, unlinkFlightFromDeparture, reorderFlightSegments, type Flight, type FlightSegment } from "../api/flights";
 import { getReservations } from "../api/reservations";
 import { sendDepartureManualMessage } from "../api/manualMessaging";
 
@@ -116,6 +120,11 @@ export default function DepartureDetail() {
   const [flightsLoading, setFlightsLoading] = useState(false);
   const [flightSaving, setFlightSaving] = useState(false);
   const [flightError, setFlightError] = useState<string | null>(null);
+  const [flightSegments, setFlightSegments] = useState<FlightSegment[]>([]);
+  const [segmentsLoading, setSegmentsLoading] = useState(false);
+  const [segmentsBusy, setSegmentsBusy] = useState(false);
+  const [segmentMode, setSegmentMode] = useState(false);
+  const [attachDirection, setAttachDirection] = useState<"outbound" | "return" | "other">("outbound");
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -243,7 +252,9 @@ export default function DepartureDetail() {
     }
   };
 
-  const openFlightSelector = async () => {
+  const openFlightSelector = async (asSegment = false) => {
+    setSegmentMode(asSegment);
+    if (!asSegment) setAttachDirection("outbound");
     setFlightModalOpen(true);
     setFlightError(null);
     setFlightsLoading(true);
@@ -276,6 +287,88 @@ export default function DepartureDetail() {
   };
 
   const handleUnlinkFlight = () => handleLinkFlight(null);
+
+  const loadFlightSegments = async () => {
+    if (!id) return;
+    setSegmentsLoading(true);
+    try {
+      setFlightSegments(await getDepartureFlightSegments(id));
+    } catch {
+      setFlightSegments([]);
+    } finally {
+      setSegmentsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadFlightSegments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  const handleAttachSegment = async (flightId: string) => {
+    if (!id) return;
+    setFlightSaving(true);
+    setFlightError(null);
+    try {
+      const nextOrder = flightSegments.filter((s) => s.direction === attachDirection).length + 1;
+      await linkFlightToDeparture(id, flightId, attachDirection, nextOrder);
+      await loadFlightSegments();
+      setDeparture(await getDeparture(id));
+      setFlightModalOpen(false);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || t.operations.flights.attachError;
+      setFlightError(msg);
+    } finally {
+      setFlightSaving(false);
+    }
+  };
+
+  const handleRemoveSegment = async (segmentId: string) => {
+    if (!id) return;
+    setSegmentsBusy(true);
+    setFlightError(null);
+    try {
+      await unlinkFlightFromDeparture(id, segmentId);
+      await loadFlightSegments();
+      setDeparture(await getDeparture(id));
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || t.operations.flights.unlinkError;
+      setFlightError(msg);
+    } finally {
+      setSegmentsBusy(false);
+    }
+  };
+
+  const handleMoveSegment = async (segmentId: string, delta: number) => {
+    const s = flightSegments.find((x) => x.id === segmentId);
+    if (!s || !id) return;
+    const siblings = flightSegments
+      .filter((x) => x.direction === s.direction)
+      .sort((a, b) => a.segmentOrder - b.segmentOrder);
+    const idx = siblings.findIndex((x) => x.id === segmentId);
+    const target = siblings[idx + delta];
+    if (!target) return;
+    setSegmentsBusy(true);
+    setFlightError(null);
+    try {
+      await reorderFlightSegments(id, [
+        { id: s.id, direction: s.direction, segmentOrder: target.segmentOrder },
+        { id: target.id, direction: target.direction, segmentOrder: s.segmentOrder },
+      ]);
+      await loadFlightSegments();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || t.operations.flights.reorderError;
+      setFlightError(msg);
+    } finally {
+      setSegmentsBusy(false);
+    }
+  };
+
+  const openSegmentAttacher = () => {
+    setSegmentMode(true);
+    setAttachDirection("outbound");
+    openFlightSelector();
+  };
 
   const openPackage = () => {
     if (!departure?.package_id) return;
@@ -770,7 +863,7 @@ export default function DepartureDetail() {
                         )}
                       </div>
                       <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-                        <Button variant="outline" size="sm" onClick={openFlightSelector} className="justify-center">
+                        <Button variant="outline" size="sm" onClick={() => openFlightSelector(false)} className="justify-center">
                           {departure.linkedFlight ? t.departure.changeFlight : t.departure.linkFlight}
                         </Button>
                         <Button variant="outline" size="sm" onClick={openFlights} className="justify-center">
@@ -784,6 +877,110 @@ export default function DepartureDetail() {
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+              {capabilities?.hasFlight && (
+                <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{t.operations.flights.itinerary}</p>
+                      <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-300">{t.operations.flights.itineraryDescription}</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={openSegmentAttacher} className="justify-center">
+                      <PlusIcon className="mr-1.5 size-4" aria-hidden="true" />
+                      {t.operations.flights.attachFlight}
+                    </Button>
+                  </div>
+
+                  {segmentsLoading ? (
+                    <div className="mt-4 space-y-3">
+                      {[0, 1].map((item) => (
+                        <div key={item} className="h-16 animate-pulse rounded-xl bg-gray-100 dark:bg-white/[0.04]" />
+                      ))}
+                    </div>
+                  ) : flightSegments.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                      {([...flightSegments] as FlightSegment[])
+                        .sort((a, b) => a.segmentOrder - b.segmentOrder)
+                        .map((seg) => {
+                        const dirLabel = seg.direction === "outbound" ? t.operations.flights.directionOutbound : seg.direction === "return" ? t.operations.flights.directionReturn : t.operations.flights.directionOther;
+                        const siblings = flightSegments.filter((x) => x.direction === seg.direction);
+                        return (
+                          <div key={seg.id} className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex min-w-0 items-start gap-3">
+                              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">
+                                {seg.segmentOrder}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-sm font-semibold text-gray-950 dark:text-white">
+                                    {seg.flight ? `${seg.flight.airline} ${seg.flight.flightNumber}` : t.operations.flights.noFlightsAvailable}
+                                  </span>
+                                  <Badge color={seg.direction === "outbound" ? "primary" : seg.direction === "return" ? "info" : "light"} size="sm">
+                                    {dirLabel}
+                                  </Badge>
+                                </div>
+                                {seg.flight && (
+                                  <>
+                                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                                      {seg.flight.departureAirport} → {seg.flight.arrivalAirport}
+                                    </p>
+                                    <div className="mt-2 grid gap-2 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-2">
+                                      <span>{t.departure.departureTime}: {formatDateTime(seg.flight.departureTime)}</span>
+                                      <span>{t.departure.arrivalTime}: {formatDateTime(seg.flight.arrivalTime)}</span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              <Button variant="outline" size="sm" onClick={() => navigate(`/operations/flights?flightId=${seg.flightId}`)} className="justify-center">
+                                {t.operations.flights.openFlight}
+                              </Button>
+                              {siblings.length > 1 && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveSegment(seg.id, -1)}
+                                    disabled={segmentsBusy || seg.segmentOrder <= 1}
+                                    aria-label={t.operations.flights.moveUp}
+                                    title={t.operations.flights.moveUp}
+                                    className="rounded-lg border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03]"
+                                  >
+                                    <ArrowUpIcon className="size-4" aria-hidden="true" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveSegment(seg.id, 1)}
+                                    disabled={segmentsBusy || seg.segmentOrder >= siblings.length}
+                                    aria-label={t.operations.flights.moveDown}
+                                    title={t.operations.flights.moveDown}
+                                    className="rounded-lg border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03]"
+                                  >
+                                    <ArrowDownIcon className="size-4" aria-hidden="true" />
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSegment(seg.id)}
+                                disabled={segmentsBusy}
+                                aria-label={t.operations.flights.removeSegment}
+                                title={t.operations.flights.removeSegment}
+                                className="rounded-lg border border-gray-200 p-1.5 text-gray-400 transition-colors hover:border-error-300 hover:text-error-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-800 dark:hover:border-error-500/40"
+                              >
+                                <TrashBinIcon className="size-4" aria-hidden="true" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-4">
+                      <EmptyState title={t.operations.flights.itinerary} description={t.operations.flights.noSegments} />
+                    </div>
+                  )}
                 </div>
               )}
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -1301,7 +1498,7 @@ export default function DepartureDetail() {
         <div className="p-5 sm:p-6">
           <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">{t.departure.selectFlight}</h2>
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">{segmentMode ? t.operations.flights.attachTitle : t.departure.selectFlight}</h2>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t.departure.flightNotConfiguredDetail}</p>
             </div>
             {departure?.linkedFlight && (
@@ -1314,6 +1511,22 @@ export default function DepartureDetail() {
           {flightError && (
             <div className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-500/10 dark:text-error-400">
               {flightError}
+            </div>
+          )}
+
+          {segmentMode && (
+            <div className="mb-4">
+              <Label>{t.operations.flights.direction}</Label>
+              <Select
+                value={attachDirection}
+                onChange={(value) => setAttachDirection(value as "outbound" | "return" | "other")}
+                options={[
+                  { value: "outbound", label: t.operations.flights.directionOutbound },
+                  { value: "return", label: t.operations.flights.directionReturn },
+                  { value: "other", label: t.operations.flights.directionOther },
+                ]}
+                className="dark:bg-dark-900"
+              />
             </div>
           )}
 
@@ -1349,15 +1562,27 @@ export default function DepartureDetail() {
                           <span>{t.departure.arrivalTime}: {formatDateTime(flight.arrivalTime)}</span>
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant={selected ? "outline" : "primary"}
-                        onClick={() => handleLinkFlight(flight.id)}
-                        disabled={flightSaving || selected}
-                        className="justify-center"
-                      >
-                        {selected ? t.departure.flightReady : t.departure.linkFlight}
-                      </Button>
+                      {segmentMode ? (
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={() => handleAttachSegment(flight.id)}
+                          disabled={flightSaving}
+                          className="justify-center"
+                        >
+                          {flightSaving ? t.common.saving : t.operations.flights.attachFlight}
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant={selected ? "outline" : "primary"}
+                          onClick={() => handleLinkFlight(flight.id)}
+                          disabled={flightSaving || selected}
+                          className="justify-center"
+                        >
+                          {selected ? t.departure.flightReady : t.departure.linkFlight}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
