@@ -67,6 +67,7 @@ export const en = {
     menu: 'Menu', system: 'System', dashboard: 'Dashboard',
     prodaja: 'Sales', finansije: 'Finance',
     inquiries: 'Inquiries', suppliers: 'Suppliers', itineraries: 'Itineraries', reservations: 'Reservations', packages: 'Packages', departures: 'Departures',
+    publicForms: 'Public Forms',
 
     customers: 'Clients', reports: 'Reports', payments: 'Payments',
     documents: 'Documents', integrations: 'Integrations', settings: 'Settings',
@@ -1252,6 +1253,9 @@ export const en = {
     saveError: 'Failed to save form.',
     deleteError: 'Failed to delete form.',
     loadError: 'Failed to load public forms.',
+    readOnlyNotice: 'You have read-only access. Contact a manager to make changes.',
+    packagesLoadError: 'Trip packages could not be loaded. You can still manage forms without package context.',
+    departuresLoadError: 'Departures could not be loaded. You can still manage forms without departure context.',
     deleteTitle: 'Delete form?',
     deleteDescription: '{name} and its public link will be removed.',
     emptyTitle: 'No public forms yet',

@@ -69,6 +69,7 @@ export const bs: Translations = {
     menu: 'Meni', system: 'Sistem', dashboard: 'Kontrolna tabla',
     prodaja: 'Prodaja', finansije: 'Finansije',
     inquiries: 'Upiti', suppliers: 'Dobavljači', itineraries: 'Itinereri', reservations: 'Rezervacije', packages: 'Paketi', departures: 'Polasci',
+    publicForms: 'Javni obrasci',
 
     customers: 'Klijenti', reports: 'Izvještaji', payments: 'Plaćanja',
     documents: 'Dokumenti', integrations: 'Integracije', settings: 'Postavke',
@@ -1252,6 +1253,9 @@ export const bs: Translations = {
     saveError: 'Neuspješno čuvanje obrasca.',
     deleteError: 'Neuspješno brisanje obrasca.',
     loadError: 'Neuspješno učitavanje javnih obrazaca.',
+    readOnlyNotice: 'Imate samo pravo pregleda. Kontaktirajte menadžera za izmjene.',
+    packagesLoadError: 'Paketi putovanja se ne mogu učitati. Obasci i dalje rade bez konteksta paketa.',
+    departuresLoadError: 'Polasci se ne mogu učitati. Obasci i dalje rade bez konteksta polaska.',
     deleteTitle: 'Obrisati obrazac?',
     deleteDescription: '{name} i njegov javni link će biti uklonjeni.',
     emptyTitle: 'Još nema javnih obrazaca',

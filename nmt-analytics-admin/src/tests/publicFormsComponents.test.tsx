@@ -58,6 +58,12 @@ vi.mock('../components/common/PageMeta', () => ({
   default: () => null,
 }));
 
+const appState = vi.hoisted(() => ({ role: 'manager' as string }));
+
+vi.mock('../context/AppContext', () => ({
+  useApp: () => ({ userContext: { role: appState.role }, user: { id: 'u1' }, loading: false }),
+}));
+
 vi.mock('../lib/i18n/context', () => {
   return {
     useT: () => ({
@@ -90,6 +96,9 @@ vi.mock('../lib/i18n/context', () => {
           loadError: 'Failed to load forms.',
           deleteTitle: 'Delete form?',
           deleteDescription: 'Delete {name}',
+          readOnlyNotice: 'Read-only access',
+          packagesLoadError: 'Packages unavailable',
+          departuresLoadError: 'Departures unavailable',
           emptyTitle: 'No public forms yet',
           emptyDescription: 'Create your first form.',
           emptyFilteredTitle: 'No forms match this search',
@@ -221,6 +230,7 @@ const forms = [
 beforeEach(() => {
   vi.clearAllMocks();
   mockState.currentLang = 'en';
+  appState.role = 'manager';
   getForms.mockResolvedValue(forms);
   getPackages.mockResolvedValue({ data: [], total: 0, page: 1, limit: 200, totalPages: 1 });
   getDepartures.mockResolvedValue({ data: [], total: 0, page: 1, limit: 200, totalPages: 1 });
@@ -280,6 +290,65 @@ describe('PublicForms admin page', () => {
 
     expect(await screen.findByText('Open inquiry')).toBeInTheDocument();
     expect(screen.getByText('Test User')).toBeInTheDocument();
+  });
+
+  it('manager sees write actions and can open the editor', async () => {
+    render(
+      <MemoryRouter>
+        <PublicForms />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByText('New form'));
+    expect(await screen.findByText('Form builder')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Cancel'));
+    expect(await screen.findByText('Deactivate')).toBeInTheDocument();
+    expect(screen.queryByText('Activate')).not.toBeInTheDocument();
+  });
+
+  it('read-only user does not see write actions', async () => {
+    appState.role = 'viewer';
+
+    render(
+      <MemoryRouter>
+        <PublicForms />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Umrah Inquiry')).toBeInTheDocument();
+    expect(screen.queryByText('New form')).not.toBeInTheDocument();
+    expect(screen.getByText('Read-only access')).toBeInTheDocument();
+    expect(screen.queryByText('Activate')).not.toBeInTheDocument();
+    expect(screen.getByText('Submissions')).toBeInTheDocument();
+  });
+
+  it('packages API failure does not break forms management', async () => {
+    getPackages.mockRejectedValue(new Error('packages down'));
+
+    render(
+      <MemoryRouter>
+        <PublicForms />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Umrah Inquiry')).toBeInTheDocument();
+    expect(await screen.findByText('Packages unavailable')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Submissions'));
+    expect(await screen.findByText('Open inquiry')).toBeInTheDocument();
+  });
+
+  it('departures API failure does not break forms management', async () => {
+    getDepartures.mockRejectedValue(new Error('departures down'));
+
+    render(
+      <MemoryRouter>
+        <PublicForms />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Umrah Inquiry')).toBeInTheDocument();
+    expect(await screen.findByText('Departures unavailable')).toBeInTheDocument();
   });
 });
 

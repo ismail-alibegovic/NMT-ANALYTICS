@@ -18,6 +18,7 @@ import {
   PaperPlaneIcon,
   MailIcon,
   FileIcon,
+  SettingsIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { useApp } from "../context/AppContext";
@@ -81,6 +82,7 @@ const AppSidebar: React.FC = () => {
   const salesItems: NavItem[] = [
     { icon: <GridIcon />, name: t.nav.dashboard, path: "/dashboard", minRole: "viewer" },
     { icon: <PaperPlaneIcon />, name: t.nav.inquiries, path: "/inquiries", capability: "customer_sales", minRole: "viewer" },
+    { icon: <FileIcon />, name: t.nav.publicForms, path: "/settings/public-forms", minRole: "viewer" },
     { icon: <FileIcon />, name: t.nav.itineraries, path: "/itineraries", capability: "tailor_made_itineraries", minRole: "viewer" },
     { icon: <UserCircleIcon />, name: t.nav.customers, path: "/customers", module: "customers", minRole: "viewer" },
     { icon: <ShootingStarIcon />, name: t.nav.packages, path: "/packages", module: "packages", minRole: "agent" },
@@ -109,6 +111,7 @@ const AppSidebar: React.FC = () => {
   ];
 
   const adminItems: NavItem[] = [
+    { icon: <SettingsIcon />, name: t.nav.settings, path: "/settings", minRole: "manager" },
     { icon: <LockIcon />, name: t.nav.auditLogs, path: "/admin/audit-logs", minRole: "director" },
     { icon: <FileIcon />, name: t.nav.documents, path: "/admin/documents", module: "documents", minRole: "manager" },
   ];
