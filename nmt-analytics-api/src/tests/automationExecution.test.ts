@@ -411,6 +411,78 @@ describe('processDueAutomationRules', () => {
     expect(resolveRecipientsMock).not.toHaveBeenCalled();
   });
 
+  it('payment reminder uses payment.id for idempotency and payment.reservation_id for recipient resolution', async () => {
+    const now = new Date('2026-08-01T00:00:00.000Z');
+    world.activeRules = [activeRule({ trigger_type: 'before_payment_due', timing_offset: 3, timing_unit: 'days' })];
+    world.templates = { any: template() };
+
+    // payment.id !== payment.reservation_id — the core condition this test validates
+    world.payments = [
+      { id: 'pay-99', org_id: orgId, reservation_id: 'res-42', due_date: '2026-08-04T00:00:00.000Z', status: 'pending', installment_number: 1 },
+    ];
+
+    resolveRecipientsMock.mockResolvedValue({ recipients: [recipient()] });
+    resolveMessageMock.mockReturnValue({ subject: 'Hi', body: 'Hello', unresolved: [] });
+
+    const deps = { sendEmail: vi.fn(async () => {}), logHistory: vi.fn(async () => {}), now: () => now };
+
+    const result = await processDueAutomationRules(deps as any);
+
+    expect(result.entitiesFound).toBe(1);
+    expect(result.messagesSent).toBe(1);
+
+    // Verify: execution claim used payment.id, not reservation_id
+    const claimKey = `11111111-1111-4111-8111-111111111111:payment:pay-99`;
+    expect(world.claimed.has(claimKey)).toBe(true);
+
+    // Verify: recipient resolver received payment.reservation_id, not payment.id
+    expect(resolveRecipientsMock).toHaveBeenCalledTimes(1);
+    const resolveCall = resolveRecipientsMock.mock.calls[0][0];
+    expect(resolveCall.targetType).toBe('reservation');
+    expect(resolveCall.targetId).toBe('res-42');
+  });
+
+  it('payment with missing reservation_id is safely skipped', async () => {
+    const now = new Date('2026-08-01T00:00:00.000Z');
+    world.activeRules = [activeRule({ trigger_type: 'before_payment_due', timing_offset: 3, timing_unit: 'days' })];
+    world.templates = { any: template() };
+
+    world.payments = [
+      { id: 'pay-null', org_id: orgId, reservation_id: null, due_date: '2026-08-04T00:00:00.000Z', status: 'pending', installment_number: 1 },
+    ];
+
+    resolveRecipientsMock.mockResolvedValue({ recipients: [recipient()] });
+    resolveMessageMock.mockReturnValue({ subject: 'Hi', body: 'Hello', unresolved: [] });
+
+    const result = await processDueAutomationRules({ now: () => now });
+
+    expect(result.entitiesFound).toBe(0);
+    expect(resolveRecipientsMock).not.toHaveBeenCalled();
+  });
+
+  it('second processor run does not send payment reminder again', async () => {
+    const now = new Date('2026-08-01T00:00:00.000Z');
+    world.activeRules = [activeRule({ trigger_type: 'before_payment_due', timing_offset: 3, timing_unit: 'days' })];
+    world.templates = { any: template() };
+
+    world.payments = [
+      { id: 'pay-dup', org_id: orgId, reservation_id: 'res-42', due_date: '2026-08-04T00:00:00.000Z', status: 'pending', installment_number: 1 },
+    ];
+
+    resolveRecipientsMock.mockResolvedValue({ recipients: [recipient()] });
+    resolveMessageMock.mockReturnValue({ subject: 'Hi', body: 'Hello', unresolved: [] });
+
+    const deps = { sendEmail: vi.fn(async () => {}), logHistory: vi.fn(async () => {}), now: () => now };
+
+    const first = await processDueAutomationRules(deps as any);
+    const second = await processDueAutomationRules(deps as any);
+
+    expect(first.messagesSent).toBe(1);
+    expect(second.messagesSent).toBe(0);
+    expect(second.alreadyProcessed).toBe(1);
+    expect(deps.sendEmail).toHaveBeenCalledTimes(1);
+  });
+
   it('SMS rule sends body only (no subject populated)', async () => {
     const now = new Date('2026-08-01T00:00:00.000Z');
     world.activeRules = [activeRule({ channel: 'sms', trigger_type: 'before_departure', timing_offset: 3, timing_unit: 'days' })];

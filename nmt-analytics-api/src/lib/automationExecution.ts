@@ -307,6 +307,7 @@ async function processEntity(
   template: TemplateRecord,
   entityType: AutomationEntityType,
   entityId: string,
+  targetId: string,
   targetType: 'departure' | 'reservation',
   deps: AutomationDeps,
 ): Promise<SendOutcome> {
@@ -316,7 +317,7 @@ async function processEntity(
       orgId: rule.org_id,
       channel: rule.channel,
       targetType,
-      targetId: entityId,
+      targetId,
     });
   } catch (err) {
     if (err instanceof RecipientTargetNotFoundError) {
@@ -362,7 +363,7 @@ export async function processDueAutomationRules(
       continue;
     }
 
-    let dueEntities: { id: string; scheduledFor: string }[] = [];
+    let dueEntities: { id: string; targetId: string; scheduledFor: string }[] = [];
     let entityType: AutomationEntityType;
     let targetType: 'departure' | 'reservation';
 
@@ -373,6 +374,7 @@ export async function processDueAutomationRules(
         targetType = 'departure';
         dueEntities = departures.map((d) => ({
           id: d.id,
+          targetId: d.id,
           scheduledFor: d.depart_at,
         }));
       } else if (rule.trigger_type === 'after_reservation') {
@@ -381,16 +383,20 @@ export async function processDueAutomationRules(
         targetType = 'reservation';
         dueEntities = reservations.map((r) => ({
           id: r.id,
+          targetId: r.id,
           scheduledFor: r.created_at,
         }));
       } else {
         const payments = await fetchDuePayments(rule, now);
         entityType = 'payment';
         targetType = 'reservation';
-        dueEntities = payments.map((p) => ({
-          id: p.id,
-          scheduledFor: p.due_date,
-        }));
+        dueEntities = payments
+          .filter((p: any) => p.reservation_id)
+          .map((p: any) => ({
+            id: p.id,
+            targetId: p.reservation_id,
+            scheduledFor: p.due_date,
+          }));
       }
     } catch (err) {
       console.error(`Failed to resolve due entities for rule ${rule.id}`, err);
@@ -414,7 +420,7 @@ export async function processDueAutomationRules(
       }
 
       try {
-        const outcome = await processEntity(rule, template, entityType, entity.id, targetType, deps);
+        const outcome = await processEntity(rule, template, entityType, entity.id, entity.targetId, targetType, deps);
 
         result.messagesSent += outcome.sent;
         result.messagesFailed += outcome.failed;
