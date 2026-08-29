@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm ci --prefix nmt-analytics-api && npm ci --prefix nmt-analytics-admin",
+  "installCommand": "bash scripts/vercel-install.sh",
   "buildCommand": "bash scripts/vercel-build.sh",
   "outputDirectory": "nmt-analytics-admin/dist",
   "env": {
