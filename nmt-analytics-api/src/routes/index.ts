@@ -23,6 +23,7 @@ import emailSettingsRoutes from './emailSettings';
 import smsSettingsRoutes from './smsSettings';
 import messageTemplatesRoutes from './messageTemplates';
 import campaignsRoutes from './campaigns';
+import automationRulesRoutes from './automationRules';
 import paylinksRoutes from './paylinks';
 import publicRoutes from './public';
 import signupRoutes from './signup';
@@ -90,6 +91,7 @@ router.use('/settings/email', emailSettingsRoutes);
 router.use('/settings/sms', smsSettingsRoutes);
 router.use('/settings', messageTemplatesRoutes);
 router.use('/settings', campaignsRoutes);
+router.use('/settings', automationRulesRoutes);
 router.use('/paylinks', paylinksRoutes);
 router.use('/settings', settingsRoutes);
 

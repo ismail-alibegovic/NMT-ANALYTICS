@@ -6,6 +6,7 @@ import SendMessage from "../../components/communications/SendMessage";
 import CommunicationHistoryPanel from "../../components/communications/CommunicationHistoryPanel";
 import TemplatesTab from "../../components/communications/TemplatesTab";
 import CampaignsTab from "../../components/communications/CampaignsTab";
+import AutomationTab from "../../components/communications/AutomationTab";
 import type { MessageTemplate } from "../../api/messageTemplates";
 import { useT } from "../../lib/i18n/context";
 import {
@@ -57,16 +58,6 @@ export default function CommunicationCenter() {
     setTab("send");
   };
 
-  const placeholderPanel = (title: string, description: string, comingSoon: string) => (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
-      <h3 className="font-semibold text-gray-950 dark:text-white">{title}</h3>
-      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</p>
-      <div className="mt-5">
-        <EmptyState title={comingSoon} description="" />
-      </div>
-    </div>
-  );
-
   return (
     <>
       <PageMeta title={`${c.title} — Travline`} description={c.subtitle} />
@@ -117,8 +108,7 @@ export default function CommunicationCenter() {
 
       {activeTab === "history" && <CommunicationHistoryPanel refreshKey={historyRefreshKey} />}
 
-      {activeTab === "automation" &&
-        placeholderPanel(c.automation.title, c.automation.description, c.automation.comingSoon)}
+      {activeTab === "automation" && <AutomationTab />}
     </>
   );
 }
