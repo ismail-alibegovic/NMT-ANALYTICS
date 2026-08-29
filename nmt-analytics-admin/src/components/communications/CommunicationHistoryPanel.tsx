@@ -36,10 +36,8 @@ const statusTone: Record<CommunicationStatus, string> = {
   skipped: "text-warning-600 dark:text-warning-400",
 };
 
-const channelLabel: Record<CommunicationChannel, string> = {
-  email: "Email",
-  sms: "SMS",
-};
+const channelLabel = (c: any, channel: CommunicationChannel) =>
+  channel === "email" ? c.channelEmail : c.channelSms;
 
 export default function CommunicationHistoryPanel({
   relatedDepartureId,
@@ -131,7 +129,7 @@ export default function CommunicationHistoryPanel({
       header: c.colChannel,
       render: (value) => (
         <span className="font-medium text-gray-700 dark:text-gray-200">
-          {channelLabel[value as CommunicationChannel] || String(value || "—")}
+          {channelLabel(c, value as CommunicationChannel) || String(value || "—")}
         </span>
       ),
     },
@@ -204,8 +202,8 @@ export default function CommunicationHistoryPanel({
                 <Select
                   options={[
                     { value: "", label: c.allChannels },
-                    { value: "email", label: "Email" },
-                    { value: "sms", label: "SMS" },
+                    { value: "email", label: c.channelEmail },
+                    { value: "sms", label: c.channelSms },
                   ]}
                   defaultValue={channel}
                   onChange={(value: string) => setChannel((value || "") as CommunicationChannel | "")}
@@ -257,7 +255,7 @@ export default function CommunicationHistoryPanel({
             ) : null}
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <DetailField label={c.colChannel} value={channelLabel[selectedItem.channel]} />
+              <DetailField label={c.colChannel} value={channelLabel(c, selectedItem.channel)} />
               <DetailField label={c.colStatus} value={statusLabel[selectedItem.status]} tone={statusTone[selectedItem.status]} />
               <div className="sm:col-span-2">
                 <DetailField label={c.colRecipient} value={selectedItem.recipient} />
@@ -276,7 +274,7 @@ export default function CommunicationHistoryPanel({
                 </div>
               </div>
               <DetailField label={c.colDate} value={formatDateTime(selectedItem.sent_at || selectedItem.created_at, dateLocale)} />
-              <DetailField label="ID" value={selectedItem.id} mono />
+              <DetailField label={c.entityId} value={selectedItem.id} mono />
               {selectedItem.departures ? (
                 <DetailField
                   label={c.departure}
