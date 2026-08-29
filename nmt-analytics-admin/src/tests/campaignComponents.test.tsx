@@ -329,7 +329,7 @@ describe('CampaignsTab', () => {
     await waitFor(() =>
       expect(launchCampaign).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111'),
     );
-    expect(screen.getByText('Launch summary')).toBeInTheDocument();
+    await screen.findByText('Launch summary');
     expect(screen.getByText('completed')).toBeInTheDocument();
   });
 });
