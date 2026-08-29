@@ -34,6 +34,7 @@ const UnifiedPayments = lazy(() => import("./pages/admin/UnifiedPayments"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Integrations = lazy(() => import("./pages/admin/Integrations"));
 const Settings = lazy(() => import("./pages/admin/Settings"));
+const PublicForms = lazy(() => import("./pages/admin/PublicForms"));
 const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
 const Documents = lazy(() => import("./pages/admin/Documents"));
 const PdfTemplateEditor = lazy(() => import("./pages/admin/PdfTemplateEditor"));
@@ -122,6 +123,7 @@ export default function App() {
           <Route path="/reports" element={<SuspenseWrapper><ModuleGuard moduleKey="analytics" fallback={<NotFoundClientOnly />}><Reports /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/integrations" element={<SuspenseWrapper><ModuleGuard moduleKey="integrations" fallback={<NotFoundClientOnly />}><Integrations /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/settings" element={<SuspenseWrapper><Settings /></SuspenseWrapper>} />
+          <Route path="/settings/public-forms" element={<SuspenseWrapper><PublicForms /></SuspenseWrapper>} />
           <Route path="/settings/pdf-templates" element={<SuspenseWrapper><PdfTemplateEditor /></SuspenseWrapper>} />
           <Route path="/admin/audit-logs" element={<SuspenseWrapper><AuditLogs /></SuspenseWrapper>} />
           <Route path="/admin/documents" element={<SuspenseWrapper><ModuleGuard moduleKey="documents" fallback={<NotFoundClientOnly />}><Documents /></ModuleGuard></SuspenseWrapper>} />

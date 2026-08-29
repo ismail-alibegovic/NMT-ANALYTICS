@@ -34,6 +34,23 @@ const createFormSchema = z.object({
 
 const updateFormSchema = createFormSchema.partial();
 
+function validateFieldSet(fields: z.infer<typeof fieldSchema>[]) {
+  const ids = new Set<string>();
+
+  for (const field of fields) {
+    if (ids.has(field.id)) return 'duplicate_field_id';
+    ids.add(field.id);
+
+    if ((field.type === 'select' || field.type === 'multiselect')) {
+      const options = (field.options || []).map((option) => option.trim()).filter(Boolean);
+      if (options.length === 0) return 'invalid_field_options';
+      if (new Set(options).size !== options.length) return 'invalid_field_options';
+    }
+  }
+
+  return null;
+}
+
 function transformForm(row: any) {
   return {
     id: row.id,
@@ -114,6 +131,8 @@ router.post('/forms', authenticateToken, requireOrgContext, requireMinimumRole('
   if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid form', parsed.error.issues);
 
   const b = parsed.data;
+  const fieldErr = validateFieldSet(b.fields);
+  if (fieldErr) return apiError(res, 400, 'VALIDATION_ERROR', fieldErr);
   const ctxErr = await validateContextResources(req.orgId!, b.packageId, b.departureId);
   if (ctxErr) return apiError(res, 400, 'VALIDATION_ERROR', ctxErr);
 
@@ -141,9 +160,23 @@ router.patch('/forms/:id', authenticateToken, requireOrgContext, requireMinimumR
   const parsed = updateFormSchema.safeParse(req.body);
   if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid form update', parsed.error.issues);
 
+  const { data: existing, error: loadErr } = await supabaseAdmin
+    .from('public_forms')
+    .select('id, package_id, departure_id')
+    .eq('id', req.params.id)
+    .eq('org_id', req.orgId!)
+    .maybeSingle();
+  if (loadErr || !existing) return apiError(res, 404, 'NOT_FOUND', 'Form not found');
+
   const b = parsed.data;
+  if (b.fields) {
+    const fieldErr = validateFieldSet(b.fields);
+    if (fieldErr) return apiError(res, 400, 'VALIDATION_ERROR', fieldErr);
+  }
   if (b.packageId !== undefined || b.departureId !== undefined) {
-    const ctxErr = await validateContextResources(req.orgId!, b.packageId, b.departureId);
+    const effectivePackageId = b.packageId !== undefined ? b.packageId : existing.package_id;
+    const effectiveDepartureId = b.departureId !== undefined ? b.departureId : existing.departure_id;
+    const ctxErr = await validateContextResources(req.orgId!, effectivePackageId, effectiveDepartureId);
     if (ctxErr) return apiError(res, 400, 'VALIDATION_ERROR', ctxErr);
   }
 
@@ -199,7 +232,6 @@ router.get('/forms/:id/submissions', authenticateToken, requireOrgContext, requi
 // ── PUBLIC ENDPOINTS ──
 
 router.get('/public/forms/:slug', async (req, res: Response) => {
-  console.log('[DEBUG publicForms] Route hit for slug:', req.params.slug);
   const { data, error } = await supabaseAdmin
     .from('public_forms')
     .select('id, title, description, slug, fields, thank_you_message, active')
