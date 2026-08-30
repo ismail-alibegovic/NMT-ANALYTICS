@@ -10,6 +10,11 @@ import { requireMinimumRole } from '../middleware/requireRole';
 import { getDepartureStatus, resolveDepartureCapabilities } from '../utils/business';
 import { computePassengerDocumentReadiness, summarizeDocumentReadiness, toTravelDateKey } from '../lib/documentReadiness';
 import { manualMessageSchema, sendManualEmailForOrg, sendManualSmsForOrg } from '../lib/manualMessaging';
+import {
+  getDepartureAccommodationAllotments,
+  materializeDepartureAccommodationFromPackage,
+  updateDepartureAccommodationAllotment,
+} from '../lib/departureAccommodation';
 
 const router = Router();
 
@@ -98,6 +103,10 @@ const updateDepartureSchema = z.object({
 }, {
   message: 'Return date must be after departure date',
   path: ['returnAt'],
+});
+
+const updateAccommodationAllotmentSchema = z.object({
+  roomCount: z.coerce.number().int().min(0, 'Room count must be zero or greater'),
 });
 
 /**
@@ -233,11 +242,71 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
 
     if (error) return handleSupabaseError(res, error, "Failed to create departure");
 
+    try {
+      await materializeDepartureAccommodationFromPackage({
+        orgId,
+        departureId: departure.id,
+        packageId,
+        departAt,
+        returnAt,
+      });
+    } catch (allocationError) {
+      console.error('Departure accommodation materialization failed:', allocationError);
+      if (!upsert) {
+        await supabaseAdmin
+          .from('departures')
+          .delete()
+          .eq('id', departure.id)
+          .eq('org_id', orgId);
+      }
+      apiError(res, 500, "ACCOMMODATION_MATERIALIZATION_FAILED", "Departure was not created because accommodation could not be materialized");
+      return;
+    }
+
     res.status(upsert ? 200 : 201).json(departure);
 
   } catch (error) {
     console.error('Error in POST /departures:', error);
     apiError(res, 500, "INTERNAL_ERROR", "Internal server error");
+  }
+});
+
+/**
+ * GET /api/departures/:id/accommodation-allotments
+ */
+router.get('/departures/:id/accommodation-allotments', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req, res: Response) => {
+  try {
+    const result = await getDepartureAccommodationAllotments(req.params.id, req.orgId!);
+    if (!result) return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
+    return res.json(result);
+  } catch (error) {
+    console.error('GET /departures/:id/accommodation-allotments:', error);
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to load departure accommodation');
+  }
+});
+
+/**
+ * PATCH /api/departures/:id/accommodation-allotments/:itemId
+ */
+router.patch('/departures/:id/accommodation-allotments/:itemId', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
+  try {
+    const parsed = updateAccommodationAllotmentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid accommodation allotment update', parsed.error.issues);
+    }
+
+    const result = await updateDepartureAccommodationAllotment({
+      orgId: req.orgId!,
+      departureId: req.params.id,
+      itemId: req.params.itemId,
+      roomCount: parsed.data.roomCount,
+    });
+
+    if (!result) return apiError(res, 404, 'NOT_FOUND', 'Accommodation allotment not found');
+    return res.json(result);
+  } catch (error) {
+    console.error('PATCH /departures/:id/accommodation-allotments/:itemId:', error);
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to update departure accommodation');
   }
 });
 
@@ -627,7 +696,8 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
       const { data: ph, error: phErr } = await supabaseAdmin
         .from('package_hotels')
         .select('*, hotels:hotel_id(id, name, country, city)')
-        .eq('package_id', packageId);
+        .eq('package_id', packageId)
+        .eq('org_id', orgId);
       if (phErr) console.error('package_hotels fetch (non-fatal):', phErr);
       else packageHotels = ph || [];
     }
@@ -637,9 +707,10 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
     {
       const { data: alloc, error: allocErr } = await supabaseAdmin
         .from('hotel_allocations')
-        .select('*, hotels:hotel_id(id, name)')
+        .select('*, hotels:hotel_id(id, name, destination, stars)')
         .eq('departure_id', id)
-        .eq('org_id', orgId);
+        .eq('org_id', orgId)
+        .order('sort_order', { ascending: true });
       if (allocErr) console.error('hotel_allocations fetch (non-fatal):', allocErr);
       else hotelAllocations = alloc || [];
     }
@@ -670,7 +741,7 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
 
     // Resolve capabilities based on package + departure context
     const transportType = (departure as any).transport_type || (pkg as any)?.transport_type || 'none';
-    const hasAccommodation = packageServices.some((s: any) =>
+    const hasAccommodation = hotelAllocations.length > 0 || packageServices.some((s: any) =>
       ['hotel', 'accommodation', 'apartment', 'hostel'].includes(s.service_type?.toLowerCase?.() || '')
     ) || packageHotels.length > 0;
 

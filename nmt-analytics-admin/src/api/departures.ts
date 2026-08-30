@@ -61,6 +61,41 @@ export interface Departure {
   passengerGroups?: any[];
 }
 
+export interface DepartureAccommodationAllotment {
+  id: string;
+  departureId: string;
+  hotelId: string;
+  packageHotelId: string | null;
+  roomType: string;
+  roomLabel: string;
+  templateRooms: number;
+  departureRooms: number;
+  roomsReserved: number;
+  capacityPerRoom: number;
+  capacity: number;
+  allocated: number;
+  available: number;
+  checkIn: string;
+  checkOut: string;
+  netPrice: number;
+  sellPrice: number;
+  pricePerNight: number;
+  sortOrder: number;
+  hotel?: {
+    id: string;
+    name: string;
+    destination?: string | null;
+    stars?: number | null;
+  } | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface DepartureAccommodationResponse {
+  departureId: string;
+  items: DepartureAccommodationAllotment[];
+}
+
 
 export interface ReadinessDeparture {
   departureId: string;
@@ -158,6 +193,23 @@ export async function createDeparture(departureData: CreateDepartureData): Promi
 
 export async function updateDeparture(id: string, departureData: UpdateDepartureData): Promise<Departure> {
   const { data } = await patch<Departure>(`/departures/${id}`, departureData);
+  return data;
+}
+
+export async function getDepartureAccommodationAllotments(id: string): Promise<DepartureAccommodationResponse> {
+  const { data } = await get<DepartureAccommodationResponse>(`/departures/${id}/accommodation-allotments`);
+  return data;
+}
+
+export async function updateDepartureAccommodationAllotment(
+  departureId: string,
+  itemId: string,
+  roomCount: number,
+): Promise<DepartureAccommodationAllotment> {
+  const { data } = await patch<DepartureAccommodationAllotment>(
+    `/departures/${departureId}/accommodation-allotments/${itemId}`,
+    { roomCount },
+  );
   return data;
 }
 
