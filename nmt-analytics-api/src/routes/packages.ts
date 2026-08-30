@@ -11,6 +11,70 @@ import { requireMinimumRole } from '../middleware/requireRole';
 
 const router = Router();
 
+const transportTypeSchema = z.enum(['flight', 'bus', 'none']);
+const variantTierSchema = z.enum(['deluxe', 'delux', 'standard', 'premium', 'custom']);
+export function normalizePackageVariantInput(variant: {
+  id?: string | null;
+  name: string;
+  tier?: 'deluxe' | 'delux' | 'standard' | 'premium' | 'custom' | null;
+  accommodation?: string | null;
+  priceModifier?: number | null;
+  price?: number | null;
+  price_delta?: number | null;
+  capacity?: number | null;
+  currency?: string | null;
+  hotelName?: string | null;
+  roomType?: string | null;
+}) {
+  return {
+    ...(variant.id ? { id: variant.id } : {}),
+    name: variant.name,
+    tier: variant.tier === 'delux' ? 'deluxe' : (variant.tier ?? null),
+    accommodation: variant.accommodation ?? variant.hotelName ?? null,
+    priceModifier: variant.priceModifier ?? variant.price_delta ?? variant.price ?? null,
+    capacity: variant.capacity ?? null,
+    currency: variant.currency ?? null,
+    hotelName: variant.hotelName ?? null,
+    roomType: variant.roomType ?? null,
+  };
+}
+
+const packageVariantSchema = z.object({
+  id: z.string().min(1).optional().nullable(),
+  name: z.string().min(1, 'Variant name is required'),
+  tier: variantTierSchema.optional().nullable(),
+  accommodation: z.string().optional().nullable(),
+  priceModifier: z.number().optional().nullable(),
+  price: z.number().optional().nullable(),
+  price_delta: z.number().optional().nullable(),
+  capacity: z.number().int().min(0).optional().nullable(),
+  currency: z.string().optional().nullable(),
+  hotelName: z.string().optional().nullable(),
+  roomType: z.string().optional().nullable(),
+}).transform(normalizePackageVariantInput);
+
+export function buildPackageUpdateData(validated: Record<string, any>) {
+  const updateData: any = {};
+
+  if (validated.name !== undefined) updateData.name = validated.name;
+  if (validated.destination !== undefined) updateData.destination = validated.destination;
+  if (validated.price !== undefined) updateData.base_price = validated.price;
+  if (validated.currency !== undefined) updateData.currency = validated.currency;
+  if (validated.active !== undefined) updateData.is_active = validated.active;
+  if (validated.description !== undefined) updateData.description = validated.description;
+  if (validated.durationDays !== undefined) updateData.duration_days = validated.durationDays;
+  if (validated.maxParticipants !== undefined) updateData.max_participants = validated.maxParticipants;
+  if (validated.startDate !== undefined) updateData.start_date = validated.startDate;
+  if (validated.endDate !== undefined) updateData.end_date = validated.endDate;
+  if (validated.transportType !== undefined) updateData.transport_type = validated.transportType;
+  if (validated.tripType !== undefined) updateData.trip_type = validated.tripType;
+  if (validated.tags !== undefined) updateData.tags = validated.tags;
+  if (validated.transportCapacity !== undefined) updateData.transport_capacity = validated.transportCapacity;
+  if (validated.variants !== undefined) updateData.variants = validated.variants;
+
+  return updateData;
+}
+
 const getPackagesQuerySchema = z.object({
   search: z.string().optional(),
   ...paginationQuerySchema,
@@ -34,21 +98,11 @@ const createPackageSchema = z.object({
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
   // Transport (ukomponovano: how the group travels — plane vs. bus)
-  transportType: z.enum(['flight', 'bus', 'train', 'ship', 'mixed', 'none']).optional().nullable(),
+  transportType: transportTypeSchema.optional().nullable(),
   tripType: z.enum(['beach', 'city', 'pilgrimage', 'honeymoon', 'ski', 'adventure', 'cruise', 'cultural', 'wellness', 'other']).optional().nullable(),
   tags: z.array(z.string()).optional().nullable(),
   transportCapacity: z.number().int().min(0).optional().nullable(),
-  // Package variants: tier (delux/standard/premium), hotel category, price modifiers —
-  // structured JSON; backend persists verbatim. when migration 036 not applied, camelCase
-  // keys here are stored on the freshly-added jsonb columns (created by the migration).
-  variants: z.array(z.object({
-    name: z.string(),
-    tier: z.enum(['delux', 'standard', 'premium', 'custom']).optional().nullable(),
-    hotelName: z.string().optional().nullable(),
-    roomType: z.string().optional().nullable(),
-    priceModifier: z.number().optional().nullable(),
-    currency: z.string().optional().nullable(),
-  })).optional().nullable(),
+  variants: z.array(packageVariantSchema).optional().nullable(),
 });
 
 const updatePackageSchema = z.object({
@@ -62,18 +116,11 @@ const updatePackageSchema = z.object({
   maxParticipants: z.number().int().positive().optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
-  transportType: z.enum(['flight', 'bus', 'train', 'ship', 'mixed', 'none']).optional().nullable(),
+  transportType: transportTypeSchema.optional().nullable(),
   tripType: z.enum(['beach', 'city', 'pilgrimage', 'honeymoon', 'ski', 'adventure', 'cruise', 'cultural', 'wellness', 'other']).optional().nullable(),
   tags: z.array(z.string()).optional().nullable(),
   transportCapacity: z.number().int().min(0).optional().nullable(),
-  variants: z.array(z.object({
-    name: z.string(),
-    tier: z.enum(['delux', 'standard', 'premium', 'custom']).optional().nullable(),
-    hotelName: z.string().optional().nullable(),
-    roomType: z.string().optional().nullable(),
-    priceModifier: z.number().optional().nullable(),
-    currency: z.string().optional().nullable(),
-  })).optional().nullable(),
+  variants: z.array(packageVariantSchema).optional().nullable(),
 });
 
 /**
@@ -275,23 +322,7 @@ router.patch('/packages/:id', authenticateToken, requireOrgContext, auditPackage
     }
 
     const validated = validationResult.data;
-    const updateData: any = {};
-
-    if (validated.name !== undefined) updateData.name = validated.name;
-    if (validated.destination !== undefined) updateData.destination = validated.destination;
-    if (validated.price !== undefined) updateData.base_price = validated.price;
-    if (validated.currency !== undefined) updateData.currency = validated.currency;
-    if (validated.active !== undefined) updateData.is_active = validated.active;
-    if (validated.description !== undefined) updateData.description = validated.description;
-    if (validated.durationDays !== undefined) updateData.duration_days = validated.durationDays;
-    if (validated.maxParticipants !== undefined) updateData.max_participants = validated.maxParticipants;
-    if (validated.startDate !== undefined) updateData.start_date = validated.startDate;
-    if (validated.endDate !== undefined) updateData.end_date = validated.endDate;
-    if (validated.transportType !== undefined) updateData.transport_type = validated.transportType;
-    if (validated.tripType !== undefined) updateData.trip_type = validated.tripType;
-    if (validated.tags !== undefined) updateData.tags = validated.tags;
-    if (validated.transportCapacity !== undefined) updateData.transport_capacity = validated.transportCapacity;
-    if (validated.variants !== undefined) updateData.variants = validated.variants;
+    const updateData = buildPackageUpdateData(validated);
 
     const { data: packageData, error } = await supabaseAdmin
       .from('packages')
