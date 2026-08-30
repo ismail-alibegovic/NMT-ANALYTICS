@@ -7,7 +7,7 @@ import Button from "../components/ui/button/Button";
 import EmptyState from "../components/ui/EmptyState";
 import { DataTable, Column } from "../components/ui/DataTable";
 import SeatMap from "../components/operations/SeatMap";
-import RoomingWorkspace from "../components/operations/RoomingWorkspace";
+import DepartureAccommodationPanel from "../components/departures/DepartureAccommodationPanel";
 import DrustvaTab from "../components/operations/DrustvaTab";
 import CommunicationHistoryPanel from "../components/communications/CommunicationHistoryPanel";
 import ManualMessageComposer from "../components/communications/ManualMessageComposer";
@@ -184,25 +184,6 @@ export default function DepartureDetail() {
     debtAmount: p.debtAmount ?? p.debt ?? 0,
     status: p.reservationStatus || p.status || 'pending',
   }));
-
-  // Group passengers by hotel (for hotels tab)
-  const hotelGroups = useMemo(() => {
-    const m = new Map<string, DeparturePassenger[]>();
-    normPax.forEach((p) => {
-      const key = p.hotelName || "—bez hotela—";
-      if (!m.has(key)) m.set(key, []);
-      m.get(key)!.push(p);
-    });
-    return Array.from(m.entries()).map(([label, list]) => ({
-      label,
-      count: list.length,
-      passengers: list,
-      roomTypes: Array.from(new Set(list.map((p) => p.roomType).filter(Boolean))) as string[],
-      checkIn: list.find((p) => p.checkIn)?.checkIn,
-      checkOut: list.find((p) => p.checkOut)?.checkOut,
-      guides: Array.from(new Set(list.map((p) => p.tourGuide).filter(Boolean))) as string[],
-    }));
-  }, [normPax]);
 
   const departureDefaultEmail = useMemo(
     () => normPax.find((p) => p.email)?.email || "",
@@ -397,6 +378,7 @@ export default function DepartureDetail() {
   const totalPaid = summary.totalPaid ?? 0;
   const currency = summary.currency || departure?.packages?.currency || "EUR";
   const allocations = summary.allocations || [];
+  const allocationHotelCount = new Set((departure?.hotelAllocations || []).map((allocation: any) => allocation.hotel_id || allocation.hotelId).filter(Boolean)).size;
   const relatedHotels = useMemo(() => {
     const map = new Map<string, { id: string; name: string }>();
 
@@ -735,7 +717,7 @@ export default function DepartureDetail() {
     { key: "passengers", label: t.departure.passengers, count: totalGuests },
     { key: "razvrstavanje", label: t.departure.razvrstavanje, count: (groupBy === "hotel" ? groups?.byHotel : groups?.byAgent)?.length },
     { key: "drustva", label: t.departure.drustva.label },
-    ...(capabilities?.hasAccommodation ? [{ key: "hotels" as Tab, label: t.departure.hotels, count: hotelGroups.length }] : []),
+    ...(capabilities?.hasAccommodation ? [{ key: "hotels" as Tab, label: t.departure.accommodation, count: allocationHotelCount || relatedHotels.length || undefined }] : []),
   ];
 
   const currentGroups = groupBy === "hotel" ? groups?.byHotel || [] : groups?.byAgent || [];
@@ -794,7 +776,7 @@ export default function DepartureDetail() {
           <div className="grid border-t border-gray-200 dark:border-gray-800 sm:grid-cols-2 xl:grid-cols-4">
             <WorkspaceMetric icon={GroupIcon} label={t.departure.metricPassengers} value={`${totalGuests}`} detail={t.departure.metricConfirmedSuffix.replace("{n}", String(confirmedGuests))} />
             <WorkspaceMetric icon={DollarLineIcon} label={t.departure.metricCollected} value={formatCurrency(totalPaid, currency)} detail={totalDebt > 0 ? t.departure.metricDebtSuffix.replace("{amount}", formatCurrency(totalDebt, currency)) : t.departure.metricNoDebt} attention={totalDebt > 0} />
-            {capabilities?.hasAccommodation && <WorkspaceMetric icon={BoxIcon} label={t.departure.metricAccommodation} value={`${hotelGroups.length}`} detail={allocations.length > 0 ? t.departure.metricAllocationsSuffix.replace("{n}", String(allocations.length)) : t.departure.metricNoAllocation} attention={allocations.length === 0} />}
+            {capabilities?.hasAccommodation && <WorkspaceMetric icon={BoxIcon} label={t.departure.metricAccommodation} value={`${allocationHotelCount || relatedHotels.length}`} detail={allocations.length > 0 ? t.departure.metricAllocationsSuffix.replace("{n}", String(allocations.length)) : t.departure.metricNoAllocation} attention={allocations.length === 0} />}
             <WorkspaceMetric icon={ListIcon} label={t.departure.metricReadiness} value={`${readinessPct}%`} detail={t.departure.metricReadySuffix.replace("{ready}", String(readyCount)).replace("{total}", String(readinessItems.length))} attention={readinessPct < 100} />
           </div>
         </section>
@@ -1175,12 +1157,8 @@ export default function DepartureDetail() {
             }}
           />
         )}
-        {/* HOTELS TAB — Rooming Workspace */}
         {activeTab === "hotels" && capabilities?.hasAccommodation && (
-          <RoomingWorkspace
-            departureId={departure.id}
-            passengers={normPax}
-          />
+          <DepartureAccommodationPanel departureId={departure.id} passengers={normPax} />
         )}
         {activeTab === "hotels" && !capabilities?.hasAccommodation && (
           <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
