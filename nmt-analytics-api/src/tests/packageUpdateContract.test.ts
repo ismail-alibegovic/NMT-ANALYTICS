@@ -105,4 +105,34 @@ describe('package update contract helpers', () => {
       roomType: null,
     });
   });
+
+  it('accepts train transport on package update mapping', () => {
+    expect(buildPackageUpdateData({ transportType: 'train' })).toEqual({
+      transport_type: 'train',
+    });
+  });
+
+  it('accepts ship transport on package update mapping', () => {
+    expect(buildPackageUpdateData({ transportType: 'ship' })).toEqual({
+      transport_type: 'ship',
+    });
+  });
+
+  it('accepts mixed transport on package update mapping', () => {
+    expect(buildPackageUpdateData({ transportType: 'mixed' })).toEqual({
+      transport_type: 'mixed',
+    });
+  });
+
+  it('keeps existing bus, flight, and none transport mappings', () => {
+    expect(buildPackageUpdateData({ transportType: 'bus' })).toEqual({
+      transport_type: 'bus',
+    });
+    expect(buildPackageUpdateData({ transportType: 'flight' })).toEqual({
+      transport_type: 'flight',
+    });
+    expect(buildPackageUpdateData({ transportType: 'none' })).toEqual({
+      transport_type: 'none',
+    });
+  });
 });

@@ -11,7 +11,7 @@ import { requireMinimumRole } from '../middleware/requireRole';
 
 const router = Router();
 
-const transportTypeSchema = z.enum(['flight', 'bus', 'none']);
+const transportTypeSchema = z.enum(['flight', 'bus', 'train', 'ship', 'mixed', 'none']);
 const variantTierSchema = z.enum(['deluxe', 'delux', 'standard', 'premium', 'custom']);
 export function normalizePackageVariantInput(variant: {
   id?: string | null;
