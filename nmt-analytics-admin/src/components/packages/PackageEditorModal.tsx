@@ -24,7 +24,7 @@ import {
   type PackageHotelCatalogHotel,
   type RoomOption,
 } from "../../api/packageHotels";
-import { getHotels, type Hotel } from "../../api/operations";
+import { createHotel, getHotels, type Hotel } from "../../api/operations";
 
 type Variant = {
   id?: string;
@@ -142,6 +142,18 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
   const [accommodationError, setAccommodationError] = useState<string | null>(null);
   const [selectedHotelId, setSelectedHotelId] = useState("");
   const [createdPackageId, setCreatedPackageId] = useState<string | null>(null);
+  const [createHotelOpen, setCreateHotelOpen] = useState(false);
+  const [creatingHotel, setCreatingHotel] = useState(false);
+  const [newHotelName, setNewHotelName] = useState("");
+  const [newHotelDestination, setNewHotelDestination] = useState("");
+  const [newHotelAddress, setNewHotelAddress] = useState("");
+  const [newHotelContact, setNewHotelContact] = useState("");
+  const [newHotelEmail, setNewHotelEmail] = useState("");
+  const [newHotelWebsite, setNewHotelWebsite] = useState("");
+  const [newHotelDescription, setNewHotelDescription] = useState("");
+  const [newHotelAmenities, setNewHotelAmenities] = useState("");
+  const [newHotelStars, setNewHotelStars] = useState<string>("");
+  const [newHotelTotalRooms, setNewHotelTotalRooms] = useState<number | "">(10);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -199,6 +211,8 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
     setPersistedLinks([]);
     setCatalogHotels([]);
     setCreatedPackageId(null);
+    setCreateHotelOpen(false);
+    resetNewHotelForm();
   }, [isOpen, initial, initialValues]);
 
   useEffect(() => {
@@ -264,6 +278,51 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
     [catalogHotels, linkedHotels],
   );
 
+  function resetNewHotelForm() {
+    setNewHotelName("");
+    setNewHotelDestination("");
+    setNewHotelAddress("");
+    setNewHotelContact("");
+    setNewHotelEmail("");
+    setNewHotelWebsite("");
+    setNewHotelDescription("");
+    setNewHotelAmenities("");
+    setNewHotelStars("");
+    setNewHotelTotalRooms(10);
+  }
+
+  function toCatalogHotel(hotel: Hotel | PackageHotelCatalogHotel): PackageHotelCatalogHotel {
+    return {
+      id: hotel.id,
+      name: hotel.name,
+      destination: hotel.destination,
+      stars: hotel.stars ?? null,
+    };
+  }
+
+  function appendLinkedHotel(hotel: PackageHotelCatalogHotel) {
+    if (linkedHotels.some((link) => link.hotelId === hotel.id)) {
+      error(t.packages.editor.duplicateHotel);
+      return;
+    }
+
+    const nextSortOrder = linkedHotels.length === 0
+      ? 0
+      : Math.max(...linkedHotels.map((link) => Number(link.sortOrder || 0))) + 1;
+
+    setLinkedHotels((current) => [
+      ...current,
+      {
+        key: `new-${hotel.id}`,
+        hotelId: hotel.id,
+        hotel,
+        roomOptions: [],
+        priceModifier: 0,
+        sortOrder: nextSortOrder,
+      },
+    ]);
+  }
+
   function addVariant() {
     setVariants([...variants, {
       name: "",
@@ -300,27 +359,53 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       return;
     }
 
-    const nextSortOrder = linkedHotels.length === 0
-      ? 0
-      : Math.max(...linkedHotels.map((link) => Number(link.sortOrder || 0))) + 1;
-
-    setLinkedHotels((current) => [
-      ...current,
-      {
-        key: `new-${hotel.id}`,
-        hotelId: hotel.id,
-        hotel: {
-          id: hotel.id,
-          name: hotel.name,
-          destination: hotel.destination,
-          stars: hotel.stars ?? null,
-        },
-        roomOptions: [],
-        priceModifier: 0,
-        sortOrder: nextSortOrder,
-      },
-    ]);
+    appendLinkedHotel(toCatalogHotel(hotel));
     setSelectedHotelId("");
+  }
+
+  async function handleCreateHotelInline() {
+    if (creatingHotel) return;
+    if (!newHotelName.trim() || !newHotelDestination.trim()) {
+      error(t.packages.editor.newHotelRequiredFields);
+      return;
+    }
+
+    const totalRooms = newHotelTotalRooms === "" ? 10 : Number(newHotelTotalRooms);
+    if (!Number.isInteger(totalRooms) || totalRooms <= 0) {
+      error(t.packages.editor.newHotelInvalidTotalRooms);
+      return;
+    }
+
+    setCreatingHotel(true);
+    try {
+      const hotel = await createHotel({
+        name: newHotelName.trim(),
+        destination: newHotelDestination.trim(),
+        address: newHotelAddress.trim() || undefined,
+        contact: newHotelContact.trim() || undefined,
+        totalRooms,
+        stars: newHotelStars ? Number(newHotelStars) : null,
+        description: newHotelDescription.trim() || undefined,
+        amenities: newHotelAmenities
+          ? newHotelAmenities.split(",").map((item) => item.trim()).filter(Boolean)
+          : undefined,
+        email: newHotelEmail.trim() || undefined,
+        website: newHotelWebsite.trim() || undefined,
+      });
+      const createdHotel = toCatalogHotel(hotel);
+      setCatalogHotels((current) => current.some((item) => item.id === createdHotel.id) ? current : [...current, hotel]);
+      appendLinkedHotel(createdHotel);
+      setSelectedHotelId("");
+      setCreateHotelOpen(false);
+      resetNewHotelForm();
+      success(t.packages.editor.newHotelCreated);
+    } catch (e: any) {
+      const message = e?.message ?? t.packages.editor.newHotelCreateFailed;
+      setAccommodationError(message);
+      error(message);
+    } finally {
+      setCreatingHotel(false);
+    }
   }
 
   function updateLinkedHotel(key: string, patch: Partial<EditablePackageHotel>) {
@@ -670,9 +755,14 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
                     ]}
                   />
                 </div>
-                <Button type="button" onClick={addLinkedHotel} disabled={!selectedHotelId}>
-                  {t.packages.editor.attachHotel}
-                </Button>
+                <div className="flex flex-col gap-2 md:flex-row">
+                  <Button type="button" onClick={addLinkedHotel} disabled={!selectedHotelId}>
+                    {t.packages.editor.attachHotel}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setCreateHotelOpen(true)}>
+                    {t.packages.editor.createHotel}
+                  </Button>
+                </div>
               </div>
 
               {accommodationError ? (
@@ -705,7 +795,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
                             onClick={() => removeLinkedHotel(link.key)}
                             className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
                             aria-label={t.packages.editor.removeHotel}
-                          >
+    >
                             <TrashBinIcon className="size-5" />
                           </button>
                         </div>
@@ -892,6 +982,96 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
           {submitting ? t.common.saving : (initial ? t.packages.editor.saveChanges : t.packages.editor.createAction)}
         </Button>
       </div>
+
+      <Modal
+        isOpen={createHotelOpen}
+        onClose={() => {
+          if (creatingHotel) return;
+          setCreateHotelOpen(false);
+          resetNewHotelForm();
+        }}
+        title={t.packages.editor.createHotelTitle}
+        className="m-4 max-w-2xl"
+      >
+        <div className="grid max-h-[75vh] gap-4 overflow-y-auto p-6 sm:grid-cols-2">
+          <div>
+            <Label>{t.packages.editor.newHotelNameLabel}</Label>
+            <Input value={newHotelName} onChange={(e: any) => setNewHotelName(e.target.value)} placeholder={t.packages.editor.newHotelNamePlaceholder} />
+          </div>
+          <div>
+            <Label>{t.packages.editor.newHotelDestinationLabel}</Label>
+            <Input value={newHotelDestination} onChange={(e: any) => setNewHotelDestination(e.target.value)} placeholder={t.packages.editor.newHotelDestinationPlaceholder} />
+          </div>
+          <div>
+            <Label>{t.packages.editor.newHotelStarsLabel}</Label>
+            <Select
+              value={newHotelStars}
+              onChange={setNewHotelStars}
+              options={[
+                { value: "", label: t.packages.editor.newHotelNoStars },
+                { value: "1", label: "★ 1" },
+                { value: "2", label: "★★ 2" },
+                { value: "3", label: "★★★ 3" },
+                { value: "4", label: "★★★★ 4" },
+                { value: "5", label: "★★★★★ 5" },
+              ]}
+            />
+          </div>
+          <div>
+            <Label>{t.packages.editor.newHotelTotalRoomsLabel}</Label>
+            <Input
+              type="number"
+              value={newHotelTotalRooms}
+              onChange={(e: any) => setNewHotelTotalRooms(e.target.value === "" ? "" : Number(e.target.value))}
+              placeholder="10"
+            />
+          </div>
+          <div>
+            <Label>{t.packages.editor.newHotelAddressLabel}</Label>
+            <Input value={newHotelAddress} onChange={(e: any) => setNewHotelAddress(e.target.value)} />
+          </div>
+          <div>
+            <Label>{t.packages.editor.newHotelContactLabel}</Label>
+            <Input value={newHotelContact} onChange={(e: any) => setNewHotelContact(e.target.value)} />
+          </div>
+          <div>
+            <Label>{t.packages.editor.newHotelEmailLabel}</Label>
+            <Input type="email" value={newHotelEmail} onChange={(e: any) => setNewHotelEmail(e.target.value)} />
+          </div>
+          <div>
+            <Label>{t.packages.editor.newHotelWebsiteLabel}</Label>
+            <Input type="url" value={newHotelWebsite} onChange={(e: any) => setNewHotelWebsite(e.target.value)} placeholder="https://example.com" />
+          </div>
+          <div className="sm:col-span-2">
+            <Label>{t.packages.editor.newHotelAmenitiesLabel}</Label>
+            <Input value={newHotelAmenities} onChange={(e: any) => setNewHotelAmenities(e.target.value)} placeholder={t.packages.editor.newHotelAmenitiesPlaceholder} />
+          </div>
+          <div className="sm:col-span-2">
+            <Label>{t.packages.editor.newHotelDescriptionLabel}</Label>
+            <textarea
+              value={newHotelDescription}
+              onChange={(e) => setNewHotelDescription(e.target.value)}
+              rows={3}
+              className="w-full rounded-lg border border-gray-200 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90"
+            />
+          </div>
+          <div className="flex justify-end gap-2 border-t border-gray-100 pt-4 sm:col-span-2 dark:border-gray-800">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCreateHotelOpen(false);
+                resetNewHotelForm();
+              }}
+              disabled={creatingHotel}
+            >
+              {t.common.cancel}
+            </Button>
+            <Button onClick={() => void handleCreateHotelInline()} disabled={creatingHotel}>
+              {creatingHotel ? t.common.saving : t.packages.editor.createHotelAction}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </Modal>
   );
 }
