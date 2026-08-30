@@ -18,43 +18,72 @@ describe('packages API contract', () => {
   });
 
   it('normalizes snake_case package fields and legacy variant fields on read', async () => {
-    apiGet.mockResolvedValue({
+    const packagePayload = {
+      id: 'pkg-1',
+      name: 'Umrah',
+      destination: 'Mekka',
+      base_price: 1500,
+      currency: 'BAM',
+      is_active: true,
+      duration_days: 10,
+      transport_type: 'bus',
+      transport_capacity: 50,
+      trip_type: 'pilgrimage',
+      created_at: '2026-08-30T10:00:00.000Z',
+      package_hotels: [
+        {
+          id: 'link-1',
+          package_id: 'pkg-1',
+          hotel_id: 'hotel-1',
+          room_options: [
+            { type: 'double', label: 'Double room', net_price: 80, sell_price: 100, available: 5 },
+          ],
+          price_modifier: 25,
+          sort_order: 2,
+          created_at: '2026-08-30T11:00:00.000Z',
+          updated_at: '2026-08-30T11:00:00.000Z',
+          hotel: {
+            id: 'hotel-1',
+            name: 'Hotel Bosna',
+            destination: 'Sarajevo',
+            stars: 4,
+          },
+        },
+      ],
+      variants: [
+        {
+          id: 'variant-1',
+          name: 'Standard',
+          tier: 'delux',
+          hotelName: 'Hotel 5*',
+          price_delta: 120,
+          capacity: 30,
+          currency: 'BAM',
+        },
+      ],
+    };
+
+    apiGet
+      .mockResolvedValueOnce({
       data: {
         data: [
-          {
-            id: 'pkg-1',
-            name: 'Umrah',
-            destination: 'Mekka',
-            base_price: 1500,
-            currency: 'BAM',
-            is_active: true,
-            duration_days: 10,
-            transport_type: 'bus',
-            transport_capacity: 50,
-            trip_type: 'pilgrimage',
-            created_at: '2026-08-30T10:00:00.000Z',
-            variants: [
-              {
-                id: 'variant-1',
-                name: 'Standard',
-                tier: 'delux',
-                hotelName: 'Hotel 5*',
-                price_delta: 120,
-                capacity: 30,
-                currency: 'BAM',
-              },
-            ],
-          },
+          packagePayload,
         ],
         total: 1,
         page: 1,
         limit: 10,
         totalPages: 1,
       },
-    });
+    })
+      .mockResolvedValueOnce({
+        data: {
+          data: packagePayload,
+        },
+      });
 
-    const { getPackages } = await import('../api/packages');
+    const { getPackages, getPackageById } = await import('../api/packages');
     const result = await getPackages({ page: 1, limit: 10 });
+    const detail = await getPackageById('pkg-1');
 
     expect(result.data[0]).toMatchObject({
       price: 1500,
@@ -74,6 +103,20 @@ describe('packages API contract', () => {
       priceModifier: 120,
       capacity: 30,
     });
+    expect(detail.packageHotels?.[0]).toMatchObject({
+      id: 'link-1',
+      hotelId: 'hotel-1',
+      priceModifier: 25,
+      sortOrder: 2,
+      hotel: {
+        name: 'Hotel Bosna',
+        destination: 'Sarajevo',
+        stars: 4,
+      },
+    });
+    expect(detail.packageHotels?.[0].roomOptions).toEqual([
+      { type: 'double', label: 'Double room', net_price: 80, sell_price: 100, available: 5 },
+    ]);
   });
 
   it('sends canonical camelCase request fields on update', async () => {
