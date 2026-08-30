@@ -91,7 +91,7 @@ vi.mock('../lib/i18n/context', () => ({
           newHotelCreated: 'Hotel created and attached to the package.',
           newHotelCreateFailed: 'Failed to create hotel.',
           newHotelRequiredFields: 'Hotel name and destination are required.',
-          newHotelInvalidTotalRooms: 'Total rooms must be greater than zero.',
+          newHotelInvalidTotalRooms: 'Total rooms must be zero or greater.',
           newHotelNameLabel: 'Hotel name *',
           newHotelNamePlaceholder: 'Hotel Bosna',
           newHotelDestinationLabel: 'Destination *',
@@ -216,7 +216,7 @@ describe('PackageEditorModal', () => {
       id: 'hotel-3',
       name: 'Hotel Novi',
       destination: 'Mostar',
-      totalRooms: 20,
+      totalRooms: 0,
       stars: 4,
       createdAt: '2026-08-30T12:00:00.000Z',
     });
@@ -287,14 +287,13 @@ describe('PackageEditorModal', () => {
     expect(screen.getByRole('heading', { name: 'Create hotel' })).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText('Hotel Bosna'), { target: { value: 'Hotel Novi' } });
     fireEvent.change(screen.getByPlaceholderText('Sarajevo'), { target: { value: 'Mostar' } });
-    fireEvent.change(screen.getByPlaceholderText('10'), { target: { value: '20' } });
     const createHotelButtons = screen.getAllByRole('button', { name: 'Create hotel' });
     fireEvent.click(createHotelButtons[createHotelButtons.length - 1] as HTMLElement);
 
     await waitFor(() => expect(createHotel).toHaveBeenCalledWith(expect.objectContaining({
       name: 'Hotel Novi',
       destination: 'Mostar',
-      totalRooms: 20,
+      totalRooms: 0,
       stars: null,
     })));
     expect(await screen.findByText('Hotel Novi')).toBeInTheDocument();
@@ -369,7 +368,7 @@ describe('PackageEditorModal', () => {
       id: 'hotel-3',
       name: 'Hotel Novi',
       destination: 'Mostar',
-      totalRooms: 20,
+      totalRooms: 0,
       stars: 4,
       createdAt: '2026-08-30T12:00:00.000Z',
     });
@@ -420,6 +419,29 @@ describe('PackageEditorModal', () => {
     expect(linkHotelToPackage).toHaveBeenCalledWith('pkg-new', expect.objectContaining({
       hotelId: 'hotel-3',
     }));
+  });
+
+  it('keeps hotel creation failure visible in the accommodation section', async () => {
+    createHotel.mockRejectedValue(new Error('Hotel validation failed'));
+
+    render(
+      <PackageEditorModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        initialValues={{ name: 'New package', destination: 'Medina', currency: 'BAM' }}
+      />,
+    );
+
+    await waitFor(() => expect(getHotels).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Create new hotel' }));
+    fireEvent.change(screen.getByPlaceholderText('Hotel Bosna'), { target: { value: 'Hotel Novi' } });
+    fireEvent.change(screen.getByPlaceholderText('Sarajevo'), { target: { value: 'Mostar' } });
+    const createHotelButtons = screen.getAllByRole('button', { name: 'Create hotel' });
+    fireEvent.click(createHotelButtons[createHotelButtons.length - 1] as HTMLElement);
+
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Hotel validation failed'));
+    expect(screen.getByText('Hotel validation failed')).toBeInTheDocument();
   });
 
   it('does not create a duplicate package when accommodation persistence fails after create and the user retries', async () => {

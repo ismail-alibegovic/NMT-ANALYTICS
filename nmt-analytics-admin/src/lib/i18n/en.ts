@@ -376,7 +376,7 @@ export const en = {
       newHotelCreated: 'Hotel created and attached to the package.',
       newHotelCreateFailed: 'Failed to create hotel.',
       newHotelRequiredFields: 'Hotel name and destination are required.',
-      newHotelInvalidTotalRooms: 'Total rooms must be greater than zero.',
+      newHotelInvalidTotalRooms: 'Total rooms must be zero or greater.',
       newHotelNameLabel: 'Hotel name *',
       newHotelNamePlaceholder: 'Hotel Bosna',
       newHotelDestinationLabel: 'Destination *',

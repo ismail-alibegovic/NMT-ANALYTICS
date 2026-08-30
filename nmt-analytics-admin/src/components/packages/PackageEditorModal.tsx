@@ -153,7 +153,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
   const [newHotelDescription, setNewHotelDescription] = useState("");
   const [newHotelAmenities, setNewHotelAmenities] = useState("");
   const [newHotelStars, setNewHotelStars] = useState<string>("");
-  const [newHotelTotalRooms, setNewHotelTotalRooms] = useState<number | "">(10);
+  const [newHotelTotalRooms, setNewHotelTotalRooms] = useState<number | "">(0);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -288,7 +288,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
     setNewHotelDescription("");
     setNewHotelAmenities("");
     setNewHotelStars("");
-    setNewHotelTotalRooms(10);
+    setNewHotelTotalRooms(0);
   }
 
   function toCatalogHotel(hotel: Hotel | PackageHotelCatalogHotel): PackageHotelCatalogHotel {
@@ -370,8 +370,8 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       return;
     }
 
-    const totalRooms = newHotelTotalRooms === "" ? 10 : Number(newHotelTotalRooms);
-    if (!Number.isInteger(totalRooms) || totalRooms <= 0) {
+    const totalRooms = newHotelTotalRooms === "" ? 0 : Number(newHotelTotalRooms);
+    if (!Number.isInteger(totalRooms) || totalRooms < 0) {
       error(t.packages.editor.newHotelInvalidTotalRooms);
       return;
     }
@@ -1023,7 +1023,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
               type="number"
               value={newHotelTotalRooms}
               onChange={(e: any) => setNewHotelTotalRooms(e.target.value === "" ? "" : Number(e.target.value))}
-              placeholder="10"
+              placeholder="0"
             />
           </div>
           <div>

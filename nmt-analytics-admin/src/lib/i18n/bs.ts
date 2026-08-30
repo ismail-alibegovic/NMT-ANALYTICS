@@ -376,7 +376,7 @@ export const bs: Translations = {
       newHotelCreated: 'Hotel je kreiran i povezan sa paketom.',
       newHotelCreateFailed: 'Kreiranje hotela nije uspjelo.',
       newHotelRequiredFields: 'Naziv hotela i destinacija su obavezni.',
-      newHotelInvalidTotalRooms: 'Ukupan broj soba mora biti veći od nule.',
+      newHotelInvalidTotalRooms: 'Ukupan broj soba mora biti nula ili veći.',
       newHotelNameLabel: 'Naziv hotela *',
       newHotelNamePlaceholder: 'Hotel Bosna',
       newHotelDestinationLabel: 'Destinacija *',

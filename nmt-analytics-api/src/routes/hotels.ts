@@ -31,7 +31,7 @@ const createSchema = z.object({
   destination: z.string().min(1, 'Destination is required'),
   address: z.string().optional(),
   contact: z.string().optional(),
-  totalRooms: z.number().int().positive().default(0),
+  totalRooms: z.number().int().min(0).default(0),
   stars: z.number().int().min(1).max(5).optional().nullable(),
   description: z.string().optional().nullable(),
   amenities: z.array(z.string()).optional().nullable(),
@@ -49,7 +49,7 @@ const updateSchema = z.object({
   destination: z.string().min(1).optional(),
   address: z.string().optional(),
   contact: z.string().optional(),
-  totalRooms: z.number().int().positive().optional(),
+  totalRooms: z.number().int().min(0).optional(),
 });
 
 function transformHotel(h: any) {
@@ -132,17 +132,19 @@ router.post('/hotels', authenticateToken, requireOrgContext, requireMinimumRole(
 
     if (err) return handleSupabaseError(res, err, 'Failed to create hotel');
 
-    // Auto-create room types based on totalRooms distribution
-    const insertRoom = async (data: Record<string, unknown>) => {
-      try { await supabaseAdmin.from('hotel_rooms').insert(data); } catch {}
-    };
+    if (body.totalRooms > 0) {
+      // Auto-create room types based on totalRooms distribution
+      const insertRoom = async (data: Record<string, unknown>) => {
+        try { await supabaseAdmin.from('hotel_rooms').insert(data); } catch {}
+      };
 
-    await Promise.all([
-      insertRoom({ org_id: orgId, hotel_id: hotel.id, room_type: 'single', capacity: 1, base_price: 0, available: body.totalRooms, total: 1 }),
-      insertRoom({ org_id: orgId, hotel_id: hotel.id, room_type: 'double', capacity: 2, base_price: 0, available: Math.floor(body.totalRooms / 2), total: Math.floor(body.totalRooms / 2) }),
-      insertRoom({ org_id: orgId, hotel_id: hotel.id, room_type: 'triple', capacity: 3, base_price: 0, available: Math.max(0, Math.ceil((body.totalRooms % 2) / 3)), total: Math.max(0, Math.ceil((body.totalRooms % 2) / 3)) }),
-      insertRoom({ org_id: orgId, hotel_id: hotel.id, room_type: 'apartment', capacity: 4, base_price: 0, available: 0, total: 0 }),
-    ]);
+      await Promise.all([
+        insertRoom({ org_id: orgId, hotel_id: hotel.id, room_type: 'single', capacity: 1, base_price: 0, available: body.totalRooms, total: 1 }),
+        insertRoom({ org_id: orgId, hotel_id: hotel.id, room_type: 'double', capacity: 2, base_price: 0, available: Math.floor(body.totalRooms / 2), total: Math.floor(body.totalRooms / 2) }),
+        insertRoom({ org_id: orgId, hotel_id: hotel.id, room_type: 'triple', capacity: 3, base_price: 0, available: Math.max(0, Math.ceil((body.totalRooms % 2) / 3)), total: Math.max(0, Math.ceil((body.totalRooms % 2) / 3)) }),
+        insertRoom({ org_id: orgId, hotel_id: hotel.id, room_type: 'apartment', capacity: 4, base_price: 0, available: 0, total: 0 }),
+      ]);
+    }
 
     return res.status(201).json(transformHotel(hotel));
   } catch (err) { console.error('Error in POST /hotels:', err); apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err)); }
