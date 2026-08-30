@@ -259,10 +259,7 @@ export default function Packages() {
       <PackageEditorModal
         isOpen={modalOpen}
         onClose={handleCloseModal}
-        onSaved={() => {
-          handleCloseModal();
-          fetchPackages(currentPage, searchTerm);
-        }}
+        onSaved={() => fetchPackages(currentPage, searchTerm)}
         initial={editingPackage ?? undefined}
         itineraryId={itineraryId}
         initialValues={itineraryPrefill}
