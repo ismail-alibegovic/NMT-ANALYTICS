@@ -13,6 +13,8 @@ let currentOrgId = ORG;
 let packageHotels: any[] = [];
 let hotelAllocations: any[] = [];
 let departures: any[] = [];
+let packages: any[] = [];
+let failHotelAllocationInsert = false;
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
@@ -57,9 +59,18 @@ function createBuilder(table: string) {
       state.payload = payload;
       return builder;
     }),
+    upsert: vi.fn((payload: any) => {
+      state.action = 'upsert';
+      state.payload = payload;
+      return builder;
+    }),
     update: vi.fn((payload: any) => {
       state.action = 'update';
       state.payload = payload;
+      return builder;
+    }),
+    delete: vi.fn(() => {
+      state.action = 'delete';
       return builder;
     }),
     maybeSingle: vi.fn(async () => {
@@ -74,7 +85,39 @@ function createBuilder(table: string) {
   };
 
   async function execute() {
+    if (table === 'packages') {
+      let rows = packages.filter((row) => matches(row, state.filters));
+      if (state.limitCount != null) rows = rows.slice(0, state.limitCount);
+      return { data: clone(rows), error: null };
+    }
+
     if (table === 'departures') {
+      if (state.action === 'upsert') {
+        const existingIndex = departures.findIndex((row) =>
+          row.org_id === state.payload.org_id &&
+          row.package_id === state.payload.package_id &&
+          row.depart_at === state.payload.depart_at
+        );
+        const row = existingIndex >= 0
+          ? { ...departures[existingIndex], ...clone(state.payload) }
+          : { id: DEPARTURE, created_at: '2026-08-30T12:00:00.000Z', ...clone(state.payload) };
+        if (existingIndex >= 0) departures[existingIndex] = row;
+        else departures.push(row);
+        return { data: [clone(row)], error: null };
+      }
+
+      if (state.action === 'delete') {
+        departures = departures.filter((row) => !matches(row, state.filters));
+        return { data: null, error: null };
+      }
+
+      if (state.action === 'update') {
+        departures = departures.map((row) => (
+          matches(row, state.filters) ? { ...row, ...clone(state.payload) } : row
+        ));
+        return { data: clone(departures.filter((row) => matches(row, state.filters))), error: null };
+      }
+
       let rows = departures.filter((row) => matches(row, state.filters));
       if (state.limitCount != null) rows = rows.slice(0, state.limitCount);
       return { data: clone(rows), error: null };
@@ -88,6 +131,9 @@ function createBuilder(table: string) {
 
     if (table === 'hotel_allocations') {
       if (state.action === 'insert') {
+        if (failHotelAllocationInsert) {
+          return { data: null, error: { message: 'insert failed' } };
+        }
         const rows = Array.isArray(state.payload) ? state.payload : [state.payload];
         rows.forEach((row, index) => hotelAllocations.push({
           id: `allocation-${hotelAllocations.length + index + 1}`,
@@ -156,6 +202,8 @@ vi.mock('../lib/manualMessaging', () => ({
 
 beforeEach(() => {
   currentOrgId = ORG;
+  failHotelAllocationInsert = false;
+  packages = [{ id: PACKAGE, org_id: ORG, name: 'Package', destination: 'Istanbul', transport_type: 'bus' }];
   departures = [{ id: DEPARTURE, org_id: ORG, package_id: PACKAGE }];
   packageHotels = [{
     id: PACKAGE_HOTEL,
@@ -265,5 +313,63 @@ describe('departure accommodation allotments', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('deletes a newly inserted upsert departure when accommodation materialization fails', async () => {
+    departures = [];
+    failHotelAllocationInsert = true;
+    const app = express();
+    app.use(express.json());
+    const mod = await import('../routes/departures');
+    app.use('/api', mod.default);
+
+    const res = await request(app)
+      .post('/api/departures')
+      .send({
+        packageId: PACKAGE,
+        departAt: '2026-09-10T08:00:00.000Z',
+        returnAt: '2026-09-17T08:00:00.000Z',
+        capacity: 40,
+        upsert: true,
+      });
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('ACCOMMODATION_MATERIALIZATION_FAILED');
+    expect(res.body.message).toContain('Departure was not created');
+    expect(departures).toHaveLength(0);
+  });
+
+  it('preserves an existing upsert departure when accommodation materialization fails', async () => {
+    departures = [{
+      id: DEPARTURE,
+      org_id: ORG,
+      package_id: PACKAGE,
+      depart_at: '2026-09-10T08:00:00.000Z',
+      return_at: '2026-09-17T08:00:00.000Z',
+      capacity: 30,
+    }];
+    failHotelAllocationInsert = true;
+    const app = express();
+    app.use(express.json());
+    const mod = await import('../routes/departures');
+    app.use('/api', mod.default);
+
+    const res = await request(app)
+      .post('/api/departures')
+      .send({
+        packageId: PACKAGE,
+        departAt: '2026-09-10T08:00:00.000Z',
+        returnAt: '2026-09-17T08:00:00.000Z',
+        capacity: 40,
+        upsert: true,
+      });
+
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe('ACCOMMODATION_MATERIALIZATION_FAILED');
+    expect(res.body.message).toContain('Existing departure was preserved');
+    expect(departures).toHaveLength(1);
+    expect(departures[0].id).toBe(DEPARTURE);
+    expect(departures[0].capacity).toBe(30);
+    expect(departures[0].return_at).toBe('2026-09-17T08:00:00.000Z');
   });
 });

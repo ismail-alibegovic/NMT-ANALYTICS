@@ -1560,6 +1560,8 @@ export const en = {
     noAccommodationConfigured: 'No accommodation configured',
     accommodationAllotment: {
       loading: 'Loading accommodation inventory…',
+      inventoryTab: 'Inventory',
+      roomingTab: 'Rooming',
       loadFailed: 'Failed to load departure accommodation.',
       emptyTitle: 'No accommodation inventory',
       emptyDescription: 'This departure does not have package accommodation materialized yet.',

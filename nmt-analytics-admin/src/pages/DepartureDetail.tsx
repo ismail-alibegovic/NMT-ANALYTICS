@@ -7,7 +7,7 @@ import Button from "../components/ui/button/Button";
 import EmptyState from "../components/ui/EmptyState";
 import { DataTable, Column } from "../components/ui/DataTable";
 import SeatMap from "../components/operations/SeatMap";
-import DepartureAccommodationAllotment from "../components/departures/DepartureAccommodationAllotment";
+import DepartureAccommodationPanel from "../components/departures/DepartureAccommodationPanel";
 import DrustvaTab from "../components/operations/DrustvaTab";
 import CommunicationHistoryPanel from "../components/communications/CommunicationHistoryPanel";
 import ManualMessageComposer from "../components/communications/ManualMessageComposer";
@@ -1157,9 +1157,8 @@ export default function DepartureDetail() {
             }}
           />
         )}
-        {/* HOTELS TAB — departure accommodation inventory */}
         {activeTab === "hotels" && capabilities?.hasAccommodation && (
-          <DepartureAccommodationAllotment departureId={departure.id} />
+          <DepartureAccommodationPanel departureId={departure.id} passengers={normPax} />
         )}
         {activeTab === "hotels" && !capabilities?.hasAccommodation && (
           <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">

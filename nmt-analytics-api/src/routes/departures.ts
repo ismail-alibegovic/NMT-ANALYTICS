@@ -211,6 +211,27 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
       return;
     }
 
+    let existingUpsertDeparture: {
+      id: string;
+      return_at: string | null;
+      capacity: number | null;
+      booked: number | null;
+      status: string | null;
+      transport_type: string | null;
+    } | null = null;
+    if (upsert) {
+      const { data: existing, error: existingError } = await supabaseAdmin
+        .from('departures')
+        .select('id, return_at, capacity, booked, status, transport_type')
+        .eq('org_id', orgId)
+        .eq('package_id', packageId)
+        .eq('depart_at', departAt)
+        .maybeSingle();
+
+      if (existingError) return handleSupabaseError(res, existingError, "Failed to check existing departure");
+      existingUpsertDeparture = existing;
+    }
+
     let query = supabaseAdmin
       .from('departures')
       .upsert({
@@ -252,14 +273,29 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
       });
     } catch (allocationError) {
       console.error('Departure accommodation materialization failed:', allocationError);
-      if (!upsert) {
+      if (!upsert || !existingUpsertDeparture) {
         await supabaseAdmin
           .from('departures')
           .delete()
           .eq('id', departure.id)
           .eq('org_id', orgId);
+        apiError(res, 500, "ACCOMMODATION_MATERIALIZATION_FAILED", "Departure was not created because accommodation could not be materialized");
+        return;
       }
-      apiError(res, 500, "ACCOMMODATION_MATERIALIZATION_FAILED", "Departure was not created because accommodation could not be materialized");
+
+      const previousDeparture = existingUpsertDeparture;
+      await supabaseAdmin
+        .from('departures')
+        .update({
+          return_at: previousDeparture.return_at,
+          capacity: previousDeparture.capacity,
+          booked: previousDeparture.booked,
+          status: previousDeparture.status,
+          transport_type: previousDeparture.transport_type,
+        })
+        .eq('id', previousDeparture.id)
+        .eq('org_id', orgId);
+      apiError(res, 500, "ACCOMMODATION_MATERIALIZATION_FAILED", "Departure was saved, but accommodation could not be materialized. Existing departure was preserved.");
       return;
     }
 

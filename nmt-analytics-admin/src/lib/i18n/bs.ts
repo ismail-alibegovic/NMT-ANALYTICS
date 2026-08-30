@@ -1560,6 +1560,8 @@ export const bs: Translations = {
     noAccommodationConfigured: 'Nema konfigurisanog smještaja',
     accommodationAllotment: {
       loading: 'Učitavanje kapaciteta smještaja…',
+      inventoryTab: 'Kapaciteti',
+      roomingTab: 'Raspored soba',
       loadFailed: 'Učitavanje smještaja za polazak nije uspjelo.',
       emptyTitle: 'Nema kapaciteta smještaja',
       emptyDescription: 'Ovaj polazak još nema prenesen smještaj iz paketa.',
