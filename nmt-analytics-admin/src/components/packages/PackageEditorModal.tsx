@@ -15,6 +15,16 @@ import {
   type PackageVariant,
   type PackageVariantTier,
 } from "../../api/packages";
+import {
+  getPackageHotels,
+  linkHotelToPackage,
+  unlinkHotelFromPackage,
+  updatePackageHotel,
+  type PackageHotel,
+  type PackageHotelCatalogHotel,
+  type RoomOption,
+} from "../../api/packageHotels";
+import { getHotels, type Hotel } from "../../api/operations";
 
 type Variant = {
   id?: string;
@@ -28,6 +38,25 @@ type Variant = {
   roomType?: string | null;
 };
 
+type EditableRoomOption = {
+  key: string;
+  type: RoomOption["type"];
+  label: string;
+  net_price: number;
+  sell_price: number;
+  available: number;
+};
+
+type EditablePackageHotel = {
+  key: string;
+  id?: string;
+  hotelId: string;
+  hotel: PackageHotelCatalogHotel | null;
+  roomOptions: EditableRoomOption[];
+  priceModifier: number;
+  sortOrder: number;
+};
+
 type Props = {
   isOpen: boolean;
   onClose: () => void;
@@ -36,6 +65,48 @@ type Props = {
   itineraryId?: string;
   initialValues?: { name?: string; destination?: string; currency?: string; maxParticipants?: number };
 };
+
+const roomTypeOptions: Array<{ value: RoomOption["type"]; labelKey: "single" | "double" | "triple" | "apartment" | "studio" | "suite" }> = [
+  { value: "single", labelKey: "single" },
+  { value: "double", labelKey: "double" },
+  { value: "triple", labelKey: "triple" },
+  { value: "apartment", labelKey: "apartment" },
+  { value: "studio", labelKey: "studio" },
+  { value: "suite", labelKey: "suite" },
+];
+
+function toEditableRoomOption(option: RoomOption, index: number): EditableRoomOption {
+  return {
+    key: `${option.type}-${option.label}-${index}`,
+    type: option.type,
+    label: option.label,
+    net_price: Number(option.net_price || 0),
+    sell_price: Number(option.sell_price || 0),
+    available: Number(option.available || 0),
+  };
+}
+
+function toEditablePackageHotel(link: PackageHotel): EditablePackageHotel {
+  return {
+    key: link.id,
+    id: link.id,
+    hotelId: link.hotelId,
+    hotel: link.hotel ?? null,
+    roomOptions: link.roomOptions.map(toEditableRoomOption),
+    priceModifier: Number(link.priceModifier || 0),
+    sortOrder: Number(link.sortOrder || 0),
+  };
+}
+
+function roomOptionsPayload(roomOptions: EditableRoomOption[]): RoomOption[] {
+  return roomOptions.map((option) => ({
+    type: option.type,
+    label: option.label.trim(),
+    net_price: Number(option.net_price || 0),
+    sell_price: Number(option.sell_price || 0),
+    available: Number(option.available || 0),
+  }));
+}
 
 export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, itineraryId, initialValues }: Props) {
   const { success, error } = useToast();
@@ -64,6 +135,12 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
   const [transportCapacity, setTransportCapacity] = useState<number | "">("");
   const [tripType, setTripType] = useState<string>("");
   const [variants, setVariants] = useState<Variant[]>([]);
+  const [catalogHotels, setCatalogHotels] = useState<Hotel[]>([]);
+  const [linkedHotels, setLinkedHotels] = useState<EditablePackageHotel[]>([]);
+  const [persistedLinks, setPersistedLinks] = useState<PackageHotel[]>([]);
+  const [accommodationLoading, setAccommodationLoading] = useState(false);
+  const [accommodationError, setAccommodationError] = useState<string | null>(null);
+  const [selectedHotelId, setSelectedHotelId] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -115,13 +192,54 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       setVariants([]);
     }
     setSubmitting(false);
+    setSelectedHotelId("");
+    setAccommodationError(null);
+    setLinkedHotels([]);
+    setPersistedLinks([]);
   }, [isOpen, initial, initialValues]);
+
+  useEffect(() => {
+    if (!isOpen || !initial?.id) return;
+    let alive = true;
+
+    (async () => {
+      setAccommodationLoading(true);
+      setAccommodationError(null);
+      try {
+        const [hotelCatalog, packageHotelLinks] = await Promise.all([
+          getHotels(),
+          getPackageHotels(initial.id!),
+        ]);
+        if (!alive) return;
+        setCatalogHotels(hotelCatalog);
+        setPersistedLinks(packageHotelLinks);
+        setLinkedHotels(packageHotelLinks.map(toEditablePackageHotel));
+      } catch (err: any) {
+        if (!alive) return;
+        setCatalogHotels([]);
+        setPersistedLinks([]);
+        setLinkedHotels([]);
+        setAccommodationError(err?.message || t.packages.editor.accommodationLoadError);
+      } finally {
+        if (alive) setAccommodationLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [isOpen, initial?.id, t.packages.editor.accommodationLoadError]);
 
   const dirty = useMemo(() => {
     if (!name.trim() || !destination.trim()) return true;
     if (transportType !== "none" && !Number.isFinite(Number(transportCapacity))) return true;
     return false;
   }, [name, destination, transportType, transportCapacity]);
+
+  const availableHotels = useMemo(
+    () => catalogHotels.filter((hotel) => !linkedHotels.some((link) => link.hotelId === hotel.id)),
+    [catalogHotels, linkedHotels],
+  );
 
   function addVariant() {
     setVariants([...variants, {
@@ -144,6 +262,161 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
     setVariants(variants.filter((_, idx) => idx !== i));
   }
 
+  function addLinkedHotel() {
+    if (!selectedHotelId) {
+      error(t.packages.editor.hotelRequired);
+      return;
+    }
+    if (linkedHotels.some((link) => link.hotelId === selectedHotelId)) {
+      error(t.packages.editor.duplicateHotel);
+      return;
+    }
+    const hotel = catalogHotels.find((item) => item.id === selectedHotelId);
+    if (!hotel) {
+      error(t.packages.editor.hotelNotFound);
+      return;
+    }
+
+    const nextSortOrder = linkedHotels.length === 0
+      ? 0
+      : Math.max(...linkedHotels.map((link) => Number(link.sortOrder || 0))) + 1;
+
+    setLinkedHotels((current) => [
+      ...current,
+      {
+        key: `new-${hotel.id}`,
+        hotelId: hotel.id,
+        hotel: {
+          id: hotel.id,
+          name: hotel.name,
+          destination: hotel.destination,
+          stars: hotel.stars ?? null,
+        },
+        roomOptions: [],
+        priceModifier: 0,
+        sortOrder: nextSortOrder,
+      },
+    ]);
+    setSelectedHotelId("");
+  }
+
+  function updateLinkedHotel(key: string, patch: Partial<EditablePackageHotel>) {
+    setLinkedHotels((current) => current.map((link) => link.key === key ? { ...link, ...patch } : link));
+  }
+
+  function removeLinkedHotel(key: string) {
+    setLinkedHotels((current) => current.filter((link) => link.key !== key));
+  }
+
+  function addRoomOption(linkKey: string) {
+    updateLinkedHotel(linkKey, {
+      roomOptions: [
+        ...(linkedHotels.find((link) => link.key === linkKey)?.roomOptions || []),
+        {
+          key: `${linkKey}-room-${Date.now()}`,
+          type: "double",
+          label: "",
+          net_price: 0,
+          sell_price: 0,
+          available: 0,
+        },
+      ],
+    });
+  }
+
+  function updateRoomOption(linkKey: string, roomKey: string, patch: Partial<EditableRoomOption>) {
+    setLinkedHotels((current) => current.map((link) => {
+      if (link.key !== linkKey) return link;
+      return {
+        ...link,
+        roomOptions: link.roomOptions.map((roomOption) => roomOption.key === roomKey ? { ...roomOption, ...patch } : roomOption),
+      };
+    }));
+  }
+
+  function removeRoomOption(linkKey: string, roomKey: string) {
+    setLinkedHotels((current) => current.map((link) => {
+      if (link.key !== linkKey) return link;
+      return {
+        ...link,
+        roomOptions: link.roomOptions.filter((roomOption) => roomOption.key !== roomKey),
+      };
+    }));
+  }
+
+  function validateAccommodation(): boolean {
+    const hotelIds = new Set<string>();
+    for (const link of linkedHotels) {
+      if (!link.hotelId) {
+        error(t.packages.editor.hotelRequired);
+        return false;
+      }
+      if (hotelIds.has(link.hotelId)) {
+        error(t.packages.editor.duplicateHotel);
+        return false;
+      }
+      hotelIds.add(link.hotelId);
+
+      if (!Number.isFinite(Number(link.priceModifier)) || Number(link.priceModifier) < 0) {
+        error(t.packages.editor.invalidPriceModifier);
+        return false;
+      }
+      if (!Number.isInteger(Number(link.sortOrder)) || Number(link.sortOrder) < 0) {
+        error(t.packages.editor.invalidSortOrder);
+        return false;
+      }
+
+      for (const option of link.roomOptions) {
+        if (!option.label.trim()) {
+          error(t.packages.editor.roomOptionLabelRequired);
+          return false;
+        }
+        if (!Number.isFinite(Number(option.net_price)) || Number(option.net_price) < 0) {
+          error(t.packages.editor.invalidRoomOptionPrice);
+          return false;
+        }
+        if (!Number.isFinite(Number(option.sell_price)) || Number(option.sell_price) < 0) {
+          error(t.packages.editor.invalidRoomOptionPrice);
+          return false;
+        }
+        if (!Number.isInteger(Number(option.available)) || Number(option.available) < 0) {
+          error(t.packages.editor.invalidRoomOptionAvailability);
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  async function savePackageHotels(packageId: string) {
+    const persistedIds = new Set(linkedHotels.map((link) => link.id).filter(Boolean));
+    const linksToDelete = persistedLinks.filter((link) => !persistedIds.has(link.id));
+
+    for (const link of linksToDelete) {
+      await unlinkHotelFromPackage(link.id);
+    }
+
+    for (const link of [...linkedHotels].sort((a, b) => a.sortOrder - b.sortOrder || a.hotelId.localeCompare(b.hotelId))) {
+      const payload = {
+        hotelId: link.hotelId,
+        roomOptions: roomOptionsPayload(link.roomOptions),
+        priceModifier: Number(link.priceModifier || 0),
+        sortOrder: Number(link.sortOrder || 0),
+      };
+
+      if (link.id) {
+        await updatePackageHotel(link.id, payload);
+      } else {
+        await linkHotelToPackage(packageId, payload);
+      }
+    }
+
+    const freshLinks = await getPackageHotels(packageId);
+    setPersistedLinks(freshLinks);
+    setLinkedHotels(freshLinks.map(toEditablePackageHotel));
+  }
+
   function handleClose() {
     if (submitting) return;
     onClose();
@@ -155,7 +428,12 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       error(t.packages.editor.requiredFields);
       return;
     }
+    if (!validateAccommodation()) {
+      return;
+    }
+
     setSubmitting(true);
+    setAccommodationError(null);
     try {
       const payload = {
         name: name.trim(),
@@ -183,18 +461,22 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
           roomType: v.roomType ?? null,
         })),
       };
-      if (initial?.id) {
-        await updatePackage(initial.id, payload);
-        success(t.packages.editor.updated);
-      } else {
-        const createPayload = itineraryId ? { ...payload, itineraryId } : payload;
-        await createPackage(createPayload);
-        success(t.packages.editor.created);
+
+      const savedPackage = initial?.id
+        ? await updatePackage(initial.id, payload)
+        : await createPackage(itineraryId ? { ...payload, itineraryId } : payload);
+
+      if (linkedHotels.length > 0 || persistedLinks.length > 0) {
+        await savePackageHotels(savedPackage.id);
       }
+
+      success(initial?.id ? t.packages.editor.updated : t.packages.editor.created);
       await Promise.resolve(onSaved());
       onClose();
     } catch (e: any) {
-      error(e?.message ?? t.packages.editor.saveError);
+      const message = e?.message ?? t.packages.editor.saveError;
+      setAccommodationError(message);
+      error(message);
     } finally {
       setSubmitting(false);
     }
@@ -205,7 +487,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       isOpen={isOpen}
       onClose={handleClose}
       title={initial ? t.packages.editor.editTitle : t.packages.editor.createTitle}
-      className="max-w-3xl my-8 p-0 overflow-y-auto max-h-[90vh]"
+      className="max-w-5xl my-8 p-0 overflow-y-auto max-h-[90vh]"
     >
       <div className="p-6 space-y-5 text-sm">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -283,7 +565,6 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
           />
         </div>
 
-        {/* Transport */}
         <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
           <h4 className="text-base font-semibold text-gray-900 dark:text-white mb-1">{t.packages.transportType}</h4>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{t.packages.editor.transportHelp}</p>
@@ -313,10 +594,193 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
           </div>
         </div>
 
-        {/* Variants */}
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <div>
+              <h4 className="text-base font-semibold text-gray-900 dark:text-white">{t.packages.editor.accommodationTitle}</h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t.packages.editor.accommodationHelp}</p>
+            </div>
+          </div>
+
+          {!initial?.id ? (
+            <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-4 text-sm text-gray-500 dark:text-gray-400">
+              {t.packages.editor.accommodationCreateFirst}
+            </div>
+          ) : accommodationLoading ? (
+            <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-4 text-sm text-gray-500 dark:text-gray-400">
+              {t.common.loading}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
+                <div>
+                  <Label>{t.packages.editor.selectHotelLabel}</Label>
+                  <Select
+                    value={selectedHotelId}
+                    onChange={setSelectedHotelId}
+                    options={[
+                      { value: "", label: t.packages.editor.selectHotelPlaceholder },
+                      ...availableHotels.map((hotel) => ({
+                        value: hotel.id,
+                        label: `${hotel.name}${hotel.destination ? ` — ${hotel.destination}` : ""}`,
+                      })),
+                    ]}
+                  />
+                </div>
+                <Button type="button" onClick={addLinkedHotel} disabled={!selectedHotelId}>
+                  {t.packages.editor.attachHotel}
+                </Button>
+              </div>
+
+              {accommodationError ? (
+                <div className="rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-500/10 dark:text-error-400">
+                  {accommodationError}
+                </div>
+              ) : null}
+
+              {linkedHotels.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-6 text-center text-xs text-gray-400">
+                  {t.packages.editor.emptyAccommodation}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {linkedHotels
+                    .slice()
+                    .sort((a, b) => a.sortOrder - b.sortOrder || a.hotelId.localeCompare(b.hotelId))
+                    .map((link) => (
+                      <div key={link.key} className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-4">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div>
+                            <h5 className="text-sm font-semibold text-gray-900 dark:text-white">{link.hotel?.name || t.packages.editor.hotelFallback}</h5>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {link.hotel?.destination || t.packages.editor.noHotelDestination}
+                              {link.hotel?.stars ? ` • ${link.hotel.stars}★` : ""}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeLinkedHotel(link.key)}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                            aria-label={t.packages.editor.removeHotel}
+                          >
+                            <TrashBinIcon className="size-5" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>{t.packages.priceModifier}</Label>
+                            <Input
+                              type="number"
+                              value={link.priceModifier}
+                              onChange={(e: any) => updateLinkedHotel(link.key, { priceModifier: Number(e.target.value) || 0 })}
+                            />
+                          </div>
+                          <div>
+                            <Label>{t.packages.editor.sortOrderLabel}</Label>
+                            <Input
+                              type="number"
+                              value={link.sortOrder}
+                              onChange={(e: any) => updateLinkedHotel(link.key, { sortOrder: Number(e.target.value) || 0 })}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <h6 className="text-sm font-semibold text-gray-900 dark:text-white">{t.packages.roomOptions}</h6>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">{t.packages.editor.roomOptionsHelp}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => addRoomOption(link.key)}
+                              className="inline-flex items-center gap-1 rounded-lg bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100 dark:bg-brand-500/10 dark:text-brand-300"
+                            >
+                              <PlusIcon className="size-4" /> {t.packages.editor.addRoomOption}
+                            </button>
+                          </div>
+
+                          {link.roomOptions.length === 0 ? (
+                            <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-4 text-center text-xs text-gray-400">
+                              {t.packages.editor.emptyRoomOptions}
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {link.roomOptions.map((option) => (
+                                <div key={option.key} className="rounded-lg bg-gray-50 dark:bg-white/[0.03] p-3 grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
+                                  <div className="lg:col-span-2">
+                                    <Label>{t.packages.editor.roomOptionTypeLabel}</Label>
+                                    <Select
+                                      value={option.type}
+                                      onChange={(value) => updateRoomOption(link.key, option.key, { type: value as RoomOption["type"] })}
+                                      options={roomTypeOptions.map((roomType) => ({
+                                        value: roomType.value,
+                                        label: t.packages.editor.roomTypeLabels[roomType.labelKey],
+                                      }))}
+                                    />
+                                  </div>
+                                  <div className="lg:col-span-3">
+                                    <Label>{t.packages.editor.roomOptionLabelLabel}</Label>
+                                    <Input
+                                      value={option.label}
+                                      onChange={(e: any) => updateRoomOption(link.key, option.key, { label: e.target.value })}
+                                      placeholder={t.packages.editor.roomOptionLabelPlaceholder}
+                                    />
+                                  </div>
+                                  <div className="lg:col-span-2">
+                                    <Label>{t.packages.editor.netPriceLabel}</Label>
+                                    <Input
+                                      type="number"
+                                      value={option.net_price}
+                                      onChange={(e: any) => updateRoomOption(link.key, option.key, { net_price: Number(e.target.value) || 0 })}
+                                    />
+                                  </div>
+                                  <div className="lg:col-span-2">
+                                    <Label>{t.packages.editor.sellPriceLabel}</Label>
+                                    <Input
+                                      type="number"
+                                      value={option.sell_price}
+                                      onChange={(e: any) => updateRoomOption(link.key, option.key, { sell_price: Number(e.target.value) || 0 })}
+                                    />
+                                  </div>
+                                  <div className="lg:col-span-2">
+                                    <Label>{t.packages.editor.availableLabel}</Label>
+                                    <Input
+                                      type="number"
+                                      value={option.available}
+                                      onChange={(e: any) => updateRoomOption(link.key, option.key, { available: Number(e.target.value) || 0 })}
+                                    />
+                                  </div>
+                                  <div className="lg:col-span-1 flex justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => removeRoomOption(link.key, option.key)}
+                                      className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                                      aria-label={t.packages.editor.removeRoomOption}
+                                    >
+                                      <TrashBinIcon className="size-5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
           <div className="flex items-center justify-between mb-1">
-            <h4 className="text-base font-semibold text-gray-900 dark:text-white">{t.packages.editor.variantsTitle}</h4>
+            <div>
+              <h4 className="text-base font-semibold text-gray-900 dark:text-white">{t.packages.editor.variantsTitle}</h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t.packages.editor.variantsBoundaryHelp}</p>
+            </div>
             <button
               type="button"
               onClick={addVariant}
@@ -325,7 +789,6 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
               <PlusIcon className="size-4" /> {t.packages.editor.addVariant}
             </button>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{t.packages.editor.variantsHelp}</p>
 
           {variants.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-6 text-center text-xs text-gray-400">
@@ -344,7 +807,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
                     <Select
                       value={v.tier}
                       onChange={(val) => updateVariant(i, { tier: val as PackageVariantTier })}
-                      options={(Object.keys(tierLabels) as PackageVariantTier[]).map(k => ({ value: k, label: tierLabels[k] }))}
+                      options={(Object.keys(tierLabels) as PackageVariantTier[]).map((k) => ({ value: k, label: tierLabels[k] }))}
                     />
                   </div>
                   <div className="md:col-span-2">
@@ -352,7 +815,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
                     <Select
                       value={v.accommodation}
                       onChange={(val) => updateVariant(i, { accommodation: val as Variant["accommodation"] })}
-                      options={(Object.keys(accommodationLabels) as Variant["accommodation"][]).map(k => ({ value: k, label: accommodationLabels[k] }))}
+                      options={(Object.keys(accommodationLabels) as Variant["accommodation"][]).map((k) => ({ value: k, label: accommodationLabels[k] }))}
                     />
                   </div>
                   <div className="md:col-span-2">

@@ -8,6 +8,13 @@ export interface RoomOption {
   available: number;
 }
 
+export interface PackageHotelCatalogHotel {
+  id: string;
+  name: string;
+  destination?: string;
+  stars?: number | null;
+}
+
 export interface PackageHotel {
   id: string;
   packageId: string;
@@ -15,7 +22,7 @@ export interface PackageHotel {
   roomOptions: RoomOption[];
   priceModifier: number;
   sortOrder: number;
-  hotel?: { id: string; name: string; destination?: string; stars?: number } | null;
+  hotel?: PackageHotelCatalogHotel | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,19 +37,63 @@ export interface HotelPackage {
   package?: { id: string; name: string; destination?: string; trip_type?: string } | null;
 }
 
+export interface PackageHotelUpsertInput {
+  hotelId: string;
+  roomOptions?: RoomOption[];
+  priceModifier?: number;
+  sortOrder?: number;
+}
+
+export interface PackageHotelPatchInput {
+  roomOptions?: RoomOption[];
+  priceModifier?: number;
+  sortOrder?: number;
+}
+
+function normalizeRoomOption(raw: any): RoomOption {
+  return {
+    type: raw?.type ?? 'double',
+    label: raw?.label ?? '',
+    net_price: Number(raw?.net_price ?? raw?.netPrice ?? 0),
+    sell_price: Number(raw?.sell_price ?? raw?.sellPrice ?? 0),
+    available: Number(raw?.available ?? 0),
+  };
+}
+
+export function normalizePackageHotel(raw: any): PackageHotel {
+  return {
+    id: raw.id,
+    packageId: raw.packageId ?? raw.package_id,
+    hotelId: raw.hotelId ?? raw.hotel_id,
+    roomOptions: (raw.roomOptions ?? raw.room_options ?? []).map(normalizeRoomOption),
+    priceModifier: Number(raw.priceModifier ?? raw.price_modifier ?? 0),
+    sortOrder: Number(raw.sortOrder ?? raw.sort_order ?? 0),
+    hotel: raw.hotel
+      ? {
+          id: raw.hotel.id,
+          name: raw.hotel.name,
+          destination: raw.hotel.destination,
+          stars: raw.hotel.stars ?? null,
+        }
+      : null,
+    createdAt: raw.createdAt ?? raw.created_at,
+    updatedAt: raw.updatedAt ?? raw.updated_at,
+  };
+}
+
 export async function getPackageHotels(packageId: string): Promise<PackageHotel[]> {
   const { data } = await get<{ data: PackageHotel[] }>(`/packages/${packageId}/hotels`);
-  return data?.data || [];
+  return (data?.data || []).map(normalizePackageHotel);
 }
 
-export async function linkHotelToPackage(packageId: string, body: { hotel_id: string; room_options?: RoomOption[]; price_modifier?: number; sort_order?: number }): Promise<PackageHotel> {
+export async function linkHotelToPackage(packageId: string, body: PackageHotelUpsertInput): Promise<PackageHotel> {
   const { data } = await post<PackageHotel>(`/packages/${packageId}/hotels`, body);
-  return data;
+  return normalizePackageHotel(data);
 }
 
-export async function updatePackageHotel(id: string, body: { room_options?: RoomOption[]; price_modifier?: number; sort_order?: number }): Promise<PackageHotel> {
+export async function updatePackageHotel(id: string, body: PackageHotelPatchInput): Promise<PackageHotel> {
   const { data } = await patch<PackageHotel>(`/package-hotels/${id}`, body);
-  return data;
+  return normalizePackageHotel(data);
 }
 
 export async function unlinkHotelFromPackage(id: string): Promise<void> {

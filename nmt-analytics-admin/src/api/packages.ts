@@ -1,4 +1,5 @@
 import { get, post, patch, del } from './client';
+import { type PackageHotel, normalizePackageHotel } from './packageHotels';
 
 export type PackageTransportType = 'bus' | 'flight' | 'none';
 export type PackageVariantTier = 'standard' | 'premium' | 'deluxe' | 'custom';
@@ -40,21 +41,6 @@ export interface PackageDetailService {
   notes?: string | null;
 }
 
-export interface PackageDetailHotel {
-  id: string;
-  hotel_id?: string | null;
-  hotel_name?: string | null;
-  room_type?: string | null;
-  price_per_night?: number | null;
-  check_in?: string | null;
-  check_out?: string | null;
-  rooms_reserved?: number | null;
-  hotels?: {
-    id: string;
-    name: string;
-  } | null;
-}
-
 export interface PackageDetailDeparture {
   id: string;
   depart_at: string;
@@ -67,7 +53,7 @@ export interface PackageDetailDeparture {
 
 export interface PackageDetail extends Package {
   package_services?: PackageDetailService[];
-  hotels?: PackageDetailHotel[];
+  packageHotels?: PackageHotel[];
   departures?: PackageDetailDeparture[];
 }
 
@@ -165,7 +151,17 @@ export function normalizePackage(raw: RawPackage): Package {
   };
 }
 
+function normalizePackageDetail(raw: RawPackage): PackageDetail {
+  const normalized = normalizePackage(raw) as PackageDetail;
+  normalized.package_services = raw.package_services ?? [];
+  normalized.packageHotels = (raw.packageHotels ?? raw.package_hotels ?? raw.hotels ?? []).map(normalizePackageHotel);
+  normalized.departures = raw.departures ?? [];
+  return normalized;
+}
+
 export function serializePackageVariant(variant: PackageVariant): Record<string, unknown> {
+  // Legacy variant accommodation fields remain compatibility-only.
+  // Canonical package-level accommodation links live in package_hotels.
   return {
     ...(variant.id ? { id: variant.id } : {}),
     name: variant.name.trim(),
@@ -220,7 +216,7 @@ export async function getPackages(filters: PackageFilters = {}, config?: any): P
 
 export async function getPackageById(id: string): Promise<PackageDetail> {
   const { data } = await get<{ data: PackageDetail }>(`/packages/${id}`);
-  return normalizePackage(data.data as RawPackage) as PackageDetail;
+  return normalizePackageDetail(data.data as RawPackage);
 }
 export async function createPackage(data: PackageUpsertInput): Promise<Package> {
   const { data: result } = await post<Package>('/packages', serializePackageUpsert(data));

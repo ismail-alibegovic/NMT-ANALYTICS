@@ -53,6 +53,25 @@ const packageVariantSchema = z.object({
   roomType: z.string().optional().nullable(),
 }).transform(normalizePackageVariantInput);
 
+function packageHotelDetailOut(row: any) {
+  return {
+    id: row.id,
+    packageId: row.package_id,
+    hotelId: row.hotel_id,
+    roomOptions: row.room_options || [],
+    priceModifier: Number(row.price_modifier || 0),
+    sortOrder: row.sort_order ?? 0,
+    hotel: row.hotels ? {
+      id: row.hotels.id,
+      name: row.hotels.name,
+      destination: row.hotels.destination,
+      stars: row.hotels.stars,
+    } : null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 export function buildPackageUpdateData(validated: Record<string, any>) {
   const updateData: any = {};
 
@@ -437,14 +456,14 @@ router.get('/packages/:id', authenticateToken, requireOrgContext, async (req: an
 
     const [servicesRes, hotelsRes, departuresRes] = await Promise.all([
       supabaseAdmin.from('package_services').select('*').eq('package_id', id).eq('org_id', orgId),
-      supabaseAdmin.from('package_hotels').select('*, hotels!inner(id, name)').eq('package_id', id).eq('org_id', orgId),
+      supabaseAdmin.from('package_hotels').select('*, hotels:hotel_id(id, name, destination, stars)').eq('package_id', id).eq('org_id', orgId).order('sort_order'),
       supabaseAdmin.from('departures').select('id, depart_at, return_at, status, capacity, booked, transport_type').eq('package_id', id).eq('org_id', orgId).limit(100),
     ]);
 
     res.json(createSuccessResponse({
       ...pkg,
       package_services: servicesRes.data || [],
-      hotels: hotelsRes.data?.map((h: any) => ({ ...h, hotel_name: h.hotels?.name })) || [],
+      package_hotels: hotelsRes.data?.map(packageHotelDetailOut) || [],
       departures: departuresRes.data || [],
     }, 'Package retrieved successfully'));
   } catch (error) {

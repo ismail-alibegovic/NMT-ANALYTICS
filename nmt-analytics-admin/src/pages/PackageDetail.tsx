@@ -10,7 +10,7 @@ import PackageEditorModal from "../components/packages/PackageEditorModal";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 import { useT } from "../lib/i18n/context";
-import { getPackageById, type PackageDetail, type PackageDetailDeparture, type PackageDetailHotel, type PackageDetailService } from "../api/packages";
+import { getPackageById, type PackageDetail, type PackageDetailDeparture, type PackageDetailService } from "../api/packages";
 
 const formatCurrency = (amount?: number | null, currency = "BAM") =>
   new Intl.NumberFormat("bs-BA", { style: "currency", currency }).format(Number(amount || 0));
@@ -82,7 +82,7 @@ export default function PackageDetail() {
   }, [id, user, authLoading, showError, t.common.error]);
 
   const serviceRows = useMemo(() => pkg?.package_services || [], [pkg]);
-  const hotelRows = useMemo(() => pkg?.hotels || [], [pkg]);
+  const hotelRows = useMemo(() => pkg?.packageHotels || [], [pkg]);
   const departureRows = useMemo(() => pkg?.departures || [], [pkg]);
 
   const serviceColumns: Column<PackageDetailService>[] = [
@@ -91,45 +91,6 @@ export default function PackageDetail() {
     { key: "quantity", header: t.packages.quantity, render: (value) => <span className="text-sm text-gray-600 dark:text-gray-300">{value ?? "—"}</span> },
     { key: "unit_price", header: t.packages.basePrice, render: (_v, row) => <span className="text-sm text-gray-600 dark:text-gray-300">{formatCurrency(row.unit_price, row.currency || pkg?.currency || "BAM")}</span> },
     { key: "notes", header: t.payments.note, render: (value) => <span className="text-sm text-gray-500 dark:text-gray-400">{(value as string) || "—"}</span> },
-  ];
-
-  const hotelColumns: Column<PackageDetailHotel>[] = [
-    {
-      key: "hotel_name",
-      header: t.packages.hotel,
-      render: (_v, row) => (
-        <div className="flex flex-col">
-          <span className="font-medium text-gray-900 dark:text-white">{row.hotel_name || row.hotels?.name || "—"}</span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">{row.room_type || "—"}</span>
-        </div>
-      ),
-    },
-    {
-      key: "check_in",
-      header: t.operations.hotels.checkIn || "Check-in",
-      render: (_v, row) => <span className="text-sm text-gray-600 dark:text-gray-300">{formatDate(row.check_in)}</span>,
-    },
-    {
-      key: "check_out",
-      header: t.operations.hotels.checkOut || "Check-out",
-      render: (_v, row) => <span className="text-sm text-gray-600 dark:text-gray-300">{formatDate(row.check_out)}</span>,
-    },
-    {
-      key: "rooms_reserved",
-      header: t.operations.hotels.roomsReserved || "Rooms",
-      render: (value) => <span className="text-sm text-gray-600 dark:text-gray-300">{value ?? "—"}</span>,
-    },
-    {
-      key: "actions",
-      header: "",
-      render: (_v, row) => row.hotel_id ? (
-        <div className="flex justify-end">
-          <Button size="sm" variant="outline" onClick={() => navigate(`/operations/hotels?hotelId=${row.hotel_id}`)}>
-            {t.packages.routeToHotel}
-          </Button>
-        </div>
-      ) : null,
-    },
   ];
 
   const departureColumns: Column<PackageDetailDeparture>[] = [
@@ -262,9 +223,69 @@ export default function PackageDetail() {
 
         <SectionCard title={t.packages.linkedHotels}>
           {hotelRows.length === 0 ? (
-            <EmptyState title={t.packages.noLinkedHotels} description={t.packages.description} />
+            <EmptyState
+              title={t.packages.noLinkedHotels}
+              description={t.packages.noLinkedHotelsDescription}
+              action={{ label: t.packages.edit, onClick: () => setEditorOpen(true) }}
+            />
           ) : (
-            <DataTable data={hotelRows} columns={hotelColumns} />
+            <div className="space-y-4">
+              {hotelRows
+                .slice()
+                .sort((a, b) => a.sortOrder - b.sortOrder || a.hotelId.localeCompare(b.hotelId))
+                .map((hotelLink) => (
+                  <div key={hotelLink.id} className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{hotelLink.hotel?.name || "—"}</h3>
+                          {hotelLink.hotel?.stars ? <Badge color="light" size="sm">{hotelLink.hotel.stars}★</Badge> : null}
+                          <Badge color="light" size="sm">{t.packages.editor.sortOrderLabel}: {hotelLink.sortOrder}</Badge>
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{hotelLink.hotel?.destination || t.packages.editor.noHotelDestination}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge color="light" size="sm">{t.packages.priceModifier}: {formatCurrency(hotelLink.priceModifier, pkg.currency || "BAM")}</Badge>
+                        {hotelLink.hotelId ? (
+                          <Button size="sm" variant="outline" onClick={() => navigate(`/operations/hotels?hotelId=${hotelLink.hotelId}`)}>
+                            {t.packages.routeToHotel}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">{t.packages.roomOptions}</p>
+                      {hotelLink.roomOptions.length === 0 ? (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t.packages.noRoomOptions}</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {hotelLink.roomOptions.map((option, index) => (
+                            <div key={`${hotelLink.id}-${option.type}-${option.label}-${index}`} className="grid gap-3 rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03] md:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,0.7fr))]">
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{option.label}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{t.packages.editor.roomTypeLabels[option.type as keyof typeof t.packages.editor.roomTypeLabels] || option.type}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">{t.packages.editor.netPriceLabel}</p>
+                                <p className="font-medium text-gray-900 dark:text-white">{formatCurrency(option.net_price, pkg.currency || "BAM")}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">{t.packages.editor.sellPriceLabel}</p>
+                                <p className="font-medium text-gray-900 dark:text-white">{formatCurrency(option.sell_price, pkg.currency || "BAM")}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">{t.packages.editor.availableLabel}</p>
+                                <p className="font-medium text-gray-900 dark:text-white">{option.available}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
           )}
         </SectionCard>
 

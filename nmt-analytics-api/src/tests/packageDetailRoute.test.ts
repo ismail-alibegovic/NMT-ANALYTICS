@@ -35,10 +35,17 @@ const packageHotels = [
     package_id: packageRow.id,
     org_id: 'org-1',
     hotel_id: 'hotel-1',
-    room_type: 'double',
+    room_options: [
+      { type: 'double', label: 'Double room', net_price: 80, sell_price: 100, available: 5 },
+      { type: 'suite', label: 'Suite', net_price: 150, sell_price: 220, available: 2 },
+    ],
+    price_modifier: 45,
+    sort_order: 1,
     hotels: {
       id: 'hotel-1',
       name: 'Test Hotel',
+      destination: 'Istanbul',
+      stars: 4,
     },
   },
 ];
@@ -101,31 +108,34 @@ vi.mock('../lib/supabase', () => ({
       }
 
       if (table === 'package_services') {
+        const execute = async () => {
+          const matches = filters.package_id === packageRow.id && filters.org_id === packageRow.org_id;
+          return { data: matches ? packageServices : [], error: null };
+        };
         const builder: any = {
           select: vi.fn(() => builder),
           eq: vi.fn((column: string, value: any) => {
             filters[column] = value;
-            if (filters.package_id !== undefined && filters.org_id !== undefined) {
-              const matches = filters.package_id === packageRow.id && filters.org_id === packageRow.org_id;
-              return Promise.resolve({ data: matches ? packageServices : [], error: null });
-            }
             return builder;
           }),
+          then: (resolve: any, reject: any) => execute().then(resolve, reject),
         };
         return builder;
       }
 
       if (table === 'package_hotels') {
+        const execute = async () => {
+          const matches = filters.package_id === packageRow.id && filters.org_id === packageRow.org_id;
+          return { data: matches ? packageHotels : [], error: null };
+        };
         const builder: any = {
           select: vi.fn(() => builder),
           eq: vi.fn((column: string, value: any) => {
             filters[column] = value;
-            if (filters.package_id !== undefined && filters.org_id !== undefined) {
-              const matches = filters.package_id === packageRow.id && filters.org_id === packageRow.org_id;
-              return Promise.resolve({ data: matches ? packageHotels : [], error: null });
-            }
             return builder;
           }),
+          order: vi.fn(() => builder),
+          then: (resolve: any, reject: any) => execute().then(resolve, reject),
         };
         return builder;
       }
@@ -172,7 +182,20 @@ describe('GET /api/packages/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.id).toBe(packageRow.id);
     expect(res.body.data.package_services).toHaveLength(1);
-    expect(res.body.data.hotels[0].hotel_name).toBe('Test Hotel');
+    expect(res.body.data.package_hotels[0]).toMatchObject({
+      hotelId: 'hotel-1',
+      priceModifier: 45,
+      sortOrder: 1,
+      hotel: {
+        name: 'Test Hotel',
+        destination: 'Istanbul',
+        stars: 4,
+      },
+    });
+    expect(res.body.data.package_hotels[0].roomOptions).toEqual([
+      { type: 'double', label: 'Double room', net_price: 80, sell_price: 100, available: 5 },
+      { type: 'suite', label: 'Suite', net_price: 150, sell_price: 220, available: 2 },
+    ]);
     expect(res.body.data.departures[0].id).toBe('dep-1');
   });
 
