@@ -78,6 +78,7 @@ vi.mock('../lib/i18n/context', () => ({
           accommodationTitle: 'Accommodation',
           accommodationHelp: 'Accommodation help',
           accommodationCreateFirst: 'Create first',
+          accommodationPersistenceFailed: 'The package was created, but accommodation could not be saved. Fix the issue and save again to retry accommodation without creating a duplicate package.',
           accommodationLoadError: 'Failed to load package accommodation.',
           selectHotelLabel: 'Hotel from catalog',
           selectHotelPlaceholder: 'Select an existing hotel',
@@ -219,6 +220,171 @@ describe('PackageEditorModal', () => {
     expect(await screen.findByText('Hotel Bosna')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Double room')).toBeInTheDocument();
     expect(screen.getByDisplayValue('25')).toBeInTheDocument();
+  });
+
+  it('loads the hotel catalog in create mode and allows adding a hotel before the package exists', async () => {
+    render(
+      <PackageEditorModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        initialValues={{ name: 'New package', destination: 'Medina', currency: 'BAM' }}
+      />,
+    );
+
+    await waitFor(() => expect(getHotels).toHaveBeenCalledTimes(1));
+    expect(getPackageHotels).not.toHaveBeenCalled();
+
+    fireEvent.change(getHotelSelect(), { target: { value: 'hotel-2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Attach hotel' }));
+
+    expect(await screen.findByText('Hotel Medine')).toBeInTheDocument();
+  });
+
+  it('creates the package first, then persists multiple room options using the returned package id', async () => {
+    createPackage.mockResolvedValue({
+      id: 'pkg-new',
+      name: 'New package',
+      destination: 'Medina',
+      price: 0,
+      currency: 'BAM',
+      active: true,
+      variants: [],
+    });
+    const onSaved = vi.fn().mockResolvedValue(undefined);
+    const onClose = vi.fn();
+
+    render(
+      <PackageEditorModal
+        isOpen={true}
+        onClose={onClose}
+        onSaved={onSaved}
+        initialValues={{ name: 'New package', destination: 'Medina', currency: 'BAM' }}
+      />,
+    );
+
+    await waitFor(() => expect(getHotels).toHaveBeenCalledTimes(1));
+    fireEvent.change(getHotelSelect(), { target: { value: 'hotel-2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Attach hotel' }));
+
+    const medineCard = await screen.findByText('Hotel Medine');
+    const hotelCard = medineCard.closest('.rounded-xl.border') as HTMLElement;
+    fireEvent.click(within(hotelCard).getByRole('button', { name: 'Add room option' }));
+    fireEvent.click(within(hotelCard).getByRole('button', { name: 'Add room option' }));
+
+    const roomTypeSelects = within(hotelCard).getAllByRole('combobox');
+    fireEvent.change(roomTypeSelects[roomTypeSelects.length - 2], { target: { value: 'single' } });
+    fireEvent.change(roomTypeSelects[roomTypeSelects.length - 1], { target: { value: 'suite' } });
+
+    const roomLabels = within(hotelCard).getAllByPlaceholderText('e.g. Double room with balcony');
+    fireEvent.change(roomLabels[0], { target: { value: 'Single room' } });
+    fireEvent.change(roomLabels[1], { target: { value: 'Family suite' } });
+
+    const numberInputs = within(hotelCard).getAllByRole('spinbutton');
+    fireEvent.change(numberInputs[numberInputs.length - 6], { target: { value: '90' } });
+    fireEvent.change(numberInputs[numberInputs.length - 5], { target: { value: '120' } });
+    fireEvent.change(numberInputs[numberInputs.length - 4], { target: { value: '4' } });
+    fireEvent.change(numberInputs[numberInputs.length - 3], { target: { value: '180' } });
+    fireEvent.change(numberInputs[numberInputs.length - 2], { target: { value: '240' } });
+    fireEvent.change(numberInputs[numberInputs.length - 1], { target: { value: '2' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create package' }));
+
+    await waitFor(() => expect(createPackage).toHaveBeenCalledTimes(1));
+    expect(linkHotelToPackage).toHaveBeenCalledWith('pkg-new', expect.objectContaining({
+      hotelId: 'hotel-2',
+      roomOptions: [
+        { type: 'single', label: 'Single room', net_price: 90, sell_price: 120, available: 4 },
+        { type: 'suite', label: 'Family suite', net_price: 180, sell_price: 240, available: 2 },
+      ],
+    }));
+    expect(toastSuccess).toHaveBeenCalledWith('Package created.');
+    expect(toastError).not.toHaveBeenCalled();
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not create a duplicate package when accommodation persistence fails after create and the user retries', async () => {
+    createPackage.mockResolvedValue({
+      id: 'pkg-new',
+      name: 'New package',
+      destination: 'Medina',
+      price: 0,
+      currency: 'BAM',
+      active: true,
+      variants: [],
+    });
+    updatePackage.mockResolvedValue({
+      id: 'pkg-new',
+      name: 'New package',
+      destination: 'Medina',
+      price: 0,
+      currency: 'BAM',
+      active: true,
+      variants: [],
+    });
+    linkHotelToPackage
+      .mockRejectedValueOnce(new Error('Hotel link failed'))
+      .mockResolvedValueOnce({
+        id: 'link-created',
+        packageId: 'pkg-new',
+        hotelId: 'hotel-2',
+        priceModifier: 0,
+        sortOrder: 0,
+        createdAt: '2026-08-30T12:00:00.000Z',
+        updatedAt: '2026-08-30T12:00:00.000Z',
+        hotel: { id: 'hotel-2', name: 'Hotel Medine', destination: 'Medina', stars: 5 },
+        roomOptions: [
+          { type: 'double', label: 'Family suite', net_price: 140, sell_price: 180, available: 3 },
+        ],
+      });
+    getPackageHotels.mockResolvedValue([]);
+
+    const onSaved = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <PackageEditorModal
+        isOpen={true}
+        onClose={onClose}
+        onSaved={onSaved}
+        initialValues={{ name: 'New package', destination: 'Medina', currency: 'BAM' }}
+      />,
+    );
+
+    await waitFor(() => expect(getHotels).toHaveBeenCalledTimes(1));
+    fireEvent.change(getHotelSelect(), { target: { value: 'hotel-2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Attach hotel' }));
+
+    const medineCard = await screen.findByText('Hotel Medine');
+    const hotelCard = medineCard.closest('.rounded-xl.border') as HTMLElement;
+    fireEvent.click(within(hotelCard).getByRole('button', { name: 'Add room option' }));
+    const roomLabels = within(hotelCard).getAllByPlaceholderText('e.g. Double room with balcony');
+    fireEvent.change(roomLabels[roomLabels.length - 1], { target: { value: 'Family suite' } });
+    const numberInputs = within(hotelCard).getAllByRole('spinbutton');
+    fireEvent.change(numberInputs[numberInputs.length - 3], { target: { value: '140' } });
+    fireEvent.change(numberInputs[numberInputs.length - 2], { target: { value: '180' } });
+    fireEvent.change(numberInputs[numberInputs.length - 1], { target: { value: '3' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create package' }));
+
+    await waitFor(() => expect(createPackage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith(expect.stringContaining('The package was created, but accommodation could not be saved.')));
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create package' }));
+
+    await waitFor(() => expect(updatePackage).toHaveBeenCalledWith('pkg-new', expect.objectContaining({
+      name: 'New package',
+      destination: 'Medina',
+    })));
+    expect(createPackage).toHaveBeenCalledTimes(1);
+    expect(linkHotelToPackage).toHaveBeenCalledTimes(2);
+    expect(toastSuccess).toHaveBeenCalledWith('Package created.');
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('allows attaching a hotel, editing room options, and saves the canonical payload', async () => {

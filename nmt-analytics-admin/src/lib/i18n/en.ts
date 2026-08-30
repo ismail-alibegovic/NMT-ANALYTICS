@@ -365,6 +365,7 @@ export const en = {
       accommodationTitle: 'Accommodation',
       accommodationHelp: 'Attach hotels from your catalog and configure reusable room options for this package template. This does not create departure allocations or rooming inventory.',
       accommodationCreateFirst: 'Create the package first, then reopen the editor to attach hotels and room options.',
+      accommodationPersistenceFailed: 'The package was created, but accommodation could not be saved. Fix the issue and save again to retry accommodation without creating a duplicate package.',
       accommodationLoadError: 'Failed to load package accommodation.',
       selectHotelLabel: 'Hotel from catalog',
       selectHotelPlaceholder: 'Select an existing hotel',

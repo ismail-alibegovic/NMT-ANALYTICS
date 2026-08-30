@@ -365,6 +365,7 @@ export const bs: Translations = {
       accommodationTitle: 'Smještaj',
       accommodationHelp: 'Povežite hotele iz svog kataloga i podesite ponovo iskoristive opcije soba za ovaj predložak paketa. Ovo ne kreira alokacije po polasku niti inventar za rooming.',
       accommodationCreateFirst: 'Prvo kreirajte paket, zatim ponovo otvorite editor da povežete hotele i opcije soba.',
+      accommodationPersistenceFailed: 'Paket je kreiran, ali smještaj nije sačuvan. Ispravite problem i ponovo sačuvajte da pokušate smještaj bez kreiranja duplog paketa.',
       accommodationLoadError: 'Učitavanje smještaja za paket nije uspjelo.',
       selectHotelLabel: 'Hotel iz kataloga',
       selectHotelPlaceholder: 'Odaberite postojeći hotel',

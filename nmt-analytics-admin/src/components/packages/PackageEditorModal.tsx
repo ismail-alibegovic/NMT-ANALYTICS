@@ -141,6 +141,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
   const [accommodationLoading, setAccommodationLoading] = useState(false);
   const [accommodationError, setAccommodationError] = useState<string | null>(null);
   const [selectedHotelId, setSelectedHotelId] = useState("");
+  const [createdPackageId, setCreatedPackageId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -196,7 +197,34 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
     setAccommodationError(null);
     setLinkedHotels([]);
     setPersistedLinks([]);
+    setCatalogHotels([]);
+    setCreatedPackageId(null);
   }, [isOpen, initial, initialValues]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let alive = true;
+
+    (async () => {
+      setAccommodationLoading(true);
+      setAccommodationError(null);
+      try {
+        const hotelCatalog = await getHotels();
+        if (!alive) return;
+        setCatalogHotels(hotelCatalog);
+      } catch (err: any) {
+        if (!alive) return;
+        setCatalogHotels([]);
+        setAccommodationError(err?.message || t.packages.editor.accommodationLoadError);
+      } finally {
+        if (alive) setAccommodationLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [isOpen, t.packages.editor.accommodationLoadError]);
 
   useEffect(() => {
     if (!isOpen || !initial?.id) return;
@@ -206,17 +234,12 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       setAccommodationLoading(true);
       setAccommodationError(null);
       try {
-        const [hotelCatalog, packageHotelLinks] = await Promise.all([
-          getHotels(),
-          getPackageHotels(initial.id!),
-        ]);
+        const packageHotelLinks = await getPackageHotels(initial.id!);
         if (!alive) return;
-        setCatalogHotels(hotelCatalog);
         setPersistedLinks(packageHotelLinks);
         setLinkedHotels(packageHotelLinks.map(toEditablePackageHotel));
       } catch (err: any) {
         if (!alive) return;
-        setCatalogHotels([]);
         setPersistedLinks([]);
         setLinkedHotels([]);
         setAccommodationError(err?.message || t.packages.editor.accommodationLoadError);
@@ -435,6 +458,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
     setSubmitting(true);
     setAccommodationError(null);
     try {
+      const createMode = !initial?.id;
       const payload = {
         name: name.trim(),
         destination: destination.trim(),
@@ -462,15 +486,38 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
         })),
       };
 
-      const savedPackage = initial?.id
-        ? await updatePackage(initial.id, payload)
-        : await createPackage(itineraryId ? { ...payload, itineraryId } : payload);
+      let packageId = initial?.id ?? createdPackageId ?? null;
+      let createdThisSession = false;
 
-      if (linkedHotels.length > 0 || persistedLinks.length > 0) {
-        await savePackageHotels(savedPackage.id);
+      if (initial?.id) {
+        await updatePackage(initial.id, payload);
+        packageId = initial.id;
+      } else if (createdPackageId) {
+        await updatePackage(createdPackageId, payload);
+        packageId = createdPackageId;
+      } else {
+        const createdPackage = await createPackage(itineraryId ? { ...payload, itineraryId } : payload);
+        packageId = createdPackage.id;
+        createdThisSession = true;
+        setCreatedPackageId(createdPackage.id);
       }
 
-      success(initial?.id ? t.packages.editor.updated : t.packages.editor.created);
+      if (packageId && (linkedHotels.length > 0 || persistedLinks.length > 0)) {
+        try {
+          await savePackageHotels(packageId);
+        } catch (e: any) {
+          if (createMode && (createdThisSession || createdPackageId)) {
+            const detail = e?.message ?? t.packages.editor.saveError;
+            const message = `${t.packages.editor.accommodationPersistenceFailed} ${detail}`.trim();
+            setAccommodationError(message);
+            error(message);
+            return;
+          }
+          throw e;
+        }
+      }
+
+      success(createMode ? t.packages.editor.created : t.packages.editor.updated);
       await Promise.resolve(onSaved());
       onClose();
     } catch (e: any) {
@@ -602,11 +649,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
             </div>
           </div>
 
-          {!initial?.id ? (
-            <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-4 text-sm text-gray-500 dark:text-gray-400">
-              {t.packages.editor.accommodationCreateFirst}
-            </div>
-          ) : accommodationLoading ? (
+          {accommodationLoading ? (
             <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-4 text-sm text-gray-500 dark:text-gray-400">
               {t.common.loading}
             </div>
