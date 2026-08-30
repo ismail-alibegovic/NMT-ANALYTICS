@@ -71,11 +71,7 @@ export default function PackageDetail() {
       setLoading(true);
       try {
         const result = await getPackageById(id);
-        setPkg({
-          ...result,
-          price: result.price ?? result.base_price ?? 0,
-          active: result.active ?? result.is_active ?? true,
-        });
+        setPkg(result);
       } catch (err: any) {
         setPkg(null);
         showError(err?.message || t.common.error);
@@ -221,7 +217,7 @@ export default function PackageDetail() {
               <div className="flex flex-wrap items-center gap-2">
                 <Badge color={pkg.active ? "success" : "error"} size="sm">{pkg.active ? t.packages.active : t.packages.inactive}</Badge>
                 {pkg.tripType && <Badge color="light" size="sm">{pkg.tripType}</Badge>}
-                {pkg.transport_type && <Badge color="light" size="sm">{pkg.transport_type}</Badge>}
+                {pkg.transportType && <Badge color="light" size="sm">{pkg.transportType}</Badge>}
               </div>
               <p className="text-sm leading-6 text-gray-600 dark:text-gray-300">{pkg.description || t.packages.noDescription}</p>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -251,7 +247,7 @@ export default function PackageDetail() {
             <InfoRow label={t.packages.duration} value={pkg.durationDays ?? "—"} />
             <InfoRow label={t.packages.maxParticipants} value={pkg.maxParticipants ?? "—"} />
             <InfoRow label={t.packages.tripType} value={pkg.tripType || "—"} />
-            <InfoRow label={t.packages.transportType} value={pkg.transport_type || "—"} />
+            <InfoRow label={t.packages.transportType} value={pkg.transportType || "—"} />
             <InfoRow label={t.packages.createdAt} value={formatDate(pkg.created_at)} />
           </SectionCard>
         </div>
@@ -285,14 +281,9 @@ export default function PackageDetail() {
         isOpen={editorOpen}
         onClose={() => setEditorOpen(false)}
         onSaved={async () => {
-          setEditorOpen(false);
           if (!id) return;
           const fresh = await getPackageById(id);
-          setPkg({
-            ...fresh,
-            price: fresh.price ?? fresh.base_price ?? 0,
-            active: fresh.active ?? fresh.is_active ?? true,
-          });
+          setPkg(fresh);
         }}
         initial={pkg}
       />
