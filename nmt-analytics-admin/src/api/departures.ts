@@ -565,13 +565,39 @@ export interface RoomingProposal {
   groups?: RoomingGroupSummary[];
 }
 
-export async function generateRoomingProposal(departureId: string): Promise<RoomingProposal> {
-  const r = await post<RoomingProposal>(`/departures/${departureId}/rooming/proposal`, {});
-  return r.data;
+export interface RoomingProposalApplyItem {
+  passengerId: string;
+  roomId: string;
 }
 
-export async function applyRoomingProposal(departureId: string, assignmentIds: string[]): Promise<{ applied: number }> {
-  const r = await post<{ applied: number }>(`/departures/${departureId}/rooming/apply`, { assignmentIds });
+function normalizeRoomingProposal(proposal: RoomingProposal): RoomingProposal {
+  return {
+    ...proposal,
+    items: proposal.items ?? proposal.assignments,
+    placedCount: proposal.placedCount ?? proposal.summary?.passengersProposed ?? proposal.assignments.length,
+    unplacedCount: proposal.unplacedCount ?? proposal.summary?.unplacedCount ?? proposal.unplaced.length,
+    groupsKeptTogether:
+      proposal.groupsKeptTogether ?? proposal.summary?.groupsTogether ?? proposal.groupResults.filter((group) => group.status === 'together').length,
+    groupsSplit:
+      proposal.groupsSplit ?? proposal.summary?.groupsSplit ?? proposal.groupResults.filter((group) => group.status === 'split').length,
+    groups: proposal.groups ?? proposal.groupResults,
+  };
+}
+
+export async function generateRoomingProposal(departureId: string): Promise<RoomingProposal> {
+  const r = await post<RoomingProposal>(`/departures/${departureId}/rooming/proposal`, {});
+  return normalizeRoomingProposal(r.data);
+}
+
+export async function applyRoomingProposal(
+  departureId: string,
+  assignmentIds: string[],
+  proposalAssignments: RoomingProposalApplyItem[],
+): Promise<{ applied: number }> {
+  const r = await post<{ applied: number }>(`/departures/${departureId}/rooming/apply`, {
+    assignmentIds,
+    proposalAssignments,
+  });
   return r.data;
 }
 

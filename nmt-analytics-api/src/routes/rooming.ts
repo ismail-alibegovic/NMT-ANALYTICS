@@ -12,6 +12,10 @@ const router = Router();
 
 const applyProposalSchema = z.object({
   assignmentIds: z.array(z.string().uuid()).min(1),
+  proposalAssignments: z.array(z.object({
+    passengerId: z.string().uuid(),
+    roomId: z.string().uuid(),
+  })).min(1),
   proposalSummary: z.object({
     totalPassengers: z.number(),
     passengersProposed: z.number(),
@@ -157,7 +161,27 @@ router.post(
       const r = applyProposalSchema.safeParse(req.body);
       if (!r.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', r.error.issues);
 
-      const { assignmentIds } = r.data;
+      const { assignmentIds, proposalAssignments } = r.data;
+
+      const reviewedAssignmentMap = new Map(proposalAssignments.map((item) => [item.passengerId, item.roomId]));
+      if (reviewedAssignmentMap.size !== proposalAssignments.length) {
+        return apiError(res, 400, 'VALIDATION_ERROR', 'Proposal contains duplicate passengers');
+      }
+
+      if (assignmentIds.length !== proposalAssignments.length) {
+        return apiError(res, 400, 'VALIDATION_ERROR', 'Proposal payload is inconsistent');
+      }
+
+      const requestedIds = new Set(assignmentIds);
+      if (requestedIds.size !== assignmentIds.length) {
+        return apiError(res, 400, 'VALIDATION_ERROR', 'Proposal contains duplicate passengers');
+      }
+
+      for (const item of proposalAssignments) {
+        if (!requestedIds.has(item.passengerId)) {
+          return apiError(res, 400, 'VALIDATION_ERROR', 'Proposal payload is inconsistent');
+        }
+      }
 
       // Regenerate proposal to verify current state matches
       const newProposal = await regenerateAndValidate(departureId, orgId);
@@ -166,11 +190,16 @@ router.post(
       }
 
       const { assignments } = newProposal;
-      const requestedIds = new Set(assignmentIds);
       const toApply = assignments.filter(a => requestedIds.has(a.passengerId));
 
-      if (toApply.length === 0) {
-        return apiError(res, 409, 'STALE_PROPOSAL', 'No matching passengers to assign — state may have changed');
+      if (toApply.length !== assignmentIds.length) {
+        return apiError(res, 409, 'STALE_PROPOSAL', 'Proposal no longer matches current rooming state');
+      }
+
+      for (const assignment of toApply) {
+        if (reviewedAssignmentMap.get(assignment.passengerId) !== assignment.roomId) {
+          return apiError(res, 409, 'STALE_PROPOSAL', 'Proposal no longer matches current rooming state');
+        }
       }
 
       // Atomic apply via RPC — single Postgres transaction validates + inserts all assignments

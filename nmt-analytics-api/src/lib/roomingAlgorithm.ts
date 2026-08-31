@@ -79,29 +79,59 @@ const PREFERENCE_PRIORITY: Record<string, number> = {
   no_preference: 4,
 };
 
+function compareStrings(a: string | null | undefined, b: string | null | undefined): number {
+  return (a || '').localeCompare(b || '');
+}
+
 function remainingCapacity(room: RoomingRoom): number {
   return room.capacity - room.occupied;
 }
 
-function roomsByPreference(rooms: RoomingRoom[], preference: string, occupiedRoomIds: Set<string>): RoomingRoom[] {
-  const avail = rooms.filter(r => remainingCapacity(r) > 0 && !occupiedRoomIds.has(r.id));
-  if (preference === 'same_floor') {
-    const floorCounts = new Map<number, RoomingRoom[]>();
-    for (const r of avail) {
-      const arr = floorCounts.get(r.floorNumber) || [];
-      arr.push(r);
-      floorCounts.set(r.floorNumber, arr);
-    }
-    const bestFloor = [...floorCounts.values()].sort((a, b) => b.length - a.length)[0] || [];
-    return bestFloor.sort((a, b) => a.capacity - b.capacity);
-  }
-  return avail.sort((a, b) => a.capacity - b.capacity);
+function compareRoomsCanonical(a: RoomingRoom, b: RoomingRoom): number {
+  return (
+    compareStrings(a.buildingId, b.buildingId) ||
+    a.floorNumber - b.floorNumber ||
+    compareStrings(a.floorId, b.floorId) ||
+    compareStrings(a.roomNumber, b.roomNumber) ||
+    compareStrings(a.id, b.id)
+  );
+}
+
+function compareRoomsByRemainingCapacityAsc(a: RoomingRoom, b: RoomingRoom): number {
+  return remainingCapacity(a) - remainingCapacity(b) || compareRoomsCanonical(a, b);
+}
+
+function compareRoomsByRemainingCapacityDesc(a: RoomingRoom, b: RoomingRoom): number {
+  return remainingCapacity(b) - remainingCapacity(a) || compareRoomsCanonical(a, b);
+}
+
+function compareGroupEntries(
+  a: [string, RoomingPassenger[]],
+  b: [string, RoomingPassenger[]],
+  groupPrefs: Map<string, string>,
+): number {
+  const aGroupId = a[0];
+  const bGroupId = b[0];
+  const pa = PREFERENCE_PRIORITY[groupPrefs.get(aGroupId) || 'no_preference'] ?? 99;
+  const pb = PREFERENCE_PRIORITY[groupPrefs.get(bGroupId) || 'no_preference'] ?? 99;
+  return pa - pb || compareStrings(aGroupId, bGroupId);
+}
+
+function comparePassengersCanonical(a: RoomingPassenger, b: RoomingPassenger): number {
+  return compareStrings(a.id, b.id);
+}
+
+function compareFloorCandidateEntry(
+  a: [string, RoomingRoom[]],
+  b: [string, RoomingRoom[]],
+): number {
+  return totalCap(b[1]) - totalCap(a[1]) || compareStrings(a[0], b[0]);
 }
 
 function tryFitGroupInOneRoom(rooms: RoomingRoom[], groupSize: number): RoomingRoom | null {
   const fit = rooms.filter(r => remainingCapacity(r) >= groupSize);
   if (fit.length === 0) return null;
-  return fit.sort((a, b) => remainingCapacity(a) - remainingCapacity(b))[0];
+  return fit.sort(compareRoomsByRemainingCapacityAsc)[0];
 }
 
 function tryFitGroupInMultipleRooms(
@@ -118,7 +148,10 @@ function tryFitGroupInMultipleRooms(
       arr.push(r);
       byBuilding.set(r.buildingId, arr);
     }
-    candidates = [...byBuilding.values()].sort((a, b) => totalCap(b) - totalCap(a))[0] || candidates;
+    const bestBuilding = [...byBuilding.entries()].sort((a, b) =>
+      totalCap(b[1]) - totalCap(a[1]) || compareStrings(a[0], b[0]),
+    )[0];
+    candidates = bestBuilding ? bestBuilding[1] : candidates;
   }
   if (preferSameFloor) {
     const byFloor = new Map<string, RoomingRoom[]>();
@@ -128,10 +161,11 @@ function tryFitGroupInMultipleRooms(
       arr.push(r);
       byFloor.set(key, arr);
     }
-    candidates = [...byFloor.values()].sort((a, b) => totalCap(b) - totalCap(a))[0] || candidates;
+    const bestFloor = [...byFloor.entries()].sort(compareFloorCandidateEntry)[0];
+    candidates = bestFloor ? bestFloor[1] : candidates;
   }
 
-  const sorted = candidates.sort((a, b) => remainingCapacity(b) - remainingCapacity(a));
+  const sorted = candidates.sort(compareRoomsByRemainingCapacityDesc);
   const selected: RoomingRoom[] = [];
   let remaining = groupSize;
   for (const r of sorted) {
@@ -153,18 +187,24 @@ export function generateRoomingProposal(
   rooms: RoomingRoom[],
   groups: RoomingGroup[],
 ): RoomingProposal {
-  const passengerMap = new Map(passengers.map(p => [p.id, p]));
-  const unplacedPassengerIds = new Set(passengers.map(p => p.id));
+  const canonicalPassengers = [...passengers].sort(comparePassengersCanonical);
+  const canonicalRooms = [...rooms]
+    .map((room) => ({ ...room }))
+    .sort(compareRoomsCanonical);
+  const canonicalGroups = [...groups]
+    .map((group) => ({ ...group, memberIds: [...group.memberIds].sort(compareStrings) }))
+    .sort((a, b) => compareStrings(a.id, b.id));
+  const unplacedPassengerIds = new Set(canonicalPassengers.map(p => p.id));
   const occupiedRoomIds = new Set<string>();
   const assignments: ProposedAssignment[] = [];
   const warnings: string[] = [];
 
   const groupMap = new Map<string, RoomingGroup>();
-  for (const g of groups) groupMap.set(g.id, g);
+  for (const g of canonicalGroups) groupMap.set(g.id, g);
 
   const groupPassengers = new Map<string, RoomingPassenger[]>();
   const groupPrefs = new Map<string, string>();
-  for (const p of passengers) {
+  for (const p of canonicalPassengers) {
     if (p.groupId && groupMap.has(p.groupId)) {
       const arr = groupPassengers.get(p.groupId) || [];
       arr.push(p);
@@ -179,14 +219,12 @@ export function generateRoomingProposal(
     }
   }
 
-  const sortedGroups = [...groupPassengers.entries()].sort(([, a], [, b]) => {
-    const pa = PREFERENCE_PRIORITY[groupPrefs.get(a[0].groupId!) || 'no_preference'] ?? 99;
-    const pb = PREFERENCE_PRIORITY[groupPrefs.get(b[0].groupId!) || 'no_preference'] ?? 99;
-    return pa - pb;
-  });
+  const sortedGroups = [...groupPassengers.entries()]
+    .map(([groupId, members]) => [groupId, [...members].sort(comparePassengersCanonical)] as [string, RoomingPassenger[]])
+    .sort((a, b) => compareGroupEntries(a, b, groupPrefs));
 
   const buildingMap = new Map<string, { name: string; rooms: RoomingRoom[] }>();
-  for (const r of rooms) {
+  for (const r of canonicalRooms) {
     const entry = buildingMap.get(r.buildingId) || { name: r.buildingName, rooms: [] };
     entry.rooms.push(r);
     buildingMap.set(r.buildingId, entry);
@@ -197,7 +235,7 @@ export function generateRoomingProposal(
     const pref = group.accommodationPreference || 'prefer_together';
     const groupSize = members.length;
 
-    let roomsForGroup = rooms.filter(r => remainingCapacity(r) > 0);
+    let roomsForGroup = canonicalRooms.filter(r => remainingCapacity(r) > 0);
 
     if (pref === 'same_room') {
       const singleRoom = tryFitGroupInOneRoom(roomsForGroup, groupSize);
@@ -251,8 +289,8 @@ export function generateRoomingProposal(
     }
   }
 
-  const soloPassengers = passengers.filter(p => unplacedPassengerIds.has(p.id) && !p.groupId);
-  const availRooms = rooms.filter(r => remainingCapacity(r) > 0).sort((a, b) => remainingCapacity(a) - remainingCapacity(b));
+  const soloPassengers = canonicalPassengers.filter(p => unplacedPassengerIds.has(p.id) && !p.groupId);
+  const availRooms = canonicalRooms.filter(r => remainingCapacity(r) > 0).sort(compareRoomsByRemainingCapacityAsc);
   for (const solo of soloPassengers) {
     const room = availRooms.find(r => remainingCapacity(r) > 0 && !occupiedRoomIds.has(r.id)) || availRooms.find(r => remainingCapacity(r) > 0);
     if (room) {
@@ -269,15 +307,20 @@ export function generateRoomingProposal(
     }
   }
 
-  const unplaced = passengers.filter(p => unplacedPassengerIds.has(p.id));
+  const unplaced = canonicalPassengers.filter(p => unplacedPassengerIds.has(p.id));
   if (unplaced.length > 0) {
     warnings.push(`${unplaced.length} passenger(s) could not be placed — insufficient total capacity`);
   }
 
   const groupResults: GroupResult[] = [];
-  for (const [groupId, g] of groupMap) {
+  for (const [groupId, g] of [...groupMap.entries()].sort((a, b) => compareStrings(a[0], b[0]))) {
     const members = groupPassengers.get(groupId) || [];
-    const assignedRoomIds = new Set(assignments.filter(a => a.groupId === groupId).map(a => a.roomId));
+    const assignedRoomIds = new Set(
+      assignments
+        .filter(a => a.groupId === groupId)
+        .sort((a, b) => compareStrings(a.roomId, b.roomId) || compareStrings(a.passengerId, b.passengerId))
+        .map(a => a.roomId),
+    );
     const assignedCount = members.filter(m => assignments.some(a => a.passengerId === m.id)).length;
     const status: GroupResult['status'] =
       assignedCount === 0 ? 'unassigned' :
@@ -285,7 +328,7 @@ export function generateRoomingProposal(
       assignedRoomIds.size > 1 ? 'split' : 'partial';
     groupResults.push({
       groupId, groupName: g.name, groupColor: g.color, status,
-      assignedRoomIds: [...assignedRoomIds],
+      assignedRoomIds: [...assignedRoomIds].sort(compareStrings),
       memberCount: members.length,
       assignedCount,
     });
@@ -297,7 +340,7 @@ export function generateRoomingProposal(
     groupsTogether: groupResults.filter(g => g.status === 'together').length,
     groupsSplit: groupResults.filter(g => g.status === 'split').length,
     unplacedCount: unplaced.length,
-    remainingCapacity: rooms.reduce((s, r) => s + remainingCapacity(r), 0),
+    remainingCapacity: canonicalRooms.reduce((s, r) => s + remainingCapacity(r), 0),
   };
 
   return { assignments, groupResults, unplaced, warnings, summary };
