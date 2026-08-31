@@ -6,16 +6,8 @@ const getDepartureRoomSlots = vi.fn();
 const assignPassengerToRoomSlot = vi.fn();
 const moveRoomSlotAssignment = vi.fn();
 const unassignPassengerFromRoomSlot = vi.fn();
-
-vi.mock('../api/departures', () => ({
-  getDepartureRoomSlots: (...args: any[]) => getDepartureRoomSlots(...args),
-  assignPassengerToRoomSlot: (...args: any[]) => assignPassengerToRoomSlot(...args),
-  moveRoomSlotAssignment: (...args: any[]) => moveRoomSlotAssignment(...args),
-  unassignPassengerFromRoomSlot: (...args: any[]) => unassignPassengerFromRoomSlot(...args),
-}));
-
-vi.mock('../lib/i18n/context', () => ({
-  useT: () => ({
+const useTMock = vi.hoisted(() =>
+  vi.fn(() => ({
     t: {
       departures: {
         rooming: {
@@ -54,7 +46,18 @@ vi.mock('../lib/i18n/context', () => ({
         },
       },
     },
-  }),
+  })),
+);
+
+vi.mock('../api/departures', () => ({
+  getDepartureRoomSlots: (...args: any[]) => getDepartureRoomSlots(...args),
+  assignPassengerToRoomSlot: (...args: any[]) => assignPassengerToRoomSlot(...args),
+  moveRoomSlotAssignment: (...args: any[]) => moveRoomSlotAssignment(...args),
+  unassignPassengerFromRoomSlot: (...args: any[]) => unassignPassengerFromRoomSlot(...args),
+}));
+
+vi.mock('../lib/i18n/context', () => ({
+  useT: () => useTMock(),
 }));
 
 vi.mock('../components/ui/button/Button', () => ({
@@ -124,6 +127,46 @@ const slots = [
 describe('RoomingWorkspace room slots', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useTMock.mockReturnValue({
+      t: {
+        departures: {
+          rooming: {
+            loading: 'Loading accommodation…',
+            unavailable: 'Accommodation data unavailable',
+            unassigned: 'Unassigned passengers',
+            allAssigned: 'All passengers assigned.',
+            unassign: 'Unassign',
+            accommodation: 'Accommodation',
+            groups: 'Groups',
+            room: 'Room',
+            full: 'Full',
+            free: 'free',
+            incompatible: 'Not compatible',
+            unknownHotel: 'Hotel',
+            groupFallback: 'Group',
+            noPassengers: 'No passengers assigned',
+            assignFailed: 'Assign failed',
+            unassignFailed: 'Unassign failed',
+            loadFailed: 'Failed to load accommodation data',
+            groupStatus: {
+              unassigned: 'Unassigned',
+              partial: 'Partial',
+              together: 'Together',
+              split: 'Split',
+            },
+            selectRoom: 'Select Room',
+            selectRoomHint: 'Select a room for',
+            move: 'Move',
+            totalBeds: 'Total Beds',
+            assignedCount: 'Assigned',
+            unassignedCount: 'Unassigned',
+            remainingBeds: 'Remaining',
+            noAccommodationConfigured: 'Accommodation Not Configured',
+            noAccommodationHint: 'Accommodation is part of this departure, but rooms are not yet configured.',
+          },
+        },
+      },
+    });
     getDepartureRoomSlots.mockResolvedValue(slots);
     assignPassengerToRoomSlot.mockResolvedValue({});
     moveRoomSlotAssignment.mockResolvedValue({});
@@ -152,5 +195,15 @@ describe('RoomingWorkspace room slots', () => {
       expect(assignPassengerToRoomSlot).toHaveBeenCalledWith('slot-double-1', 'passenger-1');
     });
     expect(getDepartureRoomSlots).toHaveBeenCalledTimes(2);
+  });
+
+  it('renders fallback load failure text instead of crashing when translations are missing', async () => {
+    useTMock.mockReturnValue({ t: { departures: {} } } as any);
+    getDepartureRoomSlots.mockRejectedValueOnce(new Error());
+
+    render(<RoomingWorkspace departureId="departure-1" passengers={passengers as any} />);
+
+    expect(await screen.findByText('Accommodation data unavailable')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load accommodation data')).toBeInTheDocument();
   });
 });

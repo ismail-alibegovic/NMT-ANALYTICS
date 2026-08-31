@@ -185,6 +185,28 @@ router.get('/flights', authenticateToken, requireOrgContext, requireMinimumRole(
   } catch (err) { next(err); }
 });
 
+/** GET /api/flights/:id */
+router.get('/flights/:id', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const orgId = req.orgId!;
+
+    const { data, error } = await supabaseAdmin
+      .from('flights')
+      .select('*')
+      .eq('id', id)
+      .eq('org_id', orgId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return apiError(res, 404, 'NOT_FOUND', 'Flight not found');
+
+    return res.json(transformFlight(data));
+  } catch (err) {
+    apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err));
+  }
+});
+
 /** POST /api/flights */
 router.post('/flights', authenticateToken, requireOrgContext, requireMinimumRole('manager'),
   auditFlightCreate,

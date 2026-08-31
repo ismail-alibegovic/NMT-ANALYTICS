@@ -247,6 +247,28 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     }]);
   }
 
+  function selectAccommodationOption(optionId: string) {
+    setAccommodationLines((current) => {
+      const existingIndex = current.findIndex((line) => line.hotelAllocationId === optionId);
+      if (existingIndex >= 0) return current;
+
+      const emptyIndex = current.findIndex((line) => !line.hotelAllocationId);
+      if (emptyIndex >= 0) {
+        return current.map((line, index) => index === emptyIndex
+          ? { ...line, hotelAllocationId: optionId, passengerIndexes: [] }
+          : line);
+      }
+
+      return [...current, {
+        hotelAllocationId: optionId,
+        roomCount: 1,
+        guestsExpected: 1,
+        notes: "",
+        passengerIndexes: [],
+      }];
+    });
+  }
+
   function updateAccommodationLine(index: number, patch: Partial<AccommodationLine>) {
     setAccommodationLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...patch } : line));
   }
@@ -740,8 +762,20 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
             {accommodationOptions.length > 0 && (
               <div className="space-y-3">
                 <div className="grid grid-cols-1 gap-2">
-                  {accommodationOptions.map((option) => (
-                    <div key={option.id} className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+                  {accommodationOptions.map((option) => {
+                    const isSelected = accommodationLines.some((line) => line.hotelAllocationId === option.id);
+                    return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => selectAccommodationOption(option.id)}
+                      className={`w-full rounded-xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                        isSelected
+                          ? "border-brand-500 bg-brand-50 ring-2 ring-brand-500/20 dark:border-brand-400 dark:bg-brand-500/10"
+                          : "border-gray-200 dark:border-gray-800"
+                      }`}
+                      aria-pressed={isSelected}
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="font-semibold text-gray-900 dark:text-white">{option.hotel?.name || "Hotel"}</p>
@@ -750,9 +784,14 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                             Kapacitet {option.capacityPerRoom} · Slobodno {option.availableRooms} · Cijena {option.unitSellPrice} BAM
                           </p>
                         </div>
+                        {isSelected && (
+                          <span className="rounded-full bg-brand-600 px-2 py-1 text-xs font-medium text-white dark:bg-brand-500">
+                            Odabrano
+                          </span>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    </button>
+                  )})}
                 </div>
 
                 {accommodationLines.map((line, index) => {

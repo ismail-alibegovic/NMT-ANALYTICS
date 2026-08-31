@@ -196,20 +196,6 @@ router.get('/reservations', authenticateToken, requireOrgContext, async (req, re
     const { search, from, to, status, departureId, customerId, page, limit, offset, orderBy, orderDir, assignedOnly } = validationResult.data;
     const orgId = req.orgId!;
 
-    let dateFrom: string;
-    let dateTo: string;
-
-    if (from && to) {
-      dateFrom = `${from}T00:00:00Z`;
-      dateTo = `${to}T23:59:59Z`;
-    } else {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 90); // default to 90 days for reservations
-      dateFrom = startDate.toISOString().split('T')[0] + 'T00:00:00Z';
-      dateTo = endDate.toISOString().split('T')[0] + 'T23:59:59Z';
-    }
-
     let query = supabaseAdmin
       .from('reservations')
       .select(`
@@ -241,10 +227,14 @@ router.get('/reservations', authenticateToken, requireOrgContext, async (req, re
         )
       `, { count: 'exact' })
       .eq('org_id', orgId)
-      .gte('reservation_at', dateFrom)
-      .lte('reservation_at', dateTo)
       .order(orderBy as string || 'reservation_at', { ascending: orderDir === 'asc' })
       .range(offset, offset + limit - 1);
+
+    if (from && to) {
+      query = query
+        .gte('reservation_at', `${from}T00:00:00Z`)
+        .lte('reservation_at', `${to}T23:59:59Z`);
+    }
 
     if (status) query = query.eq('status', status);
     if (departureId) query = query.eq('departure_id', departureId);

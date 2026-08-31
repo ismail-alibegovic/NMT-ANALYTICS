@@ -26,7 +26,40 @@ type AssignTarget = {
 
 export default function RoomingWorkspace({ departureId, passengers }: Props) {
   const { t } = useT();
-  const rm = t.departures.rooming;
+  const rm = t?.departures?.rooming ?? {
+    loading: 'Loading accommodation…',
+    unavailable: 'Accommodation data unavailable',
+    unassigned: 'Unassigned passengers',
+    allAssigned: 'All passengers assigned.',
+    unassign: 'Unassign',
+    accommodation: 'Accommodation',
+    groups: 'Groups',
+    room: 'Room',
+    full: 'Full',
+    free: 'free',
+    incompatible: 'Not compatible',
+    unknownHotel: 'Hotel',
+    groupFallback: 'Group',
+    noPassengers: 'No passengers assigned',
+    assignFailed: 'Assign failed',
+    unassignFailed: 'Unassign failed',
+    loadFailed: 'Failed to load accommodation data',
+    groupStatus: {
+      unassigned: 'Unassigned',
+      partial: 'Partial',
+      together: 'Together',
+      split: 'Split',
+    },
+    selectRoom: 'Select Room',
+    selectRoomHint: 'Select a room for',
+    move: 'Move',
+    totalBeds: 'Total Beds',
+    assignedCount: 'Assigned',
+    unassignedCount: 'Unassigned',
+    remainingBeds: 'Remaining',
+    noAccommodationConfigured: 'Accommodation Not Configured',
+    noAccommodationHint: 'Accommodation is part of this departure, but rooms are not yet configured.',
+  };
   const [slots, setSlots] = useState<DepartureRoomSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

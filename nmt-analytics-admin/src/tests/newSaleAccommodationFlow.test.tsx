@@ -185,4 +185,35 @@ describe('NewSaleWizard accommodation flow', () => {
     expect(onCreated).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('selects a visible accommodation card without creating duplicate empty lines', async () => {
+    render(
+      <NewSaleWizard
+        isOpen
+        onClose={vi.fn()}
+        onCreated={vi.fn()}
+        initialPackageId="package-1"
+        initialDepartureId="departure-1"
+      />,
+    );
+
+    expect(await screen.findByText('Antalya Summer 2027')).toBeInTheDocument();
+    await waitFor(() => expect(getDepartureAccommodationOptions).toHaveBeenCalledWith('departure-1'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+    fireEvent.change(screen.getByPlaceholderText('Npr. Ahmed Hodžić'), { target: { value: 'Amina Hadžić' } });
+    fireEvent.change(screen.getByPlaceholderText('+387 61 234 567'), { target: { value: '+38761100001' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+
+    const accommodationCards = screen.getAllByRole('button', { name: /Hotel Azure Antalya/i });
+    fireEvent.click(accommodationCards[0]);
+
+    expect(accommodationCards[0]).toHaveAttribute('aria-pressed', 'true');
+    const selects = screen.getAllByRole('combobox') as HTMLSelectElement[];
+    expect(selects).toHaveLength(1);
+    expect(selects[0].value).toBe('allocation-double');
+
+    fireEvent.click(accommodationCards[0]);
+    expect(screen.getAllByRole('combobox')).toHaveLength(1);
+  });
 });
