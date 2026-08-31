@@ -1,6 +1,6 @@
 # Task 000 — Travline Baseline Roadmap Audit
 
-**Status:** ACTIVE  
+**Status:** COMPLETE  
 **Priority:** P0  
 **Branch:** `audit/codex-baseline`  
 **Roadmap references:** all `VERIFY` and `PARTIAL` items in `docs/ROADMAP.md`
