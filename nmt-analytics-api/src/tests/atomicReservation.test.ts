@@ -33,6 +33,7 @@ let capacity = 1
 // Bookkeeping so we can introspect how many concurrent reservations actually
 // got 201 vs 4xx — this is what the concurrency test asserts.
 let acceptedCount = 0
+let failAccommodation = false
 
 // ---------------------------------------------------------------------------
 // 2. Mock supabaseAdmin BEFORE importing the reservations router. vitest
@@ -42,6 +43,16 @@ let acceptedCount = 0
 // ---------------------------------------------------------------------------
 vi.mock('../lib/notificationService', () => ({
   notifyNewReservation: vi.fn(async () => undefined),
+}))
+
+vi.mock('../lib/reservationAccommodation', () => ({
+  deleteReservationAccommodation: vi.fn(),
+  getReservationAccommodation: vi.fn(),
+  mapAccommodationError: vi.fn(() => ({ status: 400, code: 'ACCOMMODATION_INVALID', message: 'Accommodation could not be saved' })),
+  upsertReservationAccommodation: vi.fn(async () => {
+    if (failAccommodation) throw new Error('ROOMS_SOLD_OUT');
+    return { id: 'requirement-1' };
+  }),
 }))
 
 vi.mock('../lib/supabase', () => {
@@ -56,6 +67,11 @@ vi.mock('../lib/supabase', () => {
         })
       }
       booked = requested
+      return Promise.resolve({ data: { booked_after: booked }, error: null })
+    }
+    if (name === 'release_capacity_atomic') {
+      const party = Number(args.p_party_size ?? 1)
+      booked = Math.max(0, booked - party)
       return Promise.resolve({ data: { booked_after: booked }, error: null })
     }
     return Promise.resolve({ data: null, error: { message: 'unknown RPC' } })
@@ -89,7 +105,10 @@ vi.mock('../lib/supabase', () => {
             ;(single as unknown as { __insertPayload?: any }).__insertPayload = payload
             return { select }
           })
-          return { insert, select }
+          const deleteEqOrg = vi.fn(async () => ({ error: null }))
+          const deleteEqId = vi.fn(() => ({ eq: deleteEqOrg }))
+          const deleteFn = vi.fn(() => ({ eq: deleteEqId }))
+          return { insert, select, delete: deleteFn }
         }
         case 'departures': {
           const updateEq = vi.fn(async () => ({ error: null }))
@@ -174,6 +193,7 @@ beforeEach(() => {
   booked = 0
   capacity = 1
   acceptedCount = 0
+  failAccommodation = false
   // vitest mock: clear recorded calls + implementations so the next test
   // sees the original vi.fn(rpc) implementation.
   if (supabaseAdminMock?.rpc?.mockClear) {
@@ -254,5 +274,35 @@ describe('POST /api/reservations — Sprint 5 §6.2.1 atomic capacity contract',
     expect(full.length).toBe(N - 1)
     expect(booked).toBe(1)
     expect(acceptedCount).toBe(1)
+  })
+
+  it('rolls back failed accommodation persistence with atomic release instead of absolute booked overwrite', async () => {
+    capacity = 4
+    booked = 1
+    failAccommodation = true
+
+    const res = await request(app).post('/api/reservations').send({
+      ...validBody,
+      partySize: 2,
+      accommodationRequirement: {
+        hotelAllocationId: '11111111-1111-4111-8111-111111111111',
+        roomCount: 1,
+        guestsExpected: 2,
+      },
+    })
+
+    expect(res.status).toBe(400)
+    expect(res.body).toHaveProperty('code', 'ACCOMMODATION_INVALID')
+    expect(supabaseAdminMock.rpc).toHaveBeenCalledWith('reserve_capacity_atomic', {
+      p_departure_id: validBody.departureId,
+      p_org_id: 'org-test-00000000-0000-0000-0000-000000000000',
+      p_party_size: 2,
+    })
+    expect(supabaseAdminMock.rpc).toHaveBeenCalledWith('release_capacity_atomic', {
+      p_departure_id: validBody.departureId,
+      p_org_id: 'org-test-00000000-0000-0000-0000-000000000000',
+      p_party_size: 2,
+    })
+    expect(booked).toBe(1)
   })
 })

@@ -111,6 +111,20 @@ const accommodationRequirementSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
+async function releaseReservedCapacity(orgId: string, departureId: string, partySize: number) {
+  const result = await supabaseAdmin.rpc('release_capacity_atomic', {
+    p_departure_id: departureId,
+    p_org_id: orgId,
+    p_party_size: partySize,
+  });
+
+  if (result.error) {
+    console.error('Failed to release reserved capacity:', result.error.message || result.error);
+  }
+
+  return result;
+}
+
 /**
  * Helper to transform reservation for Admin UI
  * 
@@ -419,10 +433,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
     if (insertError) {
       // Rollback capacity we may have just added
       if (departureId && status === 'confirmed') {
-        await supabaseAdmin
-          .from('departures')
-          .update({ booked: Math.max(0, (capacityRv?.data?.booked_after ?? partySize) - partySize) })
-          .eq('id', departureId);
+        await releaseReservedCapacity(orgId, departureId, partySize);
       }
       return handleSupabaseError(res, insertError, "Failed to create reservation");
     }
@@ -435,11 +446,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       } catch (accError: any) {
         await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
         if (departureId && status === 'confirmed') {
-          await supabaseAdmin
-            .from('departures')
-            .update({ booked: Math.max(0, (capacityRv?.data?.booked_after ?? partySize) - partySize) })
-            .eq('id', departureId)
-            .eq('org_id', orgId);
+          await releaseReservedCapacity(orgId, departureId, partySize);
         }
         const mapped = mapAccommodationError(accError);
         if (mapped) return apiError(res, mapped.status, mapped.code, mapped.message);
@@ -476,10 +483,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
           // Rollback the reservation
           await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
           if (departureId && status === 'confirmed') {
-            await supabaseAdmin
-              .from('departures')
-              .update({ booked: Math.max(0, (capacityRv?.data?.booked_after ?? partySize) - partySize) })
-              .eq('id', departureId);
+            await releaseReservedCapacity(orgId, departureId, partySize);
           }
           return apiError(res, 500, "PASSENGER_CREATE_FAILED", "Failed to create passengers", paxErr.message);
         }
@@ -515,10 +519,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
         // Cleanup reservation on failure
         await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
         if (departureId && status === 'confirmed') {
-          await supabaseAdmin
-            .from('departures')
-            .update({ booked: Math.max(0, (capacityRv?.data?.booked_after ?? partySize) - partySize) })
-            .eq('id', departureId);
+          await releaseReservedCapacity(orgId, departureId, partySize);
         }
         return apiError(res, 500, "PASSENGER_ERROR", "Failed to create passengers", String(paxError));
       }

@@ -6,7 +6,7 @@ import { upsertReservationAccommodation } from '../lib/reservationAccommodation'
 const ORG_SLUG = 'travline-demo-2027';
 const ORG_NAME = 'Travline Demo Agency 2027';
 const ADMIN_EMAIL = 'admin@demo.com';
-const SEED_USER_ID = process.env.SEED_USER_ID || '00000000-0000-0000-0000-000000000001';
+const SEED_USER_ID = process.env.SEED_USER_ID || null;
 
 type RoomOption = {
   type: string;
@@ -183,47 +183,106 @@ function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
+function failOnError(label: string, result: { error?: any }) {
+  if (result.error) {
+    throw new Error(`${label}: ${result.error.message || JSON.stringify(result.error)}`);
+  }
+}
+
 async function cleanupDemoOrg(orgId: string) {
   const groupIds = await demoGroupIds(orgId);
-  await supabaseAdmin.from('departure_room_slot_assignments').delete().eq('org_id', orgId);
-  await supabaseAdmin.from('departure_room_slots').delete().eq('org_id', orgId);
-  await supabaseAdmin.from('reservation_accommodation_requirements').delete().eq('org_id', orgId);
+  failOnError('cleanup departure_room_slot_assignments', await supabaseAdmin.from('departure_room_slot_assignments').delete().eq('org_id', orgId));
+  failOnError('cleanup departure_room_slots', await supabaseAdmin.from('departure_room_slots').delete().eq('org_id', orgId));
+  failOnError('cleanup reservation_accommodation_requirements', await supabaseAdmin.from('reservation_accommodation_requirements').delete().eq('org_id', orgId));
   if (groupIds.length > 0) {
-    await supabaseAdmin.from('trip_passenger_group_members').delete().in('group_id', groupIds);
+    failOnError('cleanup trip_passenger_group_members', await supabaseAdmin.from('trip_passenger_group_members').delete().in('group_id', groupIds));
   }
-  await supabaseAdmin.from('trip_passenger_groups').delete().eq('org_id', orgId);
-  await supabaseAdmin.from('departure_passengers').delete().eq('org_id', orgId);
-  await supabaseAdmin.from('payments').delete().eq('org_id', orgId);
-  await supabaseAdmin.from('transactions').delete().eq('org_id', orgId);
-  await supabaseAdmin.from('reservations').delete().eq('org_id', orgId);
-  await supabaseAdmin.from('departure_flights').delete().eq('org_id', orgId);
-  await supabaseAdmin.from('flights').delete().eq('org_id', orgId);
-  await supabaseAdmin.from('hotel_allocations').delete().eq('org_id', orgId);
-  await supabaseAdmin.from('departures').delete().eq('org_id', orgId);
-  await supabaseAdmin.from('package_hotels').delete().eq('org_id', orgId);
-  await supabaseAdmin.from('packages').delete().eq('org_id', orgId);
-  await supabaseAdmin.from('hotel_rooms').delete().eq('org_id', orgId);
-  await supabaseAdmin.from('hotels').delete().eq('org_id', orgId);
-  await supabaseAdmin.from('customers').delete().eq('org_id', orgId);
+  failOnError('cleanup trip_passenger_groups', await supabaseAdmin.from('trip_passenger_groups').delete().eq('org_id', orgId));
+  failOnError('cleanup departure_passengers', await supabaseAdmin.from('departure_passengers').delete().eq('org_id', orgId));
+  failOnError('cleanup payments', await supabaseAdmin.from('payments').delete().eq('org_id', orgId));
+  failOnError('cleanup transactions', await supabaseAdmin.from('transactions').delete().eq('org_id', orgId));
+  failOnError('cleanup reservations', await supabaseAdmin.from('reservations').delete().eq('org_id', orgId));
+  failOnError('cleanup departure_flights', await supabaseAdmin.from('departure_flights').delete().eq('org_id', orgId));
+  failOnError('cleanup flights', await supabaseAdmin.from('flights').delete().eq('org_id', orgId));
+  failOnError('cleanup hotel_allocations', await supabaseAdmin.from('hotel_allocations').delete().eq('org_id', orgId));
+  failOnError('cleanup departures', await supabaseAdmin.from('departures').delete().eq('org_id', orgId));
+  failOnError('cleanup package_hotels', await supabaseAdmin.from('package_hotels').delete().eq('org_id', orgId));
+  failOnError('cleanup packages', await supabaseAdmin.from('packages').delete().eq('org_id', orgId));
+  failOnError('cleanup hotel_rooms', await supabaseAdmin.from('hotel_rooms').delete().eq('org_id', orgId));
+  failOnError('cleanup hotels', await supabaseAdmin.from('hotels').delete().eq('org_id', orgId));
+  failOnError('cleanup customers', await supabaseAdmin.from('customers').delete().eq('org_id', orgId));
 }
 
 async function demoGroupIds(orgId: string) {
-  const { data } = await supabaseAdmin.from('trip_passenger_groups').select('id').eq('org_id', orgId);
+  const { data, error } = await supabaseAdmin.from('trip_passenger_groups').select('id').eq('org_id', orgId);
+  if (error) throw new Error(`load demo group ids: ${error.message}`);
   return (data || []).map((g) => g.id);
+}
+
+async function resolveDemoOrg() {
+  const existing = await supabaseAdmin
+    .from('organizations')
+    .select('id, name, slug, currency, timezone')
+    .eq('slug', ORG_SLUG)
+    .maybeSingle();
+  if (existing.error) throw existing.error;
+
+  if (existing.data) {
+    const matchesDemoOrg =
+      existing.data.name === ORG_NAME &&
+      existing.data.currency === 'BAM' &&
+      existing.data.timezone === 'Europe/Sarajevo';
+
+    if (!matchesDemoOrg) {
+      throw new Error(`Organization slug ${ORG_SLUG} already exists but does not match the deterministic Travline demo organization. Refusing to reuse or modify it.`);
+    }
+
+    return existing.data;
+  }
+
+  const created = await supabaseAdmin
+    .from('organizations')
+    .insert({ name: ORG_NAME, slug: ORG_SLUG, currency: 'BAM', timezone: 'Europe/Sarajevo' })
+    .select('id, name, slug, currency, timezone')
+    .single();
+  if (created.error) throw created.error;
+  return created.data;
+}
+
+async function associateDemoProfileIfRequested(orgId: string) {
+  if (!SEED_USER_ID) {
+    console.log('No SEED_USER_ID supplied; demo data will not be linked to a profile.');
+    return;
+  }
+
+  const profile = await supabaseAdmin
+    .from('profiles')
+    .select('id, email, org_id, role')
+    .eq('id', SEED_USER_ID)
+    .maybeSingle();
+  if (profile.error) throw profile.error;
+
+  if (profile.data?.org_id && profile.data.org_id !== orgId) {
+    throw new Error(`SEED_USER_ID ${SEED_USER_ID} belongs to a different organization. Refusing to reassign a real profile to the demo organization.`);
+  }
+
+  if (profile.data) {
+    console.log(`SEED_USER_ID ${SEED_USER_ID} already belongs to the demo organization; leaving existing profile fields unchanged.`);
+    return;
+  }
+
+  failOnError('create explicit demo profile', await supabaseAdmin
+    .from('profiles')
+    .insert({ id: SEED_USER_ID, email: ADMIN_EMAIL, role: 'director', org_id: orgId }));
 }
 
 async function seed() {
   console.log('🌱 Seeding deterministic Travline accommodation demo data...');
 
-  const { data: org, error: orgError } = await supabaseAdmin
-    .from('organizations')
-    .upsert({ name: ORG_NAME, slug: ORG_SLUG, currency: 'BAM', timezone: 'Europe/Sarajevo' }, { onConflict: 'slug' })
-    .select('id')
-    .single();
-  if (orgError) throw orgError;
+  const org = await resolveDemoOrg();
   const orgId = org.id;
 
-  await supabaseAdmin.from('profiles').upsert({ id: SEED_USER_ID, email: ADMIN_EMAIL, role: 'director', org_id: orgId }, { onConflict: 'id' });
+  await associateDemoProfileIfRequested(orgId);
   await cleanupDemoOrg(orgId);
 
   const seeded: any[] = [];
@@ -296,12 +355,12 @@ async function seed() {
 
     if (spec.departure.overrides) {
       for (const [roomType, roomCount] of Object.entries(spec.departure.overrides)) {
-        await supabaseAdmin
+        failOnError(`departure override ${spec.key}/${roomType}`, await supabaseAdmin
           .from('hotel_allocations')
           .update({ rooms_reserved: roomCount })
           .eq('org_id', orgId)
           .eq('departure_id', departure.id)
-          .eq('room_type', roomType);
+          .eq('room_type', roomType));
       }
       await syncDepartureRoomSlots(orgId, departure.id);
     }
@@ -327,13 +386,13 @@ async function seed() {
           .select()
           .single();
         if (flightError) throw flightError;
-        await supabaseAdmin.from('departure_flights').insert({
+        failOnError(`departure flight ${spec.key}/${direction}`, await supabaseAdmin.from('departure_flights').insert({
           org_id: orgId,
           departure_id: departure.id,
           flight_id: flight.id,
           direction: direction === 'inbound' ? 'return' : 'outbound',
           segment_order: 0,
-        });
+        }));
       }
     }
 
@@ -418,11 +477,13 @@ async function seed() {
           .select()
           .single();
         if (groupError) throw groupError;
-        await supabaseAdmin.from('trip_passenger_group_members').insert(passengerRowsCreated.map((p) => ({ group_id: group.id, passenger_id: p.id })));
+        failOnError(`passenger group members ${reservationSpec.groupName}`, await supabaseAdmin
+          .from('trip_passenger_group_members')
+          .insert(passengerRowsCreated.map((p) => ({ group_id: group.id, passenger_id: p.id }))));
       }
 
       if (paidAmount > 0) {
-        await supabaseAdmin.from('payments').insert({
+        failOnError(`payment ${reservationSpec.customerName}`, await supabaseAdmin.from('payments').insert({
           org_id: orgId,
           reservation_id: reservation.id,
           amount: paidAmount,
@@ -430,19 +491,19 @@ async function seed() {
           status: 'succeeded',
           payment_date: '2026-08-31',
           payment_method: 'demo',
-        });
+        }));
       }
 
       if (reservationSpec.status === 'confirmed') booked += reservationSpec.passengers.length;
     }
 
-    await supabaseAdmin.from('departures').update({ booked }).eq('id', departure.id).eq('org_id', orgId);
+    failOnError(`departure booked update ${spec.key}`, await supabaseAdmin.from('departures').update({ booked }).eq('id', departure.id).eq('org_id', orgId));
     seeded.push({ package: pkg, departure });
   }
 
   const antalya = seeded.find((item) => item.package.name === 'Antalya Summer 2027');
   if (antalya) {
-    const { data: slots } = await supabaseAdmin
+    const { data: slots, error: slotsError } = await supabaseAdmin
       .from('departure_room_slots')
       .select('id, room_type, slot_number, capacity')
       .eq('org_id', orgId)
@@ -450,33 +511,36 @@ async function seed() {
       .in('room_type', ['double', 'triple'])
       .order('room_type')
       .order('slot_number');
-    const { data: passengers } = await supabaseAdmin
+    if (slotsError) throw slotsError;
+    const { data: passengers, error: passengersError } = await supabaseAdmin
       .from('departure_passengers')
       .select('id, full_name, reservation_id')
       .eq('org_id', orgId)
       .eq('departure_id', antalya.departure.id)
       .order('full_name');
+    if (passengersError) throw passengersError;
     const byName = new Map((passengers || []).map((p) => [p.full_name, p]));
     const doubleSlots = (slots || []).filter((s) => s.room_type === 'double');
     const tripleSlots = (slots || []).filter((s) => s.room_type === 'triple');
     const seedAssignments = [
       [doubleSlots[0], byName.get('Amina Hadžić')],
       [doubleSlots[0], byName.get('Emir Hadžić')],
-      [doubleSlots[1], byName.get('Maja Kovačević')],
+      [doubleSlots[1], byName.get('Tarik Softić')],
+      [doubleSlots[1], byName.get('Lamija Softić')],
       [tripleSlots[0], byName.get('Sara Begić')],
       [tripleSlots[0], byName.get('Lejla Begić')],
       [tripleSlots[0], byName.get('Hana Begić')],
     ].filter(([slot, passenger]) => slot && passenger) as any[];
 
     for (const [slot, passenger] of seedAssignments) {
-      await supabaseAdmin.from('departure_room_slot_assignments').insert({
+      failOnError(`room-slot assignment ${passenger.full_name}`, await supabaseAdmin.from('departure_room_slot_assignments').insert({
         org_id: orgId,
         departure_id: antalya.departure.id,
         room_slot_id: slot.id,
         passenger_id: passenger.id,
         reservation_id: passenger.reservation_id,
         passenger_name: passenger.full_name,
-      });
+      }));
     }
   }
 
