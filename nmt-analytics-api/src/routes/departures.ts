@@ -15,6 +15,7 @@ import {
   materializeDepartureAccommodationFromPackage,
   updateDepartureAccommodationAllotment,
 } from '../lib/departureAccommodation';
+import { getAccommodationOptions } from '../lib/reservationAccommodation';
 
 const router = Router();
 
@@ -322,6 +323,20 @@ router.get('/departures/:id/accommodation-allotments', authenticateToken, requir
 });
 
 /**
+ * GET /api/departures/:id/accommodation-options
+ */
+router.get('/departures/:id/accommodation-options', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req, res: Response) => {
+  try {
+    const result = await getAccommodationOptions(req.params.id, req.orgId!);
+    if (!result) return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
+    return res.json(result);
+  } catch (error) {
+    console.error('GET /departures/:id/accommodation-options:', error);
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to load accommodation options');
+  }
+});
+
+/**
  * PATCH /api/departures/:id/accommodation-allotments/:itemId
  */
 router.patch('/departures/:id/accommodation-allotments/:itemId', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
@@ -342,6 +357,12 @@ router.patch('/departures/:id/accommodation-allotments/:itemId', authenticateTok
     return res.json(result);
   } catch (error) {
     console.error('PATCH /departures/:id/accommodation-allotments/:itemId:', error);
+    if ((error as any)?.code === 'ALLOTMENT_BELOW_RESERVED') {
+      return apiError(res, 409, 'ALLOTMENT_BELOW_RESERVED', (error as Error).message);
+    }
+    if (String((error as any)?.message || '').includes('ROOM_SLOT_OCCUPIED')) {
+      return apiError(res, 409, 'ROOM_SLOT_OCCUPIED', 'Cannot reduce room inventory because one of the removed room slots is occupied.');
+    }
     return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to update departure accommodation');
   }
 });
@@ -1006,6 +1027,20 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
       .eq('org_id', orgId);
     if (allocErr) console.error('Allocations fetch (non-fatal):', allocErr);
 
+    let accommodationRequirementsByReservation: Record<string, any> = {};
+    if (reservationIds.length > 0) {
+      const { data: requirementRows, error: requirementErr } = await supabaseAdmin
+        .from('reservation_accommodation_requirements')
+        .select('reservation_id, hotel_id, hotel_allocation_id, room_type, room_label, room_count, guests_expected, notes, hotels:hotel_id(id, name)')
+        .eq('org_id', orgId)
+        .eq('departure_id', id)
+        .in('reservation_id', reservationIds);
+      if (requirementErr) console.error('Reservation accommodation fetch (non-fatal):', requirementErr);
+      for (const row of requirementRows || []) {
+        accommodationRequirementsByReservation[row.reservation_id] = row;
+      }
+    }
+
     // 4) Payments received against these reservations
     let payments: any[] = [];
     if (reservationIds.length > 0) {
@@ -1037,6 +1072,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
       const rows = passByRes[r.id] || [];
       const paymentsForRes = (payments || []).filter((p: any) => p.reservation_id === r.id);
       const totalPaid = paymentsForRes.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+      const requirement = accommodationRequirementsByReservation[r.id];
 
       if (rows.length > 0) {
         for (const p of rows) {
@@ -1052,8 +1088,11 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
             debt: Number(p.debt_amount || 0),
             customerLinked: !!cust,
             customerId: cust?.id,
-            hotelName: r.hotel_name,
-            roomType: r.room_type,
+            hotelName: requirement?.hotels?.name || r.hotel_name,
+            roomType: requirement?.room_label || requirement?.room_type || r.room_type,
+            hotelId: requirement?.hotel_id || null,
+            hotelAllocationId: requirement?.hotel_allocation_id || null,
+            accommodationNotes: requirement?.notes || null,
             checkIn: r.check_in,
             checkOut: r.check_out,
             tourGuide: r.tour_guide,
@@ -1083,8 +1122,11 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
           debt: Number(r.total_amount || 0) - totalPaid,
           customerLinked: !!cust,
           customerId: cust?.id,
-          hotelName: r.hotel_name,
-          roomType: r.room_type,
+          hotelName: requirement?.hotels?.name || r.hotel_name,
+          roomType: requirement?.room_label || requirement?.room_type || r.room_type,
+          hotelId: requirement?.hotel_id || null,
+          hotelAllocationId: requirement?.hotel_allocation_id || null,
+          accommodationNotes: requirement?.notes || null,
           checkIn: r.check_in,
           checkOut: r.check_out,
           tourGuide: r.tour_guide,

@@ -74,6 +74,7 @@ export interface DepartureAccommodationAllotment {
   capacityPerRoom: number;
   capacity: number;
   allocated: number;
+  reservedRooms?: number;
   available: number;
   checkIn: string;
   checkOut: string;
@@ -213,6 +214,39 @@ export async function updateDepartureAccommodationAllotment(
   return data;
 }
 
+export interface DepartureAccommodationOption {
+  id: string;
+  departureId: string;
+  hotelId: string;
+  roomType: string;
+  roomLabel: string;
+  departureRooms: number;
+  reservedRooms: number;
+  availableRooms: number;
+  capacityPerRoom: number;
+  availableGuestCapacity: number;
+  unitSellPrice: number;
+  unitNetPrice: number;
+  checkIn: string;
+  checkOut: string;
+  hotel?: {
+    id: string;
+    name: string;
+    destination?: string | null;
+    stars?: number | null;
+  } | null;
+}
+
+export interface DepartureAccommodationOptionsResponse {
+  departureId: string;
+  items: DepartureAccommodationOption[];
+}
+
+export async function getDepartureAccommodationOptions(id: string): Promise<DepartureAccommodationOptionsResponse> {
+  const { data } = await get<DepartureAccommodationOptionsResponse>(`/departures/${id}/accommodation-options`);
+  return data;
+}
+
 export async function deleteDeparture(id: string): Promise<void> {
   await del(`/departures/${id}`);
 }
@@ -242,7 +276,10 @@ export interface DeparturePassenger {
   groupMemberIds?: string[];
   passengerGroupName?: string | null;
   hotelName?: string | null;
+  hotelId?: string | null;
+  hotelAllocationId?: string | null;
   roomType?: string | null;
+  accommodationNotes?: string | null;
   checkIn?: string | null;
   checkOut?: string | null;
   tourGuide?: string | null;
@@ -495,6 +532,53 @@ export interface AccommodationAssignment {
   bed_label?: string | null;
   reservation_id?: string | null;
   assigned_by?: string | null;
+}
+
+export interface DepartureRoomSlotAssignment {
+  id: string;
+  passengerId: string;
+  reservationId?: string | null;
+  passengerName: string;
+  createdAt?: string;
+}
+
+export interface DepartureRoomSlot {
+  id: string;
+  departureId: string;
+  hotelAllocationId: string;
+  hotelId: string;
+  roomType: string;
+  slotNumber: number;
+  displayLabel: string;
+  capacity: number;
+  actualHotelRoomNumber?: string | null;
+  notes?: string | null;
+  hotel?: {
+    id: string;
+    name: string;
+    destination?: string | null;
+    stars?: number | null;
+  } | null;
+  assignments: DepartureRoomSlotAssignment[];
+}
+
+export async function getDepartureRoomSlots(departureId: string): Promise<DepartureRoomSlot[]> {
+  const { data } = await get<{ departureId: string; slots: DepartureRoomSlot[] }>(`/departures/${departureId}/room-slots`);
+  return data.slots || [];
+}
+
+export async function assignPassengerToRoomSlot(slotId: string, passengerId: string) {
+  const { data } = await post(`/room-slots/${slotId}/assign`, { passengerId });
+  return data;
+}
+
+export async function unassignPassengerFromRoomSlot(assignmentId: string): Promise<void> {
+  await del(`/room-slot-assignments/${assignmentId}`);
+}
+
+export async function moveRoomSlotAssignment(assignmentId: string, targetSlotId: string) {
+  const { data } = await post(`/room-slot-assignments/${assignmentId}/move`, { targetSlotId });
+  return data;
 }
 
 export async function getAccommodationBuildings(departureId: string): Promise<AccommodationBuilding[]> {

@@ -1,4 +1,4 @@
-import { get, post, patch, del } from './client';
+import { get, post, put, patch, del } from './client';
 
 export interface Reservation {
   id: string;
@@ -25,6 +25,37 @@ export interface Reservation {
   source?: string;
   createdAt: string;
   updatedAt: string;
+  accommodationRequirement?: ReservationAccommodationRequirement | null;
+}
+
+export interface ReservationAccommodationRequirement {
+  id: string;
+  reservationId: string;
+  departureId: string;
+  hotelAllocationId: string;
+  hotelId: string;
+  roomType: string;
+  roomLabel: string;
+  roomCount: number;
+  guestsExpected: number;
+  capacityPerRoom: number;
+  unitSellPrice: number;
+  unitNetPrice: number;
+  totalSellPrice: number;
+  notes?: string | null;
+  hotel?: {
+    id: string;
+    name: string;
+    destination?: string | null;
+    stars?: number | null;
+  } | null;
+}
+
+export interface ReservationAccommodationRequirementInput {
+  hotelAllocationId: string;
+  roomCount: number;
+  guestsExpected: number;
+  notes?: string | null;
 }
 
 export interface CreateReservationData {
@@ -50,6 +81,7 @@ export interface CreateReservationData {
   excursionIds?: string[];
   assignedTo?: string | null;
   upsert?: boolean;
+  accommodationRequirement?: ReservationAccommodationRequirementInput | null;
 }
 
 export interface UpdateReservationData {
@@ -128,6 +160,26 @@ export async function getReservation(id: string): Promise<Reservation> {
 export async function createReservation(reservationData: CreateReservationData): Promise<Reservation> {
   const { data } = await post<Reservation>('/reservations', reservationData);
   return data;
+}
+
+export async function getReservationAccommodation(id: string): Promise<ReservationAccommodationRequirement | null> {
+  const { data } = await get<{ accommodationRequirement: ReservationAccommodationRequirement | null }>(`/reservations/${id}/accommodation`);
+  return data.accommodationRequirement || null;
+}
+
+export async function updateReservationAccommodation(
+  id: string,
+  accommodationRequirement: ReservationAccommodationRequirementInput,
+): Promise<ReservationAccommodationRequirement | null> {
+  const { data } = await put<{ accommodationRequirement: ReservationAccommodationRequirement | null }>(
+    `/reservations/${id}/accommodation`,
+    accommodationRequirement,
+  );
+  return data.accommodationRequirement || null;
+}
+
+export async function deleteReservationAccommodation(id: string): Promise<void> {
+  await del(`/reservations/${id}/accommodation`);
 }
 
 export async function updateReservation(id: string, reservationData: UpdateReservationData): Promise<Reservation> {

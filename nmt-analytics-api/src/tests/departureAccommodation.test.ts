@@ -14,7 +14,10 @@ let packageHotels: any[] = [];
 let hotelAllocations: any[] = [];
 let departures: any[] = [];
 let packages: any[] = [];
+let reservations: any[] = [];
+let reservationAccommodationRequirements: any[] = [];
 let failHotelAllocationInsert = false;
+const rpcMock = vi.fn(async (_fn: string, _args: Record<string, any>) => ({ data: null, error: null }));
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
@@ -34,6 +37,7 @@ function withHotel(row: any) {
 function createBuilder(table: string) {
   const state: Record<string, any> = {
     filters: {},
+    notFilters: {},
     action: 'select',
     payload: undefined,
     limitCount: null,
@@ -47,6 +51,14 @@ function createBuilder(table: string) {
     }),
     eq: vi.fn((column: string, value: any) => {
       state.filters[column] = value;
+      return builder;
+    }),
+    neq: vi.fn((column: string, value: any) => {
+      state.notFilters[column] = value;
+      return builder;
+    }),
+    in: vi.fn((column: string, values: any[]) => {
+      state.filters[column] = values;
       return builder;
     }),
     order: vi.fn(() => builder),
@@ -85,8 +97,19 @@ function createBuilder(table: string) {
   };
 
   async function execute() {
+    const applyFilters = (rows: any[]) => rows.filter((row) => (
+      Object.entries(state.filters).every(([key, value]) => {
+        if (key === 'reservations.status') {
+          const reservation = reservations.find((item) => item.id === row.reservation_id);
+          return Array.isArray(value) ? value.includes(reservation?.status) : reservation?.status === value;
+        }
+        return Array.isArray(value) ? value.includes(row[key]) : row[key] === value;
+      }) &&
+      Object.entries(state.notFilters).every(([key, value]) => row[key] !== value)
+    ));
+
     if (table === 'packages') {
-      let rows = packages.filter((row) => matches(row, state.filters));
+      let rows = applyFilters(packages);
       if (state.limitCount != null) rows = rows.slice(0, state.limitCount);
       return { data: clone(rows), error: null };
     }
@@ -118,13 +141,13 @@ function createBuilder(table: string) {
         return { data: clone(departures.filter((row) => matches(row, state.filters))), error: null };
       }
 
-      let rows = departures.filter((row) => matches(row, state.filters));
+      let rows = applyFilters(departures);
       if (state.limitCount != null) rows = rows.slice(0, state.limitCount);
       return { data: clone(rows), error: null };
     }
 
     if (table === 'package_hotels') {
-      let rows = packageHotels.filter((row) => matches(row, state.filters));
+      let rows = applyFilters(packageHotels);
       if (state.limitCount != null) rows = rows.slice(0, state.limitCount);
       return { data: clone(rows), error: null };
     }
@@ -146,13 +169,19 @@ function createBuilder(table: string) {
 
       if (state.action === 'update') {
         hotelAllocations = hotelAllocations.map((row) => (
-          matches(row, state.filters) ? { ...row, ...clone(state.payload) } : row
+          applyFilters([row]).length > 0 ? { ...row, ...clone(state.payload) } : row
         ));
       }
 
-      let rows = hotelAllocations.filter((row) => matches(row, state.filters));
+      let rows = applyFilters(hotelAllocations);
       if (state.limitCount != null) rows = rows.slice(0, state.limitCount);
       if (state.selectColumns.includes('hotels:')) rows = rows.map(withHotel);
+      return { data: clone(rows), error: null };
+    }
+
+    if (table === 'reservation_accommodation_requirements') {
+      let rows = applyFilters(reservationAccommodationRequirements);
+      if (state.limitCount != null) rows = rows.slice(0, state.limitCount);
       return { data: clone(rows), error: null };
     }
 
@@ -165,6 +194,7 @@ function createBuilder(table: string) {
 vi.mock('../lib/supabase', () => ({
   supabaseAdmin: {
     from: vi.fn((table: string) => createBuilder(table)),
+    rpc: (fn: string, args: Record<string, any>) => rpcMock(fn, args),
   },
   handleSupabaseError: (res: any, _error: unknown, message: string) =>
     res.status(500).json({ code: 'DB_ERROR', message }),
@@ -205,6 +235,10 @@ beforeEach(() => {
   failHotelAllocationInsert = false;
   packages = [{ id: PACKAGE, org_id: ORG, name: 'Package', destination: 'Istanbul', transport_type: 'bus' }];
   departures = [{ id: DEPARTURE, org_id: ORG, package_id: PACKAGE }];
+  reservations = [];
+  reservationAccommodationRequirements = [];
+  rpcMock.mockClear();
+  rpcMock.mockResolvedValue({ data: null, error: null });
   packageHotels = [{
     id: PACKAGE_HOTEL,
     org_id: ORG,
@@ -232,6 +266,11 @@ describe('departure accommodation allotments', () => {
     });
 
     expect(result).toEqual({ inserted: 2, skipped: false });
+    expect(rpcMock).toHaveBeenCalledWith('sync_departure_room_slots_atomic', {
+      p_org_id: ORG,
+      p_departure_id: DEPARTURE,
+      p_hotel_allocation_id: null,
+    });
     expect(hotelAllocations).toMatchObject([
       {
         org_id: ORG,
@@ -289,6 +328,8 @@ describe('departure accommodation allotments', () => {
     });
 
     expect(updated?.departureRooms).toBe(18);
+    expect(updated?.allocated).toBe(0);
+    expect(updated?.available).toBe(18);
     expect(hotelAllocations.find((row) => row.id === 'same-org')?.rooms_reserved).toBe(18);
     expect(hotelAllocations.find((row) => row.id === 'other-org')?.rooms_reserved).toBe(5);
 
@@ -299,6 +340,39 @@ describe('departure accommodation allotments', () => {
       roomCount: 1,
     });
     expect(denied).toBeNull();
+  });
+
+  it('uses sold reservation requirements as allocated room count and rejects reducing below sold rooms', async () => {
+    const { updateDepartureAccommodationAllotment } = await import('../lib/departureAccommodation');
+    hotelAllocations = [
+      { id: 'same-org', org_id: ORG, departure_id: DEPARTURE, hotel_id: HOTEL, room_type: 'double', room_label: 'Double', rooms_reserved: 20, template_rooms: 20, capacity_per_room: 2, check_in: '2026-09-10', check_out: '2026-09-17', net_price: 80, sell_price: 110 },
+    ];
+    reservations = [
+      { id: 'reservation-1', org_id: ORG, status: 'confirmed' },
+      { id: 'reservation-2', org_id: ORG, status: 'pending' },
+      { id: 'reservation-3', org_id: ORG, status: 'cancelled' },
+    ];
+    reservationAccommodationRequirements = [
+      { id: 'requirement-1', org_id: ORG, reservation_id: 'reservation-1', hotel_allocation_id: 'same-org', room_count: 2 },
+      { id: 'requirement-2', org_id: ORG, reservation_id: 'reservation-2', hotel_allocation_id: 'same-org', room_count: 1 },
+      { id: 'requirement-3', org_id: ORG, reservation_id: 'reservation-3', hotel_allocation_id: 'same-org', room_count: 10 },
+    ];
+
+    const updated = await updateDepartureAccommodationAllotment({
+      orgId: ORG,
+      departureId: DEPARTURE,
+      itemId: 'same-org',
+      roomCount: 3,
+    });
+
+    expect(updated?.allocated).toBe(3);
+    expect(updated?.available).toBe(0);
+    await expect(updateDepartureAccommodationAllotment({
+      orgId: ORG,
+      departureId: DEPARTURE,
+      itemId: 'same-org',
+      roomCount: 2,
+    })).rejects.toMatchObject({ code: 'ALLOTMENT_BELOW_RESERVED' });
   });
 
   it('rejects negative departure room counts at the PATCH API boundary', async () => {

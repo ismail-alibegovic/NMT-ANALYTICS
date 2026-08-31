@@ -55,6 +55,255 @@ const assignPassengerSchema = z.object({
   bedLabel: z.string().optional().nullable(),
 });
 
+const assignSlotSchema = z.object({
+  passengerId: z.string().uuid(),
+});
+
+const moveSlotSchema = z.object({
+  targetSlotId: z.string().uuid(),
+});
+
+function roomSlotOut(slot: any) {
+  const assignments = slot.assignments || [];
+  return {
+    id: slot.id,
+    departureId: slot.departure_id,
+    hotelAllocationId: slot.hotel_allocation_id,
+    hotelId: slot.hotel_id,
+    roomType: slot.room_type,
+    slotNumber: slot.slot_number,
+    displayLabel: slot.display_label,
+    capacity: Number(slot.capacity || 0),
+    actualHotelRoomNumber: slot.actual_hotel_room_number || null,
+    notes: slot.notes || null,
+    hotel: slot.hotels ? {
+      id: slot.hotels.id,
+      name: slot.hotels.name,
+      destination: slot.hotels.destination || null,
+      stars: slot.hotels.stars ?? null,
+    } : null,
+    assignments: assignments.map((a: any) => ({
+      id: a.id,
+      passengerId: a.passenger_id,
+      reservationId: a.reservation_id,
+      passengerName: a.passenger_name,
+      createdAt: a.created_at,
+    })),
+  };
+}
+
+async function loadSlot(orgId: string, slotId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('departure_room_slots')
+    .select('*, assignments:departure_room_slot_assignments(*), hotels:hotel_id(id, name, destination, stars)')
+    .eq('id', slotId)
+    .eq('org_id', orgId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+type SlotPassengerValidation =
+  | { ok: true; passenger: any }
+  | { ok: false; error: { status: number; code: string; message: string } };
+
+async function validateSlotPassengerCompatibility(orgId: string, slot: any, passengerId: string): Promise<SlotPassengerValidation> {
+  const { data: passenger, error: passengerErr } = await supabaseAdmin
+    .from('departure_passengers')
+    .select('id, reservation_id, full_name, departure_id')
+    .eq('id', passengerId)
+    .eq('org_id', orgId)
+    .maybeSingle();
+  if (passengerErr) throw passengerErr;
+  if (!passenger) return { ok: false, error: { status: 404, code: 'PASSENGER_NOT_FOUND', message: 'Passenger not found' } };
+  if (passenger.departure_id !== slot.departure_id) {
+    return { ok: false, error: { status: 409, code: 'CROSS_DEPARTURE', message: 'Passenger does not belong to this departure' } };
+  }
+
+  const { data: requirement, error: requirementErr } = await supabaseAdmin
+    .from('reservation_accommodation_requirements')
+    .select('hotel_id, hotel_allocation_id, room_type')
+    .eq('org_id', orgId)
+    .eq('reservation_id', passenger.reservation_id)
+    .maybeSingle();
+  if (requirementErr) throw requirementErr;
+  if (requirement && (
+    requirement.hotel_id !== slot.hotel_id ||
+    requirement.hotel_allocation_id !== slot.hotel_allocation_id ||
+    requirement.room_type !== slot.room_type
+  )) {
+    return { ok: false, error: { status: 409, code: 'ROOM_REQUIREMENT_MISMATCH', message: 'Passenger accommodation requirement does not match this room slot' } };
+  }
+
+  return { ok: true, passenger };
+}
+
+// ─── GET /api/departures/:departureId/room-slots ──────────
+
+router.get(
+  '/departures/:departureId/room-slots',
+  authenticateToken,
+  requireOrgContext,
+  requireMinimumRole('agent'),
+  async (req, res: Response) => {
+    try {
+      const { departureId } = req.params;
+      const orgId = req.orgId!;
+
+      const { data: departure, error: departureErr } = await supabaseAdmin
+        .from('departures')
+        .select('id')
+        .eq('id', departureId)
+        .eq('org_id', orgId)
+        .maybeSingle();
+      if (departureErr) return handleSupabaseError(res, departureErr, 'Failed to load departure');
+      if (!departure) return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
+
+      const { error: syncError } = await supabaseAdmin.rpc('sync_departure_room_slots_atomic', {
+        p_org_id: orgId,
+        p_departure_id: departureId,
+        p_hotel_allocation_id: null,
+      });
+      if (syncError) return handleSupabaseError(res, syncError, 'Failed to sync room slots');
+
+      const { data, error } = await supabaseAdmin
+        .from('departure_room_slots')
+        .select('*, assignments:departure_room_slot_assignments(*), hotels:hotel_id(id, name, destination, stars)')
+        .eq('org_id', orgId)
+        .eq('departure_id', departureId)
+        .order('hotel_id', { ascending: true })
+        .order('room_type', { ascending: true })
+        .order('slot_number', { ascending: true });
+
+      if (error) return handleSupabaseError(res, error, 'Failed to load room slots');
+      return res.json({ departureId, slots: (data || []).map(roomSlotOut) });
+    } catch (err) {
+      console.error('GET /departures/:departureId/room-slots:', err);
+      return apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err));
+    }
+  },
+);
+
+router.post(
+  '/room-slots/:slotId/assign',
+  authenticateToken,
+  requireOrgContext,
+  requireMinimumRole('manager'),
+  async (req, res: Response) => {
+    try {
+      const parsed = assignSlotSchema.safeParse(req.body);
+      if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', parsed.error.issues);
+      const orgId = req.orgId!;
+      const slot = await loadSlot(orgId, req.params.slotId);
+      if (!slot) return apiError(res, 404, 'ROOM_SLOT_NOT_FOUND', 'Room slot not found');
+      if ((slot.assignments || []).length >= Number(slot.capacity || 0)) {
+        return apiError(res, 409, 'ROOM_SLOT_FULL', 'Room slot is full');
+      }
+      const validation = await validateSlotPassengerCompatibility(orgId, slot, parsed.data.passengerId);
+      if (!validation.ok) return apiError(res, validation.error.status, validation.error.code, validation.error.message);
+
+      const { data, error } = await supabaseAdmin
+        .from('departure_room_slot_assignments')
+        .insert({
+          org_id: orgId,
+          departure_id: slot.departure_id,
+          room_slot_id: slot.id,
+          passenger_id: validation.passenger.id,
+          reservation_id: validation.passenger.reservation_id,
+          passenger_name: validation.passenger.full_name,
+          assigned_by: req.user?.id || null,
+        })
+        .select()
+        .single();
+      if (error) {
+        if (error.code === '23505') return apiError(res, 409, 'DUPLICATE_ASSIGNMENT', 'Passenger is already assigned to a room slot');
+        return handleSupabaseError(res, error, 'Failed to assign passenger');
+      }
+      return res.status(201).json(data);
+    } catch (err) {
+      console.error('POST /room-slots/:slotId/assign:', err);
+      return apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err));
+    }
+  },
+);
+
+router.delete(
+  '/room-slot-assignments/:assignmentId',
+  authenticateToken,
+  requireOrgContext,
+  requireMinimumRole('manager'),
+  async (req, res: Response) => {
+    try {
+      const { data: assignment, error: loadErr } = await supabaseAdmin
+        .from('departure_room_slot_assignments')
+        .select('id')
+        .eq('id', req.params.assignmentId)
+        .eq('org_id', req.orgId!)
+        .maybeSingle();
+      if (loadErr) return handleSupabaseError(res, loadErr, 'Failed to load room slot assignment');
+      if (!assignment) return apiError(res, 404, 'NOT_FOUND', 'Room slot assignment not found');
+
+      const { error } = await supabaseAdmin
+        .from('departure_room_slot_assignments')
+        .delete()
+        .eq('id', req.params.assignmentId)
+        .eq('org_id', req.orgId!);
+      if (error) return handleSupabaseError(res, error, 'Failed to unassign passenger');
+      return res.status(204).send();
+    } catch (err) {
+      console.error('DELETE /room-slot-assignments/:assignmentId:', err);
+      return apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err));
+    }
+  },
+);
+
+router.post(
+  '/room-slot-assignments/:assignmentId/move',
+  authenticateToken,
+  requireOrgContext,
+  requireMinimumRole('manager'),
+  async (req, res: Response) => {
+    try {
+      const parsed = moveSlotSchema.safeParse(req.body);
+      if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', parsed.error.issues);
+      const orgId = req.orgId!;
+
+      const { data: assignment, error: assignmentErr } = await supabaseAdmin
+        .from('departure_room_slot_assignments')
+        .select('id, passenger_id, departure_id')
+        .eq('id', req.params.assignmentId)
+        .eq('org_id', orgId)
+        .maybeSingle();
+      if (assignmentErr) return handleSupabaseError(res, assignmentErr, 'Failed to load assignment');
+      if (!assignment) return apiError(res, 404, 'NOT_FOUND', 'Room slot assignment not found');
+
+      const slot = await loadSlot(orgId, parsed.data.targetSlotId);
+      if (!slot) return apiError(res, 404, 'ROOM_SLOT_NOT_FOUND', 'Room slot not found');
+      if (slot.departure_id !== assignment.departure_id) {
+        return apiError(res, 409, 'CROSS_DEPARTURE', 'Target room slot is in a different departure');
+      }
+      if ((slot.assignments || []).length >= Number(slot.capacity || 0)) {
+        return apiError(res, 409, 'ROOM_SLOT_FULL', 'Room slot is full');
+      }
+      const validation = await validateSlotPassengerCompatibility(orgId, slot, assignment.passenger_id);
+      if (!validation.ok) return apiError(res, validation.error.status, validation.error.code, validation.error.message);
+
+      const { data, error } = await supabaseAdmin
+        .from('departure_room_slot_assignments')
+        .update({ room_slot_id: slot.id })
+        .eq('id', assignment.id)
+        .eq('org_id', orgId)
+        .select()
+        .single();
+      if (error) return handleSupabaseError(res, error, 'Failed to move passenger');
+      return res.json(data);
+    } catch (err) {
+      console.error('POST /room-slot-assignments/:assignmentId/move:', err);
+      return apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err));
+    }
+  },
+);
+
 // ─── GET /api/departures/:departureId/accommodation ──────────
 
 router.get(
