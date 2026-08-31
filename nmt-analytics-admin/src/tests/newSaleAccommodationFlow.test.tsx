@@ -75,17 +75,28 @@ const accommodationOption = {
   hotel: { id: 'hotel-1', name: 'Hotel Azure Antalya', destination: 'Antalya', stars: 5 },
 };
 
+const accommodationSingleOption = {
+  ...accommodationOption,
+  id: 'allocation-single',
+  roomType: 'single',
+  roomLabel: 'Single',
+  capacityPerRoom: 1,
+  availableGuestCapacity: 10,
+  unitSellPrice: 590,
+  unitNetPrice: 450,
+};
+
 describe('NewSaleWizard accommodation flow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getPackages.mockResolvedValue({ data: [pkg] });
     getDepartures.mockResolvedValue({ data: [departure] });
-    getDepartureAccommodationOptions.mockResolvedValue({ departureId: 'departure-1', items: [accommodationOption] });
+    getDepartureAccommodationOptions.mockResolvedValue({ departureId: 'departure-1', items: [accommodationOption, accommodationSingleOption] });
     getCustomers.mockResolvedValue({ data: [] });
     createReservation.mockResolvedValue({ id: 'reservation-1' });
   });
 
-  it('creates a reservation with canonical accommodation requirement from selected allotment', async () => {
+  it('creates a reservation with plural accommodation requirements and passenger mapping', async () => {
     const onCreated = vi.fn();
     const onClose = vi.fn();
     render(
@@ -104,10 +115,30 @@ describe('NewSaleWizard accommodation flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
     fireEvent.change(screen.getByPlaceholderText('Npr. Ahmed Hodžić'), { target: { value: 'Amina Hadžić' } });
     fireEvent.change(screen.getByPlaceholderText('+387 61 234 567'), { target: { value: '+38761100001' } });
+    fireEvent.change(screen.getByDisplayValue('1'), { target: { value: '3' } });
+    fireEvent.change(screen.getByPlaceholderText('Putnik 1 - puno ime'), { target: { value: 'Amina Hadžić' } });
+    fireEvent.change(screen.getByPlaceholderText('Putnik 2 - puno ime'), { target: { value: 'Emir Hadžić' } });
+    fireEvent.change(screen.getByPlaceholderText('Putnik 3 - puno ime'), { target: { value: 'Haris Hadžić' } });
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
 
-    expect(await screen.findByText('Hotel Azure Antalya')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Hotel Azure Antalya/ }));
+    expect((await screen.findAllByText('Hotel Azure Antalya')).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: '+ Dodaj još smještaja' }));
+    const selects = screen.getAllByRole('combobox');
+    fireEvent.change(selects[0], { target: { value: 'allocation-double' } });
+    let spinButtons = screen.getAllByRole('spinbutton');
+    fireEvent.change(spinButtons[0], { target: { value: '1' } });
+    fireEvent.change(spinButtons[1], { target: { value: '2' } });
+    fireEvent.click(screen.getAllByLabelText('Amina Hadžić')[0]);
+    fireEvent.click(screen.getAllByLabelText('Emir Hadžić')[0]);
+
+    fireEvent.click(screen.getByRole('button', { name: '+ Dodaj još smještaja' }));
+    const updatedSelects = screen.getAllByRole('combobox');
+    fireEvent.change(updatedSelects[1], { target: { value: 'allocation-single' } });
+    spinButtons = screen.getAllByRole('spinbutton');
+    fireEvent.change(spinButtons[2], { target: { value: '1' } });
+    fireEvent.change(spinButtons[3], { target: { value: '1' } });
+    fireEvent.click(screen.getAllByLabelText('Haris Hadžić')[1]);
+
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
     fireEvent.click(screen.getByRole('button', { name: 'Potvrdi prodaju' }));
 
@@ -116,21 +147,40 @@ describe('NewSaleWizard accommodation flow', () => {
       customerName: 'Amina Hadžić',
       customerPhone: '+38761100001',
       departureId: 'departure-1',
-      totalAmount: 1780,
+      totalAmount: 2370,
       hotelName: 'Hotel Azure Antalya',
       roomType: 'Double',
-      accommodationRequirement: {
-        hotelAllocationId: 'allocation-double',
-        roomCount: 1,
-        guestsExpected: 1,
-        notes: undefined,
-      },
+      accommodationRequirements: [
+        {
+          hotelAllocationId: 'allocation-double',
+          roomCount: 1,
+          guestsExpected: 2,
+          notes: undefined,
+          passengerIndexes: [0, 1],
+        },
+        {
+          hotelAllocationId: 'allocation-single',
+          roomCount: 1,
+          guestsExpected: 1,
+          notes: undefined,
+          passengerIndexes: [2],
+        },
+      ],
     }));
-    expect(createReservation.mock.calls[0][0].options.accommodation).toMatchObject({
-      hotel_allocation_id: 'allocation-double',
-      room_count: 1,
-      total_sell_price: 790,
-    });
+    expect(createReservation.mock.calls[0][0].options.accommodation).toEqual([
+      expect.objectContaining({
+        hotel_allocation_id: 'allocation-double',
+        room_count: 1,
+        total_sell_price: 790,
+        passenger_indexes: [0, 1],
+      }),
+      expect.objectContaining({
+        hotel_allocation_id: 'allocation-single',
+        room_count: 1,
+        total_sell_price: 590,
+        passenger_indexes: [2],
+      }),
+    ]);
     expect(toastSuccess).toHaveBeenCalledWith('Rezervacija kreirana');
     expect(onCreated).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);

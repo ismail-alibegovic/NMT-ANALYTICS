@@ -7,6 +7,7 @@ export type ReservationAccommodationInput = {
   roomCount: number;
   guestsExpected: number;
   notes?: string | null;
+  passengerIds?: string[];
 };
 
 export function requirementOut(row: any) {
@@ -25,6 +26,7 @@ export function requirementOut(row: any) {
     unitNetPrice: Number(row.unit_net_price || 0),
     totalSellPrice: Number(row.total_sell_price || 0),
     notes: row.notes || null,
+    passengerIds: Array.isArray(row.passenger_ids) ? row.passenger_ids : [],
     hotel: row.hotels ? {
       id: row.hotels.id,
       name: row.hotels.name,
@@ -32,6 +34,25 @@ export function requirementOut(row: any) {
       stars: row.hotels.stars ?? null,
     } : null,
   };
+}
+
+async function loadRequirementPassengerIds(orgId: string, reservationId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('departure_passengers')
+    .select('id, reservation_accommodation_requirement_id')
+    .eq('org_id', orgId)
+    .eq('reservation_id', reservationId);
+
+  if (error) throw error;
+
+  const byRequirementId = new Map<string, string[]>();
+  for (const row of data || []) {
+    if (!row.reservation_accommodation_requirement_id) continue;
+    const ids = byRequirementId.get(row.reservation_accommodation_requirement_id) || [];
+    ids.push(row.id);
+    byRequirementId.set(row.reservation_accommodation_requirement_id, ids);
+  }
+  return byRequirementId;
 }
 
 export async function getSoldRoomsForAllocation(orgId: string, allocationId: string, excludeReservationId?: string | null) {
@@ -118,50 +139,46 @@ export async function getReservationAccommodation(reservationId: string, orgId: 
     .select('*, hotels:hotel_id(id, name, destination, stars)')
     .eq('org_id', orgId)
     .eq('reservation_id', reservationId)
-    .maybeSingle();
+    .order('hotel_allocation_id', { ascending: true });
 
   if (error) throw error;
-  return data ? requirementOut(data) : null;
+
+  const passengerIdsByRequirement = await loadRequirementPassengerIds(orgId, reservationId);
+  return (data || []).map((row: any) => requirementOut({
+    ...row,
+    passenger_ids: passengerIdsByRequirement.get(row.id) || [],
+  }));
 }
 
-export async function upsertReservationAccommodation(
+export async function replaceReservationAccommodation(
   reservationId: string,
   orgId: string,
-  input: ReservationAccommodationInput,
+  inputs: ReservationAccommodationInput[],
 ) {
-  const { data, error } = await supabaseAdmin.rpc('upsert_reservation_accommodation_requirement_atomic', {
+  const { data, error } = await supabaseAdmin.rpc('replace_reservation_accommodation_requirements_atomic', {
     p_org_id: orgId,
     p_reservation_id: reservationId,
-    p_hotel_allocation_id: input.hotelAllocationId,
-    p_room_count: input.roomCount,
-    p_guests_expected: input.guestsExpected,
-    p_notes: input.notes ?? null,
+    p_requirements: inputs.map((input) => ({
+      hotel_allocation_id: input.hotelAllocationId,
+      room_count: input.roomCount,
+      guests_expected: input.guestsExpected,
+      notes: input.notes ?? null,
+      passenger_ids: input.passengerIds || [],
+    })),
   });
 
   if (error) throw error;
-  const row = Array.isArray(data) ? data[0] : data;
-  return row ? requirementOut(row) : null;
+  const rows = Array.isArray(data) ? data : (data ? [data] : []);
+  const passengerIdsByRequirement = await loadRequirementPassengerIds(orgId, reservationId);
+  return rows.map((row: any) => requirementOut({
+    ...row,
+    passenger_ids: passengerIdsByRequirement.get(row.id) || [],
+  }));
 }
 
 export async function deleteReservationAccommodation(reservationId: string, orgId: string) {
-  const { data: existing, error: loadErr } = await supabaseAdmin
-    .from('reservation_accommodation_requirements')
-    .select('id')
-    .eq('org_id', orgId)
-    .eq('reservation_id', reservationId)
-    .maybeSingle();
-
-  if (loadErr) throw loadErr;
-  if (!existing) return false;
-
-  const { error } = await supabaseAdmin
-    .from('reservation_accommodation_requirements')
-    .delete()
-    .eq('org_id', orgId)
-    .eq('reservation_id', reservationId);
-
-  if (error) throw error;
-  return true;
+  const result = await replaceReservationAccommodation(reservationId, orgId, []);
+  return Array.isArray(result);
 }
 
 export function mapAccommodationError(error: any) {
@@ -169,17 +186,44 @@ export function mapAccommodationError(error: any) {
   if (message.includes('ACCOMMODATION_OVERBOOKED')) {
     return { status: 409, code: 'ACCOMMODATION_OVERBOOKED', message: 'Not enough accommodation inventory is available for this room type.' };
   }
-  if (message.includes('ACCOMMODATION_CAPACITY_INSUFFICIENT')) {
-    return { status: 409, code: 'ACCOMMODATION_CAPACITY_INSUFFICIENT', message: 'Selected accommodation does not cover all passengers.' };
+  if (message.includes('ACCOMMODATION_CAPACITY_INSUFFICIENT') || message.includes('ACCOMMODATION_LINE_CAPACITY_INSUFFICIENT')) {
+    return { status: 409, code: 'ACCOMMODATION_CAPACITY_INSUFFICIENT', message: 'Selected accommodation line exceeds the capacity of the chosen room type.' };
+  }
+  if (message.includes('ACCOMMODATION_COVERAGE_MISMATCH')) {
+    return { status: 409, code: 'ACCOMMODATION_COVERAGE_MISMATCH', message: 'Accommodation lines must cover all passengers in the reservation.' };
+  }
+  if (message.includes('PASSENGER_REQUIREMENT_COVERAGE_MISMATCH')) {
+    return { status: 409, code: 'PASSENGER_REQUIREMENT_COVERAGE_MISMATCH', message: 'Each passenger must be assigned to exactly one accommodation line.' };
+  }
+  if (message.includes('INVALID_PASSENGER_REQUIREMENT_MAPPING')) {
+    return { status: 409, code: 'INVALID_PASSENGER_REQUIREMENT_MAPPING', message: 'Passenger mapping does not match this reservation and departure.' };
+  }
+  if (message.includes('DUPLICATE_PASSENGER_REQUIREMENT_MAPPING')) {
+    return { status: 409, code: 'DUPLICATE_PASSENGER_REQUIREMENT_MAPPING', message: 'A passenger cannot be assigned to more than one accommodation line.' };
+  }
+  if (message.includes('DUPLICATE_ALLOTMENT_LINES')) {
+    return { status: 409, code: 'DUPLICATE_ALLOTMENT_LINES', message: 'Only one accommodation line per allotment is allowed.' };
   }
   if (message.includes('ALLOTMENT_NOT_FOUND')) {
     return { status: 404, code: 'ALLOTMENT_NOT_FOUND', message: 'Accommodation allotment not found for this departure.' };
+  }
+  if (message.includes('ALLOTMENT_WRONG_DEPARTURE')) {
+    return { status: 409, code: 'ALLOTMENT_WRONG_DEPARTURE', message: 'Accommodation allotment belongs to a different departure.' };
   }
   if (message.includes('RESERVATION_NOT_FOUND')) {
     return { status: 404, code: 'RESERVATION_NOT_FOUND', message: 'Reservation not found.' };
   }
   if (message.includes('RESERVATION_HAS_NO_DEPARTURE')) {
     return { status: 409, code: 'RESERVATION_HAS_NO_DEPARTURE', message: 'Reservation must have a departure before accommodation can be selected.' };
+  }
+  if (message.includes('EXISTING_ROOM_ASSIGNMENT_CONFLICT')) {
+    return { status: 409, code: 'EXISTING_ROOM_ASSIGNMENT_CONFLICT', message: 'Existing room assignments conflict with the requested accommodation changes.' };
+  }
+  if (message.includes('RESERVATION_CANCELLED')) {
+    return { status: 409, code: 'RESERVATION_CANCELLED', message: 'Cancelled reservations cannot be assigned accommodation.' };
+  }
+  if (message.includes('PASSENGER_REQUIREMENT_UNASSIGNED')) {
+    return { status: 409, code: 'PASSENGER_REQUIREMENT_UNASSIGNED', message: 'Passenger must be assigned to a reservation accommodation line before rooming.' };
   }
   return null;
 }

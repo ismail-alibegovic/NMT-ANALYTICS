@@ -49,9 +49,9 @@ vi.mock('../lib/reservationAccommodation', () => ({
   deleteReservationAccommodation: vi.fn(),
   getReservationAccommodation: vi.fn(),
   mapAccommodationError: vi.fn(() => ({ status: 400, code: 'ACCOMMODATION_INVALID', message: 'Accommodation could not be saved' })),
-  upsertReservationAccommodation: vi.fn(async () => {
+  replaceReservationAccommodation: vi.fn(async () => {
     if (failAccommodation) throw new Error('ROOMS_SOLD_OUT');
-    return { id: 'requirement-1' };
+    return [{ id: 'requirement-1' }];
   }),
 }))
 
@@ -284,11 +284,11 @@ describe('POST /api/reservations — Sprint 5 §6.2.1 atomic capacity contract',
     const res = await request(app).post('/api/reservations').send({
       ...validBody,
       partySize: 2,
-      accommodationRequirement: {
+      accommodationRequirements: [{
         hotelAllocationId: '11111111-1111-4111-8111-111111111111',
         roomCount: 1,
         guestsExpected: 2,
-      },
+      }],
     })
 
     expect(res.status).toBe(400)

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
@@ -8,9 +8,11 @@ import { useToast } from "../../context/ToastContext";
 import { getPackages, Package } from "../../api/packages";
 import {
   getDepartureAccommodationOptions,
+  getDeparturePassengers,
   getDepartures,
   Departure,
   DepartureAccommodationOption,
+  DeparturePassenger,
 } from "../../api/departures";
 import {
   deleteReservationAccommodation,
@@ -28,6 +30,14 @@ interface EditReservationModalProps {
   reservationId: string | null;
 }
 
+interface AccommodationLineDraft {
+  hotelAllocationId: string;
+  roomCount: number;
+  guestsExpected: number;
+  notes: string;
+  passengerIds: string[];
+}
+
 export default function EditReservationModal({
   isOpen,
   onClose,
@@ -40,6 +50,7 @@ export default function EditReservationModal({
   const [submitting, setSubmitting] = useState(false);
   const [packages, setPackages] = useState<Package[]>([]);
   const [departures, setDepartures] = useState<Departure[]>([]);
+  const [reservationPassengers, setReservationPassengers] = useState<DeparturePassenger[]>([]);
 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -51,38 +62,45 @@ export default function EditReservationModal({
   const [accommodationOptions, setAccommodationOptions] = useState<DepartureAccommodationOption[]>([]);
   const [accommodationLoading, setAccommodationLoading] = useState(false);
   const [accommodationError, setAccommodationError] = useState<string | null>(null);
-  const [hotelAllocationId, setHotelAllocationId] = useState("");
-  const [accommodationRoomCount, setAccommodationRoomCount] = useState(1);
-  const [accommodationNotes, setAccommodationNotes] = useState("");
-  const [originalHotelAllocationId, setOriginalHotelAllocationId] = useState("");
-  const [originalRoomCount, setOriginalRoomCount] = useState(0);
-  const [hadAccommodationRequirement, setHadAccommodationRequirement] = useState(false);
+  const [accommodationLines, setAccommodationLines] = useState<AccommodationLineDraft[]>([]);
 
-  const selectedAccommodation = accommodationOptions.find((item) => item.id === hotelAllocationId);
-  const maxRoomsForSelected = selectedAccommodation
-    ? selectedAccommodation.availableRooms + (selectedAccommodation.id === originalHotelAllocationId ? originalRoomCount : 0)
-    : 0;
-  const accommodationCapacity = selectedAccommodation ? selectedAccommodation.capacityPerRoom * accommodationRoomCount : 0;
+  const statusOptions = [
+    { value: "pending", label: "Na čekanju" },
+    { value: "confirmed", label: "Potvrđeno" },
+    { value: "cancelled", label: "Otkazano" },
+    { value: "completed", label: "Završeno" },
+  ];
 
-  // Fetch packages once
+  const accommodationCoverage = accommodationLines.reduce((sum, line) => sum + line.guestsExpected, 0);
+  const mappedPassengerIds = accommodationLines.flatMap((line) => line.passengerIds);
+  const passengerMappingValid = mappedPassengerIds.length === new Set(mappedPassengerIds).size && (
+    reservationPassengers.length === 0 || new Set(mappedPassengerIds).size === reservationPassengers.length
+  );
+
+  const lineState = useMemo(() => accommodationLines.map((line) => {
+    const option = accommodationOptions.find((item) => item.id === line.hotelAllocationId);
+    const baseline = line.hotelAllocationId
+      ? accommodationLines.filter((current) => current.hotelAllocationId === line.hotelAllocationId).reduce((sum, current) => sum + current.roomCount, 0) - line.roomCount
+      : 0;
+    const maxRooms = option ? option.availableRooms + baseline : 0;
+    const capacity = (option?.capacityPerRoom || 0) * line.roomCount;
+    return { line, option, maxRooms, capacity };
+  }), [accommodationLines, accommodationOptions]);
+
   useEffect(() => {
     if (isOpen) {
       getPackages({ limit: 200 }).then((res) => setPackages(res.data)).catch(() => {});
     }
   }, [isOpen]);
 
-  // Load reservation data when modal opens
   useEffect(() => {
     if (!isOpen || !reservationId) return;
     setLoading(true);
     setAccommodationOptions([]);
-    setHotelAllocationId("");
-    setAccommodationRoomCount(1);
-    setAccommodationNotes("");
-    setOriginalHotelAllocationId("");
-    setOriginalRoomCount(0);
-    setHadAccommodationRequirement(false);
+    setAccommodationLines([]);
+    setReservationPassengers([]);
     setAccommodationError(null);
+
     getReservation(reservationId)
       .then(async (res) => {
         setCustomerName(res.customerName);
@@ -91,32 +109,32 @@ export default function EditReservationModal({
         setTotalAmount(String(res.totalAmount || 0));
         setStatus(res.status);
 
-        // If there's a departure, find the package
         if (res.departureId) {
           setDepartureId(res.departureId);
-          // Fetch departures to find the package
           try {
             const depRes = await getDepartures({ limit: 500 });
             const dep = depRes.data.find((d) => d.id === res.departureId);
             if (dep) {
               setPackageId(dep.package_id);
-              // Fetch departures for this package
               const pkgDeps = await getDepartures({ packageId: dep.package_id, limit: 200 });
               setDepartures(pkgDeps.data);
             }
-          } catch {/* noop */}
+            const manifest = await getDeparturePassengers(res.departureId);
+            setReservationPassengers((manifest.manifest || []).filter((passenger) => passenger.reservationId === res.id && !!passenger.passengerId));
+          } catch {
+            setReservationPassengers([]);
+          }
         }
 
         try {
-          const requirement = await getReservationAccommodation(reservationId);
-          if (requirement) {
-            setHotelAllocationId(requirement.hotelAllocationId);
-            setAccommodationRoomCount(requirement.roomCount || 1);
-            setAccommodationNotes(requirement.notes || "");
-            setOriginalHotelAllocationId(requirement.hotelAllocationId);
-            setOriginalRoomCount(requirement.roomCount || 0);
-            setHadAccommodationRequirement(true);
-          }
+          const requirements = await getReservationAccommodation(reservationId);
+          setAccommodationLines(requirements.map((requirement) => ({
+            hotelAllocationId: requirement.hotelAllocationId,
+            roomCount: requirement.roomCount || 1,
+            guestsExpected: requirement.guestsExpected || 1,
+            notes: requirement.notes || "",
+            passengerIds: requirement.passengerIds || [],
+          })));
         } catch {
           setAccommodationError("Smještaj za rezervaciju nije moguće učitati");
         }
@@ -125,7 +143,6 @@ export default function EditReservationModal({
       .finally(() => setLoading(false));
   }, [isOpen, reservationId, showError]);
 
-  // Fetch departures when package changes
   useEffect(() => {
     if (!packageId) {
       setDepartures([]);
@@ -141,20 +158,60 @@ export default function EditReservationModal({
     if (!isOpen || !departureId) {
       setAccommodationOptions([]);
       setAccommodationError(null);
+      setReservationPassengers([]);
       return;
     }
     setAccommodationLoading(true);
-    getDepartureAccommodationOptions(departureId)
-      .then((res) => {
-        setAccommodationOptions(res.items || []);
+    Promise.all([
+      getDepartureAccommodationOptions(departureId),
+      getDeparturePassengers(departureId),
+    ])
+      .then(([optionsRes, manifest]) => {
+        setAccommodationOptions(optionsRes.items || []);
+        setReservationPassengers((manifest.manifest || []).filter((passenger) => passenger.reservationId === reservationId && !!passenger.passengerId));
         setAccommodationError(null);
       })
       .catch((err) => {
         setAccommodationOptions([]);
+        setReservationPassengers([]);
         setAccommodationError(err?.message || "Smještaj za polazak nije moguće učitati");
       })
       .finally(() => setAccommodationLoading(false));
-  }, [isOpen, departureId]);
+  }, [isOpen, departureId, reservationId]);
+
+  function addAccommodationLine() {
+    setAccommodationLines((current) => [...current, {
+      hotelAllocationId: "",
+      roomCount: 1,
+      guestsExpected: 1,
+      notes: "",
+      passengerIds: [],
+    }]);
+  }
+
+  function updateAccommodationLine(index: number, patch: Partial<AccommodationLineDraft>) {
+    setAccommodationLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...patch } : line));
+  }
+
+  function removeAccommodationLine(index: number) {
+    setAccommodationLines((current) => current.filter((_, lineIndex) => lineIndex !== index));
+  }
+
+  function togglePassenger(lineIndex: number, passengerId: string) {
+    setAccommodationLines((current) => current.map((line, index) => {
+      if (index !== lineIndex) return {
+        ...line,
+        passengerIds: line.passengerIds.filter((id) => id !== passengerId),
+      };
+      const exists = line.passengerIds.includes(passengerId);
+      return {
+        ...line,
+        passengerIds: exists
+          ? line.passengerIds.filter((id) => id !== passengerId)
+          : [...line.passengerIds, passengerId],
+      };
+    }));
+  }
 
   const handleSubmit = async () => {
     if (!reservationId) return;
@@ -162,17 +219,24 @@ export default function EditReservationModal({
       showError("Ime klijenta je obavezno");
       return;
     }
-    if (hotelAllocationId) {
-      if (!selectedAccommodation) {
-        showError("Odabrani smještaj više nije dostupan");
+    if (accommodationLines.length > 0) {
+      const lineError = lineState.some(({ line, option, maxRooms, capacity }) => (
+        !option ||
+        line.roomCount < 1 ||
+        line.roomCount > maxRooms ||
+        line.guestsExpected < 1 ||
+        line.guestsExpected > capacity
+      ));
+      if (lineError) {
+        showError("Smještajne linije nisu validne");
         return;
       }
-      if (accommodationRoomCount < 1 || accommodationRoomCount > maxRoomsForSelected) {
-        showError("Broj soba nije dostupan za odabrani smještaj");
+      if (accommodationCoverage !== partySize) {
+        showError("Smještaj mora pokriti sve putnike u rezervaciji");
         return;
       }
-      if (accommodationCapacity < partySize) {
-        showError("Odabrani broj soba nema dovoljan kapacitet za broj osoba");
+      if (!passengerMappingValid) {
+        showError("Svaki putnik mora biti dodijeljen tačno jednoj liniji smještaja");
         return;
       }
     }
@@ -188,14 +252,15 @@ export default function EditReservationModal({
         status: status as Reservation["status"],
       });
 
-      if (hotelAllocationId && selectedAccommodation) {
-        await updateReservationAccommodation(reservationId, {
-          hotelAllocationId,
-          roomCount: accommodationRoomCount,
-          guestsExpected: partySize,
-          notes: accommodationNotes || undefined,
-        });
-      } else if (hadAccommodationRequirement) {
+      if (accommodationLines.length > 0) {
+        await updateReservationAccommodation(reservationId, accommodationLines.map((line) => ({
+          hotelAllocationId: line.hotelAllocationId,
+          roomCount: line.roomCount,
+          guestsExpected: line.guestsExpected,
+          notes: line.notes || undefined,
+          passengerIds: line.passengerIds,
+        })));
+      } else {
         await deleteReservationAccommodation(reservationId);
       }
 
@@ -209,15 +274,8 @@ export default function EditReservationModal({
     }
   };
 
-  const statusOptions = [
-    { value: "pending", label: "Na čekanju" },
-    { value: "confirmed", label: "Potvrđeno" },
-    { value: "cancelled", label: "Otkazano" },
-    { value: "completed", label: "Završeno" },
-  ];
-
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-2xl" title="Uredi rezervaciju">
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-3xl" title="Uredi rezervaciju">
       <div className="p-6 pt-4 space-y-5">
         {loading ? (
           <div className="flex items-center justify-center p-10">
@@ -228,54 +286,31 @@ export default function EditReservationModal({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Ime i prezime</Label>
-                <Input
-                  type="text"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                />
+                <Input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
               </div>
               <div>
                 <Label>Telefon</Label>
-                <Input
-                  type="tel"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                />
+                <Input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Aranžman</Label>
-                <select
-                  value={packageId}
-                  onChange={(e) => setPackageId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-none focus:ring focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800"
-                >
+                <select value={packageId} onChange={(e) => setPackageId(e.target.value)} className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                   <option value="">-- Bez promjene --</option>
                   {packages.map((pkg) => (
-                    <option key={pkg.id} value={pkg.id}>
-                      {pkg.name} - {pkg.destination}
-                    </option>
+                    <option key={pkg.id} value={pkg.id}>{pkg.name} - {pkg.destination}</option>
                   ))}
                 </select>
               </div>
               <div>
                 <Label>Polazak</Label>
-                <select
-                  value={departureId}
-                  onChange={(e) => setDepartureId(e.target.value)}
-                  disabled={!packageId}
-                  className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-none focus:ring focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 disabled:opacity-50"
-                >
+                <select value={departureId} onChange={(e) => setDepartureId(e.target.value)} disabled={!packageId} className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 disabled:opacity-50">
                   <option value="">-- Bez polaska --</option>
-                  {departures
-                    .filter((d) => d.status === "active")
-                    .map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {new Date(d.depart_at).toLocaleDateString("bs-BA")} ({d.booked}/{d.capacity})
-                      </option>
-                    ))}
+                  {departures.filter((d) => d.status === "active").map((d) => (
+                    <option key={d.id} value={d.id}>{new Date(d.depart_at).toLocaleDateString("bs-BA")} ({d.booked}/{d.capacity})</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -283,30 +318,15 @@ export default function EditReservationModal({
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>Broj osoba</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={String(partySize)}
-                  onChange={(e) => setPartySize(Math.max(1, parseInt(e.target.value) || 1))}
-                />
+                <Input type="number" min="1" value={String(partySize)} onChange={(e) => setPartySize(Math.max(1, parseInt(e.target.value) || 1))} />
               </div>
               <div>
                 <Label>Iznos (BAM)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={totalAmount}
-                  onChange={(e) => setTotalAmount(e.target.value)}
-                />
+                <Input type="number" min="0" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} />
               </div>
               <div>
                 <Label>Status</Label>
-                <Select
-                  options={statusOptions}
-                  placeholder="Odaberite status"
-                  defaultValue={status}
-                  onChange={(value) => setStatus(value)}
-                />
+                <Select options={statusOptions} placeholder="Odaberite status" defaultValue={status} onChange={(value) => setStatus(value)} />
               </div>
             </div>
 
@@ -315,23 +335,8 @@ export default function EditReservationModal({
                 <div className="mb-3 flex items-center justify-between">
                   <div>
                     <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Smještaj</h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Odaberite kupljeni hotelski allotment za ovu rezervaciju.
-                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Uredite kompletan skup smještajnih linija za ovu rezervaciju.</p>
                   </div>
-                  {hotelAllocationId && (
-                    <button
-                      type="button"
-                      className="text-xs font-medium text-red-600 hover:text-red-700"
-                      onClick={() => {
-                        setHotelAllocationId("");
-                        setAccommodationRoomCount(1);
-                        setAccommodationNotes("");
-                      }}
-                    >
-                      Ukloni smještaj
-                    </button>
-                  )}
                 </div>
 
                 {accommodationLoading && <p className="text-sm text-gray-500">Učitavanje smještaja...</p>}
@@ -339,70 +344,95 @@ export default function EditReservationModal({
                 {!accommodationLoading && accommodationOptions.length === 0 && !accommodationError && (
                   <p className="text-sm text-gray-500">Ovaj polazak nema konfigurisan hotelski allotment.</p>
                 )}
+
                 {accommodationOptions.length > 0 && (
                   <div className="space-y-3">
-                    <select
-                      value={hotelAllocationId}
-                      onChange={(e) => {
-                        setHotelAllocationId(e.target.value);
-                        setAccommodationRoomCount(1);
-                      }}
-                      className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-none focus:ring focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800"
-                    >
-                      <option value="">-- Bez smještaja --</option>
-                      {accommodationOptions.map((option) => {
-                        const availableWithCurrent = option.availableRooms + (option.id === originalHotelAllocationId ? originalRoomCount : 0);
-                        return (
-                          <option key={option.id} value={option.id}>
-                            {option.hotel?.name || "Hotel"} · {option.roomLabel} · dostupno {availableWithCurrent}
-                          </option>
-                        );
-                      })}
-                    </select>
+                    {accommodationLines.map((line, index) => {
+                      const option = lineState[index]?.option;
+                      const maxRooms = lineState[index]?.maxRooms || 0;
+                      const capacity = lineState[index]?.capacity || 0;
+                      return (
+                        <div key={`edit-line-${index}`} className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h5 className="font-medium text-gray-900 dark:text-white">Smještaj {index + 1}</h5>
+                            <button type="button" className="text-xs font-medium text-red-600" onClick={() => removeAccommodationLine(index)}>Ukloni</button>
+                          </div>
 
-                    {selectedAccommodation && (
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <Label>Broj soba</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            max={String(Math.max(1, maxRoomsForSelected))}
-                            value={String(accommodationRoomCount)}
-                            onChange={(e) => setAccommodationRoomCount(Math.max(1, parseInt(e.target.value) || 1))}
-                          />
-                          <p className="mt-1 text-xs text-gray-500">Dostupno: {maxRoomsForSelected}</p>
-                        </div>
-                        <div>
-                          <Label>Kapacitet</Label>
-                          <div className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-200">
-                            {accommodationCapacity} osoba
+                          <select
+                            value={line.hotelAllocationId}
+                            onChange={(e) => updateAccommodationLine(index, { hotelAllocationId: e.target.value, passengerIds: [] })}
+                            className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                          >
+                            <option value="">-- Bez smještaja --</option>
+                            {accommodationOptions.map((accommodationOption) => (
+                              <option key={accommodationOption.id} value={accommodationOption.id}>
+                                {accommodationOption.hotel?.name || "Hotel"} · {accommodationOption.roomLabel} · dostupno {accommodationOption.availableRooms}
+                              </option>
+                            ))}
+                          </select>
+
+                          <div className="grid grid-cols-3 gap-4">
+                            <div>
+                              <Label>Broj soba</Label>
+                              <Input type="number" min="1" max={String(Math.max(1, maxRooms))} value={String(line.roomCount)} onChange={(e) => updateAccommodationLine(index, { roomCount: Math.max(1, parseInt(e.target.value) || 1) })} />
+                              <p className="mt-1 text-xs text-gray-500">Dostupno: {maxRooms}</p>
+                            </div>
+                            <div>
+                              <Label>Putnika</Label>
+                              <Input type="number" min="1" max={String(partySize)} value={String(line.guestsExpected)} onChange={(e) => updateAccommodationLine(index, { guestsExpected: Math.max(1, parseInt(e.target.value) || 1) })} />
+                              <p className="mt-1 text-xs text-gray-500">Kapacitet: {capacity}</p>
+                            </div>
+                            <div>
+                              <Label>Cijena smještaja</Label>
+                              <div className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-200">
+                                {(option?.unitSellPrice || 0) * line.roomCount} BAM
+                              </div>
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label>Dodijeljeni putnici</Label>
+                            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {reservationPassengers.map((passenger) => {
+                                const passengerId = passenger.passengerId || passenger.id || "";
+                                const assignedElsewhere = accommodationLines.some((otherLine, otherIndex) => otherIndex !== index && otherLine.passengerIds.includes(passengerId));
+                                return (
+                                  <label key={`${index}-${passengerId}`} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${assignedElsewhere ? "opacity-50" : ""}`}>
+                                    <input
+                                      type="checkbox"
+                                      checked={line.passengerIds.includes(passengerId)}
+                                      disabled={assignedElsewhere}
+                                      onChange={() => togglePassenger(index, passengerId)}
+                                    />
+                                    <span>{passenger.fullName}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label>Napomena za smještaj</Label>
+                            <textarea
+                              value={line.notes}
+                              onChange={(e) => updateAccommodationLine(index, { notes: e.target.value })}
+                              rows={2}
+                              className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                            />
                           </div>
                         </div>
-                        <div>
-                          <Label>Cijena smještaja</Label>
-                          <div className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-200">
-                            {selectedAccommodation.unitSellPrice * accommodationRoomCount} BAM
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                      );
+                    })}
 
-                    {selectedAccommodation && accommodationCapacity < partySize && (
-                      <p className="text-sm text-red-600">Odabrani smještaj nema dovoljan kapacitet za {partySize} osoba.</p>
-                    )}
-                    {selectedAccommodation && accommodationRoomCount > maxRoomsForSelected && (
-                      <p className="text-sm text-red-600">Odabrani broj soba prelazi dostupni allotment.</p>
-                    )}
+                    <button type="button" className="text-sm font-medium text-brand-600" onClick={addAccommodationLine}>
+                      + Dodaj još smještaja
+                    </button>
 
-                    <div>
-                      <Label>Napomena za smještaj</Label>
-                      <textarea
-                        value={accommodationNotes}
-                        onChange={(e) => setAccommodationNotes(e.target.value)}
-                        rows={2}
-                        className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-none focus:ring focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800"
-                      />
+                    <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+                      <p className="text-sm text-gray-700 dark:text-gray-200">Ukupno pokriveno: {accommodationCoverage} / {partySize}</p>
+                      {!passengerMappingValid && accommodationLines.length > 0 && (
+                        <p className="mt-1 text-sm text-red-600">Svaki putnik mora biti dodijeljen tačno jednoj liniji smještaja.</p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -410,9 +440,7 @@ export default function EditReservationModal({
             )}
 
             <div className="flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
-              <Button variant="outline" onClick={onClose} disabled={submitting}>
-                Odustani
-              </Button>
+              <Button variant="outline" onClick={onClose} disabled={submitting}>Odustani</Button>
               <Button onClick={handleSubmit} disabled={submitting || loading}>
                 {submitting ? "Spremanje..." : "Spremi izmjene"}
               </Button>

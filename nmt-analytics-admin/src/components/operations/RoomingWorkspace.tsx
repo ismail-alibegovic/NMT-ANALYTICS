@@ -135,7 +135,8 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
       const isFull = occupied >= slot.capacity;
       const matchesRequirement = !passenger?.hotelAllocationId || (
         passenger.hotelAllocationId === slot.hotelAllocationId &&
-        (!passenger.hotelId || passenger.hotelId === slot.hotelId)
+        (!passenger.hotelId || passenger.hotelId === slot.hotelId) &&
+        (!passenger.roomType || passenger.roomType === slot.roomType)
       );
       return { slot, occupied, isFull, matchesRequirement };
     });

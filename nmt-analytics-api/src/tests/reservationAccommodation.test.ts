@@ -4,6 +4,7 @@ let reservations: any[] = [];
 let requirements: any[] = [];
 let allocations: any[] = [];
 let departures: any[] = [];
+let departurePassengers: any[] = [];
 const rpcMock = vi.fn();
 
 function clone<T>(value: T): T {
@@ -82,6 +83,9 @@ function createBuilder(table: string) {
       ));
       return { data: clone(rows), error: null };
     }
+    if (table === 'departure_passengers') {
+      return { data: clone(applyFilters(departurePassengers)), error: null };
+    }
     throw new Error(`Unhandled table ${table}`);
   }
 
@@ -123,23 +127,46 @@ describe('reservation accommodation helpers', () => {
       { id: 'requirement-2', org_id: 'org-1', reservation_id: 'reservation-2', hotel_allocation_id: 'allocation-1', room_count: 1 },
       { id: 'requirement-3', org_id: 'org-1', reservation_id: 'reservation-3', hotel_allocation_id: 'allocation-1', room_count: 1 },
     ];
+    departurePassengers = [
+      { id: 'passenger-1', org_id: 'org-1', reservation_id: 'reservation-1', reservation_accommodation_requirement_id: 'requirement-1' },
+      { id: 'passenger-2', org_id: 'org-1', reservation_id: 'reservation-1', reservation_accommodation_requirement_id: 'requirement-rpc' },
+      { id: 'passenger-3', org_id: 'org-1', reservation_id: 'reservation-1', reservation_accommodation_requirement_id: 'requirement-rpc' },
+    ];
     rpcMock.mockResolvedValue({
-      data: [{
-        id: 'requirement-rpc',
-        reservation_id: 'reservation-1',
-        departure_id: 'departure-1',
-        hotel_allocation_id: 'allocation-1',
-        hotel_id: 'hotel-1',
-        room_type: 'double',
-        room_label: 'Double',
-        room_count: 1,
-        guests_expected: 2,
-        capacity_per_room: 2,
-        unit_sell_price: 790,
-        unit_net_price: 650,
-        total_sell_price: 790,
-        notes: 'together',
-      }],
+      data: [
+        {
+          id: 'requirement-rpc',
+          reservation_id: 'reservation-1',
+          departure_id: 'departure-1',
+          hotel_allocation_id: 'allocation-1',
+          hotel_id: 'hotel-1',
+          room_type: 'double',
+          room_label: 'Double',
+          room_count: 1,
+          guests_expected: 2,
+          capacity_per_room: 2,
+          unit_sell_price: 790,
+          unit_net_price: 650,
+          total_sell_price: 790,
+          notes: 'together',
+        },
+        {
+          id: 'requirement-rpc-2',
+          reservation_id: 'reservation-1',
+          departure_id: 'departure-1',
+          hotel_allocation_id: 'allocation-2',
+          hotel_id: 'hotel-1',
+          room_type: 'single',
+          room_label: 'Single',
+          room_count: 2,
+          guests_expected: 2,
+          capacity_per_room: 1,
+          unit_sell_price: 590,
+          unit_net_price: 450,
+          total_sell_price: 1180,
+          notes: null,
+        },
+      ],
       error: null,
     });
   });
@@ -168,30 +195,110 @@ describe('reservation accommodation helpers', () => {
     ]);
   });
 
-  it('upserts reservation accommodation through the canonical atomic RPC payload', async () => {
-    const { upsertReservationAccommodation } = await import('../lib/reservationAccommodation');
+  it('replaces reservation accommodation through the canonical atomic RPC payload', async () => {
+    const { replaceReservationAccommodation } = await import('../lib/reservationAccommodation');
 
-    const result = await upsertReservationAccommodation('reservation-1', 'org-1', {
-      hotelAllocationId: 'allocation-1',
-      roomCount: 1,
-      guestsExpected: 2,
-      notes: 'together',
-    });
+    const result = await replaceReservationAccommodation('reservation-1', 'org-1', [
+      {
+        hotelAllocationId: 'allocation-1',
+        roomCount: 1,
+        guestsExpected: 2,
+        notes: 'together',
+        passengerIds: ['passenger-2', 'passenger-3'],
+      },
+      {
+        hotelAllocationId: 'allocation-2',
+        roomCount: 2,
+        guestsExpected: 2,
+        passengerIds: [],
+      },
+    ]);
 
-    expect(rpcMock).toHaveBeenCalledWith('upsert_reservation_accommodation_requirement_atomic', {
+    expect(rpcMock).toHaveBeenCalledWith('replace_reservation_accommodation_requirements_atomic', {
       p_org_id: 'org-1',
       p_reservation_id: 'reservation-1',
-      p_hotel_allocation_id: 'allocation-1',
-      p_room_count: 1,
-      p_guests_expected: 2,
-      p_notes: 'together',
+      p_requirements: [
+        {
+          hotel_allocation_id: 'allocation-1',
+          room_count: 1,
+          guests_expected: 2,
+          notes: 'together',
+          passenger_ids: ['passenger-2', 'passenger-3'],
+        },
+        {
+          hotel_allocation_id: 'allocation-2',
+          room_count: 2,
+          guests_expected: 2,
+          notes: null,
+          passenger_ids: [],
+        },
+      ],
     });
-    expect(result).toMatchObject({
-      reservationId: 'reservation-1',
-      hotelAllocationId: 'allocation-1',
-      roomType: 'double',
-      roomCount: 1,
-      totalSellPrice: 790,
-    });
+    expect(result).toEqual([
+      expect.objectContaining({
+        reservationId: 'reservation-1',
+        hotelAllocationId: 'allocation-1',
+        roomType: 'double',
+        roomCount: 1,
+        totalSellPrice: 790,
+        passengerIds: ['passenger-2', 'passenger-3'],
+      }),
+      expect.objectContaining({
+        hotelAllocationId: 'allocation-2',
+        roomType: 'single',
+        roomCount: 2,
+      }),
+    ]);
+  });
+
+  it('loads passenger mappings for each accommodation line', async () => {
+    requirements = [
+      {
+        id: 'requirement-1',
+        org_id: 'org-1',
+        reservation_id: 'reservation-1',
+        departure_id: 'departure-1',
+        hotel_allocation_id: 'allocation-1',
+        hotel_id: 'hotel-1',
+        room_type: 'double',
+        room_label: 'Double',
+        room_count: 1,
+        guests_expected: 2,
+        capacity_per_room: 2,
+        unit_sell_price: 790,
+        unit_net_price: 650,
+        total_sell_price: 790,
+      },
+      {
+        id: 'requirement-2',
+        org_id: 'org-1',
+        reservation_id: 'reservation-1',
+        departure_id: 'departure-1',
+        hotel_allocation_id: 'allocation-2',
+        hotel_id: 'hotel-1',
+        room_type: 'single',
+        room_label: 'Single',
+        room_count: 2,
+        guests_expected: 2,
+        capacity_per_room: 1,
+        unit_sell_price: 590,
+        unit_net_price: 450,
+        total_sell_price: 1180,
+      },
+    ];
+    departurePassengers = [
+      { id: 'passenger-a', org_id: 'org-1', reservation_id: 'reservation-1', reservation_accommodation_requirement_id: 'requirement-1' },
+      { id: 'passenger-b', org_id: 'org-1', reservation_id: 'reservation-1', reservation_accommodation_requirement_id: 'requirement-1' },
+      { id: 'passenger-c', org_id: 'org-1', reservation_id: 'reservation-1', reservation_accommodation_requirement_id: 'requirement-2' },
+      { id: 'passenger-d', org_id: 'org-1', reservation_id: 'reservation-1', reservation_accommodation_requirement_id: 'requirement-2' },
+    ];
+
+    const { getReservationAccommodation } = await import('../lib/reservationAccommodation');
+    const result = await getReservationAccommodation('reservation-1', 'org-1');
+
+    expect(result).toEqual([
+      expect.objectContaining({ hotelAllocationId: 'allocation-1', passengerIds: ['passenger-a', 'passenger-b'] }),
+      expect.objectContaining({ hotelAllocationId: 'allocation-2', passengerIds: ['passenger-c', 'passenger-d'] }),
+    ]);
   });
 });

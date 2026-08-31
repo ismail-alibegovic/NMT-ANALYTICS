@@ -28,6 +28,17 @@ describe('accommodation rooming database contract', () => {
     expect(migration).toContain('SET booked = GREATEST(0, booked - p_party_size)');
     expect(migration).toContain('WHERE id = p_departure_id AND org_id = p_org_id');
   });
+
+  it('adds plural reservation accommodation support without removing passenger requirement enforcement', async () => {
+    const migration = await readMigration('20260831120000_plural_reservation_accommodation_requirements.sql');
+
+    expect(migration).toContain('DROP CONSTRAINT IF EXISTS reservation_accommodation_one_requirement_per_reservation');
+    expect(migration).toContain('reservation_accommodation_unique_reservation_allocation');
+    expect(migration).toContain('ADD COLUMN IF NOT EXISTS reservation_accommodation_requirement_id UUID');
+    expect(migration).toContain('CREATE OR REPLACE FUNCTION public.replace_reservation_accommodation_requirements_atomic');
+    expect(migration).toContain('PASSENGER_REQUIREMENT_COVERAGE_MISMATCH');
+    expect(migration).toContain("RAISE EXCEPTION 'ROOM_REQUIREMENT_MISMATCH'");
+  });
 });
 
 describe('demo seed safety contract', () => {
@@ -36,7 +47,9 @@ describe('demo seed safety contract', () => {
 
     expect(seed).not.toContain("process.env.SEED_USER_ID || '00000000-0000-0000-0000-000000000001'");
     expect(seed).not.toContain("from('profiles').upsert");
-    expect(seed).toContain('No SEED_USER_ID supplied; demo data will not be linked to a profile.');
+    expect(seed).toContain('supabaseAdmin.auth.admin.getUserById(SEED_USER_ID)');
+    expect(seed).toContain('must reference an existing Supabase Auth user');
+    expect(seed).toContain('No SEED_USER_ID supplied; demo data will not be linked to a profile or reachable through the authenticated UI.');
     expect(seed).toContain('Refusing to reassign a real profile to the demo organization.');
   });
 
@@ -49,5 +62,15 @@ describe('demo seed safety contract', () => {
     expect(seed).toContain("[doubleSlots[1], byName.get('Lamija Softić')]");
     expect(seed).toContain("[tripleSlots[0], byName.get('Sara Begić')]");
     expect(seed).not.toContain("[doubleSlots[1], byName.get('Maja Kovačević')]");
+  });
+
+  it('seeds a plural Antalya accommodation example with passenger-level mapping', async () => {
+    const seed = await readFile(resolve(repoRoot, 'src', 'scripts', 'seed_demo.ts'), 'utf8');
+
+    expect(seed).toContain("customerName: 'Ahmed Alić'");
+    expect(seed).toContain("{ roomType: 'double', roomCount: 1, passengerNames: ['Ahmed Alić', 'Kenan Alić']");
+    expect(seed).toContain("{ roomType: 'single', roomCount: 1, passengerNames: ['Faruk Alić']");
+    expect(seed).toContain("{ roomType: 'single', roomCount: 1, passengerNames: ['Nedim Alić']");
+    expect(seed).toContain('await replaceReservationAccommodation(reservation.id, orgId, normalizedRequirements);');
   });
 });

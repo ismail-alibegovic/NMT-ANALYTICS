@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { supabaseAdmin } from '../lib/supabase';
 import { materializeDepartureAccommodationFromPackage, syncDepartureRoomSlots } from '../lib/departureAccommodation';
-import { upsertReservationAccommodation } from '../lib/reservationAccommodation';
+import { replaceReservationAccommodation } from '../lib/reservationAccommodation';
 
 const ORG_SLUG = 'travline-demo-2027';
 const ORG_NAME = 'Travline Demo Agency 2027';
@@ -45,11 +45,17 @@ type ReservationSeed = {
   email: string;
   status: 'pending' | 'confirmed';
   paidFraction: number;
-  roomType: string;
-  roomCount: number;
   passengers: string[];
   groupName?: string;
   passport?: boolean;
+  accommodationRequirements?: {
+    roomType: string;
+    roomCount: number;
+    passengerNames: string[];
+    notes?: string;
+  }[];
+  roomType?: string;
+  roomCount?: number;
 };
 
 const packages: DemoPackage[] = [
@@ -79,7 +85,21 @@ const packages: DemoPackage[] = [
     reservations: [
       { customerName: 'Amina Hadžić', phone: '+38761100001', email: 'amina.hadzic.demo@example.com', status: 'confirmed', paidFraction: 1, roomType: 'double', roomCount: 1, groupName: 'Porodica Hadžić', passengers: ['Amina Hadžić', 'Emir Hadžić'], passport: true },
       { customerName: 'Sara Begić', phone: '+38761100002', email: 'sara.begic.demo@example.com', status: 'confirmed', paidFraction: 0.5, roomType: 'triple', roomCount: 1, passengers: ['Sara Begić', 'Lejla Begić', 'Hana Begić'], passport: true },
-      { customerName: 'Ahmed Alić', phone: '+38761100003', email: 'ahmed.alic.demo@example.com', status: 'pending', paidFraction: 0, roomType: 'double', roomCount: 2, groupName: 'Društvo Alić', passengers: ['Ahmed Alić', 'Kenan Alić', 'Faruk Alić', 'Nedim Alić'], passport: true },
+      {
+        customerName: 'Ahmed Alić',
+        phone: '+38761100003',
+        email: 'ahmed.alic.demo@example.com',
+        status: 'pending',
+        paidFraction: 0,
+        groupName: 'Društvo Alić',
+        passengers: ['Ahmed Alić', 'Kenan Alić', 'Faruk Alić', 'Nedim Alić'],
+        passport: true,
+        accommodationRequirements: [
+          { roomType: 'double', roomCount: 1, passengerNames: ['Ahmed Alić', 'Kenan Alić'], notes: 'Društvo Alić zajedno u double' },
+          { roomType: 'single', roomCount: 1, passengerNames: ['Faruk Alić'], notes: 'Društvo Alić single 1' },
+          { roomType: 'single', roomCount: 1, passengerNames: ['Nedim Alić'], notes: 'Društvo Alić single 2' },
+        ],
+      },
       { customerName: 'Maja Kovačević', phone: '+38761100004', email: 'maja.kovacevic.demo@example.com', status: 'confirmed', paidFraction: 0.3, roomType: 'single', roomCount: 1, passengers: ['Maja Kovačević'], passport: true },
       { customerName: 'Tarik Softić', phone: '+38761100005', email: 'tarik.softic.demo@example.com', status: 'confirmed', paidFraction: 0, roomType: 'double', roomCount: 1, passengers: ['Tarik Softić', 'Lamija Softić'], passport: true },
     ],
@@ -251,8 +271,14 @@ async function resolveDemoOrg() {
 
 async function associateDemoProfileIfRequested(orgId: string) {
   if (!SEED_USER_ID) {
-    console.log('No SEED_USER_ID supplied; demo data will not be linked to a profile.');
+    console.log('No SEED_USER_ID supplied; demo data will not be linked to a profile or reachable through the authenticated UI.');
     return;
+  }
+
+  const { data: authUserData, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(SEED_USER_ID);
+  if (authUserError) throw authUserError;
+  if (!authUserData?.user) {
+    throw new Error(`SEED_USER_ID ${SEED_USER_ID} must reference an existing Supabase Auth user. Create or sign in the dedicated demo account first, then rerun the seed.`);
   }
 
   const profile = await supabaseAdmin
@@ -273,7 +299,7 @@ async function associateDemoProfileIfRequested(orgId: string) {
 
   failOnError('create explicit demo profile', await supabaseAdmin
     .from('profiles')
-    .insert({ id: SEED_USER_ID, email: ADMIN_EMAIL, role: 'director', org_id: orgId }));
+    .insert({ id: SEED_USER_ID, email: authUserData.user.email || ADMIN_EMAIL, role: 'director', org_id: orgId }));
 }
 
 async function seed() {
@@ -433,22 +459,6 @@ async function seed() {
         .single();
       if (reservationError) throw reservationError;
 
-      const { data: allocation, error: allocationError } = await supabaseAdmin
-        .from('hotel_allocations')
-        .select('id')
-        .eq('org_id', orgId)
-        .eq('departure_id', departure.id)
-        .eq('room_type', reservationSpec.roomType)
-        .single();
-      if (allocationError) throw allocationError;
-
-      await upsertReservationAccommodation(reservation.id, orgId, {
-        hotelAllocationId: allocation.id,
-        roomCount: reservationSpec.roomCount,
-        guestsExpected: reservationSpec.passengers.length,
-        notes: reservationSpec.groupName ? `${reservationSpec.groupName} putuje zajedno` : null,
-      });
-
       const passengerRows = reservationSpec.passengers.map((name, index) => ({
         org_id: orgId,
         departure_id: departure.id,
@@ -460,6 +470,48 @@ async function seed() {
       }));
       const { data: passengerRowsCreated, error: passengerError } = await supabaseAdmin.from('departure_passengers').insert(passengerRows).select();
       if (passengerError) throw passengerError;
+
+      const accommodationRequirements = reservationSpec.accommodationRequirements || (
+        reservationSpec.roomType && reservationSpec.roomCount
+          ? [{
+              roomType: reservationSpec.roomType,
+              roomCount: reservationSpec.roomCount,
+              passengerNames: reservationSpec.passengers,
+              notes: reservationSpec.groupName ? `${reservationSpec.groupName} putuje zajedno` : undefined,
+            }]
+          : []
+      );
+
+      if (accommodationRequirements.length > 0) {
+        const passengerIdByName = new Map((passengerRowsCreated || []).map((passenger) => [passenger.full_name, passenger.id]));
+        const normalizedRequirements = [];
+        for (const requirement of accommodationRequirements) {
+          const { data: allocation, error: allocationError } = await supabaseAdmin
+            .from('hotel_allocations')
+            .select('id')
+            .eq('org_id', orgId)
+            .eq('departure_id', departure.id)
+            .eq('room_type', requirement.roomType)
+            .single();
+          if (allocationError) throw allocationError;
+
+          normalizedRequirements.push({
+            hotelAllocationId: allocation.id,
+            roomCount: requirement.roomCount,
+            guestsExpected: requirement.passengerNames.length,
+            notes: requirement.notes || (reservationSpec.groupName ? `${reservationSpec.groupName} putuje zajedno` : undefined),
+            passengerIds: requirement.passengerNames.map((name) => {
+              const passengerId = passengerIdByName.get(name);
+              if (!passengerId) {
+                throw new Error(`Seed passenger mapping missing for ${name} in reservation ${reservation.customer_name}`);
+              }
+              return passengerId;
+            }),
+          });
+        }
+
+        await replaceReservationAccommodation(reservation.id, orgId, normalizedRequirements);
+      }
 
       if (reservationSpec.groupName && passengerRowsCreated && passengerRowsCreated.length > 1) {
         const { data: group, error: groupError } = await supabaseAdmin

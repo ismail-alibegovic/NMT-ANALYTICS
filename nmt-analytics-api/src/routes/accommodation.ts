@@ -110,7 +110,7 @@ type SlotPassengerValidation =
 async function validateSlotPassengerCompatibility(orgId: string, slot: any, passengerId: string): Promise<SlotPassengerValidation> {
   const { data: passenger, error: passengerErr } = await supabaseAdmin
     .from('departure_passengers')
-    .select('id, reservation_id, full_name, departure_id')
+    .select('id, reservation_id, full_name, departure_id, reservation_accommodation_requirement_id')
     .eq('id', passengerId)
     .eq('org_id', orgId)
     .maybeSingle();
@@ -120,18 +120,34 @@ async function validateSlotPassengerCompatibility(orgId: string, slot: any, pass
     return { ok: false, error: { status: 409, code: 'CROSS_DEPARTURE', message: 'Passenger does not belong to this departure' } };
   }
 
+  if (!passenger.reservation_accommodation_requirement_id) {
+    const { data: reservationRequirements, error: reservationRequirementsErr } = await supabaseAdmin
+      .from('reservation_accommodation_requirements')
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('reservation_id', passenger.reservation_id);
+    if (reservationRequirementsErr) throw reservationRequirementsErr;
+    if ((reservationRequirements || []).length > 0) {
+      return { ok: false, error: { status: 409, code: 'PASSENGER_REQUIREMENT_UNASSIGNED', message: 'Passenger must be mapped to a reservation accommodation requirement before rooming' } };
+    }
+    return { ok: true, passenger };
+  }
+
   const { data: requirement, error: requirementErr } = await supabaseAdmin
     .from('reservation_accommodation_requirements')
-    .select('hotel_id, hotel_allocation_id, room_type')
+    .select('id, hotel_id, hotel_allocation_id, room_type')
     .eq('org_id', orgId)
-    .eq('reservation_id', passenger.reservation_id)
+    .eq('id', passenger.reservation_accommodation_requirement_id)
     .maybeSingle();
   if (requirementErr) throw requirementErr;
-  if (requirement && (
+  if (!requirement) {
+    return { ok: false, error: { status: 404, code: 'ACCOMMODATION_REQUIREMENT_NOT_FOUND', message: 'Passenger accommodation requirement not found' } };
+  }
+  if (
     requirement.hotel_id !== slot.hotel_id ||
     requirement.hotel_allocation_id !== slot.hotel_allocation_id ||
     requirement.room_type !== slot.room_type
-  )) {
+  ) {
     return { ok: false, error: { status: 409, code: 'ROOM_REQUIREMENT_MISMATCH', message: 'Passenger accommodation requirement does not match this room slot' } };
   }
 

@@ -5,6 +5,7 @@ import EditReservationModal from '../components/reservations/EditReservationModa
 const getPackages = vi.fn();
 const getDepartures = vi.fn();
 const getDepartureAccommodationOptions = vi.fn();
+const getDeparturePassengers = vi.fn();
 const getReservation = vi.fn();
 const getReservationAccommodation = vi.fn();
 const updateReservation = vi.fn();
@@ -24,6 +25,7 @@ vi.mock('../api/packages', () => ({
 vi.mock('../api/departures', () => ({
   getDepartures: (...args: any[]) => getDepartures(...args),
   getDepartureAccommodationOptions: (...args: any[]) => getDepartureAccommodationOptions(...args),
+  getDeparturePassengers: (...args: any[]) => getDeparturePassengers(...args),
 }));
 
 vi.mock('../api/reservations', () => ({
@@ -107,26 +109,35 @@ describe('EditReservationModal accommodation flow', () => {
     getPackages.mockResolvedValue({ data: [{ id: 'package-1', name: 'Antalya Summer 2027', destination: 'Antalya' }] });
     getDepartures.mockResolvedValue({ data: [departure] });
     getReservation.mockResolvedValue(reservation);
-    getReservationAccommodation.mockResolvedValue({
-      id: 'requirement-1',
-      reservationId: 'reservation-1',
-      departureId: 'departure-1',
-      hotelAllocationId: 'allocation-double',
-      hotelId: 'hotel-1',
-      roomType: 'double',
-      roomLabel: 'Double',
-      roomCount: 1,
-      guestsExpected: 2,
-      capacityPerRoom: 2,
-      unitSellPrice: 790,
-      unitNetPrice: 650,
-      totalSellPrice: 790,
-      notes: 'existing note',
-      hotel: { id: 'hotel-1', name: 'Hotel Azure Antalya' },
-    });
+    getReservationAccommodation.mockResolvedValue([
+      {
+        id: 'requirement-1',
+        reservationId: 'reservation-1',
+        departureId: 'departure-1',
+        hotelAllocationId: 'allocation-double',
+        hotelId: 'hotel-1',
+        roomType: 'double',
+        roomLabel: 'Double',
+        roomCount: 1,
+        guestsExpected: 2,
+        capacityPerRoom: 2,
+        unitSellPrice: 790,
+        unitNetPrice: 650,
+        totalSellPrice: 790,
+        notes: 'existing note',
+        passengerIds: ['passenger-1', 'passenger-2'],
+        hotel: { id: 'hotel-1', name: 'Hotel Azure Antalya' },
+      },
+    ]);
     getDepartureAccommodationOptions.mockResolvedValue({ departureId: 'departure-1', items: accommodationOptions });
+    getDeparturePassengers.mockResolvedValue({
+      manifest: [
+        { id: 'row-1', passengerId: 'passenger-1', reservationId: 'reservation-1', fullName: 'Amina Hadžić' },
+        { id: 'row-2', passengerId: 'passenger-2', reservationId: 'reservation-1', fullName: 'Emir Hadžić' },
+      ],
+    });
     updateReservation.mockResolvedValue(reservation);
-    updateReservationAccommodation.mockResolvedValue({});
+    updateReservationAccommodation.mockResolvedValue([]);
     deleteReservationAccommodation.mockResolvedValue(undefined);
   });
 
@@ -142,9 +153,8 @@ describe('EditReservationModal accommodation flow', () => {
     const comboBoxes = screen.getAllByRole('combobox');
     const accommodationSelect = comboBoxes[comboBoxes.length - 1] as HTMLSelectElement;
     fireEvent.change(accommodationSelect, { target: { value: 'allocation-triple' } });
-    const spinButtons = screen.getAllByRole('spinbutton');
-    const roomCountInput = spinButtons[spinButtons.length - 1] as HTMLInputElement;
-    fireEvent.change(roomCountInput, { target: { value: '1' } });
+    fireEvent.click(screen.getByLabelText('Amina Hadžić'));
+    fireEvent.click(screen.getByLabelText('Emir Hadžić'));
     fireEvent.click(screen.getByRole('button', { name: 'Spremi izmjene' }));
 
     await waitFor(() => expect(updateReservation).toHaveBeenCalledWith('reservation-1', expect.objectContaining({
@@ -152,12 +162,15 @@ describe('EditReservationModal accommodation flow', () => {
       partySize: 2,
       departureId: 'departure-1',
     })));
-    expect(updateReservationAccommodation).toHaveBeenCalledWith('reservation-1', {
-      hotelAllocationId: 'allocation-triple',
-      roomCount: 1,
-      guestsExpected: 2,
-      notes: 'existing note',
-    });
+    expect(updateReservationAccommodation).toHaveBeenCalledWith('reservation-1', [
+      {
+        hotelAllocationId: 'allocation-triple',
+        roomCount: 1,
+        guestsExpected: 2,
+        notes: 'existing note',
+        passengerIds: ['passenger-1', 'passenger-2'],
+      },
+    ]);
     expect(toastSuccess).toHaveBeenCalledWith('Rezervacija ažurirana');
     expect(onSuccess).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -170,6 +183,8 @@ describe('EditReservationModal accommodation flow', () => {
     render(<EditReservationModal isOpen onClose={onClose} onSuccess={onSuccess} reservationId="reservation-1" />);
 
     await screen.findByText('Smještaj');
+    await waitFor(() => expect(getDepartureAccommodationOptions).toHaveBeenCalledWith('departure-1'));
+    await waitFor(() => expect(screen.getAllByRole('checkbox').length).toBe(2));
     fireEvent.click(screen.getByRole('button', { name: 'Spremi izmjene' }));
 
     await waitFor(() => expect(toastError).toHaveBeenCalledWith('Accommodation overbooked'));

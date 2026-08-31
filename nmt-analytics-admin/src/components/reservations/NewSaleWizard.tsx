@@ -29,6 +29,14 @@ interface PassengerEntry {
   nationality?: string;
 }
 
+interface AccommodationLine {
+  hotelAllocationId: string;
+  roomCount: number;
+  guestsExpected: number;
+  notes: string;
+  passengerIndexes: number[];
+}
+
 type PaymentPlan = "full" | "deposit" | "installments";
 
 interface Props {
@@ -58,9 +66,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const [accommodation, setAccommodation] = useState("");
   const [accommodationOptions, setAccommodationOptions] = useState<DepartureAccommodationOption[]>([]);
   const [accommodationLoading, setAccommodationLoading] = useState(false);
-  const [hotelAllocationId, setHotelAllocationId] = useState("");
-  const [accommodationRoomCount, setAccommodationRoomCount] = useState(1);
-  const [accommodationNotes, setAccommodationNotes] = useState("");
+  const [accommodationLines, setAccommodationLines] = useState<AccommodationLine[]>([]);
   const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
@@ -90,9 +96,15 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const hasVariants = variants.length > 0;
 
   const activeDepartures = departures.filter((d) => d.status === "active" && d.booked < d.capacity);
-  const selectedAccommodation = accommodationOptions.find((item) => item.id === hotelAllocationId);
-  const selectedAccommodationCapacity = selectedAccommodation ? selectedAccommodation.capacityPerRoom * accommodationRoomCount : 0;
-  const accommodationTotal = selectedAccommodation ? selectedAccommodation.unitSellPrice * accommodationRoomCount : 0;
+  const accommodationLinesWithOption = accommodationLines.map((line) => ({
+    line,
+    option: accommodationOptions.find((item) => item.id === line.hotelAllocationId),
+  }));
+  const accommodationTotal = accommodationLinesWithOption.reduce((sum, item) => sum + ((item.option?.unitSellPrice || 0) * item.line.roomCount), 0);
+  const accommodationCoverage = accommodationLines.reduce((sum, line) => sum + line.guestsExpected, 0);
+  const mappedPassengerIndexes = accommodationLines.flatMap((line) => line.passengerIndexes);
+  const uniqueMappedPassengerIndexes = new Set(mappedPassengerIndexes);
+  const accommodationPassengerMappingValid = mappedPassengerIndexes.length === uniqueMappedPassengerIndexes.size && uniqueMappedPassengerIndexes.size === partySize;
 
   // Sync passenger count with party size
   useEffect(() => {
@@ -112,7 +124,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     setStep("arrangement");
     setPackageId(""); setDepartureId(""); setVariantId("");
     setTransport("none"); setAccommodation("");
-    setAccommodationOptions([]); setHotelAllocationId(""); setAccommodationRoomCount(1); setAccommodationNotes("");
+    setAccommodationOptions([]); setAccommodationLines([]);
     setCustomerSearch(""); setSelectedCustomerId(null);
     setCustomerName(""); setCustomerPhone(""); setCustomerEmail("");
     setPartySize(1); setTotalAmount(""); setNotes("");
@@ -177,7 +189,6 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   useEffect(() => {
     if (!departureId) {
       setAccommodationOptions([]);
-      setHotelAllocationId("");
       return;
     }
     setAccommodationLoading(true);
@@ -185,11 +196,11 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       .then((result) => {
         const options = result.items || [];
         setAccommodationOptions(options);
-        setHotelAllocationId((current) => current && options.some((item) => item.id === current) ? current : "");
+        setAccommodationLines((current) => current.filter((line) => options.some((item) => item.id === line.hotelAllocationId)));
       })
       .catch(() => {
         setAccommodationOptions([]);
-        setHotelAllocationId("");
+        setAccommodationLines([]);
       })
       .finally(() => setAccommodationLoading(false));
   }, [departureId]);
@@ -226,16 +237,54 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     setCustomerSearch("");
   }
 
+  function addAccommodationLine() {
+    setAccommodationLines((current) => [...current, {
+      hotelAllocationId: "",
+      roomCount: 1,
+      guestsExpected: 1,
+      notes: "",
+      passengerIndexes: [],
+    }]);
+  }
+
+  function updateAccommodationLine(index: number, patch: Partial<AccommodationLine>) {
+    setAccommodationLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...patch } : line));
+  }
+
+  function removeAccommodationLine(index: number) {
+    setAccommodationLines((current) => current.filter((_, lineIndex) => lineIndex !== index));
+  }
+
+  function toggleAccommodationPassenger(lineIndex: number, passengerIndex: number) {
+    setAccommodationLines((current) => current.map((line, index) => {
+      if (index !== lineIndex) return {
+        ...line,
+        passengerIndexes: line.passengerIndexes.filter((value) => value !== passengerIndex),
+      };
+      const exists = line.passengerIndexes.includes(passengerIndex);
+      return {
+        ...line,
+        passengerIndexes: exists
+          ? line.passengerIndexes.filter((value) => value !== passengerIndex)
+          : [...line.passengerIndexes, passengerIndex].sort((a, b) => a - b),
+      };
+    }));
+  }
+
   const stepIndex = STEPS.findIndex((s) => s.key === step);
   const canNext = (() => {
     if (step === "arrangement") return !!packageId && !!departureId;
     if (step === "details") return !!customerName && !!customerPhone;
     if (step === "accommodation") {
       if (accommodationOptions.length === 0) return true;
-      return !!selectedAccommodation &&
-        accommodationRoomCount > 0 &&
-        accommodationRoomCount <= selectedAccommodation.availableRooms &&
-        selectedAccommodationCapacity >= partySize;
+      if (accommodationLines.length === 0) return true;
+      return accommodationCoverage === partySize &&
+        accommodationPassengerMappingValid &&
+        accommodationLinesWithOption.every(({ line, option }) => !!option &&
+          line.roomCount > 0 &&
+          line.roomCount <= (option?.availableRooms || 0) &&
+          line.guestsExpected > 0 &&
+          line.guestsExpected <= line.roomCount * Math.max(1, option?.capacityPerRoom || 1));
     }
     return true;
   })();
@@ -256,6 +305,15 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       const baseTotal = totalAmount ? Number(totalAmount) : 0;
       const total = baseTotal + accommodationTotal;
       const depositAmount = paymentPlan === "deposit" ? Math.round(total * (depositPct / 100)) : 0;
+      const normalizedAccommodationLines = accommodationLinesWithOption
+        .filter((item) => item.option)
+        .map((item) => ({
+          hotelAllocationId: item.line.hotelAllocationId,
+          roomCount: item.line.roomCount,
+          guestsExpected: item.line.guestsExpected,
+          notes: item.line.notes || undefined,
+          passengerIndexes: item.line.passengerIndexes,
+        }));
 
       // Build structured booking snapshot
       const bookingSnapshot: any = {
@@ -268,18 +326,22 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         variant_id: variantId || undefined,
         variant_name: variants.find((v) => v.id === variantId)?.name,
         transport_request: transport,
-        accommodation: selectedAccommodation ? {
-          hotel_allocation_id: selectedAccommodation.id,
-          hotel_id: selectedAccommodation.hotelId,
-          hotel_name: selectedAccommodation.hotel?.name,
-          room_type: selectedAccommodation.roomType,
-          room_label: selectedAccommodation.roomLabel,
-          room_count: accommodationRoomCount,
-          guests_expected: partySize,
-          capacity_per_room: selectedAccommodation.capacityPerRoom,
-          total_sell_price: accommodationTotal,
-          notes: accommodationNotes || undefined,
-        } : accommodation,
+        accommodation: normalizedAccommodationLines.map((line) => {
+          const option = accommodationOptions.find((item) => item.id === line.hotelAllocationId);
+          return {
+            hotel_allocation_id: option?.id,
+            hotel_id: option?.hotelId,
+            hotel_name: option?.hotel?.name,
+            room_type: option?.roomType,
+            room_label: option?.roomLabel,
+            room_count: line.roomCount,
+            guests_expected: line.guestsExpected,
+            capacity_per_room: option?.capacityPerRoom,
+            total_sell_price: (option?.unitSellPrice || 0) * line.roomCount,
+            passenger_indexes: line.passengerIndexes,
+            notes: line.notes || undefined,
+          };
+        }),
         payment_plan: paymentPlan,
         deposit_pct: paymentPlan === "deposit" ? depositPct : undefined,
         deposit_amount: depositAmount || undefined,
@@ -306,14 +368,9 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         customerId: selectedCustomerId || undefined,
         status: "pending",
         notes: notes || undefined,
-        hotelName: selectedAccommodation?.hotel?.name || selectedPackage?.destination || undefined,
-        roomType: selectedAccommodation?.roomLabel || accommodation || undefined,
-        accommodationRequirement: selectedAccommodation ? {
-          hotelAllocationId: selectedAccommodation.id,
-          roomCount: accommodationRoomCount,
-          guestsExpected: partySize,
-          notes: accommodationNotes || undefined,
-        } : undefined,
+        hotelName: accommodationLinesWithOption[0]?.option?.hotel?.name || selectedPackage?.destination || undefined,
+        roomType: accommodationLinesWithOption[0]?.option?.roomLabel || accommodation || undefined,
+        accommodationRequirements: normalizedAccommodationLines,
         options: bookingSnapshot,
         passengers: filledPassengers.length > 0 ? filledPassengers : undefined,
         create_passenger_group: createGroup && filledPassengers.length > 1,
@@ -682,81 +739,144 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
             {accommodationOptions.length > 0 && (
               <div className="space-y-3">
-                {accommodationOptions.map((option) => {
-                  const active = option.id === hotelAllocationId;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => {
-                        setHotelAllocationId(option.id);
-                        setAccommodationRoomCount((current) => Math.min(Math.max(1, current), Math.max(1, option.availableRooms)));
-                      }}
-                      className={`w-full rounded-xl border p-4 text-left transition ${
-                        active
-                          ? "border-brand-500 bg-brand-50 ring-2 ring-brand-500/20 dark:bg-brand-500/10"
-                          : "border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700"
-                      }`}
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="grid grid-cols-1 gap-2">
+                  {accommodationOptions.map((option) => (
+                    <div key={option.id} className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+                      <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="font-semibold text-gray-900 dark:text-white">{option.hotel?.name || "Hotel"}</p>
                           <p className="text-sm text-gray-500">{option.roomLabel || option.roomType}</p>
                           <p className="mt-1 text-xs text-gray-500">
-                            {option.capacityPerRoom} osoba po sobi · Prodajna cijena {option.unitSellPrice} BAM
+                            Kapacitet {option.capacityPerRoom} · Slobodno {option.availableRooms} · Cijena {option.unitSellPrice} BAM
                           </p>
                         </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-300">
-                          <span className="font-medium">{option.availableRooms}</span> slobodno / {option.departureRooms} soba
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {accommodationLines.map((line, index) => {
+                  const option = accommodationOptions.find((item) => item.id === line.hotelAllocationId);
+                  const lineCapacity = (option?.capacityPerRoom || 0) * line.roomCount;
+                  const lineTotal = (option?.unitSellPrice || 0) * line.roomCount;
+                  return (
+                    <div key={`line-${index}`} className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-gray-900 dark:text-white">Smještaj {index + 1}</h4>
+                        <button type="button" className="text-xs font-medium text-red-600" onClick={() => removeAccommodationLine(index)}>
+                          Ukloni
+                        </button>
+                      </div>
+
+                      <div>
+                        <Label>Allotment</Label>
+                        <select
+                          value={line.hotelAllocationId}
+                          onChange={(e) => updateAccommodationLine(index, { hotelAllocationId: e.target.value, passengerIndexes: [] })}
+                          className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900"
+                        >
+                          <option value="">-- Odaberi smještaj --</option>
+                          {accommodationOptions.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {(option.hotel?.name || "Hotel")} · {option.roomLabel} · slobodno {option.availableRooms}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <Label>Broj soba</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            max={String(Math.max(1, option?.availableRooms || 1))}
+                            value={String(line.roomCount)}
+                            onChange={(e) => updateAccommodationLine(index, { roomCount: Math.max(1, parseInt(e.target.value) || 1) })}
+                          />
+                        </div>
+                        <div>
+                          <Label>Putnika</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            max={String(partySize)}
+                            value={String(line.guestsExpected)}
+                            onChange={(e) => updateAccommodationLine(index, { guestsExpected: Math.max(1, parseInt(e.target.value) || 1) })}
+                          />
+                        </div>
+                        <div>
+                          <Label>Ukupno</Label>
+                          <div className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm dark:border-gray-800">
+                            {lineTotal} BAM
+                          </div>
                         </div>
                       </div>
-                    </button>
+
+                      {option && (
+                        <p className="text-xs text-gray-500">
+                          Kapacitet linije: {lineCapacity} · Pokriveno: {line.guestsExpected}
+                        </p>
+                      )}
+                      {option && line.roomCount > option.availableRooms && (
+                        <p className="text-sm text-error-600">Nema dovoljno slobodnih soba za odabranu količinu.</p>
+                      )}
+                      {option && line.guestsExpected > lineCapacity && (
+                        <p className="text-sm text-error-600">Ova linija prelazi kapacitet odabranog tipa sobe.</p>
+                      )}
+
+                      <div>
+                        <Label>Dodijeljeni putnici</Label>
+                        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {passengers.map((passenger, passengerIndex) => {
+                            const assignedElsewhere = accommodationLines.some((otherLine, otherIndex) => otherIndex !== index && otherLine.passengerIndexes.includes(passengerIndex));
+                            return (
+                              <label key={`line-${index}-passenger-${passengerIndex}`} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${assignedElsewhere ? "opacity-50" : ""}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={line.passengerIndexes.includes(passengerIndex)}
+                                  disabled={assignedElsewhere}
+                                  onChange={() => toggleAccommodationPassenger(index, passengerIndex)}
+                                />
+                                <span>{passenger.full_name.trim() || `Putnik ${passengerIndex + 1}`}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label>Napomena za smještaj</Label>
+                        <Input
+                          type="text"
+                          placeholder="Npr. sobe blizu jedna drugoj, prizemlje..."
+                          value={line.notes}
+                          onChange={(e) => updateAccommodationLine(index, { notes: e.target.value })}
+                        />
+                      </div>
+                    </div>
                   );
                 })}
 
-                {selectedAccommodation && (
-                  <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <Label>Broj soba</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          max={String(selectedAccommodation.availableRooms)}
-                          value={String(accommodationRoomCount)}
-                          onChange={(e) => setAccommodationRoomCount(Math.max(1, parseInt(e.target.value) || 1))}
-                        />
-                      </div>
-                      <div>
-                        <Label>Pokriveno osoba</Label>
-                        <div className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm dark:border-gray-800">
-                          {selectedAccommodationCapacity} / {partySize}
-                        </div>
-                      </div>
-                      <div>
-                        <Label>Ukupno smještaj</Label>
-                        <div className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm dark:border-gray-800">
-                          {accommodationTotal} BAM
-                        </div>
-                      </div>
-                    </div>
-                    {accommodationRoomCount > selectedAccommodation.availableRooms && (
-                      <p className="text-sm text-error-600">Nema dovoljno slobodnih soba za odabranu količinu.</p>
-                    )}
-                    {selectedAccommodationCapacity < partySize && (
-                      <p className="text-sm text-error-600">Odabrani smještaj pokriva {selectedAccommodationCapacity} od {partySize} putnika.</p>
-                    )}
-                    <div>
-                      <Label>Napomena za smještaj</Label>
-                      <Input
-                        type="text"
-                        placeholder="Npr. sobe blizu jedna drugoj, prizemlje..."
-                        value={accommodationNotes}
-                        onChange={(e) => setAccommodationNotes(e.target.value)}
-                      />
-                    </div>
+                <button type="button" className="text-sm font-medium text-brand-600 dark:text-brand-400" onClick={addAccommodationLine}>
+                  + Dodaj još smještaja
+                </button>
+
+                <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-2">
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">Sažetak smještaja</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">
+                    Ukupno pokriveno: {accommodationCoverage} / {partySize} putnika
                   </div>
-                )}
+                  <div className="text-sm text-gray-600 dark:text-gray-300">
+                    Ukupno smještaj: {accommodationTotal} BAM
+                  </div>
+                  {!accommodationPassengerMappingValid && accommodationLines.length > 0 && (
+                    <p className="text-sm text-error-600">Svaki putnik mora biti dodijeljen tačno jednoj liniji smještaja.</p>
+                  )}
+                  {accommodationCoverage !== partySize && accommodationLines.length > 0 && (
+                    <p className="text-sm text-error-600">Smještaj mora pokriti sve putnike u rezervaciji.</p>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -780,11 +900,13 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               )}
               <Row
                 label="Smještaj"
-                value={selectedAccommodation ? `${selectedAccommodation.hotel?.name || "Hotel"} · ${selectedAccommodation.roomLabel} · ${accommodationRoomCount} soba` : "—"}
+                value={accommodationLinesWithOption.length > 0
+                  ? accommodationLinesWithOption.map(({ line, option }) => `${option?.hotel?.name || "Hotel"} · ${option?.roomLabel || "—"} · ${line.roomCount} soba`).join(" | ")
+                  : "—"}
               />
               <Row label="Putnici" value={`${partySize} ${passengers.filter((p) => p.full_name.trim()).length > 0 ? `(${passengers.filter((p) => p.full_name.trim()).map((p) => p.full_name).join(", ")})` : ""}`} />
               {createGroup ? <Row label="Grupa" value={groupName || "Da"} /> : null}
-              {selectedAccommodation ? <Row label="Smještaj ukupno" value={`${accommodationTotal} BAM`} /> : null}
+              {accommodationLinesWithOption.length > 0 ? <Row label="Smještaj ukupno" value={`${accommodationTotal} BAM`} /> : null}
               <Row label="Ukupno" value={`${(Number(totalAmount || 0) + accommodationTotal) || "0"} BAM`} />
               {notes ? <Row label="Napomena" value={notes} /> : null}
             </dl>

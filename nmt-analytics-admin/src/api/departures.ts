@@ -278,6 +278,7 @@ export interface DeparturePassenger {
   hotelName?: string | null;
   hotelId?: string | null;
   hotelAllocationId?: string | null;
+  reservationAccommodationRequirementId?: string | null;
   roomType?: string | null;
   accommodationNotes?: string | null;
   checkIn?: string | null;

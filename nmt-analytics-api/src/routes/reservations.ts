@@ -21,7 +21,7 @@ import {
   deleteReservationAccommodation,
   getReservationAccommodation,
   mapAccommodationError,
-  upsertReservationAccommodation,
+  replaceReservationAccommodation,
 } from '../lib/reservationAccommodation';
 
 const router = Router();
@@ -39,6 +39,15 @@ const getReservationsQuerySchema = z.object({
   ...getPaginationParams(data),
   ...getDateRangeParams(data),
 }));
+
+const accommodationRequirementLineSchema = z.object({
+  hotelAllocationId: z.string().uuid('Invalid accommodation allotment ID'),
+  roomCount: z.number().int().min(1),
+  guestsExpected: z.number().int().min(1),
+  notes: z.string().optional().nullable(),
+  passengerIds: z.array(z.string().uuid('Invalid passenger ID')).optional(),
+  passengerIndexes: z.array(z.number().int().min(0)).optional(),
+});
 
 const createReservationSchema = z.object({
   customerName: z.string().min(1, 'Customer name is required'),
@@ -76,12 +85,7 @@ const createReservationSchema = z.object({
   checkIn: z.string().optional().nullable(),
   checkOut: z.string().optional().nullable(),
   tourGuide: z.string().optional().nullable(),
-  accommodationRequirement: z.object({
-    hotelAllocationId: z.string().uuid('Invalid accommodation allotment ID'),
-    roomCount: z.number().int().min(1),
-    guestsExpected: z.number().int().min(1),
-    notes: z.string().optional().nullable(),
-  }).optional().nullable(),
+  accommodationRequirements: z.array(accommodationRequirementLineSchema).optional(),
 });
 
 const updateReservationSchema = z.object({
@@ -105,10 +109,13 @@ const updateStatusSchema = z.object({
 });
 
 const accommodationRequirementSchema = z.object({
-  hotelAllocationId: z.string().uuid('Invalid accommodation allotment ID'),
-  roomCount: z.coerce.number().int().min(1, 'Room count must be at least 1'),
-  guestsExpected: z.coerce.number().int().min(1, 'Guest count must be at least 1'),
-  notes: z.string().optional().nullable(),
+  accommodationRequirements: z.array(z.object({
+    hotelAllocationId: z.string().uuid('Invalid accommodation allotment ID'),
+    roomCount: z.coerce.number().int().min(1, 'Room count must be at least 1'),
+    guestsExpected: z.coerce.number().int().min(1, 'Guest count must be at least 1'),
+    notes: z.string().optional().nullable(),
+    passengerIds: z.array(z.string().uuid('Invalid passenger ID')).optional(),
+  })).default([]),
 });
 
 async function releaseReservedCapacity(orgId: string, departureId: string, partySize: number) {
@@ -329,7 +336,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       return apiError(res, 400, "VALIDATION_ERROR", "Invalid request body", validationResult.error.issues);
     }
 
-    const { departureId, status, partySize, customerId, upsert, options, notes, hotelName, roomType, checkIn, checkOut, tourGuide, customerEmail, assignedTo, passengers, create_passenger_group, group_name, accommodationRequirement, ...rest } = validationResult.data;
+    const { departureId, status, partySize, customerId, upsert, options, notes, hotelName, roomType, checkIn, checkOut, tourGuide, customerEmail, assignedTo, passengers, create_passenger_group, group_name, accommodationRequirements, ...rest } = validationResult.data;
     const orgId = req.orgId!;
     let capacityRv: any = null;
 
@@ -439,55 +446,45 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
     }
     reservation = created;
 
-    let createdAccommodation: any = null;
-    if (accommodationRequirement) {
-      try {
-        createdAccommodation = await upsertReservationAccommodation(reservation.id, orgId, accommodationRequirement);
-      } catch (accError: any) {
-        await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
-        if (departureId && status === 'confirmed') {
-          await releaseReservedCapacity(orgId, departureId, partySize);
-        }
-        const mapped = mapAccommodationError(accError);
-        if (mapped) return apiError(res, mapped.status, mapped.code, mapped.message);
-        return handleSupabaseError(res, accError, 'Failed to save reservation accommodation');
-      }
-    }
-
     // Create departure_passengers if provided
     let createdPassengers: any[] = [];
     let createdGroupId: string | null = null;
     if (passengers && passengers.length > 0 && departureId) {
       try {
-        const passengerRows = passengers.map((p: any) => ({
-          org_id: orgId,
-          departure_id: departureId,
-          reservation_id: reservation.id,
-          full_name: p.full_name,
-          id_document_type: p.id_document_type || null,
-          id_document_number: p.id_document_number || null,
-          date_of_birth: p.date_of_birth || null,
-          nationality: p.nationality || null,
-          phone: p.phone || null,
-          email: p.email || null,
-          notes: p.notes || null,
-        }));
+        const createdPassengerRows: any[] = [];
+        for (let index = 0; index < passengers.length; index += 1) {
+          const p = passengers[index];
+          const { data: paxData, error: paxErr } = await supabaseAdmin
+            .from('departure_passengers')
+            .insert({
+              org_id: orgId,
+              departure_id: departureId,
+              reservation_id: reservation.id,
+              full_name: p.full_name,
+              id_document_type: p.id_document_type || null,
+              id_document_number: p.id_document_number || null,
+              date_of_birth: p.date_of_birth || null,
+              nationality: p.nationality || null,
+              phone: p.phone || null,
+              email: p.email || null,
+              notes: p.notes || null,
+            })
+            .select('id, full_name')
+            .single();
 
-        const { data: paxData, error: paxErr } = await supabaseAdmin
-          .from('departure_passengers')
-          .insert(passengerRows)
-          .select('id, full_name');
-
-        if (paxErr) {
-          console.error('Failed to create departure_passengers:', paxErr.message);
-          // Rollback the reservation
-          await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
-          if (departureId && status === 'confirmed') {
-            await releaseReservedCapacity(orgId, departureId, partySize);
+          if (paxErr) {
+            console.error('Failed to create departure_passengers:', paxErr.message);
+            await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
+            if (departureId && status === 'confirmed') {
+              await releaseReservedCapacity(orgId, departureId, partySize);
+            }
+            return apiError(res, 500, "PASSENGER_CREATE_FAILED", "Failed to create passengers", paxErr.message);
           }
-          return apiError(res, 500, "PASSENGER_CREATE_FAILED", "Failed to create passengers", paxErr.message);
+
+          createdPassengerRows.push({ ...paxData, inputIndex: index });
         }
-        createdPassengers = paxData || [];
+
+        createdPassengers = createdPassengerRows;
 
         // Create passenger group if requested
         if (create_passenger_group && createdPassengers.length > 1) {
@@ -522,6 +519,38 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
           await releaseReservedCapacity(orgId, departureId, partySize);
         }
         return apiError(res, 500, "PASSENGER_ERROR", "Failed to create passengers", String(paxError));
+      }
+    }
+
+    let createdAccommodation: any[] = [];
+    if (accommodationRequirements && accommodationRequirements.length > 0) {
+      try {
+        const passengerIdsByIndex = new Map<number, string>();
+        createdPassengers.forEach((p: any) => {
+          if (typeof p.inputIndex === 'number') passengerIdsByIndex.set(p.inputIndex, p.id);
+        });
+
+        const normalizedRequirements = accommodationRequirements.map((requirement) => ({
+          hotelAllocationId: requirement.hotelAllocationId,
+          roomCount: requirement.roomCount,
+          guestsExpected: requirement.guestsExpected,
+          notes: requirement.notes ?? null,
+          passengerIds: requirement.passengerIds || (requirement.passengerIndexes || []).map((index) => {
+            const passengerId = passengerIdsByIndex.get(index);
+            if (!passengerId) throw new Error('INVALID_PASSENGER_REQUIREMENT_MAPPING');
+            return passengerId;
+          }),
+        }));
+
+        createdAccommodation = await replaceReservationAccommodation(reservation.id, orgId, normalizedRequirements);
+      } catch (accError: any) {
+        await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
+        if (departureId && status === 'confirmed') {
+          await releaseReservedCapacity(orgId, departureId, partySize);
+        }
+        const mapped = mapAccommodationError(accError);
+        if (mapped) return apiError(res, mapped.status, mapped.code, mapped.message);
+        return handleSupabaseError(res, accError, 'Failed to save reservation accommodation');
       }
     }
 
@@ -579,7 +608,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
         const existingOptions = (options as any) || {};
         await supabaseAdmin
           .from('reservations')
-          .update({ options: { ...existingOptions, accommodation_requirement: createdAccommodation, booking_snapshot: snapshot } })
+          .update({ options: { ...existingOptions, accommodation_requirements: createdAccommodation, booking_snapshot: snapshot } })
           .eq('id', reservation.id)
           .eq('org_id', orgId);
       } catch (snapErr) {
@@ -614,7 +643,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       console.warn('Failed to create reservation notification:', notificationError);
     }
 
-    res.status(201).json({ ...reservation, accommodationRequirement: createdAccommodation });
+    res.status(201).json({ ...reservation, accommodationRequirements: createdAccommodation });
   } catch (error) {
     console.error('Error in POST /reservations:', error);
     apiError(res, 500, "INTERNAL_ERROR", "Internal server error", String(error));
@@ -634,7 +663,7 @@ router.get('/reservations/:id/accommodation', authenticateToken, requireOrgConte
       if (error) return handleSupabaseError(res, error, 'Failed to load reservation');
       if (!reservation) return apiError(res, 404, 'NOT_FOUND', 'Reservation not found');
     }
-    return res.json({ accommodationRequirement: result });
+    return res.json({ accommodationRequirements: result || [] });
   } catch (error) {
     console.error('GET /reservations/:id/accommodation:', error);
     return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to load reservation accommodation');
@@ -645,8 +674,8 @@ router.put('/reservations/:id/accommodation', authenticateToken, requireOrgConte
   try {
     const parsed = accommodationRequirementSchema.safeParse(req.body);
     if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid accommodation requirement', parsed.error.issues);
-    const result = await upsertReservationAccommodation(req.params.id, req.orgId!, parsed.data);
-    return res.json({ accommodationRequirement: result });
+    const result = await replaceReservationAccommodation(req.params.id, req.orgId!, parsed.data.accommodationRequirements);
+    return res.json({ accommodationRequirements: result });
   } catch (error: any) {
     console.error('PUT /reservations/:id/accommodation:', error);
     const mapped = mapAccommodationError(error);
@@ -657,17 +686,7 @@ router.put('/reservations/:id/accommodation', authenticateToken, requireOrgConte
 
 router.delete('/reservations/:id/accommodation', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req, res: Response) => {
   try {
-    const removed = await deleteReservationAccommodation(req.params.id, req.orgId!);
-    if (!removed) {
-      const { data: reservation, error } = await supabaseAdmin
-        .from('reservations')
-        .select('id')
-        .eq('id', req.params.id)
-        .eq('org_id', req.orgId!)
-        .maybeSingle();
-      if (error) return handleSupabaseError(res, error, 'Failed to load reservation');
-      if (!reservation) return apiError(res, 404, 'NOT_FOUND', 'Reservation not found');
-    }
+    await deleteReservationAccommodation(req.params.id, req.orgId!);
     return res.status(204).send();
   } catch (error) {
     console.error('DELETE /reservations/:id/accommodation:', error);
