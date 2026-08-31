@@ -131,3 +131,18 @@ describe('demo seed safety contract', () => {
     expect(seed).toContain('await replaceReservationAccommodation(reservation.id, orgId, normalizedRequirements);');
   });
 });
+
+describe('security definer privilege fix contract', () => {
+  it('revokes PUBLIC EXECUTE on release_capacity_atomic without modifying its body', async () => {
+    const migration = await readMigration('20260831220000_fix_release_capacity_public_privilege.sql');
+
+    const signature = 'public.release_capacity_atomic(UUID, UUID, INT)';
+
+    expect(migration).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM PUBLIC;`);
+    expect(migration).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM anon;`);
+    expect(migration).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM authenticated;`);
+    expect(migration).toContain(`GRANT EXECUTE ON FUNCTION ${signature} TO service_role;`);
+
+    expect(migration).not.toContain('CREATE OR REPLACE FUNCTION public.release_capacity_atomic');
+  });
+});
