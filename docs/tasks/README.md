@@ -1,58 +1,47 @@
-# Travline Task Specs
+# Travline — Task Specs
 
-This directory is the execution layer between the product roadmap and coding agents.
+## Canonical roadmap
 
-## Structure
+`TRAVLINE_MASTER_PLAN_2_0.md` (M00–M24) is the **single canonical roadmap** for Travline development. All implementation must trace back to an M-task.
 
-```text
+`docs/ROADMAP.md` provides a condensed status view keyed to M00–M24.
+
+## How tasks work
+
+1. **Pick ONE M-task** from the roadmap.
+2. **Create a scoped spec** in `active/` using `TEMPLATE.md`.
+3. **One M-task = one branch = one PR.** Do not bundle tasks.
+4. After review and acceptance, move the spec from `active/` to `completed/`.
+
+## Master Plan is context only
+
+`TRAVLINE_MASTER_PLAN_2_0.md` describes the intended product direction. It is **never permission to implement all tasks at once**. Only an explicit, scoped active spec in `docs/tasks/active/` is an implementation directive.
+
+## Active-task rule
+
+Only ONE M-task may have an active spec at a time. If multiple active specs exist, STOP and ask which task to execute.
+
+## Scope discipline
+
+- Implement only what the active spec defines.
+- If implementation reality conflicts with the spec, STOP and report the conflict with evidence. Do not silently expand scope.
+- Do not add adjacent roadmap items.
+
+## Directory structure
+
+```
 docs/tasks/
-├── README.md
-├── TEMPLATE.md
-├── active/
-│   └── <one or more explicitly scoped tasks>
-└── completed/
-    └── <accepted historical task specs>
+├── README.md              ← this file
+├── TEMPLATE.md            ← reusable spec template for M-tasks
+├── active/                ← exactly one scoped spec at a time
+│   └── <Mxx>-<slug>.md
+├── completed/             ← accepted historical spec artifacts
+└── archived/              ← old T01–T38 task system (ZAHTJEVI-based, superseded)
+    ├── T_TO_M_MAPPING.md  ← cross-reference T-tasks → M-tasks
+    ├── INDEX.md           ← old master requirements breakdown (38 tasks)
+    └── 01-*.md … 15-*.md ← old phase files
 ```
 
-## Rules
+## Old task system
 
-1. `docs/ROADMAP.md` describes what may need work. It is not an implementation prompt.
-2. A roadmap item becomes executable only after a scoped spec is created in `docs/tasks/active/`.
-3. One Codex run should be given one named active task.
-4. One task should normally map to one feature/fix branch and one PR.
-5. The task must state goal, current problem, scope, out-of-scope, acceptance criteria, security/tenant requirements and verification.
-6. Codex must inspect current code before implementation; task assumptions can be stale.
-7. If implementation reality conflicts with the spec, document the conflict before expanding scope.
-8. After a task is reviewed and accepted, move its spec from `active/` to `completed/` and record the PR/commit/result.
-
-## Recommended prompt to Codex
-
-Use a short prompt because the repository documents carry the durable context:
-
-```text
-Read AGENTS.md first.
-Then read docs/PRODUCT.md, docs/ARCHITECTURE.md, docs/ROADMAP.md,
-and the active task: docs/tasks/active/<TASK>.md.
-
-Inspect the current implementation before editing.
-Follow the task exactly; do not expand scope.
-Work on the branch specified by the task (or create it from current origin/main if instructed).
-Run every required verification command you can actually run.
-Do not modify production secrets or ZO runtime state.
-At the end, provide the completion report required by AGENTS.md and push/open a PR if the task requires it.
-```
-
-## Task sizing
-
-Good task:
-
-- one coherent workflow or infrastructure objective;
-- usually reviewable in one PR;
-- has explicit acceptance criteria;
-- can be tested without needing unrelated roadmap work.
-
-Bad task:
-
-> Finish Travline 2.0 and fix everything in the roadmap.
-
-If a task reveals multiple independent problems, split follow-up work into separate specs rather than growing the current branch indefinitely.
+The T01–T38 task decomposition was based on `TRAVLINE_MASTER_ZAHTJEVI` and has been superseded by Master Plan 2.0 (M00–M24). All old files are preserved in `archived/` for reference.
