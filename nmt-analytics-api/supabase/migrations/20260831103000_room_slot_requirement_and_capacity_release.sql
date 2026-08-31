@@ -6,6 +6,7 @@ CREATE OR REPLACE FUNCTION public.release_capacity_atomic(
   p_party_size INT
 )
 RETURNS TABLE (booked_after INT, capacity INT) AS $$
+#variable_conflict use_column
 DECLARE
   v_booked INT;
   v_capacity INT;

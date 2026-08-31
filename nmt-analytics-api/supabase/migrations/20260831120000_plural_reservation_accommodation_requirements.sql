@@ -99,6 +99,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+#variable_conflict use_column
 DECLARE
   reservation_row RECORD;
   requirement_row RECORD;
@@ -167,9 +168,9 @@ BEGIN
   IF EXISTS (
     SELECT 1
     FROM (
-      SELECT hotel_allocation_id, COUNT(*) AS c
-      FROM tmp_reservation_accommodation_requirements
-      GROUP BY hotel_allocation_id
+      SELECT tmp.hotel_allocation_id, COUNT(*) AS c
+      FROM tmp_reservation_accommodation_requirements tmp
+      GROUP BY tmp.hotel_allocation_id
     ) dup
     WHERE dup.c > 1
   ) THEN
@@ -178,15 +179,15 @@ BEGIN
 
   IF EXISTS (
     SELECT 1
-    FROM tmp_reservation_accommodation_requirements
-    WHERE room_count < 1 OR guests_expected < 1
+    FROM tmp_reservation_accommodation_requirements tmp
+    WHERE tmp.room_count < 1 OR tmp.guests_expected < 1
   ) THEN
     RAISE EXCEPTION 'INVALID_REQUIREMENT_QUANTITY';
   END IF;
 
-  SELECT COALESCE(SUM(guests_expected), 0)
+  SELECT COALESCE(SUM(tmp.guests_expected), 0)
   INTO total_guests
-  FROM tmp_reservation_accommodation_requirements;
+  FROM tmp_reservation_accommodation_requirements tmp;
 
   IF total_guests > 0 AND total_guests <> reservation_row.party_size THEN
     RAISE EXCEPTION 'ACCOMMODATION_COVERAGE_MISMATCH';
@@ -209,15 +210,15 @@ BEGIN
   IF reservation_passenger_count > 0 THEN
     IF EXISTS (
       SELECT 1
-      FROM tmp_reservation_accommodation_requirements
-      WHERE passenger_ids IS NULL
+      FROM tmp_reservation_accommodation_requirements tmp
+      WHERE tmp.passenger_ids IS NULL
     ) THEN
       RAISE EXCEPTION 'PASSENGER_REQUIREMENT_COVERAGE_MISMATCH';
     END IF;
 
     WITH all_mapped AS (
-      SELECT unnest(passenger_ids) AS passenger_id
-      FROM tmp_reservation_accommodation_requirements
+      SELECT unnest(tmp.passenger_ids) AS passenger_id
+      FROM tmp_reservation_accommodation_requirements tmp
     )
     SELECT COUNT(*)
     INTO mapped_passenger_count
@@ -229,8 +230,8 @@ BEGIN
 
     IF EXISTS (
       WITH all_mapped AS (
-        SELECT unnest(passenger_ids) AS passenger_id
-        FROM tmp_reservation_accommodation_requirements
+        SELECT unnest(tmp.passenger_ids) AS passenger_id
+        FROM tmp_reservation_accommodation_requirements tmp
       )
       SELECT passenger_id
       FROM all_mapped
@@ -242,8 +243,8 @@ BEGIN
 
     IF EXISTS (
       WITH all_mapped AS (
-        SELECT unnest(passenger_ids) AS passenger_id
-        FROM tmp_reservation_accommodation_requirements
+        SELECT unnest(tmp.passenger_ids) AS passenger_id
+        FROM tmp_reservation_accommodation_requirements tmp
       )
       SELECT 1
       FROM all_mapped m
@@ -259,9 +260,9 @@ BEGIN
   END IF;
 
   FOR requirement_row IN
-    SELECT *
-    FROM tmp_reservation_accommodation_requirements
-    ORDER BY hotel_allocation_id
+    SELECT tmp.*
+    FROM tmp_reservation_accommodation_requirements tmp
+    ORDER BY tmp.hotel_allocation_id
   LOOP
     SELECT ha.*
     INTO allocation_row
@@ -350,20 +351,20 @@ BEGIN
       AND tmp.hotel_allocation_id = requirement_row.hotel_allocation_id;
   END LOOP;
 
-  UPDATE public.departure_passengers
+  UPDATE public.departure_passengers dp
   SET reservation_accommodation_requirement_id = NULL
-  WHERE org_id = p_org_id
-    AND reservation_id = p_reservation_id
-    AND departure_id = reservation_row.departure_id;
+  WHERE dp.org_id = p_org_id
+    AND dp.reservation_id = p_reservation_id
+    AND dp.departure_id = reservation_row.departure_id;
 
   IF reservation_passenger_count > 0 THEN
     UPDATE public.departure_passengers p
     SET reservation_accommodation_requirement_id = mapped.requirement_id
     FROM (
-      SELECT requirement_id, unnest(passenger_ids) AS passenger_id
-      FROM tmp_reservation_accommodation_requirements
-      WHERE requirement_id IS NOT NULL
-        AND passenger_ids IS NOT NULL
+      SELECT tmp.requirement_id, unnest(tmp.passenger_ids) AS passenger_id
+      FROM tmp_reservation_accommodation_requirements tmp
+      WHERE tmp.requirement_id IS NOT NULL
+        AND tmp.passenger_ids IS NOT NULL
     ) AS mapped
     WHERE p.id = mapped.passenger_id
       AND p.org_id = p_org_id

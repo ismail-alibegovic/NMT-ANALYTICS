@@ -3,8 +3,14 @@ import { supabaseAdmin } from '../lib/supabase';
 import { materializeDepartureAccommodationFromPackage, syncDepartureRoomSlots } from '../lib/departureAccommodation';
 import { replaceReservationAccommodation } from '../lib/reservationAccommodation';
 
-const ORG_SLUG = 'travline-demo-2027';
-const ORG_NAME = 'Travline Demo Agency 2027';
+const SEED_ID = 'travline_golden_demo_2027';
+const DEMO_RESET_CONFIRMATION_VALUE = 'YES_RESET_DEMO_DATA';
+const DEMO_TARGET_ORG_ID_ENV = 'DEMO_TARGET_ORG_ID';
+const DEMO_RESET_CONFIRMATION_ENV = 'DEMO_RESET_CONFIRMATION';
+const LEGACY_DEMO_ORG_SLUG = 'travline-demo-2027';
+const LEGACY_DEMO_ORG_NAME = 'Travline Demo Agency 2027';
+const DEMO_CUSTOMER_EMAIL_SUFFIX = '.demo@example.com';
+const DEMO_FLIGHT_NOTE = 'Demo flight number; not a real scheduled commercial flight.';
 const ADMIN_EMAIL = 'admin@demo.com';
 const SEED_USER_ID = process.env.SEED_USER_ID || null;
 
@@ -96,8 +102,7 @@ const packages: DemoPackage[] = [
         passport: true,
         accommodationRequirements: [
           { roomType: 'double', roomCount: 1, passengerNames: ['Ahmed Alić', 'Kenan Alić'], notes: 'Društvo Alić zajedno u double' },
-          { roomType: 'single', roomCount: 1, passengerNames: ['Faruk Alić'], notes: 'Društvo Alić single 1' },
-          { roomType: 'single', roomCount: 1, passengerNames: ['Nedim Alić'], notes: 'Društvo Alić single 2' },
+          { roomType: 'single', roomCount: 2, passengerNames: ['Faruk Alić', 'Nedim Alić'], notes: 'Društvo Alić dva singla u jednom redu' },
         ],
       },
       { customerName: 'Maja Kovačević', phone: '+38761100004', email: 'maja.kovacevic.demo@example.com', status: 'confirmed', paidFraction: 0.3, roomType: 'single', roomCount: 1, passengers: ['Maja Kovačević'], passport: true },
@@ -209,66 +214,256 @@ function failOnError(label: string, result: { error?: any }) {
   }
 }
 
-async function cleanupDemoOrg(orgId: string) {
-  const groupIds = await demoGroupIds(orgId);
-  failOnError('cleanup departure_room_slot_assignments', await supabaseAdmin.from('departure_room_slot_assignments').delete().eq('org_id', orgId));
-  failOnError('cleanup departure_room_slots', await supabaseAdmin.from('departure_room_slots').delete().eq('org_id', orgId));
-  failOnError('cleanup reservation_accommodation_requirements', await supabaseAdmin.from('reservation_accommodation_requirements').delete().eq('org_id', orgId));
-  if (groupIds.length > 0) {
-    failOnError('cleanup trip_passenger_group_members', await supabaseAdmin.from('trip_passenger_group_members').delete().in('group_id', groupIds));
+type SeedOwnedRecordIds = {
+  packages: string[];
+  hotels: string[];
+  flights: string[];
+  customers: string[];
+  reservations: string[];
+  trip_passenger_groups: string[];
+  departures: string[];
+  package_hotels: string[];
+  hotel_allocations: string[];
+  departure_room_slots: string[];
+  departure_room_slot_assignments: string[];
+  reservation_accommodation_requirements: string[];
+  departure_passengers: string[];
+  payments: string[];
+  transactions: string[];
+  departure_flights: string[];
+  trip_passenger_group_members: string[];
+};
+
+function uniqueIds(values: (string | null | undefined)[]) {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
+}
+
+async function loadSeedRegistryIds(orgId: string): Promise<Record<string, string[]>> {
+  const { data, error } = await supabaseAdmin
+    .from('seed_owned_records')
+    .select('entity, record_id')
+    .eq('org_id', orgId)
+    .eq('seed_id', SEED_ID);
+  if (error) throw new Error(`load golden seed ownership registry: ${error.message}`);
+  const ids: Record<string, string[]> = {};
+  for (const row of data || []) {
+    ids[row.entity] = uniqueIds([...(ids[row.entity] || []), row.record_id]);
   }
-  failOnError('cleanup trip_passenger_groups', await supabaseAdmin.from('trip_passenger_groups').delete().eq('org_id', orgId));
-  failOnError('cleanup departure_passengers', await supabaseAdmin.from('departure_passengers').delete().eq('org_id', orgId));
-  failOnError('cleanup payments', await supabaseAdmin.from('payments').delete().eq('org_id', orgId));
-  failOnError('cleanup transactions', await supabaseAdmin.from('transactions').delete().eq('org_id', orgId));
-  failOnError('cleanup reservations', await supabaseAdmin.from('reservations').delete().eq('org_id', orgId));
-  failOnError('cleanup departure_flights', await supabaseAdmin.from('departure_flights').delete().eq('org_id', orgId));
-  failOnError('cleanup flights', await supabaseAdmin.from('flights').delete().eq('org_id', orgId));
-  failOnError('cleanup hotel_allocations', await supabaseAdmin.from('hotel_allocations').delete().eq('org_id', orgId));
-  failOnError('cleanup departures', await supabaseAdmin.from('departures').delete().eq('org_id', orgId));
-  failOnError('cleanup package_hotels', await supabaseAdmin.from('package_hotels').delete().eq('org_id', orgId));
-  failOnError('cleanup packages', await supabaseAdmin.from('packages').delete().eq('org_id', orgId));
-  failOnError('cleanup hotel_rooms', await supabaseAdmin.from('hotel_rooms').delete().eq('org_id', orgId));
-  failOnError('cleanup hotels', await supabaseAdmin.from('hotels').delete().eq('org_id', orgId));
-  failOnError('cleanup customers', await supabaseAdmin.from('customers').delete().eq('org_id', orgId));
+  return ids;
 }
 
-async function demoGroupIds(orgId: string) {
-  const { data, error } = await supabaseAdmin.from('trip_passenger_groups').select('id').eq('org_id', orgId);
-  if (error) throw new Error(`load demo group ids: ${error.message}`);
-  return (data || []).map((g) => g.id);
+const goldenSeedRecordIds: { entity: string; recordId: string }[] = [];
+
+async function registerSeedRecord(orgId: string, entity: string, recordId: string) {
+  const { error } = await supabaseAdmin
+    .from('seed_owned_records')
+    .upsert(
+      { org_id: orgId, seed_id: SEED_ID, entity, record_id: recordId },
+      { onConflict: 'org_id,seed_id,entity,record_id' },
+    );
+  if (error) throw new Error(`register golden seed record (${entity}): ${error.message}`);
 }
 
-async function resolveDemoOrg() {
-  const existing = await supabaseAdmin
+async function resolveGoldenDemoTargetOrg() {
+  const targetOrgId = (process.env[DEMO_TARGET_ORG_ID_ENV] || '').trim();
+  const resetConfirmation = (process.env[DEMO_RESET_CONFIRMATION_ENV] || '').trim();
+
+  if (!targetOrgId) {
+    throw new Error(`${DEMO_TARGET_ORG_ID_ENV} is required. The golden demo seed never auto-selects NMT Analytics, the first organization, or the current profile organization. Set ${DEMO_TARGET_ORG_ID_ENV} to the exact organization UUID that should own the golden demo dataset.`);
+  }
+  if (resetConfirmation !== DEMO_RESET_CONFIRMATION_VALUE) {
+    throw new Error(`${DEMO_RESET_CONFIRMATION_ENV} must be set to ${DEMO_RESET_CONFIRMATION_VALUE} before the seed may reset seed-owned demo records.`);
+  }
+
+  const { data: org, error } = await supabaseAdmin
     .from('organizations')
     .select('id, name, slug, currency, timezone')
-    .eq('slug', ORG_SLUG)
+    .eq('id', targetOrgId)
     .maybeSingle();
-  if (existing.error) throw existing.error;
-
-  if (existing.data) {
-    const matchesDemoOrg =
-      existing.data.name === ORG_NAME &&
-      existing.data.currency === 'BAM' &&
-      existing.data.timezone === 'Europe/Sarajevo';
-
-    if (!matchesDemoOrg) {
-      throw new Error(`Organization slug ${ORG_SLUG} already exists but does not match the deterministic Travline demo organization. Refusing to reuse or modify it.`);
-    }
-
-    return existing.data;
+  if (error) throw error;
+  if (!org) {
+    throw new Error(`${DEMO_TARGET_ORG_ID_ENV} ${targetOrgId} does not reference an existing organization. Refusing to run the golden demo seed against an unknown organization.`);
   }
 
-  const created = await supabaseAdmin
-    .from('organizations')
-    .insert({ name: ORG_NAME, slug: ORG_SLUG, currency: 'BAM', timezone: 'Europe/Sarajevo' })
-    .select('id, name, slug, currency, timezone')
-    .single();
-  if (created.error) throw created.error;
-  return created.data;
+  console.log('Golden demo seed target organization (printed before any mutation):');
+  console.log(`  id:   ${org.id}`);
+  console.log(`  name: ${org.name}`);
+  console.log(`  slug: ${org.slug}`);
+  console.log(`  seed: ${SEED_ID}`);
+
+  const isLegacyDemoOrg =
+    org.slug === LEGACY_DEMO_ORG_SLUG &&
+    org.name === LEGACY_DEMO_ORG_NAME &&
+    org.currency === 'BAM' &&
+    org.timezone === 'Europe/Sarajevo';
+
+  return { orgId: org.id, isLegacyDemoOrg };
 }
 
+async function resolveSeedOwnedRecordIds(orgId: string, isLegacyDemoOrg: boolean): Promise<SeedOwnedRecordIds> {
+  const registryIds = await loadSeedRegistryIds(orgId);
+  const ids: SeedOwnedRecordIds = {
+    packages: uniqueIds(registryIds.packages),
+    hotels: uniqueIds(registryIds.hotels),
+    flights: uniqueIds(registryIds.flights),
+    customers: uniqueIds(registryIds.customers),
+    reservations: uniqueIds(registryIds.reservations),
+    trip_passenger_groups: uniqueIds(registryIds.trip_passenger_groups),
+    departures: [],
+    package_hotels: [],
+    hotel_allocations: [],
+    departure_room_slots: [],
+    departure_room_slot_assignments: [],
+    reservation_accommodation_requirements: [],
+    departure_passengers: [],
+    payments: [],
+    transactions: [],
+    departure_flights: [],
+    trip_passenger_group_members: [],
+  };
+
+  if (isLegacyDemoOrg) {
+    // The legacy demo organization was created and fully owned by previous versions of
+    // this seed (exact identity match on slug/name/currency/timezone). Its seed records
+    // carry deterministic markers written by those seed versions; no fuzzy name matching.
+    const legacyCustomers = await supabaseAdmin
+      .from('customers')
+      .select('id')
+      .eq('org_id', orgId)
+      .like('email', `%${DEMO_CUSTOMER_EMAIL_SUFFIX}`);
+    if (legacyCustomers.error) throw legacyCustomers.error;
+    ids.customers = uniqueIds([...ids.customers, ...(legacyCustomers.data || []).map((row: any) => row.id)]);
+
+    const legacyPackages = await supabaseAdmin
+      .from('packages')
+      .select('id')
+      .eq('org_id', orgId)
+      .in('name', packages.map((spec) => spec.name));
+    if (legacyPackages.error) throw legacyPackages.error;
+    ids.packages = uniqueIds([...ids.packages, ...(legacyPackages.data || []).map((row: any) => row.id)]);
+
+    const legacyHotels = await supabaseAdmin
+      .from('hotels')
+      .select('id')
+      .eq('org_id', orgId)
+      .in('name', packages.map((spec) => spec.hotel.name));
+    if (legacyHotels.error) throw legacyHotels.error;
+    ids.hotels = uniqueIds([...ids.hotels, ...(legacyHotels.data || []).map((row) => row.id)]);
+
+    const legacyFlights = await supabaseAdmin
+      .from('flights')
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('notes', DEMO_FLIGHT_NOTE);
+    if (legacyFlights.error) throw legacyFlights.error;
+    ids.flights = uniqueIds([...ids.flights, ...(legacyFlights.data || []).map((row) => row.id)]);
+  }
+
+  const collectIds = async (table: string, column: string, rootIds: string[]) => {
+    if (rootIds.length === 0) return [] as string[];
+    const { data, error } = await supabaseAdmin
+      .from(table)
+      .select('id')
+      .eq('org_id', orgId)
+      .in(column, rootIds);
+    if (error) throw new Error(`resolve seed-owned ${table}: ${error.message}`);
+    return (data || []).map((row: any) => row.id as string);
+  };
+
+  ids.departures = uniqueIds([...ids.departures, ...(await collectIds('departures', 'package_id', ids.packages))]);
+  ids.package_hotels = uniqueIds([...ids.package_hotels, ...(await collectIds('package_hotels', 'package_id', ids.packages))]);
+  ids.hotel_allocations = uniqueIds([...ids.hotel_allocations, ...(await collectIds('hotel_allocations', 'departure_id', ids.departures))]);
+  ids.departure_room_slots = uniqueIds([...ids.departure_room_slots, ...(await collectIds('departure_room_slots', 'departure_id', ids.departures))]);
+  ids.departure_flights = uniqueIds([...ids.departure_flights, ...(await collectIds('departure_flights', 'departure_id', ids.departures))]);
+  ids.reservations = uniqueIds([...ids.reservations, ...(await collectIds('reservations', 'customer_id', ids.customers))]);
+  ids.departure_passengers = uniqueIds([...ids.departure_passengers, ...(await collectIds('departure_passengers', 'reservation_id', ids.reservations))]);
+  ids.reservation_accommodation_requirements = uniqueIds([...ids.reservation_accommodation_requirements, ...(await collectIds('reservation_accommodation_requirements', 'reservation_id', ids.reservations))]);
+  ids.payments = uniqueIds([...ids.payments, ...(await collectIds('payments', 'reservation_id', ids.reservations))]);
+  ids.transactions = uniqueIds([...ids.transactions, ...(await collectIds('transactions', 'reservation_id', ids.reservations))]);
+  ids.trip_passenger_groups = uniqueIds([...ids.trip_passenger_groups, ...(await collectIds('trip_passenger_groups', 'departure_id', ids.departures))]);
+  ids.trip_passenger_group_members = uniqueIds([...ids.trip_passenger_group_members, ...(await collectIds('trip_passenger_group_members', 'group_id', ids.trip_passenger_groups))]);
+
+  const assignmentIds = await collectIds('departure_room_slot_assignments', 'room_slot_id', ids.departure_room_slots);
+  const assignmentIdsByPassenger = await collectIds('departure_room_slot_assignments', 'passenger_id', ids.departure_passengers);
+  ids.departure_room_slot_assignments = uniqueIds([...ids.departure_room_slot_assignments, ...assignmentIds, ...assignmentIdsByPassenger]);
+
+  return ids;
+}
+
+async function assertNoForeignSeedDependents(orgId: string, owned: SeedOwnedRecordIds) {
+  const findForeignIds = async (table: string, match: { column: string; values: string[] }, exclude: { column: string; values: string[] }) => {
+    if (match.values.length === 0) return [] as string[];
+    let query = supabaseAdmin.from(table).select('id').eq('org_id', orgId).in(match.column, match.values);
+    if (exclude.values.length > 0) {
+      query = query.not(exclude.column, 'in', `(${exclude.values.join(',')})`);
+    }
+    const { data, error } = await query;
+    if (error) throw new Error(`check foreign dependents in ${table}: ${error.message}`);
+    return (data || []).map((row: any) => row.id as string);
+  };
+
+  const refuse = (reason: string, found: string[]) => {
+    const preview = found.slice(0, 5).join(', ');
+    throw new Error(
+      `Golden demo seed refused to reset seed-owned records: ${reason} ` +
+      `Affected ids: ${preview}${found.length > 5 ? ` (+${found.length - 5} more)` : ''}. ` +
+      'Move or remove these non-seed records manually, then rerun the seed.',
+    );
+  };
+
+  const foreignDepartures = await findForeignIds('departures', { column: 'package_id', values: owned.packages }, { column: 'id', values: owned.departures });
+  if (foreignDepartures.length > 0) refuse('user-created departures reference seed-owned packages.', foreignDepartures);
+
+  const foreignReservationsOnDepartures = await findForeignIds('reservations', { column: 'departure_id', values: owned.departures }, { column: 'id', values: owned.reservations });
+  if (foreignReservationsOnDepartures.length > 0) refuse('user-created reservations are attached to seed-owned departures.', foreignReservationsOnDepartures);
+
+  const foreignReservationsOnCustomers = await findForeignIds('reservations', { column: 'customer_id', values: owned.customers }, { column: 'id', values: owned.reservations });
+  if (foreignReservationsOnCustomers.length > 0) refuse('user-created reservations reference seed-owned customers.', foreignReservationsOnCustomers);
+
+  const foreignAllocations = await findForeignIds('hotel_allocations', { column: 'hotel_id', values: owned.hotels }, { column: 'departure_id', values: owned.departures });
+  if (foreignAllocations.length > 0) refuse('user-created accommodation allocations reference seed-owned hotels.', foreignAllocations);
+
+  const foreignRequirements = await findForeignIds('reservation_accommodation_requirements', { column: 'hotel_allocation_id', values: owned.hotel_allocations }, { column: 'reservation_id', values: owned.reservations });
+  if (foreignRequirements.length > 0) refuse('user-created accommodation requirements reference seed-owned allotments.', foreignRequirements);
+
+  const foreignDepartureFlights = await findForeignIds('departure_flights', { column: 'flight_id', values: owned.flights }, { column: 'departure_id', values: owned.departures });
+  if (foreignDepartureFlights.length > 0) refuse('user-created departure flight links reference seed-owned flights.', foreignDepartureFlights);
+
+  const foreignAssignments = await findForeignIds('departure_room_slot_assignments', { column: 'room_slot_id', values: owned.departure_room_slots }, { column: 'passenger_id', values: owned.departure_passengers });
+  if (foreignAssignments.length > 0) refuse('user-created room-slot assignments exist on seed-owned room slots.', foreignAssignments);
+}
+
+async function cleanupSeedOwnedRecords(orgId: string, owned: SeedOwnedRecordIds) {
+  const deleteIn = async (table: string, column: string, values: string[]) => {
+    if (values.length === 0) return;
+    const { error } = await supabaseAdmin.from(table).delete().eq('org_id', orgId).in(column, values);
+    failOnError(`cleanup seed-owned ${table}`, { error });
+  };
+
+  await deleteIn('departure_room_slot_assignments', 'room_slot_id', owned.departure_room_slot_assignments);
+  await deleteIn('departure_room_slots', 'departure_id', owned.departure_room_slots);
+  await deleteIn('reservation_accommodation_requirements', 'reservation_id', owned.reservation_accommodation_requirements);
+  await deleteIn('departure_passengers', 'reservation_id', owned.departure_passengers);
+  await deleteIn('payments', 'reservation_id', owned.payments);
+  await deleteIn('transactions', 'reservation_id', owned.transactions);
+  await deleteIn('trip_passenger_group_members', 'group_id', owned.trip_passenger_group_members);
+  await deleteIn('trip_passenger_groups', 'id', owned.trip_passenger_groups);
+  await deleteIn('reservations', 'id', owned.reservations);
+  await deleteIn('departure_flights', 'departure_id', owned.departure_flights);
+  await deleteIn('flights', 'id', owned.flights);
+  await deleteIn('hotel_allocations', 'departure_id', owned.hotel_allocations);
+  await deleteIn('departures', 'id', owned.departures);
+  await deleteIn('package_hotels', 'package_id', owned.package_hotels);
+  await deleteIn('packages', 'id', owned.packages);
+  await deleteIn('hotels', 'id', owned.hotels);
+  await deleteIn('customers', 'id', owned.customers);
+
+  failOnError('cleanup seed-owned records registry', await supabaseAdmin
+    .from('seed_owned_records')
+    .delete()
+    .eq('org_id', orgId)
+    .eq('seed_id', SEED_ID));
+}
 async function associateDemoProfileIfRequested(orgId: string) {
   if (!SEED_USER_ID) {
     console.log('No SEED_USER_ID supplied; demo data will not be linked to a profile or reachable through the authenticated UI.');
@@ -303,13 +498,14 @@ async function associateDemoProfileIfRequested(orgId: string) {
 }
 
 async function seed() {
-  console.log('🌱 Seeding deterministic Travline accommodation demo data...');
+  console.log('🌱 Seeding deterministic Travline golden demo data...');
 
-  const org = await resolveDemoOrg();
-  const orgId = org.id;
-
+  const { orgId, isLegacyDemoOrg } = await resolveGoldenDemoTargetOrg();
   await associateDemoProfileIfRequested(orgId);
-  await cleanupDemoOrg(orgId);
+
+  const owned = await resolveSeedOwnedRecordIds(orgId, isLegacyDemoOrg);
+  await assertNoForeignSeedDependents(orgId, owned);
+  await cleanupSeedOwnedRecords(orgId, owned);
 
   const seeded: any[] = [];
 
@@ -334,6 +530,7 @@ async function seed() {
       .select()
       .single();
     if (pkgError) throw pkgError;
+    await registerSeedRecord(orgId, 'packages', pkg.id);
 
     const { data: hotel, error: hotelError } = await supabaseAdmin
       .from('hotels')
@@ -349,6 +546,7 @@ async function seed() {
       .select()
       .single();
     if (hotelError) throw hotelError;
+    await registerSeedRecord(orgId, 'hotels', hotel.id);
 
     const { error: packageHotelError } = await supabaseAdmin
       .from('package_hotels')
@@ -406,12 +604,13 @@ async function seed() {
             capacity: 180,
             base_price: 0,
             currency: 'BAM',
-            notes: 'Demo flight number; not a real scheduled commercial flight.',
+            notes: DEMO_FLIGHT_NOTE,
             active: true,
           })
           .select()
           .single();
         if (flightError) throw flightError;
+        await registerSeedRecord(orgId, 'flights', flight.id);
         failOnError(`departure flight ${spec.key}/${direction}`, await supabaseAdmin.from('departure_flights').insert({
           org_id: orgId,
           departure_id: departure.id,
@@ -436,9 +635,11 @@ async function seed() {
         .select()
         .single();
       if (customerError) throw customerError;
+      await registerSeedRecord(orgId, 'customers', customer.id);
 
       const totalAmount = spec.basePrice * reservationSpec.passengers.length;
       const paidAmount = Math.round(totalAmount * reservationSpec.paidFraction);
+      const paymentStatus: 'paid' | 'partial' | 'unpaid' = paidAmount >= totalAmount ? 'paid' : (paidAmount > 0 ? 'partial' : 'unpaid');
       const { data: reservation, error: reservationError } = await supabaseAdmin
         .from('reservations')
         .insert({
@@ -450,14 +651,17 @@ async function seed() {
           party_size: reservationSpec.passengers.length,
           reservation_at: '2026-08-31T09:00:00.000Z',
           status: reservationSpec.status,
+          payment_status: paymentStatus,
           total_amount: totalAmount,
           paid_amount: paidAmount,
+          balance_due: totalAmount - paidAmount,
           currency: 'BAM',
           source: 'agent',
         })
         .select()
         .single();
       if (reservationError) throw reservationError;
+      await registerSeedRecord(orgId, 'reservations', reservation.id);
 
       const passengerRows = reservationSpec.passengers.map((name, index) => ({
         org_id: orgId,
@@ -529,6 +733,7 @@ async function seed() {
           .select()
           .single();
         if (groupError) throw groupError;
+        await registerSeedRecord(orgId, 'trip_passenger_groups', group.id);
         failOnError(`passenger group members ${reservationSpec.groupName}`, await supabaseAdmin
           .from('trip_passenger_group_members')
           .insert(passengerRowsCreated.map((p) => ({ group_id: group.id, passenger_id: p.id }))));
@@ -596,8 +801,10 @@ async function seed() {
     }
   }
 
-  console.log('✅ Demo seed complete.');
-  console.log(`Organization: ${ORG_NAME} (${ORG_SLUG})`);
+  console.log(`Registered ${goldenSeedRecordIds.length} seed-owned root records under seed id ${SEED_ID}.`);
+
+  console.log('✅ Golden demo seed complete.');
+  console.log(`Organization: ${orgId}${isLegacyDemoOrg ? ' (legacy demo org: legacy records also reset)' : ''}`);
   console.log(`Packages: ${packages.length}`);
   console.log(`Departures: ${packages.length}`);
 }
