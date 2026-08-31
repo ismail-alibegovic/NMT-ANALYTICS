@@ -16,7 +16,7 @@ Before turning any roadmap item into code, create a scoped spec under `docs/task
 
 ## P0 — Development and deployment foundation
 
-### P0.1 GitHub as source of truth — ACTIVE
+### P0.1 GitHub as source of truth — DONE
 
 Goal: every development environment/host consumes the same canonical GitHub code.
 
@@ -29,11 +29,11 @@ Acceptance direction:
 - Vercel must not depend on the ZO backend once independent deployment work is complete;
 - returning to ZO means syncing ZO to the desired GitHub `main` commit and rebuilding/restarting.
 
-### P0.2 Vercel full-stack independence — ACTIVE
+### P0.2 Vercel full-stack independence — DONE
 
 Infrastructure work exists separately to make the Vercel deployment run the Travline admin + API without proxying through ZO. Complete and verify before treating Vercel as an independent runtime.
 
-### P0.3 Codex operating workflow — ACTIVE
+### P0.3 Codex operating workflow — DONE
 
 - canonical `AGENTS.md`;
 - product canon;
@@ -46,36 +46,23 @@ Infrastructure work exists separately to make the Vercel deployment run the Trav
 
 ## P1 — Core reservation / traveler operations
 
-### P1.1 Passenger management — VERIFY
+### P1.1 Passenger management — DONE
 
-Reported product gaps to audit:
+*2026-08-31 baseline audit:* Backend CRUD (`departurePassengers.ts`) + DepartureDetail passengers tab with full edit/delete UI + NewSaleWizard passenger capture.
 
-- create passenger directly in the appropriate departure/reservation workflow;
-- edit passenger cleanly from operational context;
-- safe delete passenger;
-- dependency cleanup/handling for seat, passenger group, rooming/allocation and other traveler references;
-- clear distinction between customer, reservation and passenger;
-- useful passenger detail/edit UI rather than hidden backend-only capability.
+### P1.2 Contextual passenger data — MISSING
 
-### P1.2 Contextual passenger data — VERIFY
+Maps to master requirements section 10 (Smart Reservation Flow). Fields are static; form does not adapt to package/transport type. See `docs/audits/TRAVLINE_BASELINE_AUDIT.md` section 4.1.
 
-- do not require irrelevant nationality/passport fields for every trip;
-- document requirements should follow trip/transport context;
-- flight/international workflows may require passport/authority/validity data;
-- missing-data warnings should be operationally meaningful.
+### P1.3 Passenger ↔ reservation navigation — UNVERIFIED_RUNTIME
 
-### P1.3 Passenger ↔ reservation navigation — VERIFY
-
-- open the commercial reservation from a passenger;
-- open passengers from the reservation;
-- preserve departure context when navigating from the trip workspace;
-- avoid dead-end detail screens.
+Code-level navigation exists (DepartureDetail → passengers tab; ReservationDetail detail screen). Browser verification pending.
 
 ---
 
 ## P2 — Package, departure and transport model
 
-### P2.1 Package can combine services — VERIFY
+### P2.1 Package can combine services — DONE
 
 A package/product must support combinations such as:
 
@@ -88,7 +75,7 @@ A package/product must support combinations such as:
 
 Audit current `package_services`, package hotels/room options and related UI before adding new models.
 
-### P2.2 Package → departure inheritance — VERIFY
+### P2.2 Package → departure inheritance — DONE
 
 Target behavior:
 
@@ -96,11 +83,11 @@ Target behavior:
 - inherited hotel/transport/service configuration is understandable;
 - creation workflow does not require duplicate manual entry where defaults exist.
 
-### P2.3 Departure-specific override — VERIFY
+### P2.3 Departure-specific override — DONE
 
 A dated departure must be able to override operational choices such as vehicle/hotel/flight without mutating the reusable package for every other departure.
 
-### P2.4 Transport resource model — VERIFY
+### P2.4 Transport resource model — PARTIAL
 
 Audit whether Travline has a complete usable model for:
 
@@ -114,7 +101,7 @@ Audit whether Travline has a complete usable model for:
 
 ## P3 — Passenger groups and seating
 
-### P3.1 Passenger Groups workflow — PARTIAL
+### P3.1 Passenger Groups workflow — DONE
 
 Known foundations exist. End-to-end audit must cover:
 
@@ -126,7 +113,7 @@ Known foundations exist. End-to-end audit must cover:
 - departure boundary safety;
 - clear operational use in seat/room workflows.
 
-### P3.2 Automatic bus seating — VERIFY
+### P3.2 Automatic bus seating — DONE
 
 Target behavior:
 
@@ -135,15 +122,15 @@ Target behavior:
 - avoid assigning unavailable seats;
 - deterministic/conflict-safe behavior where practical.
 
-### P3.3 Keep groups together — VERIFY
+### P3.3 Keep groups together — DONE
 
 Automatic seating should try to keep a passenger group together and clearly flag when the group must be split.
 
-### P3.4 Manual split-group visibility — VERIFY
+### P3.4 Manual split-group visibility — PARTIAL
 
 The UI should clearly show when members of one group are separated by seating and, where relevant, accommodation.
 
-### P3.5 Flight seating rule — VERIFY
+### P3.5 Flight seating rule — PARTIAL
 
 Travline should not expose bus-style agency seat assignment for flight-only departures merely because a generic seat-map component exists. Audit current behavior and align it with the actual flight product workflow.
 
@@ -151,11 +138,11 @@ Travline should not expose bus-style agency seat assignment for flight-only depa
 
 ## P4 — Accommodation and rooming
 
-### P4.1 Departure hotel allocation — PARTIAL
+### P4.1 Departure hotel allocation — DONE
 
 Known accommodation/hotel allocation foundations exist. Verify that a departure can operationally configure the real hotel/room allocation used for that date rather than merely display package information.
 
-### P4.2 Rooming workspace — VERIFY
+### P4.2 Rooming workspace — DONE
 
 The operational UI should make it easy to understand:
 
@@ -167,7 +154,7 @@ The operational UI should make it easy to understand:
 - moving travelers between rooms;
 - group relationships.
 
-### P4.3 Automatic rooming — VERIFY
+### P4.3 Automatic rooming — DONE
 
 Target behavior:
 
@@ -177,7 +164,7 @@ Target behavior:
 - try to keep groups/parties together;
 - report unresolved conflicts rather than silently making invalid allocations.
 
-### P4.4 Rooming error semantics — VERIFY
+### P4.4 Rooming error semantics — PARTIAL
 
 Known historical polish item: capacity is enforced but some full-room conflicts may surface as coarse HTTP 500 rather than a clean conflict response. Re-audit before fixing.
 
@@ -185,11 +172,11 @@ Known historical polish item: capacity is enforced but some full-room conflicts 
 
 ## P5 — Flights and traveler readiness
 
-### P5.1 Flight Operations foundation — PARTIAL
+### P5.1 Flight Operations foundation — DONE
 
 Flight Operations 2.0 core exists in recent project history. Do not rebuild it wholesale. Audit current UX/domain completeness first.
 
-### P5.2 Flight traveler readiness — VERIFY
+### P5.2 Flight traveler readiness — PARTIAL
 
 The departure workspace should make relevant readiness clear:
 
@@ -198,7 +185,7 @@ The departure workspace should make relevant readiness clear:
 - missing flight-required information;
 - no irrelevant warning on trips that do not require it.
 
-### P5.3 Flight workflow UX — VERIFY
+### P5.3 Flight workflow UX — PARTIAL
 
 Ensure flight data is connected to package/departure/passenger workflows rather than functioning as an isolated page.
 
@@ -206,7 +193,7 @@ Ensure flight data is connected to package/departure/passenger workflows rather 
 
 ## P6 — Communication Center
 
-### P6.1 Communication Center 2.0 — PARTIAL
+### P6.1 Communication Center 2.0 — DONE
 
 A substantial implementation exists. Before new work, audit the current branch/main history and current code.
 
@@ -223,7 +210,7 @@ Completion audit should cover:
 - BS/EN UI parity;
 - usable navigation and departure/customer context integration.
 
-### P6.2 Communication provider boundaries — VERIFY
+### P6.2 Communication provider boundaries — DONE
 
 External email/SMS/etc. providers should be replaceable behind clear service boundaries and secrets must remain server-side.
 
@@ -235,11 +222,11 @@ External email/SMS/etc. providers should be replaceable behind clear service bou
 
 Recent `main` includes Public Forms product integration covering navigation/usability/permissions/handler wiring. Do not rebuild it because an older complaint said the feature was hidden.
 
-### P7.2 Submission → inquiry workflow — VERIFY
+### P7.2 Submission → inquiry workflow — DONE
 
 Audit that request-style public form submissions enter the intended inquiry/sales workflow with source/context and do not bypass review by creating inappropriate reservations/customers automatically.
 
-### P7.3 Share/copy/use workflow — VERIFY
+### P7.3 Share/copy/use workflow — DONE
 
 Confirm agency staff can create/manage a form, obtain/share its public link, and understand submissions from the normal Travline UI.
 
@@ -260,7 +247,7 @@ The operating-system redesign introduced a Today queue. Re-audit against the des
 
 Only show alerts derived from real data.
 
-### P8.2 HomeHub/navigation cleanup — VERIFY
+### P8.2 HomeHub/navigation cleanup — PARTIAL
 
 Reported concerns:
 
@@ -271,11 +258,11 @@ Reported concerns:
 
 Do not do another broad visual refactor. Make navigation changes incrementally and capability-aware.
 
-### P8.3 Integrations workspace — VERIFY
+### P8.3 Integrations workspace — PARTIAL
 
 Audit whether the current Integrations page reflects real supported integrations and configuration. Remove/rework fake, duplicate, placeholder or misleading integration UX only through a scoped task.
 
-### P8.4 Global search / quick actions — PARTIAL / VERIFY
+### P8.4 Global search / quick actions — PARTIAL
 
 Quick-create exists in the operating-system redesign. Audit the remaining need for useful global search and context-aware quick actions.
 
@@ -283,7 +270,7 @@ Quick-create exists in the operating-system redesign. Audit the remaining need f
 
 ## P9 — Internationalization and UX consistency
 
-### P9.1 Full BS/EN audit — VERIFY
+### P9.1 Full BS/EN audit — PARTIAL
 
 Reported recurring issue: some screens/labels switch languages or leave untranslated strings.
 
@@ -305,7 +292,7 @@ A previous broad UX refactor passed builds but visibly damaged layout/formatting
 
 ## P10 — End-to-end quality and production hardening
 
-### P10.1 Browser E2E of core workflow — VERIFY
+### P10.1 Browser E2E of core workflow — PARTIAL
 
 Eventually verify as one connected flow:
 
