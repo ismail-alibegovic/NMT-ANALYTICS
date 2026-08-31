@@ -16,6 +16,7 @@ import {
   updateDepartureAccommodationAllotment,
 } from '../lib/departureAccommodation';
 import { getAccommodationOptions } from '../lib/reservationAccommodation';
+import { getDepartureBookedMap } from '../lib/departureCapacity';
 
 const router = Router();
 
@@ -176,8 +177,13 @@ router.get('/departures', authenticateToken, requireOrgContext, async (req, res,
 
     if (error) throw error;
 
-    // Map to Admin interface exactly
-    const transformedData = (departures || []).map(transformDeparture);
+    const bookedMap = await getDepartureBookedMap(orgId, (departures || []).map((departure: any) => departure.id));
+    const transformedData = (departures || []).map((departure: any) =>
+      transformDeparture({
+        ...departure,
+        booked: bookedMap.get(departure.id) ?? 0,
+      }),
+    );
 
     return res.json(formatListResponse(transformedData, count || 0, page, limit));
 

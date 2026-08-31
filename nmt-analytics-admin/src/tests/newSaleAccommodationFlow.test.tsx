@@ -216,4 +216,31 @@ describe('NewSaleWizard accommodation flow', () => {
     fireEvent.click(accommodationCards[0]);
     expect(screen.getAllByRole('combobox')).toHaveLength(1);
   });
+
+  it('shows a clear capacity message when the API rejects the sale', async () => {
+    createReservation.mockRejectedValueOnce({
+      code: 'DEPARTURE_CAPACITY_EXCEEDED',
+      message: 'Departure capacity would be exceeded',
+    });
+
+    render(
+      <NewSaleWizard
+        isOpen
+        onClose={vi.fn()}
+        onCreated={vi.fn()}
+        initialPackageId="package-1"
+        initialDepartureId="departure-1"
+      />,
+    );
+
+    expect(await screen.findByText('Antalya Summer 2027')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+    fireEvent.change(screen.getByPlaceholderText('Npr. Ahmed Hodžić'), { target: { value: 'Amina Hadžić' } });
+    fireEvent.change(screen.getByPlaceholderText('+387 61 234 567'), { target: { value: '+38761100001' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Potvrdi prodaju' }));
+
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Nema dovoljno mjesta na odabranom polasku.'));
+  });
 });

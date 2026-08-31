@@ -18,6 +18,7 @@ type ReservationRow = {
 type DepartureRow = {
   id: string
   org_id: string
+  capacity: number
 }
 
 type PassengerRow = {
@@ -31,14 +32,15 @@ type PassengerRow = {
 let reservations: ReservationRow[] = []
 let departures: DepartureRow[] = []
 let passengers: PassengerRow[] = []
+let reservationMeta: Record<string, { party_size: number; status: 'pending' | 'confirmed' | 'cancelled' | 'completed' }> = {}
 
 function resetStores() {
   reservations = [
     { id: RESERVATION_ID, org_id: TEST_ORG, departure_id: DEPARTURE_ID },
   ]
   departures = [
-    { id: DEPARTURE_ID, org_id: TEST_ORG },
-    { id: OTHER_DEPARTURE_ID, org_id: TEST_ORG },
+    { id: DEPARTURE_ID, org_id: TEST_ORG, capacity: 3 },
+    { id: OTHER_DEPARTURE_ID, org_id: TEST_ORG, capacity: 3 },
   ]
   passengers = [
     {
@@ -49,6 +51,9 @@ function resetStores() {
       full_name: 'Delete Me',
     },
   ]
+  reservationMeta = {
+    [RESERVATION_ID]: { party_size: 2, status: 'pending' },
+  }
 }
 
 vi.mock('../middleware/authenticateToken', () => ({
@@ -72,43 +77,51 @@ vi.mock('../middleware/auditLogger', () => ({
 
 function buildSelectQuery(table: string) {
   const filters: Record<string, unknown> = {}
+  const inFilters: Record<string, Set<unknown>> = {}
 
-  return {
+  const query: any = {
     eq(column: string, value: unknown) {
       filters[column] = value
-      return this
+      return query
+    },
+    in(column: string, values: unknown[]) {
+      inFilters[column] = new Set(values)
+      return query
     },
     async single() {
-      if (table === 'reservations') {
-        const row = reservations.find(
-          (item) => item.id === filters.id && item.org_id === filters.org_id,
-        )
-        return row
-          ? { data: row, error: null }
-          : { data: null, error: { code: 'PGRST116', message: 'Not found' } }
-      }
-
-      if (table === 'departures') {
-        const row = departures.find(
-          (item) => item.id === filters.id && item.org_id === filters.org_id,
-        )
-        return row
-          ? { data: row, error: null }
-          : { data: null, error: { code: 'PGRST116', message: 'Not found' } }
-      }
-
-      if (table === 'departure_passengers') {
-        const row = passengers.find(
-          (item) => item.id === filters.id && item.org_id === filters.org_id,
-        )
-        return row
-          ? { data: row, error: null }
-          : { data: null, error: { code: 'PGRST116', message: 'Not found' } }
-      }
-
+      const rows = buildRows()
+      const row = rows[0]
+      if (row) return { data: row, error: null }
       return { data: null, error: { code: 'PGRST116', message: 'Not found' } }
     },
+    then(resolve: any) {
+      const rows = buildRows()
+      return Promise.resolve({ data: rows, error: null, count: rows.length }).then(resolve)
+    },
   }
+
+  function buildRows() {
+    const source =
+      table === 'reservations'
+        ? reservations.map((row) => ({ ...row, ...(reservationMeta[row.id] || {}) }))
+        : table === 'departures'
+          ? departures
+          : table === 'departure_passengers'
+            ? passengers
+            : []
+
+    return source.filter((row: any) => {
+      for (const [key, value] of Object.entries(filters)) {
+        if (row[key] !== value) return false
+      }
+      for (const [key, values] of Object.entries(inFilters)) {
+        if (!values.has(row[key])) return false
+      }
+      return true
+    })
+  }
+
+  return query
 }
 
 function buildInsertQuery(table: string) {
@@ -160,10 +173,25 @@ function buildDeleteQuery() {
   return query
 }
 
+function buildCountQuery(table: string) {
+  let working: any[] = table === 'departure_passengers' ? passengers : []
+  const query: any = {
+    eq(column: string, value: unknown) {
+      working = working.filter((row) => row[column] === value)
+      return query
+    },
+    then(resolve: any) {
+      return Promise.resolve({ data: null, error: null, count: working.length }).then(resolve)
+    },
+  }
+  return query
+}
+
 vi.mock('../lib/supabase', () => ({
   supabaseAdmin: {
     from: vi.fn((table: string) => ({
-      select: vi.fn(() => buildSelectQuery(table)),
+      select: vi.fn((_cols?: string, options?: { count?: string; head?: boolean }) =>
+        options?.count === 'exact' && options?.head ? buildCountQuery(table) : buildSelectQuery(table)),
       insert: buildInsertQuery(table).insert,
       delete: vi.fn(() => buildDeleteQuery()),
     })),
@@ -293,5 +321,27 @@ describe('departure passenger safety', () => {
 
     expect(res.status).toBe(404)
     expect(res.body.code).toBe('RESERVATION_NOT_FOUND')
+  })
+
+  it('rejects direct passenger add when reservation passenger count would exceed party size', async () => {
+    passengers.push({
+      id: '30000000-0000-4000-8000-000000000002',
+      org_id: TEST_ORG,
+      reservation_id: RESERVATION_ID,
+      departure_id: DEPARTURE_ID,
+      full_name: 'Second Passenger',
+    })
+
+    const res = await request(createApp())
+      .post('/api/departure-passengers')
+      .set('x-test-org', TEST_ORG)
+      .send({
+        reservation_id: RESERVATION_ID,
+        departure_id: DEPARTURE_ID,
+        full_name: 'Third Passenger',
+      })
+
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('RESERVATION_PARTY_SIZE_EXCEEDED')
   })
 })

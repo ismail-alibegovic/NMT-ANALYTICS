@@ -402,7 +402,11 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       onCreated?.();
       onClose();
     } catch (e: any) {
-      showError(e?.message ?? "Greška pri kreiranju rezervacije");
+      if (e?.code === "DEPARTURE_CAPACITY_EXCEEDED") {
+        showError("Nema dovoljno mjesta na odabranom polasku.");
+      } else {
+        showError(e?.message ?? "Greška pri kreiranju rezervacije");
+      }
     } finally {
       setSubmitting(false);
     }
