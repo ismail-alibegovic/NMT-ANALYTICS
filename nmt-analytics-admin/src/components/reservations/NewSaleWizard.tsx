@@ -105,6 +105,28 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const uniqueMappedPassengerIndexes = new Set(mappedPassengerIndexes);
   const accommodationPassengerMappingValid = mappedPassengerIndexes.length === uniqueMappedPassengerIndexes.size && uniqueMappedPassengerIndexes.size === partySize;
 
+  function getAccommodationLineCapacity(line: AccommodationLine) {
+    const option = accommodationOptions.find((item) => item.id === line.hotelAllocationId);
+    return line.roomCount * Math.max(1, option?.capacityPerRoom || 1);
+  }
+
+  function getAccommodationLineValidation(line: AccommodationLine) {
+    const option = accommodationOptions.find((item) => item.id === line.hotelAllocationId);
+    const assignedCount = line.passengerIndexes.length;
+    const lineCapacity = getAccommodationLineCapacity(line);
+    const availableRooms = option?.availableRooms || 0;
+
+    return {
+      option,
+      assignedCount,
+      lineCapacity,
+      hasOption: Boolean(option),
+      roomCountValid: line.roomCount > 0 && line.roomCount <= availableRooms,
+      guestsExpectedValid: line.guestsExpected > 0 && line.guestsExpected <= lineCapacity,
+      passengerCountValid: assignedCount === line.guestsExpected,
+    };
+  }
+
   // Sync passenger count with party size
   useEffect(() => {
     setPassengers((prev) => {
@@ -283,6 +305,12 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         passengerIndexes: line.passengerIndexes.filter((value) => value !== passengerIndex),
       };
       const exists = line.passengerIndexes.includes(passengerIndex);
+      const option = accommodationOptions.find((item) => item.id === line.hotelAllocationId);
+      const lineCapacity = line.roomCount * Math.max(1, option?.capacityPerRoom || 1);
+      const maxAssignable = Math.min(line.guestsExpected, lineCapacity);
+      if (!exists && line.passengerIndexes.length >= maxAssignable) {
+        return line;
+      }
       return {
         ...line,
         passengerIndexes: exists
@@ -301,11 +329,13 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       if (accommodationLines.length === 0) return true;
       return accommodationCoverage === partySize &&
         accommodationPassengerMappingValid &&
-        accommodationLinesWithOption.every(({ line, option }) => !!option &&
-          line.roomCount > 0 &&
-          line.roomCount <= (option?.availableRooms || 0) &&
-          line.guestsExpected > 0 &&
-          line.guestsExpected <= line.roomCount * Math.max(1, option?.capacityPerRoom || 1));
+        accommodationLines.every((line) => {
+          const validation = getAccommodationLineValidation(line);
+          return validation.hasOption &&
+            validation.roomCountValid &&
+            validation.guestsExpectedValid &&
+            validation.passengerCountValid;
+        });
     }
     return true;
   })();
@@ -387,6 +417,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         totalAmount: total || undefined,
         source: "agent",
         customerId: selectedCustomerId || undefined,
+        upsert: true,
         status: "pending",
         notes: notes || undefined,
         hotelName: accommodationLinesWithOption[0]?.option?.hotel?.name || selectedPackage?.destination || undefined,
@@ -785,8 +816,9 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                 </div>
 
                 {accommodationLines.map((line, index) => {
-                  const option = accommodationOptions.find((item) => item.id === line.hotelAllocationId);
-                  const lineCapacity = (option?.capacityPerRoom || 0) * line.roomCount;
+                  const validation = getAccommodationLineValidation(line);
+                  const option = validation.option;
+                  const lineCapacity = validation.lineCapacity;
                   const lineTotal = (option?.unitSellPrice || 0) * line.roomCount;
                   return (
                     <div key={`line-${index}`} className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-3">
@@ -844,14 +876,19 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
                       {option && (
                         <p className="text-xs text-gray-500">
-                          Kapacitet linije: {lineCapacity} · Pokriveno: {line.guestsExpected}
+                          Kapacitet linije: {lineCapacity} · Očekivano: {line.guestsExpected} · Dodijeljeno: {validation.assignedCount}
                         </p>
                       )}
-                      {option && line.roomCount > option.availableRooms && (
+                      {option && !validation.roomCountValid && (
                         <p className="text-sm text-error-600">Nema dovoljno slobodnih soba za odabranu količinu.</p>
                       )}
-                      {option && line.guestsExpected > lineCapacity && (
+                      {option && !validation.guestsExpectedValid && (
                         <p className="text-sm text-error-600">Ova linija prelazi kapacitet odabranog tipa sobe.</p>
+                      )}
+                      {option && !validation.passengerCountValid && (
+                        <p className="text-sm text-error-600">
+                          Dodijelite tačno {line.guestsExpected} {line.guestsExpected === 1 ? "putnika" : "putnika"} ovoj liniji smještaja.
+                        </p>
                       )}
 
                       <div>
@@ -859,15 +896,19 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                         <div className="mt-2 grid grid-cols-1 gap-2">
                           {passengers.map((passenger, passengerIndex) => {
                             const assignedElsewhere = accommodationLines.some((otherLine, otherIndex) => otherIndex !== index && otherLine.passengerIndexes.includes(passengerIndex));
+                            const selectedOnThisLine = line.passengerIndexes.includes(passengerIndex);
+                            const lineFull = !selectedOnThisLine && validation.assignedCount >= Math.min(line.guestsExpected, lineCapacity);
                             return (
-                              <label key={`line-${index}-passenger-${passengerIndex}`} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${assignedElsewhere ? "opacity-50" : ""}`}>
+                              <label key={`line-${index}-passenger-${passengerIndex}`} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${(assignedElsewhere || lineFull) ? "opacity-50" : ""}`}>
                                 <input
                                   type="checkbox"
-                                  checked={line.passengerIndexes.includes(passengerIndex)}
-                                  disabled={assignedElsewhere}
+                                  checked={selectedOnThisLine}
+                                  disabled={assignedElsewhere || lineFull}
                                   onChange={() => toggleAccommodationPassenger(index, passengerIndex)}
                                 />
                                 <span>{passenger.full_name.trim() || `Putnik ${passengerIndex + 1}`}</span>
+                                {assignedElsewhere ? <span className="ml-auto text-xs text-gray-500">Dodijeljen drugoj liniji</span> : null}
+                                {lineFull ? <span className="ml-auto text-xs text-gray-500">Linija popunjena</span> : null}
                               </label>
                             );
                           })}
