@@ -70,7 +70,7 @@ export async function getSoldRoomsForAllocation(orgId: string, allocationId: str
   return (data || []).reduce((sum, row: any) => sum + Number(row.room_count || 0), 0);
 }
 
-export async function getAccommodationOptions(departureId: string, orgId: string) {
+export async function getAccommodationOptions(departureId: string, orgId: string, excludeReservationId?: string | null) {
   const { data: departure, error: depErr } = await supabaseAdmin
     .from('departures')
     .select('id')
@@ -93,7 +93,7 @@ export async function getAccommodationOptions(departureId: string, orgId: string
 
   const items = [];
   for (const row of data || []) {
-    const soldRooms = await getSoldRoomsForAllocation(orgId, row.id);
+    const soldRooms = await getSoldRoomsForAllocation(orgId, row.id, excludeReservationId);
     const departureRooms = Number(row.rooms_reserved || 0);
     const capacityPerRoom = Math.max(1, Number(row.capacity_per_room || 1));
     items.push({

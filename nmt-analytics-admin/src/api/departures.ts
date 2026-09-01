@@ -242,8 +242,9 @@ export interface DepartureAccommodationOptionsResponse {
   items: DepartureAccommodationOption[];
 }
 
-export async function getDepartureAccommodationOptions(id: string): Promise<DepartureAccommodationOptionsResponse> {
-  const { data } = await get<DepartureAccommodationOptionsResponse>(`/departures/${id}/accommodation-options`);
+export async function getDepartureAccommodationOptions(id: string, reservationId?: string): Promise<DepartureAccommodationOptionsResponse> {
+  const query = reservationId ? `?reservationId=${encodeURIComponent(reservationId)}` : '';
+  const { data } = await get<DepartureAccommodationOptionsResponse>(`/departures/${id}/accommodation-options${query}`);
   return data;
 }
 
