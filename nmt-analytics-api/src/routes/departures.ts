@@ -218,6 +218,8 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
       return;
     }
 
+    const effectiveTransportType = transportType || packageData.transport_type || 'none';
+
     let existingUpsertDeparture: {
       id: string;
       return_at: string | null;
@@ -233,6 +235,7 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
         .eq('org_id', orgId)
         .eq('package_id', packageId)
         .eq('depart_at', departAt)
+        .eq('transport_type', effectiveTransportType)
         .maybeSingle();
 
       if (existingError) return handleSupabaseError(res, existingError, "Failed to check existing departure");
@@ -249,9 +252,9 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
         capacity: capacity,
         booked: booked,
         status: status,
-        transport_type: transportType || packageData.transport_type || 'none',
+        transport_type: effectiveTransportType,
       }, {
-        onConflict: upsert ? 'org_id,package_id,depart_at' : undefined,
+        onConflict: upsert ? 'org_id,package_id,depart_at,transport_type' : undefined,
         ignoreDuplicates: !upsert
       })
       .select(`
