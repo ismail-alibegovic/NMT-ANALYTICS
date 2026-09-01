@@ -296,15 +296,9 @@ describe('NewSaleWizard accommodation flow', () => {
     expect(screen.queryByText('Studentski smještaj')).not.toBeInTheDocument();
     expect(screen.queryByText('Apartman')).not.toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: '+ Prikaži prijevoz' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: '+ Prikaži prijevoz' }));
-
+    // Transport dropdown removed — departure is source of truth (M01.2)
+    expect(screen.queryByRole('button', { name: '+ Prikaži prijevoz' })).not.toBeInTheDocument();
     expect(screen.queryByText('Tip smještaja')).not.toBeInTheDocument();
-
-    const transportSelect = screen.getByRole('combobox');
-    expect(transportSelect).toBeInTheDocument();
-    expect(transportSelect.querySelectorAll('option').length).toBe(3);
 
     fireEvent.change(screen.getByPlaceholderText('Npr. Ahmed Hodžić'), { target: { value: 'Test Kupac' } });
     fireEvent.change(screen.getByPlaceholderText('+387 61 234 567'), { target: { value: '+38761000000' } });
