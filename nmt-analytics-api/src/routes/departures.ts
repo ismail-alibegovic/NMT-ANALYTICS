@@ -758,7 +758,7 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
     if (packageId) {
       const { data: ph, error: phErr } = await supabaseAdmin
         .from('package_hotels')
-        .select('*, hotels:hotel_id(id, name, country, city)')
+        .select('*, hotels:hotel_id(id, name, country, destination, stars)')
         .eq('package_id', packageId)
         .eq('org_id', orgId);
       if (phErr) console.error('package_hotels fetch (non-fatal):', phErr);
