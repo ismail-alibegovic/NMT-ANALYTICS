@@ -4,7 +4,7 @@
 -- can have simultaneous Bus and Flight departures on the same date without collision.
 --
 -- Step 1: Backfill NULL transport_type values to 'none'.
--- Step 2: Remove true duplicates (same 4-tuple). Keep the row with the latest created_at.
+-- Step 2: Safety guard — fail if duplicate identities exist (manual reconciliation required).
 -- Step 3: Add the UNIQUE constraint covering all 4 identity columns.
 
 -- Step 1: Backfill
@@ -12,7 +12,8 @@ UPDATE public.departures
 SET transport_type = 'none'
 WHERE transport_type IS NULL;
 
--- Step 2: Deduplicate
+-- Step 2: Safety guard — fail fast if duplicate departure identities exist.
+-- Duplicates must be reconciled manually before this migration can proceed.
 DO $$
 DECLARE
   duplicate_count integer;
@@ -29,21 +30,9 @@ BEGIN
   SELECT COUNT(*) INTO duplicate_count FROM duplicates WHERE rn > 1;
 
   IF duplicate_count > 0 THEN
-    RAISE NOTICE 'Removing % duplicate departure rows before adding UNIQUE constraint', duplicate_count;
-
-    DELETE FROM public.departures
-    WHERE id IN (
-      SELECT id FROM (
-        SELECT
-          id,
-          ROW_NUMBER() OVER (
-            PARTITION BY org_id, package_id, depart_at, transport_type
-            ORDER BY created_at DESC, id DESC
-          ) AS rn
-        FROM public.departures
-      ) sub
-      WHERE sub.rn > 1
-    );
+    RAISE EXCEPTION
+      'Cannot add departure transport identity constraint: % duplicate departure identities require manual reconciliation before this migration can proceed.',
+      duplicate_count;
   END IF;
 END $$;
 
