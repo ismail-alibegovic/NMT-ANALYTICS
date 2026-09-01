@@ -134,7 +134,7 @@ describe('demo seed safety contract', () => {
 
 describe('capacity rpc reconciliation contract', () => {
   it('replaces reserve_capacity_atomic with an unambiguous canonical-occupancy implementation', async () => {
-    const migration = await readMigration('20260901152047_fix_reserve_capacity_atomic_canonical_occupancy.sql');
+    const migration = await readMigration('20260901171846_fix_reserve_capacity_atomic_canonical_occupancy.sql');
 
     expect(migration).toContain('CREATE OR REPLACE FUNCTION public.reserve_capacity_atomic');
     expect(migration).toContain('FROM public.departures d');
@@ -150,7 +150,7 @@ describe('capacity rpc reconciliation contract', () => {
   });
 
   it('replaces release_capacity_atomic with the same canonical-occupancy source instead of subtracting from stale booked state', async () => {
-    const migration = await readMigration('20260901152047_fix_reserve_capacity_atomic_canonical_occupancy.sql');
+    const migration = await readMigration('20260901171846_fix_reserve_capacity_atomic_canonical_occupancy.sql');
 
     expect(migration).toContain('CREATE OR REPLACE FUNCTION public.release_capacity_atomic');
     expect(migration).toContain('SET booked = GREATEST(0, v_effective_booked - p_party_size)');
