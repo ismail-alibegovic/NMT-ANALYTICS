@@ -299,15 +299,15 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
   function selectAccommodationOption(optionId: string) {
     setAccommodationLines((current) => {
+      const alreadySelected = current.some((line) => line.hotelAllocationId === optionId);
+      if (alreadySelected) return current;
+
       const emptyIndex = current.findIndex((line) => !line.hotelAllocationId);
       if (emptyIndex >= 0) {
         return current.map((line, index) => index === emptyIndex
           ? { ...line, hotelAllocationId: optionId, passengerIndexes: [] }
           : line);
       }
-
-      const alreadySelected = current.some((line) => line.hotelAllocationId === optionId);
-      if (alreadySelected) return current;
 
       return [...current, {
         hotelAllocationId: optionId,
