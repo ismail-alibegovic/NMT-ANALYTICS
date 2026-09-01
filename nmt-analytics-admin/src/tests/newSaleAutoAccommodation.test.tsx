@@ -234,4 +234,34 @@ describe('NewSaleWizard — M04.1c auto accommodation', () => {
     expect(screen.getByText('Unesite ime svih putnika prije nastavka sa smještajem.')).toBeInTheDocument();
     expect(screen.queryByText('Ukupan iznos (BAM)')).not.toBeInTheDocument();
   });
+
+  it('blocks Next with a clear inventory message when required rooms exceed available rooms', async () => {
+    renderWizard({ ...doubleOption, availableRooms: 1, availableGuestCapacity: 2 });
+    await goToAccommodation(4, ['Amina Hadžić', 'Emir Hadžić', 'Haris Hadžić', 'Nedim Hadžić']);
+
+    selectAccommodationCard(/Double/);
+
+    expect(screen.getByText('Potrebno soba').parentElement).toHaveTextContent('2');
+    expect(screen.getByText('Slobodno soba').parentElement).toHaveTextContent('1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+
+    expect(screen.getAllByText('Nema dovoljno slobodnih Double soba. Potrebno: 2, dostupno: 1.')).toHaveLength(2);
+    expect(screen.queryByText('Ukupan iznos (BAM)')).not.toBeInTheDocument();
+  });
+
+  it('allows Next when available rooms cover the auto-calculated requirement', async () => {
+    renderWizard({ ...doubleOption, availableRooms: 2, availableGuestCapacity: 4 });
+    await goToAccommodation(4, ['Amina Hadžić', 'Emir Hadžić', 'Haris Hadžić', 'Nedim Hadžić']);
+
+    selectAccommodationCard(/Double/);
+
+    expect(screen.getByText('Potrebno soba').parentElement).toHaveTextContent('2');
+    expect(screen.getByText('Slobodno soba').parentElement).toHaveTextContent('2');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+
+    expect(await screen.findByText('Ukupan iznos (BAM)')).toBeInTheDocument();
+    expect(screen.queryByText('Nema dovoljno slobodnih Double soba. Potrebno: 2, dostupno: 1.')).not.toBeInTheDocument();
+  });
 });

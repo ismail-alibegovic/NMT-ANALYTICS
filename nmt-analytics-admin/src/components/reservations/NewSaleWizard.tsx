@@ -53,6 +53,14 @@ function buildAutomaticAccommodationLine(optionId: string, partySize: number, ca
   };
 }
 
+function getAccommodationInventoryMessage(
+  roomLabel: string | undefined,
+  neededRooms: number,
+  availableRooms: number,
+) {
+  return `Nema dovoljno slobodnih ${roomLabel || "odabranih"} soba. Potrebno: ${neededRooms}, dostupno: ${availableRooms}.`;
+}
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -401,6 +409,18 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         return "Unesite ime svih putnika prije nastavka sa smještajem.";
       }
       if (accommodationLines.length === 0) return "";
+      const inventoryBlockedLine = accommodationLines.find((line) => {
+        const validation = getAccommodationLineValidation(line);
+        return validation.hasOption && !validation.roomCountValid;
+      });
+      if (inventoryBlockedLine) {
+        const inventoryValidation = getAccommodationLineValidation(inventoryBlockedLine);
+        return getAccommodationInventoryMessage(
+          inventoryValidation.option?.roomLabel || inventoryValidation.option?.roomType,
+          inventoryBlockedLine.roomCount,
+          inventoryValidation.option?.availableRooms || 0,
+        );
+      }
       if (accommodationCoverage !== partySize) return "Smještaj mora pokriti sve putnike.";
       if (!accommodationPassengerMappingValid) return "Dodijelite svakog putnika tačno jednoj liniji smještaja.";
       return "";
@@ -1013,7 +1033,9 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                         </p>
                       )}
                       {option && !validation.roomCountValid && (
-                        <p className="text-sm text-error-600">Nema dovoljno slobodnih soba za odabranu količinu.</p>
+                        <p className="text-sm text-error-600">
+                          {getAccommodationInventoryMessage(option.roomLabel || option.roomType, line.roomCount, option.availableRooms || 0)}
+                        </p>
                       )}
                       {option && !validation.guestsExpectedValid && (
                         <p className="text-sm text-error-600">Ova linija prelazi kapacitet odabranog tipa sobe.</p>
