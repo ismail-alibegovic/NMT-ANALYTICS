@@ -18,7 +18,6 @@ const STEPS: { key: Step; label: string }[] = [
   { key: "review", label: "Pregled i Plaćanje" },
 ];
 
-type TransportRequest = "bus" | "flight" | "none";
 type Variant = { id: string; name: string; priceModifier?: number; accommodation?: string };
 
 interface PassengerEntry {
@@ -56,13 +55,11 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Selections
   const [packageId, setPackageId] = useState("");
   const [departureId, setDepartureId] = useState("");
   const [variantId, setVariantId] = useState("");
-  const [transport, setTransport] = useState<TransportRequest>("none");
   const [accommodationOptions, setAccommodationOptions] = useState<DepartureAccommodationOption[]>([]);
   const [accommodationLoading, setAccommodationLoading] = useState(false);
   const [accommodationLines, setAccommodationLines] = useState<AccommodationLine[]>([]);
@@ -93,6 +90,8 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     ? (selectedPackage!.variants as unknown as Variant[])
     : [];
   const hasVariants = variants.length > 0;
+
+  const selectedTransportType = (selectedDeparture as any)?.transport_type ?? selectedDeparture?.capabilities?.transportType ?? "none";
 
   const activeDepartures = departures.filter((d) => d.status === "active" && d.booked < d.capacity);
   const accommodationLinesWithOption = accommodationLines.map((line) => ({
@@ -144,14 +143,12 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   function reset() {
     setStep("arrangement");
     setPackageId(""); setDepartureId(""); setVariantId("");
-    setTransport("none");
     setAccommodationOptions([]); setAccommodationLines([]);
     setCustomerSearch(""); setSelectedCustomerId(null);
     setCustomerName(""); setCustomerPhone(""); setCustomerEmail("");
     setPartySize(1); setTotalAmount(""); setNotes("");
     setPassengers([]); setCreateGroup(false); setGroupName("");
     setPaymentPlan("full"); setDepositPct(50); setInstallmentCount(3);
-    setShowAdvanced(false);
   }
 
   useEffect(() => {
@@ -376,7 +373,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
           : undefined,
         variant_id: variantId || undefined,
         variant_name: variants.find((v) => v.id === variantId)?.name,
-        transport_request: transport,
+        transport_type: selectedTransportType,
         accommodation: normalizedAccommodationLines.map((line) => {
           const option = accommodationOptions.find((item) => item.id === line.hotelAllocationId);
           return {
@@ -623,62 +620,35 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
             <hr className="border-gray-100 dark:border-gray-800" />
 
-            {/* Options (variants, transport, accommodation) */}
-            {(hasVariants || showAdvanced) && (
+            {/* Options (variants) */}
+            {hasVariants && (
               <div className="space-y-3">
-                {hasVariants && (
-                  <div>
-                    <Label>Opcija paketa</Label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
-                      {variants.map((v) => {
-                        const active = v.id === variantId;
-                        return (
-                          <button
-                            key={v.id}
-                            type="button"
-                            onClick={() => setVariantId(active ? "" : v.id)}
-                            className={`text-left rounded-xl border p-3 transition ${
-                              active ? "border-brand-500 ring-2 ring-brand-500/20 bg-brand-50 dark:bg-brand-500/10" : "border-gray-200 dark:border-gray-800"
-                            }`}
-                          >
-                            <div className="font-medium text-sm text-gray-900 dark:text-white">{v.name}</div>
-                            {v.priceModifier ? (
-                              <div className="text-xs text-brand-600 mt-0.5">+{v.priceModifier} BAM</div>
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </div>
+                <div>
+                  <Label>Opcija paketa</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+                    {variants.map((v) => {
+                      const active = v.id === variantId;
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => setVariantId(active ? "" : v.id)}
+                          className={`text-left rounded-xl border p-3 transition ${
+                            active ? "border-brand-500 ring-2 ring-brand-500/20 bg-brand-50 dark:bg-brand-500/10" : "border-gray-200 dark:border-gray-800"
+                          }`}
+                        >
+                          <div className="font-medium text-sm text-gray-900 dark:text-white">{v.name}</div>
+                          {v.priceModifier ? (
+                            <div className="text-xs text-brand-600 mt-0.5">+{v.priceModifier} BAM</div>
+                          ) : null}
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
-                {showAdvanced && (
-                  <div className="grid grid-cols-1 gap-3">
-                    <div>
-                      <Label>Prijevoz</Label>
-                      <select
-                        value={transport}
-                        onChange={(e) => setTransport(e.target.value as TransportRequest)}
-                        className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900"
-                      >
-                        <option value="none">Bez prijevoza</option>
-                        <option value="bus">Autobus</option>
-                        <option value="flight">Avion</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
             )}
 
-            {!hasVariants && !showAdvanced && (
-              <button
-                type="button"
-                onClick={() => setShowAdvanced(true)}
-                className="text-xs text-brand-600 dark:text-brand-400 hover:underline"
-              >
-                + Prikaži prijevoz
-              </button>
-            )}
 
             <hr className="border-gray-100 dark:border-gray-800" />
 
@@ -963,11 +933,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               <Row label="Aranžman" value={selectedPackage?.name ?? "—"} />
               <Row label="Termin" value={selectedDeparture ? `${new Date(selectedDeparture.depart_at).toLocaleDateString("bs-BA")} → ${new Date(selectedDeparture.return_at).toLocaleDateString("bs-BA")}` : "—"} />
               {variantId ? <Row label="Opcija" value={variants.find((v) => v.id === variantId)?.name ?? "—"} /> : null}
-              {(showAdvanced || hasVariants) && (
-                <>
-                  <Row label="Prijevoz" value={transport === "flight" ? "Avion" : transport === "bus" ? "Autobus" : "Bez prijevoza"} />
-                </>
-              )}
+              <Row label="Prijevoz" value={selectedTransportType === "flight" ? "Avion" : selectedTransportType === "bus" ? "Autobus" : "Bez prijevoza"} />
               <Row
                 label="Smještaj"
                 value={accommodationLinesWithOption.length > 0
