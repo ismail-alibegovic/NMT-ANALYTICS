@@ -451,7 +451,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
             <div>
               <Label>Aranžman / Paket *</Label>
               <p className="text-xs text-gray-500 -mt-1">Odaberite ponudu, zatim izaberite termin.</p>
-              <div className="grid grid-cols-1 gap-3 max-h-[200px] overflow-y-auto mt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto mt-2">
                 {packages.map((pkg) => {
                   const active = pkg.id === packageId;
                   return (
