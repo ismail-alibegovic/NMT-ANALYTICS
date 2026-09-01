@@ -1,19 +1,13 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useT } from "../../lib/i18n/context";
 import Button from "../ui/button/Button";
 import Badge from "../ui/badge/Badge";
-import type { DeparturePassenger,
-  AccommodationBuilding,
-  AccommodationFloor,
-  AccommodationAssignment } from "../../api/departures";
+import type { DeparturePassenger, DepartureRoomSlot } from "../../api/departures";
 import {
-  getAccommodationBuildings,
-  assignPassengerToRoom,
-  unassignPassengerFromRoom,
-  moveAccommodationAssignment,
-  generateRoomingProposal,
-  applyRoomingProposal,
-  type RoomingProposal,
+  assignPassengerToRoomSlot,
+  getDepartureRoomSlots,
+  moveRoomSlotAssignment,
+  unassignPassengerFromRoomSlot,
 } from "../../api/departures";
 
 interface Props {
@@ -24,708 +18,386 @@ interface Props {
 
 type GroupStatus = "unassigned" | "together" | "split" | "partial";
 
-interface RoomSelectTarget {
+type AssignTarget = {
   passengerId: string;
   passengerName: string;
-  reservationId: string;
-}
-
-interface MoveTarget {
-  assignmentId: string;
-  passengerId: string;
-  passengerName: string;
-  fromRoomNumber: string;
-  fromBuildingName: string;
-}
+  currentAssignmentId?: string | null;
+};
 
 export default function RoomingWorkspace({ departureId, passengers }: Props) {
   const { t } = useT();
-  const rm = t.departures.rooming;
-  const [buildings, setBuildings] = useState<AccommodationBuilding[]>([]);
+  const rm = t?.departures?.rooming ?? {
+    loading: 'Loading accommodation…',
+    unavailable: 'Accommodation data unavailable',
+    unassigned: 'Unassigned passengers',
+    allAssigned: 'All passengers assigned.',
+    unassign: 'Unassign',
+    accommodation: 'Accommodation',
+    groups: 'Groups',
+    room: 'Room',
+    full: 'Full',
+    free: 'free',
+    incompatible: 'Not compatible',
+    unknownHotel: 'Hotel',
+    groupFallback: 'Group',
+    noPassengers: 'No passengers assigned',
+    assignFailed: 'Assign failed',
+    unassignFailed: 'Unassign failed',
+    loadFailed: 'Failed to load accommodation data',
+    groupStatus: {
+      unassigned: 'Unassigned',
+      partial: 'Partial',
+      together: 'Together',
+      split: 'Split',
+    },
+    selectRoom: 'Select Room',
+    selectRoomHint: 'Select a room for',
+    move: 'Move',
+    totalBeds: 'Total Beds',
+    assignedCount: 'Assigned',
+    unassignedCount: 'Unassigned',
+    remainingBeds: 'Remaining',
+    noAccommodationConfigured: 'Accommodation Not Configured',
+    noAccommodationHint: 'Accommodation is part of this departure, but rooms are not yet configured.',
+  };
+  const [slots, setSlots] = useState<DepartureRoomSlot[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refetchKey, setRefetchKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [proposal, setProposal] = useState<RoomingProposal | null>(null);
-  const [proposalLoading, setProposalLoading] = useState(false);
-  const [showProposal, setShowProposal] = useState(false);
-  const [applying, setApplying] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<AssignTarget | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  // Room selection modal state
-  const [roomSelect, setRoomSelect] = useState<RoomSelectTarget | null>(null);
-  // Move modal state
-  const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null);
-
-  const handleGenerateProposal = async () => {
-    setProposalLoading(true);
-    setError(null);
-    try {
-      const p = await generateRoomingProposal(departureId);
-      setProposal(p);
-      setShowProposal(true);
-    } catch (err: any) {
-      setError(err?.message || rm.proposalFailed || 'Failed to generate proposal');
-    } finally {
-      setProposalLoading(false);
-    }
-  };
-
-  const handleApplyProposal = async () => {
-    if (!proposal) return;
-    setApplying(true);
-    setError(null);
-    try {
-      await applyRoomingProposal(departureId, [new Date().toISOString()]);
-      setShowProposal(false);
-      setProposal(null);
-      setRefetchKey((k) => k + 1);
-    } catch (err: any) {
-      if (err?.message?.includes('stale') || err?.message?.includes('changed')) {
-        setError(rm.proposalStale || 'State changed since proposal — please regenerate.');
-        setProposal(null);
-        setShowProposal(false);
-      } else {
-        setError(err?.message || rm.proposalApplyFailed || 'Failed to apply proposal');
-      }
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  const fetchBuildings = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getAccommodationBuildings(departureId);
-      setBuildings(data || []);
+      setSlots(await getDepartureRoomSlots(departureId));
     } catch (err: any) {
       setError(err?.message || rm.loadFailed);
     } finally {
       setLoading(false);
     }
-  }, [departureId, refetchKey]);
+  }, [departureId, rm.loadFailed]);
 
-  useEffect(() => { fetchBuildings(); }, [fetchBuildings]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  // Derive assignment room IDs per passenger
-  const passengerRoomMap = useMemo(() => {
-    const map = new Map<string, string>();
-    buildings.forEach((b) =>
-      (b.floors || []).forEach((f: AccommodationFloor) =>
-        (f.rooms || []).forEach((r) => {
-          if (r.assignments) {
-            r.assignments.forEach((a: AccommodationAssignment) => {
-              if (a.passenger_id) map.set(a.passenger_id, r.id ?? "");
-            });
-          }
-        })
-      )
-    );
+  const passengerById = useMemo(() => {
+    const map = new Map<string, DeparturePassenger>();
+    passengers.forEach((p) => {
+      const id = p.passengerId || p.id;
+      if (id) map.set(id, p);
+    });
     return map;
-  }, [buildings]);
+  }, [passengers]);
 
-  const assignedPaxIds = useMemo(() => {
-    const ids = new Set<string>();
-    buildings.forEach((b) =>
-      (b.floors || []).forEach((f: AccommodationFloor) =>
-        (f.rooms || []).forEach((r) => {
-          if (r.assignments) {
-            r.assignments.forEach((a: AccommodationAssignment) => {
-              if (a.passenger_id) ids.add(a.passenger_id);
-            });
-          }
-        })
-      )
-    );
-    return ids;
-  }, [buildings]);
+  const assignmentByPassenger = useMemo(() => {
+    const map = new Map<string, { assignmentId: string; slotId: string }>();
+    slots.forEach((slot) => {
+      slot.assignments.forEach((assignment) => {
+        map.set(assignment.passengerId, { assignmentId: assignment.id, slotId: slot.id });
+      });
+    });
+    return map;
+  }, [slots]);
 
-  const unassignedPax = useMemo(
-    () => passengers.filter((p) => !assignedPaxIds.has(p.passengerId ?? "")),
-    [passengers, assignedPaxIds]
+  const assignedPassengerIds = useMemo(() => new Set(assignmentByPassenger.keys()), [assignmentByPassenger]);
+  const unassignedPassengers = useMemo(
+    () => passengers.filter((p) => {
+      const id = p.passengerId || p.id;
+      return !!id && !assignedPassengerIds.has(id);
+    }),
+    [passengers, assignedPassengerIds],
   );
 
-  // Capacity totals
-  const totalCapacity = useMemo(() => {
-    let c = 0;
-    buildings.forEach((b) =>
-      b.floors?.forEach((f) =>
-        f.rooms?.forEach((r) => { c += r.capacity ?? 0; })
-      )
-    );
-    return c;
-  }, [buildings]);
+  const groupedSlots = useMemo(() => {
+    const map = new Map<string, { hotelName: string; roomType: string; slots: DepartureRoomSlot[] }>();
+    slots.forEach((slot) => {
+      const key = `${slot.hotelId}:${slot.roomType}`;
+      const existing = map.get(key);
+      if (existing) existing.slots.push(slot);
+      else map.set(key, {
+        hotelName: slot.hotel?.name || rm.unknownHotel,
+        roomType: slot.roomType,
+        slots: [slot],
+      });
+    });
+    return Array.from(map.values());
+  }, [slots, rm.unknownHotel]);
 
-  const totalOccupied = useMemo(() => {
-    let c = 0;
-    buildings.forEach((b) =>
-      b.floors?.forEach((f) =>
-        f.rooms?.forEach((r) => { c += r.assignments?.length ?? 0; })
-      )
-    );
-    return c;
-  }, [buildings]);
-
-  const hasAccommodationConfigured = buildings.length > 0 &&
-    buildings.some(b => (b.floors?.length ?? 0) > 0 &&
-      b.floors?.some(f => (f.rooms?.length ?? 0) > 0));
-
-  // Group rooming status
   const groupStatuses = useMemo(() => {
     const groups = new Map<string, {
-      name: string | null; color: string | null;
+      name: string | null;
+      color: string | null;
       members: DeparturePassenger[];
       status: GroupStatus;
     }>();
 
     passengers.forEach((p) => {
-      const gid = p.groupId;
-      if (!gid) return;
-      if (!groups.has(gid)) {
-        groups.set(gid, { name: p.groupName ?? null, color: p.groupColor ?? null, members: [], status: "unassigned" });
+      if (!p.groupId) return;
+      if (!groups.has(p.groupId)) {
+        groups.set(p.groupId, { name: p.groupName || null, color: p.groupColor || null, members: [], status: "unassigned" });
       }
-      groups.get(gid)!.members.push(p);
+      groups.get(p.groupId)!.members.push(p);
     });
 
-    groups.forEach((g) => {
-      const assigned = g.members.filter((m) => assignedPaxIds.has(m.passengerId ?? ""));
-      if (assigned.length === 0) {
-        g.status = "unassigned";
-      } else if (assigned.length === g.members.length) {
-        const roomIds = new Set(assigned.map((m) => passengerRoomMap.get(m.passengerId ?? "") ?? ""));
-        g.status = roomIds.size === 1 ? "together" : "split";
-      } else {
-        g.status = "partial";
+    groups.forEach((group) => {
+      const assigned = group.members.filter((p) => {
+        const id = p.passengerId || p.id;
+        return !!id && assignedPassengerIds.has(id);
+      });
+      if (assigned.length === 0) group.status = "unassigned";
+      else if (assigned.length < group.members.length) group.status = "partial";
+      else {
+        const roomIds = new Set(assigned.map((p) => assignmentByPassenger.get((p.passengerId || p.id)!)?.slotId));
+        group.status = roomIds.size === 1 ? "together" : "split";
       }
     });
 
-    return groups;
-  }, [passengers, assignedPaxIds, passengerRoomMap]);
+    return Array.from(groups.values());
+  }, [passengers, assignedPassengerIds, assignmentByPassenger]);
 
-  const findAssignment = (passengerId: string): AccommodationAssignment | null => {
-    for (const b of buildings) {
-      for (const f of b.floors || []) {
-        for (const r of f.rooms || []) {
-          if (r.assignments) {
-            for (const a of r.assignments) {
-              if (a.passenger_id === passengerId) return a;
-            }
-          }
-        }
-      }
-    }
-    return null;
-  };
+  const totalCapacity = slots.reduce((sum, slot) => sum + Number(slot.capacity || 0), 0);
+  const totalOccupied = slots.reduce((sum, slot) => sum + slot.assignments.length, 0);
 
-  const findRoomContext = (roomId: string) => {
-    for (const b of buildings) {
-      for (const f of b.floors || []) {
-        for (const r of f.rooms || []) {
-          if (r.id === roomId) return { building: b, floor: f, room: r };
-        }
-      }
-    }
-    return null;
-  };
+  const compatibleSlots = useMemo(() => {
+    if (!assignTarget) return [];
+    const passenger = passengerById.get(assignTarget.passengerId);
+    return slots.map((slot) => {
+      const occupied = slot.assignments.length;
+      const isFull = occupied >= slot.capacity;
+      const matchesRequirement = !passenger?.hotelAllocationId || (
+        passenger.hotelAllocationId === slot.hotelAllocationId &&
+        (!passenger.hotelId || passenger.hotelId === slot.hotelId) &&
+        (!passenger.roomType || passenger.roomType.toLowerCase() === slot.roomType.toLowerCase())
+      );
+      return { slot, occupied, isFull, matchesRequirement };
+    });
+  }, [assignTarget, passengerById, slots]);
 
-  const handleAssign = async (passengerId: string, fullName: string, roomId: string, reservationId: string) => {
+  async function assignToSlot(slotId: string) {
+    if (!assignTarget) return;
+    setSaving(true);
+    setError(null);
     try {
-      await assignPassengerToRoom(roomId, passengerId, fullName, reservationId, null);
-      setRoomSelect(null);
-      setRefetchKey((k) => k + 1);
+      if (assignTarget.currentAssignmentId) {
+        await moveRoomSlotAssignment(assignTarget.currentAssignmentId, slotId);
+      } else {
+        await assignPassengerToRoomSlot(slotId, assignTarget.passengerId);
+      }
+      setAssignTarget(null);
+      await load();
     } catch (err: any) {
-      const msg = err?.message || err?.response?.data?.error || "";
-      if (msg.includes("full") || msg.includes("capacity")) {
-        setError(rm.roomFull);
-      } else if (msg.includes("duplicate") || msg.includes("already")) {
-        setError("Passenger already assigned");
-      } else {
-        setError(err?.message || rm.assignFailed);
-      }
+      setError(err?.message || rm.assignFailed);
+    } finally {
+      setSaving(false);
     }
-  };
+  }
 
-  const handleUnassign = async (passengerId: string) => {
-    const a = findAssignment(passengerId);
-    if (!a) return;
+  async function unassign(assignmentId: string) {
+    setSaving(true);
+    setError(null);
     try {
-      await unassignPassengerFromRoom(a.id);
-      setRefetchKey((k) => k + 1);
+      await unassignPassengerFromRoomSlot(assignmentId);
+      await load();
     } catch (err: any) {
       setError(err?.message || rm.unassignFailed);
+    } finally {
+      setSaving(false);
     }
-  };
-
-  const handleMove = async (assignmentId: string, targetRoomId: string) => {
-    try {
-      await moveAccommodationAssignment(assignmentId, targetRoomId, null);
-      setMoveTarget(null);
-      setRefetchKey((k) => k + 1);
-    } catch (err: any) {
-      const msg = err?.message || err?.response?.data?.error || "";
-      if (msg.includes("full") || msg.includes("capacity")) {
-        setError(rm.roomFull);
-      } else if (msg.includes("departure") || msg.includes("cross")) {
-        setError(rm.errorCrossDeparture || "Cross-departure assignment");
-      } else {
-        setError(err?.message || rm.moveFailed);
-      }
-    }
-  };
-
-  // Collect available rooms for the room-select modal
-  const availableRooms = useMemo(() => {
-    if (!roomSelect) return [];
-    const rooms: { building: AccommodationBuilding; floor: AccommodationFloor; room: any; occupied: number }[] = [];
-    for (const b of buildings) {
-      for (const f of b.floors || []) {
-        for (const r of f.rooms || []) {
-          const occupied = r.assignments?.length ?? 0;
-          rooms.push({ building: b, floor: f, room: r, occupied });
-        }
-      }
-    }
-    return rooms;
-  }, [buildings, roomSelect]);
+  }
 
   if (loading) {
     return <div className="flex items-center justify-center p-12 text-gray-400">{rm.loading}</div>;
   }
 
-  if (error && buildings.length === 0) {
+  if (error && slots.length === 0) {
     return (
-      <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
-        <div className="text-center text-gray-500">
-          <p className="font-medium">{rm.unavailable}</p>
-          <p className="text-sm mt-1">{error}</p>
-        </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+        <p className="font-medium text-gray-900 dark:text-white">{rm.unavailable}</p>
+        <p className="mt-1 text-sm text-gray-500">{error}</p>
       </div>
     );
   }
 
-  if (!hasAccommodationConfigured) {
+  if (slots.length === 0) {
     return (
-      <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-8 text-center">
-        <p className="text-gray-900 dark:text-white font-medium">{rm.noAccommodationConfigured}</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">{rm.noAccommodationHint}</p>
-        <a
-          href="/operations/hotels"
-          className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg bg-brand-500 text-white hover:bg-brand-600"
-        >
-          {rm.configureAccommodation}
-        </a>
+      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-gray-800 dark:bg-white/[0.03]">
+        <p className="font-medium text-gray-900 dark:text-white">{rm.noAccommodationConfigured}</p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{rm.noAccommodationHint}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* CAPACITY OVERVIEW */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 text-center">
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalCapacity}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{rm.totalBeds}</p>
+      {error && (
+        <div className="rounded-xl border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-300">
+          {error}
         </div>
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 text-center">
-          <p className="text-2xl font-bold text-green-600 dark:text-green-400">{totalOccupied}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{rm.assignedCount}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 text-center">
-          <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{unassignedPax.length}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{rm.unassignedCount}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 text-center">
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">{Math.max(0, totalCapacity - totalOccupied)}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{rm.remainingBeds}</p>
-        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Metric value={totalCapacity} label={rm.totalBeds} />
+        <Metric value={totalOccupied} label={rm.assignedCount} />
+        <Metric value={unassignedPassengers.length} label={rm.unassignedCount} />
+        <Metric value={Math.max(0, totalCapacity - totalOccupied)} label={rm.remainingBeds} />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        {/* LEFT — Unassigned + Group Status */}
-        <div className="xl:col-span-1 space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="space-y-4">
+          <section>
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
               {rm.unassigned}
-              <Badge color="warning" size="sm">{unassignedPax.length}</Badge>
+              <Badge color="warning" size="sm">{unassignedPassengers.length}</Badge>
             </h3>
-            {unassignedPax.length === 0 ? (
-              <p className="text-sm text-gray-400">{rm.allAssigned}</p>
-            ) : (
-              <div className="space-y-2 max-h-[calc(50vh)] overflow-y-auto">
-                {unassignedPax.map((p) => (
-                  <div
-                    key={p.passengerId ?? p.id ?? Math.random()}
-                    className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-3"
-                  >
-                    <div
-                      className="size-3 rounded-full shrink-0"
-                      style={{ background: p.groupColor || "#9ca3af" }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {p.fullName}
-                      </p>
-                      {p.groupName && (
-                        <p className="text-xs text-gray-500">{p.groupName}</p>
-                      )}
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        setRoomSelect({
-                          passengerId: p.passengerId ?? p.id ?? "",
-                          passengerName: p.fullName,
-                          reservationId: p.reservationId ?? "",
-                        })
-                      }
-                    >
-                      {rm.selectRoom}
-                    </Button>
+            <div className="space-y-2">
+              {unassignedPassengers.length === 0 ? (
+                <p className="text-sm text-gray-400">{rm.allAssigned}</p>
+              ) : unassignedPassengers.map((p) => {
+                const id = p.passengerId || p.id || "";
+                return (
+                  <PassengerCard
+                    key={id}
+                    passenger={p}
+                    actionLabel={rm.selectRoom}
+                    onAction={() => setAssignTarget({ passengerId: id, passengerName: p.fullName })}
+                  />
+                );
+              })}
+            </div>
+          </section>
+
+          {groupStatuses.length > 0 && (
+            <section>
+              <h4 className="mb-2 text-xs font-semibold uppercase text-gray-500">{rm.groups}</h4>
+              <div className="space-y-1.5">
+                {groupStatuses.map((group, index) => (
+                  <div key={`${group.name}-${index}`} className="flex items-center gap-2 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs dark:border-gray-800">
+                    <span className="size-2.5 rounded-full" style={{ background: group.color || "#9ca3af" }} />
+                    <span className="font-medium text-gray-800 dark:text-gray-200">{group.name || `${rm.groupFallback} ${index + 1}`}</span>
+                    <span className="text-gray-500">({group.members.length})</span>
+                    <span className="ml-auto text-gray-500">{rm.groupStatus[group.status]}</span>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            </section>
+          )}
+        </div>
 
-          {/* Group Rooming Status */}
-          {groupStatuses.size > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">{rm.groupStatus.unassigned} / {rm.groupStatus.together} / {rm.groupStatus.partial} / {rm.groupStatus.split}</h4>
-              <div className="space-y-1.5">
-                {Array.from(groupStatuses.values()).map((g, idx) => {
-                  const colorMap: Record<GroupStatus, string> = {
-                    unassigned: "bg-gray-200 dark:bg-gray-700",
-                    together: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300",
-                    partial: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300",
-                    split: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300",
-                  };
+        <div className="space-y-4 xl:col-span-2">
+          {groupedSlots.map((group) => (
+            <section key={`${group.hotelName}-${group.roomType}`} className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+              <div className="border-b border-gray-200 bg-gray-50 px-5 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
+                <h3 className="font-semibold text-gray-900 dark:text-white">{group.hotelName}</h3>
+                <p className="text-xs font-medium uppercase text-gray-500">{group.roomType}</p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2">
+                {group.slots.map((slot) => {
+                  const isFull = slot.assignments.length >= slot.capacity;
                   return (
-                    <div
-                      key={idx}
-                      className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs ${colorMap[g.status] || ""}`}
-                    >
-                      <div
-                        className="size-2.5 rounded-full shrink-0"
-                        style={{ background: g.color || "#9ca3af" }}
-                      />
-                      <span className="font-medium truncate">{g.name || `Grupa ${idx + 1}`}</span>
-                      <span className="tabular-nums">({g.members.length})</span>
-                      <span className="ml-auto opacity-75">{rm.groupStatus[g.status]}</span>
+                    <div key={slot.id} className={`rounded-xl border p-3 ${isFull ? "border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/10" : "border-gray-200 dark:border-gray-800"}`}>
+                      <div className="mb-2 flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">{slot.displayLabel}</p>
+                          <p className="text-xs text-gray-500">
+                            {slot.actualHotelRoomNumber ? `${rm.room} ${slot.actualHotelRoomNumber} · ` : ""}
+                            {slot.assignments.length}/{slot.capacity}
+                          </p>
+                        </div>
+                        <Badge color={isFull ? "warning" : "success"} size="sm">
+                          {Math.max(0, slot.capacity - slot.assignments.length)} {rm.free}
+                        </Badge>
+                      </div>
+                      <div className="space-y-1.5">
+                        {slot.assignments.length === 0 ? (
+                          <p className="text-xs text-gray-400">{rm.noPassengers}</p>
+                        ) : slot.assignments.map((assignment) => {
+                          const passenger = passengerById.get(assignment.passengerId);
+                          return (
+                            <div key={assignment.id} className="flex items-center gap-2 rounded-md bg-gray-50 px-2.5 py-1.5 dark:bg-white/[0.04]">
+                              <span className="size-2.5 rounded-full" style={{ background: passenger?.groupColor || "#9ca3af" }} />
+                              <span className="flex-1 truncate text-sm text-gray-700 dark:text-gray-300">{assignment.passengerName}</span>
+                              <button type="button" className="text-xs text-brand-600 hover:underline" onClick={() => setAssignTarget({ passengerId: assignment.passengerId, passengerName: assignment.passengerName, currentAssignmentId: assignment.id })}>
+                                {rm.move}
+                              </button>
+                              <button type="button" className="text-xs text-error-600 hover:underline" onClick={() => unassign(assignment.id)}>
+                                {rm.unassign}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT — Accommodation */}
-        <div className="xl:col-span-2 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              {rm.accommodation}
-            </h3>
-            <Button size="sm" variant="outline" onClick={handleGenerateProposal} loading={proposalLoading}>
-              {rm.autoRoom || 'Automatski rasporedi'}
-            </Button>
-          </div>
-          <div className="space-y-4 max-h-[calc(100vh-300px)] overflow-y-auto">
-            {buildings.map((b) => (
-              <div
-                key={b.id}
-                className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] overflow-hidden"
-              >
-                <div className="px-5 py-3 bg-gray-50 dark:bg-white/[0.02] border-b border-gray-200 dark:border-gray-800">
-                  <h4 className="font-semibold text-gray-900 dark:text-white">{b.name}</h4>
-                  <p className="text-xs text-gray-500">
-                    {b.type} · {b.floors?.length ?? 0} {(b.floors?.length ?? 0) !== 1 ? rm.floors : rm.floor}
-                  </p>
-                </div>
-                {b.floors?.map((f: AccommodationFloor) => (
-                  <div key={f.id} className="p-4 border-b border-gray-100 dark:border-gray-800 last:border-0">
-                    <p className="text-xs font-semibold text-gray-500 uppercase mb-3">{rm.floorLabel} {f.floor_number}</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {f.rooms?.map((r) => {
-                        const capacity = r.capacity ?? 0;
-                        const occupiedCount = r.assignments?.length ?? 0;
-                        const isFull = capacity > 0 && occupiedCount >= capacity;
-                        return (
-                          <div
-                            key={r.id}
-                            className={`rounded-lg border p-3 ${
-                              isFull
-                                ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/10"
-                                : "border-gray-200 dark:border-gray-800"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <div>
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {rm.room} {r.room_number}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {r.type ?? rm.room} · {occupiedCount}/{capacity}
-                                  {isFull && <span className="ml-1 text-amber-600 dark:text-amber-400 font-medium">{rm.full}</span>}
-                                </p>
-                              </div>
-                              <Badge color={isFull ? "warning" : "success"} size="sm">
-                                {capacity - occupiedCount} {rm.free}
-                              </Badge>
-                            </div>
-                            {r.assignments && r.assignments.length > 0 ? (
-                              <div className="space-y-1.5">
-                                {r.assignments.map((a: AccommodationAssignment) => {
-                                  const pax = passengers.find((p) => p.passengerId === a.passenger_id);
-                                  return (
-                                    <div
-                                      key={a.id}
-                                      className="flex items-center gap-2 rounded-md bg-gray-50 dark:bg-white/[0.04] px-2.5 py-1.5"
-                                    >
-                                      <div
-                                        className="size-2.5 rounded-full shrink-0"
-                                        style={{ background: pax?.groupColor || "#9ca3af" }}
-                                      />
-                                      <span className="text-sm text-gray-700 dark:text-gray-300 truncate flex-1">
-                                        {a.passenger_name}
-                                      </span>
-                                      {pax?.groupName && (
-                                        <span className="text-xs text-gray-400 truncate max-w-[80px]">{pax.groupName}</span>
-                                      )}
-                                      {a.bed_label && (
-                                        <span className="text-xs text-gray-400 font-mono">{a.bed_label}</span>
-                                      )}
-                                      <button
-                                        onClick={() => {
-                                          if (a.passenger_id && a.id) {
-                                            const ctx = findRoomContext(r.id);
-                                            setMoveTarget({
-                                              assignmentId: a.id,
-                                              passengerId: a.passenger_id,
-                                              passengerName: a.passenger_name,
-                                              fromRoomNumber: r.room_number,
-                                              fromBuildingName: ctx?.building.name || "",
-                                            });
-                                          }
-                                        }}
-                                        className="text-gray-400 hover:text-blue-500 transition-colors p-0.5"
-                                        title={rm.move}
-                                      >
-                                        <svg className="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                                        </svg>
-                                      </button>
-                                      <button
-                                        onClick={() => handleUnassign(a.passenger_id!)}
-                                        className="text-gray-400 hover:text-red-500 transition-colors p-0.5"
-                                        title={rm.unassign}
-                                      >
-                                        <svg className="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                      </button>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <p className="text-xs text-gray-400">{rm.noPassengers}</p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
+            </section>
+          ))}
         </div>
       </div>
 
-      {/* ROOM SELECTION MODAL */}
-      {roomSelect && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setRoomSelect(null)}>
-          <div
-            className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900 dark:text-white">
-                {rm.selectRoomHint} {roomSelect.passengerName}
-              </h3>
-              <button onClick={() => setRoomSelect(null)} className="text-gray-400 hover:text-gray-600">
-                <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+      {assignTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setAssignTarget(null)}>
+          <div className="mx-4 max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+              <h3 className="font-semibold text-gray-900 dark:text-white">{rm.selectRoomHint} {assignTarget.passengerName}</h3>
+              <button type="button" className="text-gray-400 hover:text-gray-600" onClick={() => setAssignTarget(null)}>×</button>
             </div>
-
-            <div className="px-6 py-4 space-y-4">
-              {availableRooms.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4">{rm.noRoomsAvailable}</p>
-              ) : (
-                availableRooms.map(({ building, floor, room, occupied }) => {
-                  const isFull = room.capacity > 0 && occupied >= room.capacity;
-                  return (
-                    <div
-                      key={room.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg border ${
-                        isFull
-                          ? "border-gray-200 dark:border-gray-800 opacity-50"
-                          : "border-gray-200 dark:border-gray-800 hover:border-brand-300 dark:hover:border-brand-600 cursor-pointer"
-                      }`}
-                      onClick={() => {
-                        if (!isFull) {
-                          handleAssign(
-                            roomSelect.passengerId,
-                            roomSelect.passengerName,
-                            room.id,
-                            roomSelect.reservationId
-                          );
-                        }
-                      }}
-                    >
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {building.name} · {rm.room} {room.room_number}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {rm.floorLabel} {floor.floor_number} · {room.type ?? rm.room} · {occupied}/{room.capacity}
-                        </p>
-                      </div>
-                      <Badge color={isFull ? "warning" : "success"} size="sm">
-                        {isFull ? rm.full : `${room.capacity - occupied} ${rm.free}`}
-                      </Badge>
+            <div className="space-y-3 px-6 py-4">
+              {compatibleSlots.map(({ slot, occupied, isFull, matchesRequirement }) => (
+                <button
+                  key={slot.id}
+                  type="button"
+                  disabled={saving || isFull || !matchesRequirement}
+                  onClick={() => assignToSlot(slot.id)}
+                  className={`w-full rounded-lg border p-3 text-left transition ${
+                    isFull || !matchesRequirement
+                      ? "border-gray-200 opacity-50 dark:border-gray-800"
+                      : "border-gray-200 hover:border-brand-300 dark:border-gray-800"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">{slot.hotel?.name || rm.unknownHotel} · {slot.displayLabel}</p>
+                      <p className="text-xs text-gray-500">{slot.roomType} · {occupied}/{slot.capacity}</p>
                     </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MOVE MODAL */}
-      {moveTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setMoveTarget(null)}>
-          <div
-            className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900 dark:text-white">
-                {rm.movePassenger}: {moveTarget.passengerName}
-                <span className="text-sm font-normal text-gray-500 block">{moveTarget.fromBuildingName} · {rm.room} {moveTarget.fromRoomNumber}</span>
-              </h3>
-              <button onClick={() => setMoveTarget(null)} className="text-gray-400 hover:text-gray-600">
-                <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="px-6 py-4 space-y-3">
-              {buildings.map((b) =>
-                b.floors?.map((f) =>
-                  f.rooms?.map((r) => {
-                    if (r.id === findRoomContext(moveTarget.passengerId ? findAssignment(moveTarget.passengerId)?.room_id ?? "" : "")?.room.id) return null;
-                    const occupied = r.assignments?.length ?? 0;
-                    const isFull = r.capacity > 0 && occupied >= r.capacity;
-                    return (
-                      <div
-                        key={r.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg border ${
-                          isFull
-                            ? "border-gray-200 dark:border-gray-800 opacity-50"
-                            : "border-gray-200 dark:border-gray-800 hover:border-brand-300 cursor-pointer"
-                        }`}
-                        onClick={() => { if (!isFull) handleMove(moveTarget.assignmentId, r.id); }}
-                      >
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {b.name} · {rm.room} {r.room_number}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {rm.floorLabel} {f.floor_number} · {r.type ?? rm.room} · {occupied}/{r.capacity}
-                          </p>
-                        </div>
-                        <Badge color={isFull ? "warning" : "success"} size="sm">
-                          {isFull ? rm.full : `${r.capacity - occupied} ${rm.free}`}
-                        </Badge>
-                      </div>
-                    );
-                  })
-                )
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* PROPOSAL MODAL */}
-      {showProposal && proposal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowProposal(false)}>
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{rm.proposalTitle || 'Prijedlog rasporeda'}</h3>
-              <button onClick={() => setShowProposal(false)} className="text-gray-400 hover:text-gray-600">
-                <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              {proposal.items && proposal.items.length > 0 ? (
-                <>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-                    {proposal.placedCount != null && <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 text-center"><p className="text-2xl font-bold text-gray-900 dark:text-white">{proposal.placedCount}</p><p className="text-xs text-gray-500">{rm.placed || 'Raspoređeno'}</p></div>}
-                    {proposal.unplacedCount != null && proposal.unplacedCount > 0 && <div className="rounded-lg border border-amber-200 dark:border-amber-800 p-3 text-center"><p className="text-2xl font-bold text-amber-600">{proposal.unplacedCount}</p><p className="text-xs text-gray-500">{rm.unplaced || 'Nije raspoređeno'}</p></div>}
-                    {proposal.groupsKeptTogether != null && <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 text-center"><p className="text-2xl font-bold text-green-600">{proposal.groupsKeptTogether}</p><p className="text-xs text-gray-500">{rm.groupsKeptTogether || 'Grupe zajedno'}</p></div>}
-                    {proposal.groupsSplit != null && proposal.groupsSplit > 0 && <div className="rounded-lg border border-amber-200 dark:border-amber-800 p-3 text-center"><p className="text-2xl font-bold text-amber-600">{proposal.groupsSplit}</p><p className="text-xs text-gray-500">{rm.groupsSplit || 'Grupe razdvojene'}</p></div>}
+                    {!matchesRequirement ? <Badge color="warning" size="sm">{rm.incompatible}</Badge> : isFull ? <Badge color="warning" size="sm">{rm.full}</Badge> : <Badge color="success" size="sm">{rm.free}</Badge>}
                   </div>
-                  {proposal.groups && proposal.groups.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold text-gray-500">{rm.groups || 'Grupe'}</p>
-                      {proposal.groups.map((g: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-800 p-3 text-sm">
-                          <div className="flex items-center gap-2">
-                            {g.color && <span className="size-3 rounded-full" style={{ background: g.color }} />}
-                            <span className="font-medium text-gray-900 dark:text-white">{g.name || g.id}</span>
-                          </div>
-                          <span className="text-xs text-gray-500">{(rm as any).groupStatus?.[g.status] || g.status}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-gray-500">{rm.passengers || 'Putnici'}</p>
-                    {proposal.items.map((item: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-800 p-3 text-sm">
-                        <span className="font-medium text-gray-900 dark:text-white">{item.passengerName || item.passenger_name}</span>
-                        <span className="text-xs text-gray-500">{item.room || item.roomNumber || '—'}{item.bedLabel || item.bed_label ? ' · ' + (item.bedLabel || item.bed_label) : ''}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {proposal.warnings && proposal.warnings.length > 0 && (
-                    <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10 p-3">
-                      <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-2">{rm.warnings || 'Upozorenja'}</p>
-                      {proposal.warnings.map((w: any, i: number) => (
-                        <p key={i} className="text-xs text-amber-600 dark:text-amber-300">{w.type ? w.type + ': ' : ''}{w.message}</p>
-                      ))}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p className="text-sm text-gray-500 text-center py-8">{rm.noProposal || 'Nema prijedloga'}</p>
-              )}
-            </div>
-            <div className="p-4 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setShowProposal(false)}>{rm.cancel || 'Otkaži'}</Button>
-              {proposal.items && proposal.items.length > 0 && (
-                <Button onClick={handleApplyProposal} loading={applying} disabled={applying}>{rm.apply || 'Primijeni'}</Button>
-              )}
+                </button>
+              ))}
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function Metric({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-3 text-center dark:border-gray-800 dark:bg-gray-900">
+      <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+      <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+    </div>
+  );
+}
+
+function PassengerCard({ passenger, actionLabel, onAction }: { passenger: DeparturePassenger; actionLabel: string; onAction: () => void }) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03]">
+      <div className="flex items-center gap-3">
+        <span className="size-3 shrink-0 rounded-full" style={{ background: passenger.groupColor || "#9ca3af" }} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{passenger.fullName}</p>
+          {passenger.groupName && <p className="text-xs text-gray-500">{passenger.groupName}</p>}
+          {(passenger.hotelName || passenger.roomType) && (
+            <p className="text-xs text-gray-500">{[passenger.hotelName, passenger.roomType].filter(Boolean).join(" · ")}</p>
+          )}
+          {passenger.accommodationNotes && <p className="text-xs text-gray-400">{passenger.accommodationNotes}</p>}
+        </div>
+        <Button size="sm" variant="outline" onClick={onAction}>{actionLabel}</Button>
+      </div>
     </div>
   );
 }

@@ -15,6 +15,8 @@ import {
   materializeDepartureAccommodationFromPackage,
   updateDepartureAccommodationAllotment,
 } from '../lib/departureAccommodation';
+import { getAccommodationOptions } from '../lib/reservationAccommodation';
+import { getDepartureBookedMap } from '../lib/departureCapacity';
 
 const router = Router();
 
@@ -175,8 +177,13 @@ router.get('/departures', authenticateToken, requireOrgContext, async (req, res,
 
     if (error) throw error;
 
-    // Map to Admin interface exactly
-    const transformedData = (departures || []).map(transformDeparture);
+    const bookedMap = await getDepartureBookedMap(orgId, (departures || []).map((departure: any) => departure.id));
+    const transformedData = (departures || []).map((departure: any) =>
+      transformDeparture({
+        ...departure,
+        booked: bookedMap.get(departure.id) ?? 0,
+      }),
+    );
 
     return res.json(formatListResponse(transformedData, count || 0, page, limit));
 
@@ -322,6 +329,20 @@ router.get('/departures/:id/accommodation-allotments', authenticateToken, requir
 });
 
 /**
+ * GET /api/departures/:id/accommodation-options
+ */
+router.get('/departures/:id/accommodation-options', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req, res: Response) => {
+  try {
+    const result = await getAccommodationOptions(req.params.id, req.orgId!);
+    if (!result) return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
+    return res.json(result);
+  } catch (error) {
+    console.error('GET /departures/:id/accommodation-options:', error);
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to load accommodation options');
+  }
+});
+
+/**
  * PATCH /api/departures/:id/accommodation-allotments/:itemId
  */
 router.patch('/departures/:id/accommodation-allotments/:itemId', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
@@ -342,6 +363,12 @@ router.patch('/departures/:id/accommodation-allotments/:itemId', authenticateTok
     return res.json(result);
   } catch (error) {
     console.error('PATCH /departures/:id/accommodation-allotments/:itemId:', error);
+    if ((error as any)?.code === 'ALLOTMENT_BELOW_RESERVED') {
+      return apiError(res, 409, 'ALLOTMENT_BELOW_RESERVED', (error as Error).message);
+    }
+    if (String((error as any)?.message || '').includes('ROOM_SLOT_OCCUPIED')) {
+      return apiError(res, 409, 'ROOM_SLOT_OCCUPIED', 'Cannot reduce room inventory because one of the removed room slots is occupied.');
+    }
     return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to update departure accommodation');
   }
 });
@@ -961,7 +988,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
     if (reservationIds.length > 0) {
       const { data: passRows, error: passErr } = await supabaseAdmin
         .from('departure_passengers')
-        .select('id, reservation_id, full_name, phone, email, seat_number, notes, id_document_type, id_document_number, id_document_expiry, nationality, date_of_birth')
+        .select('id, reservation_id, full_name, phone, email, seat_number, notes, id_document_type, id_document_number, id_document_expiry, nationality, date_of_birth, reservation_accommodation_requirement_id')
         .eq('departure_id', id)
         .eq('org_id', orgId)
         .order('seat_number', { ascending: true, nullsFirst: false });
@@ -1006,6 +1033,23 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
       .eq('org_id', orgId);
     if (allocErr) console.error('Allocations fetch (non-fatal):', allocErr);
 
+    let accommodationRequirementsByReservation: Record<string, any[]> = {};
+    const accommodationRequirementById: Record<string, any> = {};
+    if (reservationIds.length > 0) {
+      const { data: requirementRows, error: requirementErr } = await supabaseAdmin
+        .from('reservation_accommodation_requirements')
+        .select('id, reservation_id, hotel_id, hotel_allocation_id, room_type, room_label, room_count, guests_expected, notes, hotels:hotel_id(id, name)')
+        .eq('org_id', orgId)
+        .eq('departure_id', id)
+        .order('hotel_allocation_id', { ascending: true })
+        .in('reservation_id', reservationIds);
+      if (requirementErr) console.error('Reservation accommodation fetch (non-fatal):', requirementErr);
+      for (const row of requirementRows || []) {
+        (accommodationRequirementsByReservation[row.reservation_id] ||= []).push(row);
+        accommodationRequirementById[row.id] = row;
+      }
+    }
+
     // 4) Payments received against these reservations
     let payments: any[] = [];
     if (reservationIds.length > 0) {
@@ -1037,13 +1081,17 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
       const rows = passByRes[r.id] || [];
       const paymentsForRes = (payments || []).filter((p: any) => p.reservation_id === r.id);
       const totalPaid = paymentsForRes.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+      const reservationRequirements = accommodationRequirementsByReservation[r.id] || [];
+      const fallbackRequirement = reservationRequirements.length === 1 ? reservationRequirements[0] : null;
 
       if (rows.length > 0) {
         for (const p of rows) {
+          const requirement = (p.reservation_accommodation_requirement_id && accommodationRequirementById[p.reservation_accommodation_requirement_id]) || fallbackRequirement;
           manifest.push({
             passengerId: p.id,
             id: p.id,
             reservationId: r.id,
+            reservationAccommodationRequirementId: p.reservation_accommodation_requirement_id || requirement?.id || null,
             fullName: p.full_name || r.customer_name,
             phone: p.phone || r.customer_phone || cust?.phone,
             email: p.email || cust?.email || null,
@@ -1052,8 +1100,11 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
             debt: Number(p.debt_amount || 0),
             customerLinked: !!cust,
             customerId: cust?.id,
-            hotelName: r.hotel_name,
-            roomType: r.room_type,
+            hotelName: requirement?.hotels?.name || r.hotel_name,
+            roomType: requirement?.room_label || requirement?.room_type || r.room_type,
+            hotelId: requirement?.hotel_id || null,
+            hotelAllocationId: requirement?.hotel_allocation_id || null,
+            accommodationNotes: requirement?.notes || null,
             checkIn: r.check_in,
             checkOut: r.check_out,
             tourGuide: r.tour_guide,
@@ -1072,6 +1123,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
         }
       } else {
         // No per-passenger breakdown — emit reservation row, party_size tells us how many guests it represents
+        const requirement = fallbackRequirement;
         manifest.push({
           passengerId: null,
           reservationId: r.id,
@@ -1083,8 +1135,11 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
           debt: Number(r.total_amount || 0) - totalPaid,
           customerLinked: !!cust,
           customerId: cust?.id,
-          hotelName: r.hotel_name,
-          roomType: r.room_type,
+          hotelName: requirement?.hotels?.name || r.hotel_name,
+          roomType: requirement?.room_label || requirement?.room_type || r.room_type,
+          hotelId: requirement?.hotel_id || null,
+          hotelAllocationId: requirement?.hotel_allocation_id || null,
+          accommodationNotes: requirement?.notes || null,
           checkIn: r.check_in,
           checkOut: r.check_out,
           tourGuide: r.tour_guide,

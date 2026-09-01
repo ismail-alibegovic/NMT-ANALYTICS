@@ -1,4 +1,5 @@
 import { supabaseAdmin } from './supabase';
+import { getSoldRoomsForAllocation } from './reservationAccommodation';
 
 const ROOM_CAPACITY: Record<string, number> = {
   single: 1,
@@ -90,6 +91,27 @@ export function allocationOut(row: any) {
   };
 }
 
+export async function allocationOutWithSoldRooms(row: any) {
+  const out = allocationOut(row);
+  const soldRooms = await getSoldRoomsForAllocation(row.org_id, row.id);
+  return {
+    ...out,
+    allocated: soldRooms,
+    reservedRooms: soldRooms,
+    available: Math.max(0, out.departureRooms - soldRooms),
+  };
+}
+
+export async function syncDepartureRoomSlots(orgId: string, departureId: string, hotelAllocationId?: string | null) {
+  const { data, error } = await supabaseAdmin.rpc('sync_departure_room_slots_atomic', {
+    p_org_id: orgId,
+    p_departure_id: departureId,
+    p_hotel_allocation_id: hotelAllocationId ?? null,
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function materializeDepartureAccommodationFromPackage(input: {
   orgId: string;
   departureId: string;
@@ -150,6 +172,8 @@ export async function materializeDepartureAccommodationFromPackage(input: {
   const { error: insertErr } = await supabaseAdmin.from('hotel_allocations').insert(rows);
   if (insertErr) throw insertErr;
 
+  await syncDepartureRoomSlots(orgId, departureId);
+
   return { inserted: rows.length, skipped: false };
 }
 
@@ -175,7 +199,7 @@ export async function getDepartureAccommodationAllotments(departureId: string, o
   if (error) throw error;
   return {
     departureId,
-    items: (data || []).map(allocationOut),
+    items: await Promise.all((data || []).map(allocationOutWithSoldRooms)),
   };
 }
 
@@ -189,7 +213,7 @@ export async function updateDepartureAccommodationAllotment(input: {
 
   const { data: existing, error: existingErr } = await supabaseAdmin
     .from('hotel_allocations')
-    .select('id, departure_id')
+    .select('id, departure_id, rooms_reserved')
     .eq('id', itemId)
     .eq('departure_id', departureId)
     .eq('org_id', orgId)
@@ -197,6 +221,13 @@ export async function updateDepartureAccommodationAllotment(input: {
 
   if (existingErr) throw existingErr;
   if (!existing) return null;
+
+  const soldRooms = await getSoldRoomsForAllocation(orgId, itemId);
+  if (roomCount < soldRooms) {
+    const err = new Error(`Cannot reduce inventory to ${roomCount} because ${soldRooms} rooms are already reserved.`);
+    (err as any).code = 'ALLOTMENT_BELOW_RESERVED';
+    throw err;
+  }
 
   const { data, error } = await supabaseAdmin
     .from('hotel_allocations')
@@ -208,5 +239,6 @@ export async function updateDepartureAccommodationAllotment(input: {
     .single();
 
   if (error) throw error;
-  return allocationOut(data);
+  await syncDepartureRoomSlots(orgId, departureId, itemId);
+  return allocationOutWithSoldRooms(data);
 }

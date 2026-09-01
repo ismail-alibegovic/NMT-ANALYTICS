@@ -245,6 +245,28 @@ describe('PATCH /api/flights/:id — update & toggle', () => {
   })
 })
 
+describe('GET /api/flights/:id', () => {
+  it('returns an own-org flight', async () => {
+    chainFor('flights').__queue.push({ data: makeFlight(), error: null })
+    const res = await request(app).get(`/api/flights/${FLIGHT_A}`)
+    expect(res.status).toBe(200)
+    expect(res.body.id).toBe(FLIGHT_A)
+    expect(res.body.flightNumber).toBe('TK101')
+  })
+
+  it('returns 404 for a missing flight', async () => {
+    chainFor('flights').__queue.push({ data: null, error: null })
+    const res = await request(app).get(`/api/flights/${FLIGHT_C}`)
+    expect(res.status).toBe(404)
+  })
+
+  it('does not return a cross-org flight', async () => {
+    chainFor('flights').__queue.push({ data: null, error: null })
+    const res = await request(app).get(`/api/flights/${FLIGHT_B}`)
+    expect(res.status).toBe(404)
+  })
+})
+
 describe('DELETE /api/flights/:id — safe delete', () => {
   it('refuses to delete a flight linked to departures', async () => {
     chainFor('flights').__queue.push({ data: makeFlight(), error: null })
@@ -262,7 +284,7 @@ describe('DELETE /api/flights/:id — safe delete', () => {
     chainFor('flights').__queue.push({ data: null, error: null })
     const res = await request(app).delete(`/api/flights/${FLIGHT_A}`)
     expect(res.status).toBe(200)
-const deleteCalls = chainFor('flights').delete.mock.calls.length
+    const deleteCalls = chainFor('flights').delete.mock.calls.length
     expect(deleteCalls).toBeGreaterThanOrEqual(1)
   })
 })

@@ -17,6 +17,18 @@ import PDFDocument from 'pdfkit';
 import { notifyNewReservation } from '../lib/notificationService';
 import { requireMinimumRole } from '../middleware/requireRole';
 import { config } from '../config';
+import {
+  deleteReservationAccommodation,
+  getReservationAccommodation,
+  mapAccommodationError,
+  replaceReservationAccommodation,
+} from '../lib/reservationAccommodation';
+import {
+  DepartureCapacityExceededError,
+  releaseDepartureCapacityOrThrow,
+  reservationConsumesCapacity,
+  reserveDepartureCapacityOrThrow,
+} from '../lib/departureCapacity';
 
 const router = Router();
 
@@ -33,6 +45,15 @@ const getReservationsQuerySchema = z.object({
   ...getPaginationParams(data),
   ...getDateRangeParams(data),
 }));
+
+const accommodationRequirementLineSchema = z.object({
+  hotelAllocationId: z.string().uuid('Invalid accommodation allotment ID'),
+  roomCount: z.number().int().min(1),
+  guestsExpected: z.number().int().min(1),
+  notes: z.string().optional().nullable(),
+  passengerIds: z.array(z.string().uuid('Invalid passenger ID')).optional(),
+  passengerIndexes: z.array(z.number().int().min(0)).optional(),
+});
 
 const createReservationSchema = z.object({
   customerName: z.string().min(1, 'Customer name is required'),
@@ -70,6 +91,7 @@ const createReservationSchema = z.object({
   checkIn: z.string().optional().nullable(),
   checkOut: z.string().optional().nullable(),
   tourGuide: z.string().optional().nullable(),
+  accommodationRequirements: z.array(accommodationRequirementLineSchema).optional(),
 });
 
 const updateReservationSchema = z.object({
@@ -91,6 +113,38 @@ const updateStatusSchema = z.object({
     message: 'Invalid status. Must be pending, confirmed, cancelled, or completed'
   }),
 });
+
+const accommodationRequirementSchema = z.object({
+  accommodationRequirements: z.array(z.object({
+    hotelAllocationId: z.string().uuid('Invalid accommodation allotment ID'),
+    roomCount: z.coerce.number().int().min(1, 'Room count must be at least 1'),
+    guestsExpected: z.coerce.number().int().min(1, 'Guest count must be at least 1'),
+    notes: z.string().optional().nullable(),
+    passengerIds: z.array(z.string().uuid('Invalid passenger ID')).optional(),
+  })).default([]),
+});
+
+async function releaseReservedCapacity(orgId: string, departureId: string, partySize: number) {
+  return releaseDepartureCapacityOrThrow(orgId, departureId, partySize);
+}
+
+function handleDepartureCapacityError(res: Response, error: unknown) {
+  if (error instanceof DepartureCapacityExceededError) {
+    return apiError(
+      res,
+      409,
+      'DEPARTURE_CAPACITY_EXCEEDED',
+      'Departure capacity would be exceeded',
+      error.details,
+    );
+  }
+
+  if (error instanceof Error && error.message === 'DEPARTURE_NOT_FOUND') {
+    return apiError(res, 404, 'DEPARTURE_NOT_FOUND', 'Departure not found');
+  }
+
+  return null;
+}
 
 /**
  * Helper to transform reservation for Admin UI
@@ -156,20 +210,6 @@ router.get('/reservations', authenticateToken, requireOrgContext, async (req, re
     const { search, from, to, status, departureId, customerId, page, limit, offset, orderBy, orderDir, assignedOnly } = validationResult.data;
     const orgId = req.orgId!;
 
-    let dateFrom: string;
-    let dateTo: string;
-
-    if (from && to) {
-      dateFrom = `${from}T00:00:00Z`;
-      dateTo = `${to}T23:59:59Z`;
-    } else {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 90); // default to 90 days for reservations
-      dateFrom = startDate.toISOString().split('T')[0] + 'T00:00:00Z';
-      dateTo = endDate.toISOString().split('T')[0] + 'T23:59:59Z';
-    }
-
     let query = supabaseAdmin
       .from('reservations')
       .select(`
@@ -201,10 +241,14 @@ router.get('/reservations', authenticateToken, requireOrgContext, async (req, re
         )
       `, { count: 'exact' })
       .eq('org_id', orgId)
-      .gte('reservation_at', dateFrom)
-      .lte('reservation_at', dateTo)
       .order(orderBy as string || 'reservation_at', { ascending: orderDir === 'asc' })
       .range(offset, offset + limit - 1);
+
+    if (from && to) {
+      query = query
+        .gte('reservation_at', `${from}T00:00:00Z`)
+        .lte('reservation_at', `${to}T23:59:59Z`);
+    }
 
     if (status) query = query.eq('status', status);
     if (departureId) query = query.eq('departure_id', departureId);
@@ -296,7 +340,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       return apiError(res, 400, "VALIDATION_ERROR", "Invalid request body", validationResult.error.issues);
     }
 
-    const { departureId, status, partySize, customerId, upsert, options, notes, hotelName, roomType, checkIn, checkOut, tourGuide, customerEmail, assignedTo, passengers, create_passenger_group, group_name, ...rest } = validationResult.data;
+    const { departureId, status, partySize, customerId, upsert, options, notes, hotelName, roomType, checkIn, checkOut, tourGuide, customerEmail, assignedTo, passengers, create_passenger_group, group_name, accommodationRequirements, ...rest } = validationResult.data;
     const orgId = req.orgId!;
     let capacityRv: any = null;
 
@@ -318,23 +362,14 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       // guaranteed-no-oversell even bypassing the RPC.
       // Decrement-only path will be rinsed when status changes; here we
       // increment when confirmed, leave booked alone when pending.
-      capacityRv = status === 'confirmed'
-        ? await supabaseAdmin.rpc('reserve_capacity_atomic', {
-            p_departure_id: departureId,
-            p_org_id: orgId,
-            p_party_size: partySize,
-          })
-        : null;
-
-      if (capacityRv && capacityRv.error) {
-        const msg = capacityRv.error.message || '';
-        if (msg.includes('CAPACITY_FULL')) {
-          return apiError(res, 400, "CAPACITY_FULL", "Departure capacity is full");
+      if (reservationConsumesCapacity(status)) {
+        try {
+          capacityRv = await reserveDepartureCapacityOrThrow(orgId, departureId, partySize);
+        } catch (capacityError) {
+          const handled = handleDepartureCapacityError(res, capacityError);
+          if (handled) return handled;
+          return handleSupabaseError(res, capacityError, "Failed to reserve capacity");
         }
-        if (msg.includes('DEPARTURE_NOT_FOUND')) {
-          return apiError(res, 404, "DEPARTURE_NOT_FOUND", "Departure not found");
-        }
-        return handleSupabaseError(res, capacityRv.error, "Failed to reserve capacity");
       }
     }
 
@@ -399,11 +434,8 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
 
     if (insertError) {
       // Rollback capacity we may have just added
-      if (departureId && status === 'confirmed') {
-        await supabaseAdmin
-          .from('departures')
-          .update({ booked: Math.max(0, (capacityRv?.data?.booked_after ?? partySize) - partySize) })
-          .eq('id', departureId);
+      if (departureId && reservationConsumesCapacity(status)) {
+        await releaseReservedCapacity(orgId, departureId, partySize);
       }
       return handleSupabaseError(res, insertError, "Failed to create reservation");
     }
@@ -414,38 +446,44 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
     let createdGroupId: string | null = null;
     if (passengers && passengers.length > 0 && departureId) {
       try {
-        const passengerRows = passengers.map((p: any) => ({
-          org_id: orgId,
-          departure_id: departureId,
-          reservation_id: reservation.id,
-          full_name: p.full_name,
-          id_document_type: p.id_document_type || null,
-          id_document_number: p.id_document_number || null,
-          date_of_birth: p.date_of_birth || null,
-          nationality: p.nationality || null,
-          phone: p.phone || null,
-          email: p.email || null,
-          notes: p.notes || null,
-        }));
+        const createdPassengerRows: any[] = [];
+        for (let index = 0; index < passengers.length; index += 1) {
+          const p = passengers[index];
+          const { data: paxData, error: paxErr } = await supabaseAdmin
+            .from('departure_passengers')
+            .insert({
+              org_id: orgId,
+              departure_id: departureId,
+              reservation_id: reservation.id,
+              full_name: p.full_name,
+              id_document_type: p.id_document_type || null,
+              id_document_number: p.id_document_number || null,
+              date_of_birth: p.date_of_birth || null,
+              nationality: p.nationality || null,
+              phone: p.phone || null,
+              email: p.email || null,
+              notes: p.notes || null,
+            })
+            .select('id, full_name')
+            .single();
 
-        const { data: paxData, error: paxErr } = await supabaseAdmin
-          .from('departure_passengers')
-          .insert(passengerRows)
-          .select('id, full_name');
-
-        if (paxErr) {
-          console.error('Failed to create departure_passengers:', paxErr.message);
-          // Rollback the reservation
-          await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
-          if (departureId && status === 'confirmed') {
-            await supabaseAdmin
-              .from('departures')
-              .update({ booked: Math.max(0, (capacityRv?.data?.booked_after ?? partySize) - partySize) })
-              .eq('id', departureId);
+          if (paxErr) {
+            console.error('Failed to create departure_passengers:', paxErr.message);
+            await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
+            if (departureId && reservationConsumesCapacity(status)) {
+              await releaseReservedCapacity(orgId, departureId, partySize);
+            }
+            const capacityMessage = paxErr.message || '';
+            if (capacityMessage.includes('DEPARTURE_CAPACITY_EXCEEDED')) {
+              return apiError(res, 409, 'DEPARTURE_CAPACITY_EXCEEDED', 'Departure capacity would be exceeded');
+            }
+            return apiError(res, 500, "PASSENGER_CREATE_FAILED", "Failed to create passengers", paxErr.message);
           }
-          return apiError(res, 500, "PASSENGER_CREATE_FAILED", "Failed to create passengers", paxErr.message);
+
+          createdPassengerRows.push({ ...paxData, inputIndex: index });
         }
-        createdPassengers = paxData || [];
+
+        createdPassengers = createdPassengerRows;
 
         // Create passenger group if requested
         if (create_passenger_group && createdPassengers.length > 1) {
@@ -476,13 +514,42 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
         console.error('Error creating passengers:', paxError);
         // Cleanup reservation on failure
         await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
-        if (departureId && status === 'confirmed') {
-          await supabaseAdmin
-            .from('departures')
-            .update({ booked: Math.max(0, (capacityRv?.data?.booked_after ?? partySize) - partySize) })
-            .eq('id', departureId);
+        if (departureId && reservationConsumesCapacity(status)) {
+          await releaseReservedCapacity(orgId, departureId, partySize);
         }
         return apiError(res, 500, "PASSENGER_ERROR", "Failed to create passengers", String(paxError));
+      }
+    }
+
+    let createdAccommodation: any[] = [];
+    if (accommodationRequirements && accommodationRequirements.length > 0) {
+      try {
+        const passengerIdsByIndex = new Map<number, string>();
+        createdPassengers.forEach((p: any) => {
+          if (typeof p.inputIndex === 'number') passengerIdsByIndex.set(p.inputIndex, p.id);
+        });
+
+        const normalizedRequirements = accommodationRequirements.map((requirement) => ({
+          hotelAllocationId: requirement.hotelAllocationId,
+          roomCount: requirement.roomCount,
+          guestsExpected: requirement.guestsExpected,
+          notes: requirement.notes ?? null,
+          passengerIds: requirement.passengerIds || (requirement.passengerIndexes || []).map((index) => {
+            const passengerId = passengerIdsByIndex.get(index);
+            if (!passengerId) throw new Error('INVALID_PASSENGER_REQUIREMENT_MAPPING');
+            return passengerId;
+          }),
+        }));
+
+        createdAccommodation = await replaceReservationAccommodation(reservation.id, orgId, normalizedRequirements);
+      } catch (accError: any) {
+        await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
+        if (departureId && reservationConsumesCapacity(status)) {
+          await releaseReservedCapacity(orgId, departureId, partySize);
+        }
+        const mapped = mapAccommodationError(accError);
+        if (mapped) return apiError(res, mapped.status, mapped.code, mapped.message);
+        return handleSupabaseError(res, accError, 'Failed to save reservation accommodation');
       }
     }
 
@@ -540,7 +607,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
         const existingOptions = (options as any) || {};
         await supabaseAdmin
           .from('reservations')
-          .update({ options: { ...existingOptions, booking_snapshot: snapshot } })
+          .update({ options: { ...existingOptions, accommodation_requirements: createdAccommodation, booking_snapshot: snapshot } })
           .eq('id', reservation.id)
           .eq('org_id', orgId);
       } catch (snapErr) {
@@ -575,10 +642,54 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       console.warn('Failed to create reservation notification:', notificationError);
     }
 
-    res.status(201).json(reservation);
+    res.status(201).json({ ...reservation, accommodationRequirements: createdAccommodation });
   } catch (error) {
     console.error('Error in POST /reservations:', error);
     apiError(res, 500, "INTERNAL_ERROR", "Internal server error", String(error));
+  }
+});
+
+router.get('/reservations/:id/accommodation', authenticateToken, requireOrgContext, async (req, res: Response) => {
+  try {
+    const result = await getReservationAccommodation(req.params.id, req.orgId!);
+    if (result === null) {
+      const { data: reservation, error } = await supabaseAdmin
+        .from('reservations')
+        .select('id')
+        .eq('id', req.params.id)
+        .eq('org_id', req.orgId!)
+        .maybeSingle();
+      if (error) return handleSupabaseError(res, error, 'Failed to load reservation');
+      if (!reservation) return apiError(res, 404, 'NOT_FOUND', 'Reservation not found');
+    }
+    return res.json({ accommodationRequirements: result || [] });
+  } catch (error) {
+    console.error('GET /reservations/:id/accommodation:', error);
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to load reservation accommodation');
+  }
+});
+
+router.put('/reservations/:id/accommodation', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req, res: Response) => {
+  try {
+    const parsed = accommodationRequirementSchema.safeParse(req.body);
+    if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid accommodation requirement', parsed.error.issues);
+    const result = await replaceReservationAccommodation(req.params.id, req.orgId!, parsed.data.accommodationRequirements);
+    return res.json({ accommodationRequirements: result });
+  } catch (error: any) {
+    console.error('PUT /reservations/:id/accommodation:', error);
+    const mapped = mapAccommodationError(error);
+    if (mapped) return apiError(res, mapped.status, mapped.code, mapped.message);
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to save reservation accommodation');
+  }
+});
+
+router.delete('/reservations/:id/accommodation', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req, res: Response) => {
+  try {
+    await deleteReservationAccommodation(req.params.id, req.orgId!);
+    return res.status(204).send();
+  } catch (error) {
+    console.error('DELETE /reservations/:id/accommodation:', error);
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to remove reservation accommodation');
   }
 });
 
@@ -612,77 +723,41 @@ router.patch('/reservations/:id', authenticateToken, requireOrgContext, auditRes
     const newStatus = updates.status || oldStatus;
     const oldDepId = reservation.departure_id;
     const newDepId = updates.departureId !== undefined ? updates.departureId : oldDepId;
-    const partySize = updates.partySize || reservation.party_size;
+    const oldPartySize = Number(reservation.party_size || 0);
+    const newPartySize = Number(updates.partySize ?? reservation.party_size ?? 0);
+    const oldConsumes = reservationConsumesCapacity(oldStatus);
+    const newConsumes = reservationConsumesCapacity(newStatus);
 
-    // 2. Atomic Capacity Management
-    if (newDepId && newStatus === 'confirmed') {
-      // Verify new departure exists and belongs to org
-      const { data: newDep, error: newDepErr } = await supabaseAdmin
-        .from('departures')
-        .select('id, booked, capacity')
-        .eq('id', newDepId)
-        .eq('org_id', orgId)
-        .single();
-
-      if (newDepErr || !newDep) {
-        return apiError(res, 404, "DEPARTURE_NOT_FOUND", "New departure not found");
-      }
-
-      // If departure changed, handle old departure first
-      if (newDepId !== oldDepId && oldDepId && oldStatus === 'confirmed') {
-        // Decrement old departure
-        const { data: oldDep } = await supabaseAdmin
-          .from('departures')
-          .select('booked')
-          .eq('id', oldDepId)
-          .single();
-        if (oldDep) {
-          await supabaseAdmin
-            .from('departures')
-            .update({ booked: Math.max(0, oldDep.booked - reservation.party_size) })
-            .eq('id', oldDepId);
-        }
-      }
-
-      // Atomic increment of new departure with capacity check
-      const { data: updatedNewDep, error: capacityErr } = await supabaseAdmin
-        .from('departures')
-        .update({ booked: newDep.booked + partySize })
-        .eq('id', newDepId)
-        .eq('org_id', orgId)
-        .lte('booked', newDep.capacity - partySize)
-        .select('booked, capacity')
-        .single();
-
-      if (capacityErr || !updatedNewDep) {
-        // Rollback old departure decrement if it was decremented
-        if (newDepId !== oldDepId && oldDepId && oldStatus === 'confirmed') {
-          const { data: oldDep } = await supabaseAdmin
-            .from('departures')
-            .select('booked')
-            .eq('id', oldDepId)
-            .single();
-          if (oldDep) {
-            await supabaseAdmin
-              .from('departures')
-              .update({ booked: oldDep.booked + reservation.party_size })
-              .eq('id', oldDepId);
+    if (oldDepId === newDepId) {
+      if (newDepId) {
+        const delta = (newConsumes ? newPartySize : 0) - (oldConsumes ? oldPartySize : 0);
+        if (delta > 0) {
+          try {
+            await reserveDepartureCapacityOrThrow(orgId, newDepId, delta);
+          } catch (capacityError) {
+            const handled = handleDepartureCapacityError(res, capacityError);
+            if (handled) return handled;
+            return handleSupabaseError(res, capacityError, "Failed to reserve capacity");
           }
+        } else if (delta < 0) {
+          await releaseReservedCapacity(orgId, newDepId, Math.abs(delta));
         }
-        return apiError(res, 400, "CAPACITY_FULL", "Departure capacity is full");
       }
-    } else if (oldDepId && oldStatus === 'confirmed' && newStatus !== 'confirmed') {
-      // Status changed from confirmed to non-confirmed, decrement capacity
-      const { data: dep } = await supabaseAdmin
-        .from('departures')
-        .select('booked')
-        .eq('id', oldDepId)
-        .single();
-      if (dep) {
-        await supabaseAdmin
-          .from('departures')
-          .update({ booked: Math.max(0, dep.booked - partySize) })
-          .eq('id', oldDepId);
+    } else {
+      if (oldDepId && oldConsumes) {
+        await releaseReservedCapacity(orgId, oldDepId, oldPartySize);
+      }
+      if (newDepId && newConsumes) {
+        try {
+          await reserveDepartureCapacityOrThrow(orgId, newDepId, newPartySize);
+        } catch (capacityError) {
+          if (oldDepId && oldConsumes) {
+            await reserveDepartureCapacityOrThrow(orgId, oldDepId, oldPartySize);
+          }
+          const handled = handleDepartureCapacityError(res, capacityError);
+          if (handled) return handled;
+          return handleSupabaseError(res, capacityError, "Failed to reserve capacity");
+        }
       }
     }
 
@@ -768,19 +843,8 @@ router.delete('/reservations/:id', authenticateToken, requireOrgContext, auditRe
       return apiError(res, 404, "NOT_FOUND", "Reservation not found");
     }
 
-    // 2. Decrement booked count if confirmed
-    if (reservation.departure_id && reservation.status === 'confirmed') {
-      const { data: departure } = await supabaseAdmin
-        .from('departures')
-        .select('booked')
-        .eq('id', reservation.departure_id)
-        .single();
-      if (departure) {
-        await supabaseAdmin
-          .from('departures')
-          .update({ booked: Math.max(0, departure.booked - reservation.party_size) })
-          .eq('id', reservation.departure_id);
-      }
+    if (reservation.departure_id && reservationConsumesCapacity(reservation.status)) {
+      await releaseReservedCapacity(orgId, reservation.departure_id, Number(reservation.party_size || 0));
     }
 
     // 3. Delete reservation
@@ -1039,48 +1103,22 @@ router.patch('/reservations/:id/status', authenticateToken, requireOrgContext, a
 
     const oldStatus = reservation.status;
     const departureId = reservation.departure_id;
-    const partySize = reservation.party_size;
+    const partySize = Number(reservation.party_size || 0);
+    const oldConsumes = reservationConsumesCapacity(oldStatus);
+    const newConsumes = reservationConsumesCapacity(newStatus);
 
-    // 2. Handle capacity changes based on status transition
     if (departureId) {
-      // Fetch current departure capacity info
-      const { data: departure, error: depErr } = await supabaseAdmin
-        .from('departures')
-        .select('booked, capacity')
-        .eq('id', departureId)
-        .eq('org_id', orgId)
-        .single();
-
-      if (depErr || !departure) {
-        return apiError(res, 404, "DEPARTURE_NOT_FOUND", "Departure not found");
-      }
-
-      // Status transition logic
-      if (oldStatus !== 'confirmed' && newStatus === 'confirmed') {
-        // Moving to confirmed: increment booked
-        if (departure.booked + partySize > departure.capacity) {
-          return apiError(res, 400, "CAPACITY_FULL", "Departure capacity is full");
+      if (!oldConsumes && newConsumes) {
+        try {
+          await reserveDepartureCapacityOrThrow(orgId, departureId, partySize);
+        } catch (capacityError) {
+          const handled = handleDepartureCapacityError(res, capacityError);
+          if (handled) return handled;
+          return handleSupabaseError(res, capacityError, "Failed to update departure capacity");
         }
-
-        const { error: updateErr } = await supabaseAdmin
-          .from('departures')
-          .update({ booked: departure.booked + partySize })
-          .eq('id', departureId)
-          .eq('org_id', orgId);
-
-        if (updateErr) return handleSupabaseError(res, updateErr, "Failed to update departure capacity");
-
-      } else if (oldStatus === 'confirmed' && newStatus !== 'confirmed') {
-        // Moving from confirmed to non-confirmed: decrement booked
-        const { error: updateErr } = await supabaseAdmin
-          .from('departures')
-          .update({ booked: Math.max(0, departure.booked - partySize) })
-          .eq('id', departureId)
-          .eq('org_id', orgId);
-
-        if (updateErr) return handleSupabaseError(res, updateErr, "Failed to update departure capacity");
+      } else if (oldConsumes && !newConsumes) {
+        await releaseReservedCapacity(orgId, departureId, partySize);
       }
-      // Other transitions (pending->cancelled, confirmed->completed, etc.) don't affect capacity
     }
 
     // 3. Update reservation status
@@ -1148,38 +1186,24 @@ router.post('/reservations/batch/status', authenticateToken, requireOrgContext, 
 
         const oldStatus = reservation.status;
         const departureId = reservation.departure_id;
-        const partySize = reservation.party_size;
+        const partySize = Number(reservation.party_size || 0);
 
-        // Handle capacity changes
         if (departureId) {
-          const { data: departure } = await supabaseAdmin
-            .from('departures')
-            .select('booked, capacity')
-            .eq('id', departureId)
-            .eq('org_id', orgId)
-            .single();
+          const oldConsumes = reservationConsumesCapacity(oldStatus);
+          const newConsumes = reservationConsumesCapacity(newStatus);
 
-          if (!departure) {
-            results.push({ id, success: false, error: 'Departure not found' });
-            continue;
-          }
-
-          if (oldStatus !== 'confirmed' && newStatus === 'confirmed') {
-            if (departure.booked + partySize > departure.capacity) {
-              results.push({ id, success: false, error: 'Departure capacity is full' });
-              continue;
+          if (!oldConsumes && newConsumes) {
+            try {
+              await reserveDepartureCapacityOrThrow(orgId, departureId, partySize);
+            } catch (capacityError) {
+              if (capacityError instanceof DepartureCapacityExceededError) {
+                results.push({ id, success: false, error: 'Departure capacity would be exceeded' });
+                continue;
+              }
+              throw capacityError;
             }
-            await supabaseAdmin
-              .from('departures')
-              .update({ booked: departure.booked + partySize })
-              .eq('id', departureId)
-              .eq('org_id', orgId);
-          } else if (oldStatus === 'confirmed' && newStatus !== 'confirmed') {
-            await supabaseAdmin
-              .from('departures')
-              .update({ booked: Math.max(0, departure.booked - partySize) })
-              .eq('id', departureId)
-              .eq('org_id', orgId);
+          } else if (oldConsumes && !newConsumes) {
+            await releaseReservedCapacity(orgId, departureId, partySize);
           }
         }
 

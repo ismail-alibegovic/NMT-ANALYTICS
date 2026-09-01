@@ -27,7 +27,24 @@ const formatMoney = (amount: number) =>
 export default function DepartureAccommodationAllotment({ departureId }: Props) {
   const { t } = useT();
   const { success, error: showError } = useToast();
-  const tx = t.departure.accommodationAllotment;
+  const tx = t?.departure?.accommodationAllotment ?? {
+    loading: 'Loading accommodation inventory…',
+    loadFailed: 'Failed to load departure accommodation.',
+    emptyTitle: 'No accommodation inventory',
+    emptyDescription: 'This departure does not have package accommodation materialized yet.',
+    unknownHotel: 'Hotel',
+    templateRooms: 'Package/template',
+    departureRooms: 'This departure',
+    capacity: 'Person capacity',
+    allocated: 'Reserved',
+    available: 'Available',
+    pricing: 'Net / Sell',
+    save: 'Save',
+    saving: 'Saving…',
+    saveSuccess: 'Accommodation inventory updated',
+    saveFailed: 'Failed to update accommodation inventory',
+    invalidRooms: 'Room count must be zero or greater',
+  };
   const [items, setItems] = useState<Allotment[]>([]);
   const [drafts, setDrafts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);

@@ -6,6 +6,11 @@ import { logAuditEntry } from '../middleware/auditLogger';
 import { z } from 'zod';
 import { apiError } from '../lib/errors';
 import { formatListResponse, paginationQuerySchema, getPaginationParams } from '../utils/pagination';
+import {
+  assertPassengerCreationCapacity,
+  DepartureCapacityExceededError,
+  ReservationPartySizeExceededError,
+} from '../lib/departureCapacity';
 
 const router = Router();
 
@@ -133,6 +138,30 @@ router.post('/departure-passengers', authenticateToken, requireOrgContext, async
       return apiError(res, 409, 'RESERVATION_DEPARTURE_MISMATCH', 'Reservation does not belong to the specified departure');
     }
 
+    try {
+      await assertPassengerCreationCapacity(orgId, reservation_id, departure_id, 1);
+    } catch (capacityError) {
+      if (capacityError instanceof DepartureCapacityExceededError) {
+        return apiError(
+          res,
+          409,
+          'DEPARTURE_CAPACITY_EXCEEDED',
+          'Departure capacity would be exceeded',
+          capacityError.details,
+        );
+      }
+      if (capacityError instanceof ReservationPartySizeExceededError) {
+        return apiError(
+          res,
+          409,
+          'RESERVATION_PARTY_SIZE_EXCEEDED',
+          'Reservation passenger count would exceed party size',
+          capacityError.details,
+        );
+      }
+      throw capacityError;
+    }
+
     const { data, error } = await supabaseAdmin
       .from('departure_passengers')
       .insert({ ...parsed.data, org_id: orgId })
@@ -140,6 +169,13 @@ router.post('/departure-passengers', authenticateToken, requireOrgContext, async
       .single();
 
     if (error) {
+      const message = error.message || '';
+      if (message.includes('DEPARTURE_CAPACITY_EXCEEDED')) {
+        return apiError(res, 409, 'DEPARTURE_CAPACITY_EXCEEDED', 'Departure capacity would be exceeded');
+      }
+      if (message.includes('RESERVATION_PARTY_SIZE_EXCEEDED')) {
+        return apiError(res, 409, 'RESERVATION_PARTY_SIZE_EXCEEDED', 'Reservation passenger count would exceed party size');
+      }
       if (isSeatConflict(error)) {
         return apiError(res, 409, 'SEAT_CONFLICT', 'That seat is already assigned to another passenger on this departure.');
       }

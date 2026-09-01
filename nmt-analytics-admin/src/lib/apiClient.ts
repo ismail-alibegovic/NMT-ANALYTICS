@@ -319,6 +319,16 @@ export async function patch<T = any>(url: string, data?: any, config?: any): Pro
   }
 }
 
+export async function put<T = any>(url: string, data?: any, config?: any): Promise<{ data: T }> {
+  try {
+    const response = await api.put<T>(url, data, config);
+    dataEvents.emit(extractEntity(url));
+    return { data: response.data };
+  } catch (error) {
+    throw normalizeError(error);
+  }
+}
+
 export async function del<T = any>(url: string, config?: any): Promise<{ data: T }> {
   try {
     const response = await api.delete<T>(url, config);

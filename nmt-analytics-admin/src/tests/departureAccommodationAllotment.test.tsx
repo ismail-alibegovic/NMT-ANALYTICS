@@ -6,18 +6,8 @@ const getDepartureAccommodationAllotments = vi.fn();
 const updateDepartureAccommodationAllotment = vi.fn();
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
-
-vi.mock('../api/departures', () => ({
-  getDepartureAccommodationAllotments: (...args: any[]) => getDepartureAccommodationAllotments(...args),
-  updateDepartureAccommodationAllotment: (...args: any[]) => updateDepartureAccommodationAllotment(...args),
-}));
-
-vi.mock('../context/ToastContext', () => ({
-  useToast: () => ({ success: toastSuccess, error: toastError }),
-}));
-
-vi.mock('../lib/i18n/context', () => ({
-  useT: () => ({
+const useTMock = vi.hoisted(() =>
+  vi.fn(() => ({
     t: {
       departure: {
         accommodationAllotment: {
@@ -40,7 +30,20 @@ vi.mock('../lib/i18n/context', () => ({
         },
       },
     },
-  }),
+  })),
+);
+
+vi.mock('../api/departures', () => ({
+  getDepartureAccommodationAllotments: (...args: any[]) => getDepartureAccommodationAllotments(...args),
+  updateDepartureAccommodationAllotment: (...args: any[]) => updateDepartureAccommodationAllotment(...args),
+}));
+
+vi.mock('../context/ToastContext', () => ({
+  useToast: () => ({ success: toastSuccess, error: toastError }),
+}));
+
+vi.mock('../lib/i18n/context', () => ({
+  useT: () => useTMock(),
 }));
 
 const allotment = {
@@ -71,6 +74,30 @@ const allotment = {
 describe('DepartureAccommodationAllotment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useTMock.mockReturnValue({
+      t: {
+        departure: {
+          accommodationAllotment: {
+            loading: 'Loading accommodation inventory…',
+            loadFailed: 'Failed to load departure accommodation.',
+            emptyTitle: 'No accommodation inventory',
+            emptyDescription: 'This departure does not have package accommodation materialized yet.',
+            unknownHotel: 'Hotel',
+            templateRooms: 'Package/template',
+            departureRooms: 'This departure',
+            capacity: 'Capacity',
+            allocated: 'Allocated',
+            available: 'Available',
+            pricing: 'Net / Sell',
+            save: 'Save',
+            saving: 'Saving…',
+            saveSuccess: 'Accommodation inventory updated',
+            saveFailed: 'Failed to update accommodation inventory',
+            invalidRooms: 'Room count must be zero or greater',
+          },
+        },
+      },
+    });
     getDepartureAccommodationAllotments.mockResolvedValue({ departureId: 'departure-1', items: [allotment] });
     updateDepartureAccommodationAllotment.mockImplementation(async (_departureId, _itemId, roomCount) => ({
       ...allotment,
@@ -121,5 +148,14 @@ describe('DepartureAccommodationAllotment', () => {
 
     expect(await screen.findByText('Cannot save allotment')).toBeInTheDocument();
     expect(toastError).toHaveBeenCalledWith('Cannot save allotment');
+  });
+
+  it('renders fallback load failure text instead of crashing when translations are missing', async () => {
+    useTMock.mockReturnValue({ t: { departure: {} } } as any);
+    getDepartureAccommodationAllotments.mockRejectedValueOnce(new Error());
+
+    render(<DepartureAccommodationAllotment departureId="departure-1" />);
+
+    expect(await screen.findByText('Failed to load departure accommodation.')).toBeInTheDocument();
   });
 });

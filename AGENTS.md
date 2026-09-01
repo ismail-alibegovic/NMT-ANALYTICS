@@ -9,8 +9,10 @@ Travline is a cloud travel-agency operating system / CRM. It supports retail age
 Canonical product context: `docs/PRODUCT.md`.
 Canonical technical architecture: `docs/ARCHITECTURE.md`.
 Canonical product backlog: `docs/ROADMAP.md`.
+Canonical product roadmap: `docs/TRAVLINE_MASTER_PLAN_2_0.md`.
 Active implementation specs: `docs/tasks/active/`.
 Historical redesign plan: `docs/plans/2026-08-18-travline-operating-system-redesign.md`.
+Old task system (T01–T38): archived at `docs/tasks/archived/`.
 
 ## 2. Repository layout
 
@@ -156,6 +158,10 @@ Do not report `PASS` for a command that was not actually run.
 
 ## 10. Active-task rule
 
-Only files in `docs/tasks/active/` are actionable implementation specifications. `docs/ROADMAP.md` is planning context, not permission to implement every listed item.
+Only files in `docs/tasks/active/` are actionable implementation specifications. `docs/ROADMAP.md` and `docs/TRAVLINE_MASTER_PLAN_2_0.md` are planning context, not permission to implement every listed item.
+
+Master Plan 2.0 defines 25 milestones (M00–M24). Each milestone must be broken into a scoped task specification in `docs/tasks/active/` using `docs/tasks/TEMPLATE.md` before implementation. Only one M-task may be active at a time unless explicitly instructed otherwise.
+
+Keep each active spec small enough to complete in a single run. The old T01–T38 decomposition has been archived at `docs/tasks/archived/` with a T→M mapping at `docs/tasks/archived/T_TO_M_MAPPING.md`.
 
 If multiple active specs exist, work only on the one explicitly named in the prompt. If no active spec is named, ask which task to execute rather than starting a large roadmap item on your own.
