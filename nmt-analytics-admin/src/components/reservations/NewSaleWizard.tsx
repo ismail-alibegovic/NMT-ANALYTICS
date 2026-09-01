@@ -66,7 +66,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const [departureId, setDepartureId] = useState("");
   const [variantId, setVariantId] = useState("");
   const [accommodationOptions, setAccommodationOptions] = useState<DepartureAccommodationOption[]>([]);
-  const [accommodationLoading, setAccommodationLoading] = useState(false);
+  const [accommodationResolved, setAccommodationResolved] = useState<"idle" | "loading" | "resolved" | "error">("idle");
   const [accommodationLines, setAccommodationLines] = useState<AccommodationLine[]>([]);
   const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -102,7 +102,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
   const availableTransportTypes = Array.from(new Set(activeDepartures.map((d) => (d as any).transport_type ?? "none")));
 
-  const hasAccommodation = accommodationOptions.length > 0;
+  const hasAccommodation = accommodationResolved === "resolved" && accommodationOptions.length > 0;
   const steps = getSteps(hasAccommodation);
 
   const accommodationLinesWithOption = accommodationLines.map((line) => ({
@@ -151,8 +151,26 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     });
   }, [partySize]);
 
+  function retryAccommodation() {
+    if (!departureId) return;
+    setAccommodationResolved("loading");
+    getDepartureAccommodationOptions(departureId)
+      .then((result) => {
+        const options = result.items || [];
+        setAccommodationOptions(options);
+        setAccommodationLines((current) => current.filter((line) => options.some((item) => item.id === line.hotelAllocationId)));
+        setAccommodationResolved("resolved");
+      })
+      .catch(() => {
+        setAccommodationOptions([]);
+        setAccommodationLines([]);
+        setAccommodationResolved("error");
+      });
+  }
+
   function reset() {
     setStep("trip");
+    setAccommodationResolved("idle");
     setPackageId(""); setDepartureId(""); setVariantId("");
     setAccommodationOptions([]); setAccommodationLines([]);
     setCustomerSearch(""); setSelectedCustomerId(null);
@@ -219,20 +237,22 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   useEffect(() => {
     if (!departureId) {
       setAccommodationOptions([]);
+      setAccommodationResolved("idle");
       return;
     }
-    setAccommodationLoading(true);
+    setAccommodationResolved("loading");
     getDepartureAccommodationOptions(departureId)
       .then((result) => {
         const options = result.items || [];
         setAccommodationOptions(options);
         setAccommodationLines((current) => current.filter((line) => options.some((item) => item.id === line.hotelAllocationId)));
+        setAccommodationResolved("resolved");
       })
       .catch(() => {
         setAccommodationOptions([]);
         setAccommodationLines([]);
-      })
-      .finally(() => setAccommodationLoading(false));
+        setAccommodationResolved("error");
+      });
   }, [departureId]);
 
   // Prefill price when package chosen
@@ -340,6 +360,8 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     if (step === "travelers") {
       if (!customerName.trim()) return "Unesite ime klijenta.";
       if (!customerPhone.trim()) return "Unesite telefon.";
+      if (accommodationResolved === "loading") return "Smještaj se još učitava...";
+      if (accommodationResolved === "error") return "Nije moguće provjeriti smještaj za ovaj polazak. Pokušajte ponovo.";
       return "";
     }
     if (step === "accommodation") {
@@ -353,7 +375,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
   const canNext = (() => {
     if (step === "trip") return !!packageId && !!departureId;
-    if (step === "travelers") return !!customerName.trim() && !!customerPhone.trim();
+    if (step === "travelers") return !!customerName.trim() && !!customerPhone.trim() && accommodationResolved !== "loading" && accommodationResolved !== "error";
     if (step === "accommodation") {
       if (accommodationOptions.length === 0) return true;
       if (accommodationLines.length === 0) return true;
@@ -625,6 +647,19 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         {/* Step: Travelers — Client + Passengers + Options */}
         {step === "travelers" && (
           <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+            {accommodationResolved === "loading" && (
+              <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-sm text-gray-500">
+                Smještaj se još učitava...
+              </div>
+            )}
+            {accommodationResolved === "error" && (
+              <div className="rounded-xl border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-4 space-y-2">
+                <p className="text-sm text-error-600 dark:text-error-400">Nije moguće provjeriti smještaj za ovaj polazak. Pokušajte ponovo.</p>
+                <button type="button" onClick={retryAccommodation} className="text-sm font-medium text-brand-600 hover:text-brand-500">
+                  Pokušaj ponovo
+                </button>
+              </div>
+            )}
             {/* Client section */}
             <div className="space-y-3">
               <div>
@@ -795,15 +830,24 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               </p>
             </div>
 
-            {accommodationLoading && <p className="text-sm text-gray-500">Učitavanje smještaja...</p>}
+            {accommodationResolved === "loading" && <p className="text-sm text-gray-500">Učitavanje smještaja...</p>}
 
-            {!accommodationLoading && accommodationOptions.length === 0 && (
+            {accommodationResolved === "error" && (
+              <div className="rounded-xl border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-4 space-y-2">
+                <p className="text-sm text-error-600 dark:text-error-400">Nije moguće provjeriti smještaj za ovaj polazak.</p>
+                <button type="button" onClick={retryAccommodation} className="text-sm font-medium text-brand-600 hover:text-brand-500">
+                  Pokušajte ponovo
+                </button>
+              </div>
+            )}
+
+            {accommodationResolved === "resolved" && accommodationOptions.length === 0 && (
               <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-sm text-gray-500">
                 Ovaj polazak nema konfigurisan hotelski smještaj. Rezervacija se može nastaviti bez smještaja.
               </div>
             )}
 
-            {accommodationOptions.length > 0 && (
+            {accommodationResolved === "resolved" && accommodationOptions.length > 0 && (
               <div className="space-y-3">
                 <div className="grid grid-cols-1 gap-2">
                   {accommodationOptions.map((option) => {
