@@ -66,7 +66,7 @@ async function completeSale(
   fireEvent.change(screen.getByPlaceholderText('Npr. Ahmed Hodžić'), { target: { value: customerName } });
   fireEvent.change(screen.getByPlaceholderText('+387 61 234 567'), { target: { value: customerPhone } });
   fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
-  await waitFor(() => expect(screen.getByText(/Ovaj polazak nema konfigurisan/)).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText('Ukupan iznos (BAM)')).toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
   await waitFor(() => expect(screen.getByText('Pregled prodaje')).toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: 'Potvrdi prodaju' }));
