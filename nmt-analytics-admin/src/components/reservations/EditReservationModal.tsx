@@ -163,7 +163,7 @@ export default function EditReservationModal({
     }
     setAccommodationLoading(true);
     Promise.all([
-      getDepartureAccommodationOptions(departureId),
+      getDepartureAccommodationOptions(departureId, reservationId || undefined),
       getDeparturePassengers(departureId),
     ])
       .then(([optionsRes, manifest]) => {

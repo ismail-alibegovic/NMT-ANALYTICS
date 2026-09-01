@@ -111,6 +111,10 @@ const updateAccommodationAllotmentSchema = z.object({
   roomCount: z.coerce.number().int().min(0, 'Room count must be zero or greater'),
 });
 
+const departureAccommodationOptionsQuerySchema = z.object({
+  reservationId: z.string().uuid('Invalid reservation ID').optional(),
+});
+
 /**
  * GET /api/departures
  */
@@ -336,7 +340,32 @@ router.get('/departures/:id/accommodation-allotments', authenticateToken, requir
  */
 router.get('/departures/:id/accommodation-options', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req, res: Response) => {
   try {
-    const result = await getAccommodationOptions(req.params.id, req.orgId!);
+    const parsed = departureAccommodationOptionsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid accommodation options query', parsed.error.issues);
+    }
+
+    let excludeReservationId: string | null = null;
+    if (parsed.data.reservationId) {
+      const { data: reservation, error: reservationError } = await supabaseAdmin
+        .from('reservations')
+        .select('id, departure_id')
+        .eq('id', parsed.data.reservationId)
+        .eq('org_id', req.orgId!)
+        .maybeSingle();
+
+      if (reservationError) throw reservationError;
+      if (!reservation) {
+        return apiError(res, 404, 'NOT_FOUND', 'Reservation not found');
+      }
+      if (reservation.departure_id !== req.params.id) {
+        return apiError(res, 400, 'VALIDATION_ERROR', 'Reservation must belong to the same departure');
+      }
+
+      excludeReservationId = reservation.id;
+    }
+
+    const result = await getAccommodationOptions(req.params.id, req.orgId!, excludeReservationId);
     if (!result) return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
     return res.json(result);
   } catch (error) {

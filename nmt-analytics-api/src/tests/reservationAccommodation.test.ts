@@ -195,6 +195,20 @@ describe('reservation accommodation helpers', () => {
     ]);
   });
 
+  it('excludes only the current reservation when requested', async () => {
+    const { getAccommodationOptions } = await import('../lib/reservationAccommodation');
+
+    const result = await getAccommodationOptions('departure-1', 'org-1', 'reservation-1');
+
+    expect(result?.items).toEqual([
+      expect.objectContaining({
+        id: 'allocation-1',
+        reservedRooms: 1,
+        availableRooms: 4,
+      }),
+    ]);
+  });
+
   it('replaces reservation accommodation through the canonical atomic RPC payload', async () => {
     const { replaceReservationAccommodation } = await import('../lib/reservationAccommodation');
 

@@ -147,7 +147,7 @@ describe('EditReservationModal accommodation flow', () => {
     render(<EditReservationModal isOpen onClose={onClose} onSuccess={onSuccess} reservationId="reservation-1" />);
 
     expect(await screen.findByText('Smještaj')).toBeInTheDocument();
-    await waitFor(() => expect(getDepartureAccommodationOptions).toHaveBeenCalledWith('departure-1'));
+    await waitFor(() => expect(getDepartureAccommodationOptions).toHaveBeenCalledWith('departure-1', 'reservation-1'));
 
     await waitFor(() => expect(screen.getAllByRole('combobox').length).toBeGreaterThanOrEqual(3));
     const comboBoxes = screen.getAllByRole('combobox');
@@ -183,7 +183,7 @@ describe('EditReservationModal accommodation flow', () => {
     render(<EditReservationModal isOpen onClose={onClose} onSuccess={onSuccess} reservationId="reservation-1" />);
 
     await screen.findByText('Smještaj');
-    await waitFor(() => expect(getDepartureAccommodationOptions).toHaveBeenCalledWith('departure-1'));
+    await waitFor(() => expect(getDepartureAccommodationOptions).toHaveBeenCalledWith('departure-1', 'reservation-1'));
     await waitFor(() => expect(screen.getAllByRole('checkbox').length).toBe(2));
     fireEvent.click(screen.getByRole('button', { name: 'Spremi izmjene' }));
 
