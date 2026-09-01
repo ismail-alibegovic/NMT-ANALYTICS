@@ -421,6 +421,7 @@ describe('departure accommodation allotments', () => {
       depart_at: '2026-09-10T08:00:00.000Z',
       return_at: '2026-09-17T08:00:00.000Z',
       capacity: 30,
+      transport_type: 'bus',
     }];
     failHotelAllocationInsert = true;
     const app = express();
