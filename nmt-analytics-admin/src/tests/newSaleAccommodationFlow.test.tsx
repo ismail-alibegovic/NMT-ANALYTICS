@@ -323,4 +323,87 @@ describe('NewSaleWizard accommodation flow', () => {
 
     await waitFor(() => expect(toastError).toHaveBeenCalledWith('Nema dovoljno mjesta na odabranom polasku.'));
   });
+
+  it('M04 acceptance: multi-line accommodation (4 travelers, Double + 2x Single rooms)', async () => {
+    const onCreated = vi.fn();
+    render(
+      <NewSaleWizard
+        isOpen
+        onClose={vi.fn()}
+        onCreated={onCreated}
+        initialPackageId="package-1"
+        initialDepartureId="departure-1"
+      />,
+    );
+
+    expect(await screen.findByText('Antalya Summer 2027')).toBeInTheDocument();
+    await waitFor(() => expect(getDepartureAccommodationOptions).toHaveBeenCalledWith('departure-1'));
+
+    // Travelers: 4 passengers
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+    fireEvent.change(screen.getByPlaceholderText('Npr. Ahmed Hodžić'), { target: { value: 'MultiLine Test' } });
+    fireEvent.change(screen.getByPlaceholderText('+387 61 234 567'), { target: { value: '+38761000000' } });
+    fireEvent.change(screen.getByDisplayValue('1'), { target: { value: '4' } });
+    fireEvent.change(screen.getByPlaceholderText('Putnik 1 - puno ime'), { target: { value: 'Passenger 1' } });
+    fireEvent.change(screen.getByPlaceholderText('Putnik 2 - puno ime'), { target: { value: 'Passenger 2' } });
+    fireEvent.change(screen.getByPlaceholderText('Putnik 3 - puno ime'), { target: { value: 'Passenger 3' } });
+    fireEvent.change(screen.getByPlaceholderText('Putnik 4 - puno ime'), { target: { value: 'Passenger 4' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+
+    // Accommodation: select Double card
+    fireEvent.click(screen.getByRole('button', { name: /Double/ }));
+
+    // Add a second line
+    fireEvent.click(screen.getByRole('button', { name: '+ Dodaj još smještaja' }));
+
+    // Adjust line 0 (Double): roomCount 1, guestsExpected 2
+    const spinButtons = screen.getAllByRole('spinbutton');
+    fireEvent.change(spinButtons[0], { target: { value: '1' } });
+    fireEvent.change(spinButtons[1], { target: { value: '2' } });
+
+    // Unassign passengers 3,4 (indexes 2,3) from line 0 -> line 0 keeps [0,1]
+    fireEvent.click(screen.getAllByLabelText('Passenger 3')[0]);
+    fireEvent.click(screen.getAllByLabelText('Passenger 4')[0]);
+
+    // Select Single for line 1
+    fireEvent.click(screen.getByRole('button', { name: /Single/ }));
+
+    // Adjust line 1 (Single): roomCount 2, guestsExpected 2
+    const spinButtonsAfter = screen.getAllByRole('spinbutton');
+    fireEvent.change(spinButtonsAfter[2], { target: { value: '2' } });
+    fireEvent.change(spinButtonsAfter[3], { target: { value: '2' } });
+
+    // Proceed through Payment to Review
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+
+    // Master Plan requires the wizard to reach Review and submit the exact payload.
+    expect(await screen.findByText('Pregled prodaje')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Potvrdi prodaju' }));
+
+    await waitFor(() => expect(createReservation).toHaveBeenCalledTimes(1));
+    const payload = createReservation.mock.calls[0][0];
+    const reqs = payload.accommodationRequirements.map((r: any) => ({
+      hotelAllocationId: r.hotelAllocationId,
+      roomCount: r.roomCount,
+      guestsExpected: r.guestsExpected,
+      passengerIndexes: [...r.passengerIndexes].sort((a: number, b: number) => a - b),
+    })).sort((a: any, b: any) => a.hotelAllocationId.localeCompare(b.hotelAllocationId));
+
+    expect(reqs).toEqual([
+      {
+        hotelAllocationId: 'allocation-double',
+        roomCount: 1,
+        guestsExpected: 2,
+        passengerIndexes: [0, 1],
+      },
+      {
+        hotelAllocationId: 'allocation-single',
+        roomCount: 2,
+        guestsExpected: 2,
+        passengerIndexes: [2, 3],
+      },
+    ]);
+  });
+
 });

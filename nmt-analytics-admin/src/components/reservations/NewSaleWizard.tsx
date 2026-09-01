@@ -42,14 +42,21 @@ interface AccommodationLine {
   passengerIndexes: number[];
 }
 
-function buildAutomaticAccommodationLine(optionId: string, partySize: number, capacityPerRoom: number): AccommodationLine {
+function buildAutomaticAccommodationLine(
+  optionId: string,
+  partySize: number,
+  capacityPerRoom: number,
+  passengerIndexes: number[] = Array.from({ length: partySize }, (_, index) => index),
+): AccommodationLine {
   const safeCapacityPerRoom = Math.max(1, capacityPerRoom || 1);
+  const normalizedPassengerIndexes = [...passengerIndexes].sort((a, b) => a - b);
+  const guestsExpected = normalizedPassengerIndexes.length;
   return {
     hotelAllocationId: optionId,
-    roomCount: Math.max(1, Math.ceil(partySize / safeCapacityPerRoom)),
-    guestsExpected: partySize,
+    roomCount: Math.max(1, Math.ceil(guestsExpected / safeCapacityPerRoom)),
+    guestsExpected,
     notes: "",
-    passengerIndexes: Array.from({ length: partySize }, (_, index) => index),
+    passengerIndexes: normalizedPassengerIndexes,
   };
 }
 
@@ -350,8 +357,21 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
       const emptyIndex = current.findIndex((line) => !line.hotelAllocationId);
       if (emptyIndex >= 0) {
+        const assignedPassengerIndexes = new Set(
+          current.flatMap((line, index) => (index === emptyIndex ? [] : line.passengerIndexes)),
+        );
+        const unassignedPassengerIndexes = Array.from({ length: partySize }, (_, index) => index)
+          .filter((index) => !assignedPassengerIndexes.has(index));
         return current.map((line, index) => index === emptyIndex
-          ? { ...automaticLine, notes: line.notes }
+          ? {
+            ...buildAutomaticAccommodationLine(
+              optionId,
+              partySize,
+              option?.capacityPerRoom || 1,
+              unassignedPassengerIndexes,
+            ),
+            notes: line.notes,
+          }
           : line);
       }
 
