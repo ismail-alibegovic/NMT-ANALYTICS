@@ -217,6 +217,46 @@ describe('NewSaleWizard accommodation flow', () => {
     expect(screen.getAllByRole('combobox')).toHaveLength(1);
   });
 
+  it('shows no legacy accommodation selector in Step 2, only in Step 3', async () => {
+    render(
+      <NewSaleWizard
+        isOpen
+        onClose={vi.fn()}
+        onCreated={vi.fn()}
+        initialPackageId="package-1"
+        initialDepartureId="departure-1"
+      />,
+    );
+
+    expect(await screen.findByText('Antalya Summer 2027')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+
+    expect(screen.queryByText('Tip smještaja')).not.toBeInTheDocument();
+    expect(screen.queryByText('— Nepotrebno —')).not.toBeInTheDocument();
+    expect(screen.queryByText('Hotel')).not.toBeInTheDocument();
+    expect(screen.queryByText('Studentski smještaj')).not.toBeInTheDocument();
+    expect(screen.queryByText('Apartman')).not.toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: '+ Prikaži prijevoz' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '+ Prikaži prijevoz' }));
+
+    expect(screen.queryByText('Tip smještaja')).not.toBeInTheDocument();
+
+    const transportSelect = screen.getByRole('combobox');
+    expect(transportSelect).toBeInTheDocument();
+    expect(transportSelect.querySelectorAll('option').length).toBe(3);
+
+    fireEvent.change(screen.getByPlaceholderText('Npr. Ahmed Hodžić'), { target: { value: 'Test Kupac' } });
+    fireEvent.change(screen.getByPlaceholderText('+387 61 234 567'), { target: { value: '+38761000000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+
+    expect((await screen.findAllByText('Hotel Azure Antalya')).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Double/)).toBeInTheDocument();
+    expect(screen.getByText(/Single/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '+ Dodaj još smještaja' })).toBeInTheDocument();
+  });
+
   it('shows a clear capacity message when the API rejects the sale', async () => {
     createReservation.mockRejectedValueOnce({
       code: 'DEPARTURE_CAPACITY_EXCEEDED',

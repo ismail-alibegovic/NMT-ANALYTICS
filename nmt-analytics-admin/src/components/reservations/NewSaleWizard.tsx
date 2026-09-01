@@ -63,7 +63,6 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const [departureId, setDepartureId] = useState("");
   const [variantId, setVariantId] = useState("");
   const [transport, setTransport] = useState<TransportRequest>("none");
-  const [accommodation, setAccommodation] = useState("");
   const [accommodationOptions, setAccommodationOptions] = useState<DepartureAccommodationOption[]>([]);
   const [accommodationLoading, setAccommodationLoading] = useState(false);
   const [accommodationLines, setAccommodationLines] = useState<AccommodationLine[]>([]);
@@ -123,7 +122,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   function reset() {
     setStep("arrangement");
     setPackageId(""); setDepartureId(""); setVariantId("");
-    setTransport("none"); setAccommodation("");
+    setTransport("none");
     setAccommodationOptions([]); setAccommodationLines([]);
     setCustomerSearch(""); setSelectedCustomerId(null);
     setCustomerName(""); setCustomerPhone(""); setCustomerEmail("");
@@ -391,7 +390,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         status: "pending",
         notes: notes || undefined,
         hotelName: accommodationLinesWithOption[0]?.option?.hotel?.name || selectedPackage?.destination || undefined,
-        roomType: accommodationLinesWithOption[0]?.option?.roomLabel || accommodation || undefined,
+        roomType: accommodationLinesWithOption[0]?.option?.roomLabel || undefined,
         accommodationRequirements: normalizedAccommodationLines,
         options: bookingSnapshot,
         passengers: filledPassengers.length > 0 ? filledPassengers : undefined,
@@ -452,7 +451,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
             <div>
               <Label>Aranžman / Paket *</Label>
               <p className="text-xs text-gray-500 -mt-1">Odaberite ponudu, zatim izaberite termin.</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto mt-2">
+              <div className="grid grid-cols-1 gap-3 max-h-[200px] overflow-y-auto mt-2">
                 {packages.map((pkg) => {
                   const active = pkg.id === packageId;
                   return (
@@ -565,7 +564,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <div>
                   <Label>Ime i prezime klijenta *</Label>
                   <Input
@@ -622,7 +621,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                   </div>
                 )}
                 {showAdvanced && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3">
                     <div>
                       <Label>Prijevoz</Label>
                       <select
@@ -633,19 +632,6 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                         <option value="none">Bez prijevoza</option>
                         <option value="bus">Autobus</option>
                         <option value="flight">Avion</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Label>Tip smještaja</Label>
-                      <select
-                        value={accommodation}
-                        onChange={(e) => setAccommodation(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900"
-                      >
-                        <option value="">— Nepotrebno —</option>
-                        <option value="hotel">Hotel</option>
-                        <option value="student">Studentski smještaj</option>
-                        <option value="apartment">Apartman</option>
                       </select>
                     </div>
                   </div>
@@ -659,7 +645,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                 onClick={() => setShowAdvanced(true)}
                 className="text-xs text-brand-600 dark:text-brand-400 hover:underline"
               >
-                + Prikaži prijevoz i smještaj
+                + Prikaži prijevoz
               </button>
             )}
 
@@ -732,7 +718,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
             <hr className="border-gray-100 dark:border-gray-800" />
 
             {/* Price + Notes */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <div>
                 <Label>Ukupan iznos (BAM)</Label>
                 <Input type="number" min="0" placeholder="0.00" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} />
@@ -870,7 +856,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
                       <div>
                         <Label>Dodijeljeni putnici</Label>
-                        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="mt-2 grid grid-cols-1 gap-2">
                           {passengers.map((passenger, passengerIndex) => {
                             const assignedElsewhere = accommodationLines.some((otherLine, otherIndex) => otherIndex !== index && otherLine.passengerIndexes.includes(passengerIndex));
                             return (
