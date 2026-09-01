@@ -373,7 +373,8 @@ describe('NewSaleWizard accommodation flow', () => {
     fireEvent.change(spinButtonsAfter[2], { target: { value: '2' } });
     fireEvent.change(spinButtonsAfter[3], { target: { value: '2' } });
 
-    // Attempt to proceed to Review
+    // Proceed through Payment to Review
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
 
     // Master Plan requires the wizard to reach Review and submit the exact payload.
