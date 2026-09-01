@@ -13,6 +13,8 @@ type ReservationRow = {
   id: string
   org_id: string
   departure_id: string
+  party_size?: number
+  status?: 'pending' | 'confirmed' | 'cancelled' | 'completed'
 }
 
 type DepartureRow = {
@@ -273,6 +275,45 @@ describe('departure passenger safety', () => {
 
     expect(res.status).toBe(404)
     expect(res.body.code).toBe('DEPARTURE_NOT_FOUND')
+  })
+
+  it('rejects passenger create when mixed occupancy already fills the departure', async () => {
+    reservations = [
+      { id: RESERVATION_ID, org_id: TEST_ORG, departure_id: DEPARTURE_ID, party_size: 2, status: 'pending' },
+      { id: '20000000-0000-4000-8000-000000000009', org_id: TEST_ORG, departure_id: DEPARTURE_ID, party_size: 2, status: 'pending' },
+    ]
+    departures = [{ id: DEPARTURE_ID, org_id: TEST_ORG, capacity: 3 }]
+    passengers = [
+      {
+        id: PASSENGER_ID,
+        org_id: TEST_ORG,
+        reservation_id: RESERVATION_ID,
+        departure_id: DEPARTURE_ID,
+        full_name: 'Existing Passenger',
+      },
+    ]
+    reservationMeta = {
+      [RESERVATION_ID]: { party_size: 2, status: 'pending' },
+      ['20000000-0000-4000-8000-000000000009']: { party_size: 2, status: 'pending' },
+    }
+
+    const res = await request(createApp())
+      .post('/api/departure-passengers')
+      .set('x-test-org', TEST_ORG)
+      .send({
+        reservation_id: RESERVATION_ID,
+        departure_id: DEPARTURE_ID,
+        full_name: 'Blocked Passenger',
+      })
+
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('DEPARTURE_CAPACITY_EXCEEDED')
+    expect(res.body.details).toMatchObject({
+      capacity: 3,
+      booked: 3,
+      requestedAdditionalPassengers: 1,
+      remainingCapacity: 0,
+    })
   })
 
   it('returns 409 RESERVATION_DEPARTURE_MISMATCH when reservation belongs to another departure', async () => {

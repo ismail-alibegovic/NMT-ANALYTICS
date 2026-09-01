@@ -161,6 +161,23 @@ describe('GET /api/departures occupancy source', () => {
     expect(res.body.data[0].booked).toBe(6)
   })
 
+  it('adds passenger-backed reservations and passengerless reservations without double counting', async () => {
+    reservationsStore = [
+      { id: 'res-1', org_id: TEST_ORG, departure_id: 'dep-1', party_size: 4, status: 'pending' },
+      { id: 'res-2', org_id: TEST_ORG, departure_id: 'dep-1', party_size: 3, status: 'confirmed' },
+    ]
+    passengersStore = Array.from({ length: 2 }, (_, i) => ({
+      id: `p-${i}`,
+      org_id: TEST_ORG,
+      departure_id: 'dep-1',
+      reservation_id: 'res-1',
+    }))
+
+    const res = await request(createApp()).get('/api/departures')
+    expect(res.status).toBe(200)
+    expect(res.body.data[0].booked).toBe(5)
+  })
+
   it('ignores cross-org reservations and passengers', async () => {
     reservationsStore = [
       { id: 'res-1', org_id: TEST_ORG, departure_id: 'dep-1', party_size: 2, status: 'pending' },

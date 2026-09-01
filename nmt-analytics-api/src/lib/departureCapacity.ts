@@ -77,25 +77,38 @@ export async function getDepartureBookedMap(orgId: string, departureIds: string[
   }
 
   const passengerCountByDeparture = new Map<string, number>();
+  const reservationsWithPassengersByDeparture = new Map<string, Set<string>>();
   for (const passenger of passengers) {
     passengerCountByDeparture.set(
       passenger.departure_id,
       (passengerCountByDeparture.get(passenger.departure_id) || 0) + 1,
     );
+    if (passenger.reservation_id) {
+      let reservationIds = reservationsWithPassengersByDeparture.get(passenger.departure_id);
+      if (!reservationIds) {
+        reservationIds = new Set<string>();
+        reservationsWithPassengersByDeparture.set(passenger.departure_id, reservationIds);
+      }
+      reservationIds.add(passenger.reservation_id);
+    }
   }
 
-  const reservationSumByDeparture = new Map<string, number>();
+  const fallbackReservationSumByDeparture = new Map<string, number>();
   for (const reservation of activeReservations) {
-    reservationSumByDeparture.set(
+    const reservationIdsWithPassengers = reservationsWithPassengersByDeparture.get(reservation.departure_id);
+    if (reservationIdsWithPassengers?.has(reservation.id)) {
+      continue;
+    }
+    fallbackReservationSumByDeparture.set(
       reservation.departure_id,
-      (reservationSumByDeparture.get(reservation.departure_id) || 0) + Number(reservation.party_size || 0),
+      (fallbackReservationSumByDeparture.get(reservation.departure_id) || 0) + Number(reservation.party_size || 0),
     );
   }
 
   for (const departureId of uniqueDepartureIds) {
     const passengerCount = passengerCountByDeparture.get(departureId) || 0;
-    const reservationSum = reservationSumByDeparture.get(departureId) || 0;
-    result.set(departureId, passengerCount > 0 ? passengerCount : reservationSum);
+    const fallbackReservationSum = fallbackReservationSumByDeparture.get(departureId) || 0;
+    result.set(departureId, passengerCount + fallbackReservationSum);
   }
 
   return result;

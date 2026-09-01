@@ -132,6 +132,33 @@ describe('demo seed safety contract', () => {
   });
 });
 
+describe('capacity rpc reconciliation contract', () => {
+  it('replaces reserve_capacity_atomic with an unambiguous canonical-occupancy implementation', async () => {
+    const migration = await readMigration('20260901152047_fix_reserve_capacity_atomic_canonical_occupancy.sql');
+
+    expect(migration).toContain('CREATE OR REPLACE FUNCTION public.reserve_capacity_atomic');
+    expect(migration).toContain('FROM public.departures d');
+    expect(migration).toContain('SELECT d.booked, d.capacity');
+    expect(migration).toContain('RETURNS TABLE (booked_after INT, capacity INT)');
+    expect(migration).toContain('WHEN reservation_passenger_counts.passenger_count > 0 THEN reservation_passenger_counts.passenger_count');
+    expect(migration).toContain('ELSE reservation_rows.party_size');
+    expect(migration).toContain("AND r.status <> 'cancelled'");
+    expect(migration).toContain('v_effective_booked := GREATEST(COALESCE(v_booked_floor, 0), COALESCE(v_current_booked, 0));');
+    expect(migration).toContain('SET booked = v_effective_booked + p_party_size');
+    expect(migration).toContain('REVOKE ALL ON FUNCTION public.reserve_capacity_atomic(UUID, UUID, INT) FROM PUBLIC;');
+    expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.reserve_capacity_atomic(UUID, UUID, INT) TO service_role;');
+  });
+
+  it('replaces release_capacity_atomic with the same canonical-occupancy source instead of subtracting from stale booked state', async () => {
+    const migration = await readMigration('20260901152047_fix_reserve_capacity_atomic_canonical_occupancy.sql');
+
+    expect(migration).toContain('CREATE OR REPLACE FUNCTION public.release_capacity_atomic');
+    expect(migration).toContain('SET booked = GREATEST(0, v_effective_booked - p_party_size)');
+    expect(migration).toContain('REVOKE ALL ON FUNCTION public.release_capacity_atomic(UUID, UUID, INT) FROM PUBLIC;');
+    expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.release_capacity_atomic(UUID, UUID, INT) TO service_role;');
+  });
+});
+
 describe('security definer privilege fix contract', () => {
   it('revokes PUBLIC EXECUTE on release_capacity_atomic without modifying its body', async () => {
     const migration = await readMigration('20260831220000_fix_release_capacity_public_privilege.sql');
