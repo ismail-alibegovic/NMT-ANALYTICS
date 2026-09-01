@@ -150,13 +150,6 @@ vi.mock('../lib/supabase', () => ({
     res.status(500).json({ code: err?.code || 'DATABASE_ERROR', message: err?.message || message }),
 }));
 
-vi.mock('../middleware/authenticateToken', async () => ({
-  authenticateToken: (req: Request, _res: Response, next: NextFunction) => {
-    req.user = { id: 'user-1', email: 'test@travline.app', role: 'agent' } as any;
-    next();
-  },
-}));
-
 vi.mock('../lib/departureCapacity', () => ({
   getDepartureBookedMap: vi.fn(async () => new Map()),
 }));
@@ -214,5 +207,25 @@ describe('GET /api/departures/:id/accommodation-options', () => {
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('VALIDATION_ERROR');
     expect(res.body.message).toBe('Reservation must belong to the same departure');
+  });
+
+  it('returns 404 for cross-org reservationId and does not inflate availability', async () => {
+    const res = await request(app)
+      .get(`/api/departures/${DEPARTURE_ID}/accommodation-options`)
+      .query({ reservationId: FOREIGN_RESERVATION_ID });
+
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('NOT_FOUND');
+    expect(res.body.message).toBe('Reservation not found');
+
+    const baseline = await request(app).get(`/api/departures/${DEPARTURE_ID}/accommodation-options`);
+    expect(baseline.status).toBe(200);
+    expect(baseline.body.items).toEqual([
+      expect.objectContaining({
+        id: ALLOCATION_ID,
+        reservedRooms: 2,
+        availableRooms: 0,
+      }),
+    ]);
   });
 });
