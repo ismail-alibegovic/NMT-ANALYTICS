@@ -306,6 +306,9 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
           : line);
       }
 
+      const alreadySelected = current.some((line) => line.hotelAllocationId === optionId);
+      if (alreadySelected) return current;
+
       return [...current, {
         hotelAllocationId: optionId,
         roomCount: 1,
