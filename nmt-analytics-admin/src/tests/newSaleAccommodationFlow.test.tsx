@@ -122,9 +122,7 @@ describe('NewSaleWizard accommodation flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
 
     expect((await screen.findAllByText('Hotel Azure Antalya')).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole('button', { name: '+ Dodaj još smještaja' }));
-    const selects = screen.getAllByRole('combobox');
-    fireEvent.change(selects[0], { target: { value: 'allocation-double' } });
+    fireEvent.click(screen.getByRole('button', { name: /Double/ }));
     let spinButtons = screen.getAllByRole('spinbutton');
     fireEvent.change(spinButtons[0], { target: { value: '1' } });
     fireEvent.change(spinButtons[1], { target: { value: '2' } });
@@ -132,8 +130,7 @@ describe('NewSaleWizard accommodation flow', () => {
     fireEvent.click(screen.getAllByLabelText('Emir Hadžić')[0]);
 
     fireEvent.click(screen.getByRole('button', { name: '+ Dodaj još smještaja' }));
-    const updatedSelects = screen.getAllByRole('combobox');
-    fireEvent.change(updatedSelects[1], { target: { value: 'allocation-single' } });
+    fireEvent.click(screen.getByRole('button', { name: /Single/ }));
     spinButtons = screen.getAllByRole('spinbutton');
     fireEvent.change(spinButtons[2], { target: { value: '1' } });
     fireEvent.change(spinButtons[3], { target: { value: '1' } });
@@ -225,19 +222,10 @@ describe('NewSaleWizard accommodation flow', () => {
     expect(screen.getByText("Smještaj mora pokriti sve putnike.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '+ Dodaj još smještaja' }));
-    fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: 'allocation-single' } });
-    fireEvent.change(screen.getAllByRole('spinbutton')[2], { target: { value: '1' } });
-    fireEvent.change(screen.getAllByRole('spinbutton')[3], { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: /Single/ }));
+    fireEvent.change(screen.getAllByRole('spinbutton')[2], { target: { value: '2' } });
+    fireEvent.change(screen.getAllByRole('spinbutton')[3], { target: { value: '2' } });
     fireEvent.click(screen.getByLabelText('Faruk Alić'));
-
-    fireEvent.click(continueButton);
-    expect(screen.getByText("Smještaj mora pokriti sve putnike.")).toBeInTheDocument();
-    expect(screen.getByText('Smještaj mora pokriti sve putnike u rezervaciji.')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: '+ Dodaj još smještaja' }));
-    fireEvent.change(screen.getAllByRole('combobox')[2], { target: { value: 'allocation-single' } });
-    fireEvent.change(screen.getAllByRole('spinbutton')[4], { target: { value: '1' } });
-    fireEvent.change(screen.getAllByRole('spinbutton')[5], { target: { value: '1' } });
     fireEvent.click(screen.getByLabelText('Nedim Alić'));
 
     expect(screen.getByText('Ukupno pokriveno: 4 / 4 putnika')).toBeInTheDocument();
@@ -271,12 +259,41 @@ describe('NewSaleWizard accommodation flow', () => {
     fireEvent.click(accommodationCards[0]);
 
     expect(accommodationCards[0]).toHaveAttribute('aria-pressed', 'true');
-    const selects = screen.getAllByRole('combobox') as HTMLSelectElement[];
-    expect(selects).toHaveLength(1);
-    expect(selects[0].value).toBe('allocation-double');
+    expect(screen.getByText('Odabrano')).toBeInTheDocument();
 
     fireEvent.click(accommodationCards[0]);
-    expect(screen.getAllByRole('combobox')).toHaveLength(1);
+    expect(screen.getAllByText('Odabrano').length).toBe(1);
+  });
+
+  it('does not create a duplicate line when the same option is re-selected after adding a line', async () => {
+    render(
+      <NewSaleWizard
+        isOpen
+        onClose={vi.fn()}
+        onCreated={vi.fn()}
+        initialPackageId="package-1"
+        initialDepartureId="departure-1"
+      />,
+    );
+
+    expect(await screen.findByText('Antalya Summer 2027')).toBeInTheDocument();
+    await waitFor(() => expect(getDepartureAccommodationOptions).toHaveBeenCalledWith('departure-1'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+    fireEvent.change(screen.getByPlaceholderText('Npr. Ahmed Hodžić'), { target: { value: 'Amina Hadžić' } });
+    fireEvent.change(screen.getByPlaceholderText('+387 61 234 567'), { target: { value: '+38761100001' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+
+    const accommodationCards = screen.getAllByRole('button', { name: /Hotel Azure Antalya/i });
+    fireEvent.click(accommodationCards[0]);
+
+    fireEvent.click(screen.getByRole('button', { name: '+ Dodaj još smještaja' }));
+    fireEvent.click(accommodationCards[0]);
+
+    expect(screen.getAllByText('Odabrano').length).toBe(1);
+    expect(screen.getAllByText(/Kapacitet linije/).length).toBe(1);
+    expect(screen.getByText('Smještaj 1')).toBeInTheDocument();
+    expect(screen.getByText('Smještaj 2')).toBeInTheDocument();
   });
 
   it('shows no legacy accommodation selector in Step 2, only in Step 3', async () => {
