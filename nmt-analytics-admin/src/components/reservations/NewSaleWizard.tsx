@@ -176,7 +176,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     setCustomerSearch(""); setSelectedCustomerId(null);
     setCustomerName(""); setCustomerPhone(""); setCustomerEmail("");
     setPartySize(1); setTotalAmount(""); setNotes("");
-    setPassengers([]); setCreateGroup(false); setGroupName("");
+    setPassengers([{ full_name: "" }]); setCreateGroup(false); setGroupName("");
     setPaymentPlan("full"); setDepositPct(50); setInstallmentCount(3);
     setValidationMessage("");
   }
