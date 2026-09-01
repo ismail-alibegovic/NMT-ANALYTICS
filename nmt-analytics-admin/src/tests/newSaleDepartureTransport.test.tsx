@@ -122,8 +122,8 @@ describe('NewSaleWizard — departure transport identity', () => {
     render(<NewSaleWizard isOpen onClose={vi.fn()} onCreated={vi.fn()} initialPackageId="pkg-shared" />);
     expect(await screen.findByText('Antalya Summer')).toBeInTheDocument();
 
-    const busText = screen.getByText('Autobus');
-    const flightText = screen.getByText('Avion');
+    const busText = screen.getByText('🚌 Autobus');
+    const flightText = screen.getByText('✈️ Avion');
     expect(busText).toBeInTheDocument();
     expect(flightText).toBeInTheDocument();
   });

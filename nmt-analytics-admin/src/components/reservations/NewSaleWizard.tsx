@@ -91,9 +91,12 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     : [];
   const hasVariants = variants.length > 0;
 
+
   const selectedTransportType = (selectedDeparture as any)?.transport_type ?? selectedDeparture?.capabilities?.transportType ?? "none";
 
   const activeDepartures = departures.filter((d) => d.status === "active" && d.booked < d.capacity);
+
+  const availableTransportTypes = Array.from(new Set(activeDepartures.map((d) => (d as any).transport_type ?? "none")));
   const accommodationLinesWithOption = accommodationLines.map((line) => ({
     line,
     option: accommodationOptions.find((item) => item.id === line.hotelAllocationId),
@@ -513,6 +516,14 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                 {activeDepartures.length === 1 && departureId === activeDepartures[0].id && (
                   <p className="text-xs text-green-600 -mt-0.5 mb-1">✓ Automatski odabran jedini dostupni termin</p>
                 )}
+                {availableTransportTypes.length > 1 && (
+                  <div className="flex items-center gap-2 mt-1 mb-2">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Dostupan prijevoz:</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
+                      {availableTransportTypes.map((t) => transportBadge(t)).join(" · ")}
+                    </span>
+                  </div>
+                )}
                 <div className="space-y-2 max-h-[160px] overflow-y-auto">
                   {activeDepartures.map((d) => {
                     const active = d.id === departureId;
@@ -527,21 +538,36 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                             : "border-gray-200 hover:border-gray-300 dark:border-gray-800"
                         }`}
                       >
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm text-gray-900 dark:text-white">
                             {new Date(d.depart_at).toLocaleDateString("bs-BA")} → {new Date(d.return_at).toLocaleDateString("bs-BA")}
                           </div>
-                          <div className="text-xs text-gray-500 mt-0.5">
-                            {d.transport_type === "flight" ? "Avion" : d.transport_type === "bus" ? "Autobus" : "Bez prijevoza"}
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                              d.transport_type === "flight"
+                                ? "bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
+                                : d.transport_type === "bus"
+                                  ? "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"
+                                  : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                            }`}>
+                              {transportBadge(d.transport_type)}
+                            </span>
                           </div>
                         </div>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          d.booked / d.capacity >= 0.8
-                            ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20"
-                            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20"
-                        }`}>
-                          {d.booked}/{d.capacity}
-                        </span>
+                        <div className="text-right shrink-0">
+                          <div className={`text-sm font-semibold ${
+                            d.capacity - d.booked <= 5
+                              ? "text-red-600 dark:text-red-400"
+                              : d.capacity - d.booked <= 10
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-emerald-600 dark:text-emerald-400"
+                          }`}>
+                            {d.capacity - d.booked} mjesta
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {d.booked}/{d.capacity} popunjeno
+                          </div>
+                        </div>
                       </button>
                     );
                   })}
@@ -1011,6 +1037,13 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       </div>
     </Modal>
   );
+}
+
+
+function transportBadge(type?: string) {
+  if (type === "flight") return "✈️ Avion";
+  if (type === "bus") return "🚌 Autobus";
+  return "Bez prijevoza";
 }
 
 function Row({ label, value }: { label: string; value: string }) {
