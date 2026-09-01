@@ -9,14 +9,20 @@ import { getDepartures, getDepartureAccommodationOptions, Departure, DepartureCa
 import { getCustomers, Customer } from "../../api/customers";
 import { createReservation } from "../../api/reservations";
 
-type Step = "arrangement" | "details" | "accommodation" | "review";
+type Step = "trip" | "travelers" | "accommodation" | "payment" | "review";
 
-const STEPS: { key: Step; label: string }[] = [
-  { key: "arrangement", label: "Aranžman" },
-  { key: "details", label: "Klijent i Putnici" },
-  { key: "accommodation", label: "Smještaj" },
-  { key: "review", label: "Pregled i Plaćanje" },
-];
+function getSteps(hasAccommodation: boolean): { key: Step; label: string }[] {
+  const steps: { key: Step; label: string }[] = [
+    { key: "trip", label: "Putovanje" },
+    { key: "travelers", label: "Klijent i putnici" },
+  ];
+  if (hasAccommodation) {
+    steps.push({ key: "accommodation", label: "Smještaj" });
+  }
+  steps.push({ key: "payment", label: "Cijena i plaćanje" });
+  steps.push({ key: "review", label: "Pregled" });
+  return steps;
+}
 
 type Variant = { id: string; name: string; priceModifier?: number; accommodation?: string };
 
@@ -24,9 +30,9 @@ interface PassengerEntry {
   full_name: string;
   id_document_type?: string;
   id_document_number?: string;
-  date_of_birth?: string;
-  nationality?: string;
 }
+
+type PaymentPlan = "full" | "deposit" | "installments";
 
 interface AccommodationLine {
   hotelAllocationId: string;
@@ -35,8 +41,6 @@ interface AccommodationLine {
   notes: string;
   passengerIndexes: number[];
 }
-
-type PaymentPlan = "full" | "deposit" | "installments";
 
 interface Props {
   isOpen: boolean;
@@ -49,12 +53,13 @@ interface Props {
 export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPackageId, initialDepartureId }: Props) {
   const { success, error: showError } = useToast();
 
-  const [step, setStep] = useState<Step>("arrangement");
+  const [step, setStep] = useState<Step>("trip");
   const [packages, setPackages] = useState<Package[]>([]);
   const [departures, setDepartures] = useState<Departure[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [validationMessage, setValidationMessage] = useState("");
 
   // Selections
   const [packageId, setPackageId] = useState("");
@@ -72,12 +77,12 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const [totalAmount, setTotalAmount] = useState("");
   const [notes, setNotes] = useState("");
 
-  // NEW: Passenger entries
+  // Passenger entries
   const [passengers, setPassengers] = useState<PassengerEntry[]>([]);
   const [createGroup, setCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState("");
 
-  // NEW: Payment plan
+  // Payment plan
   const [paymentPlan, setPaymentPlan] = useState<PaymentPlan>("full");
   const [depositPct, setDepositPct] = useState(50);
   const [installmentCount, setInstallmentCount] = useState(3);
@@ -91,12 +96,15 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     : [];
   const hasVariants = variants.length > 0;
 
-
   const selectedTransportType = (selectedDeparture as any)?.transport_type ?? selectedDeparture?.capabilities?.transportType ?? "none";
 
   const activeDepartures = departures.filter((d) => d.status === "active" && d.booked < d.capacity);
 
   const availableTransportTypes = Array.from(new Set(activeDepartures.map((d) => (d as any).transport_type ?? "none")));
+
+  const hasAccommodation = accommodationOptions.length > 0;
+  const steps = getSteps(hasAccommodation);
+
   const accommodationLinesWithOption = accommodationLines.map((line) => ({
     line,
     option: accommodationOptions.find((item) => item.id === line.hotelAllocationId),
@@ -144,7 +152,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   }, [partySize]);
 
   function reset() {
-    setStep("arrangement");
+    setStep("trip");
     setPackageId(""); setDepartureId(""); setVariantId("");
     setAccommodationOptions([]); setAccommodationLines([]);
     setCustomerSearch(""); setSelectedCustomerId(null);
@@ -152,6 +160,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     setPartySize(1); setTotalAmount(""); setNotes("");
     setPassengers([]); setCreateGroup(false); setGroupName("");
     setPaymentPlan("full"); setDepositPct(50); setInstallmentCount(3);
+    setValidationMessage("");
   }
 
   useEffect(() => {
@@ -320,10 +329,31 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     }));
   }
 
-  const stepIndex = STEPS.findIndex((s) => s.key === step);
+  const stepIndex = steps.findIndex((s) => s.key === step);
+
+  function getValidationMessage(): string {
+    if (step === "trip") {
+      if (!packageId) return "Odaberite paket.";
+      if (!departureId) return "Odaberite polazak.";
+      return "";
+    }
+    if (step === "travelers") {
+      if (!customerName.trim()) return "Unesite ime klijenta.";
+      if (!customerPhone.trim()) return "Unesite telefon.";
+      return "";
+    }
+    if (step === "accommodation") {
+      if (accommodationLines.length === 0) return "";
+      if (accommodationCoverage !== partySize) return "Smještaj mora pokriti sve putnike.";
+      if (!accommodationPassengerMappingValid) return "Dodijelite svakog putnika tačno jednoj liniji smještaja.";
+      return "";
+    }
+    return "";
+  }
+
   const canNext = (() => {
-    if (step === "arrangement") return !!packageId && !!departureId;
-    if (step === "details") return !!customerName && !!customerPhone;
+    if (step === "trip") return !!packageId && !!departureId;
+    if (step === "travelers") return !!customerName.trim() && !!customerPhone.trim();
     if (step === "accommodation") {
       if (accommodationOptions.length === 0) return true;
       if (accommodationLines.length === 0) return true;
@@ -342,10 +372,22 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
   function next() {
     if (!canNext) return;
-    setStep(STEPS[Math.min(stepIndex + 1, STEPS.length - 1)].key);
+    setValidationMessage("");
+    setStep(steps[Math.min(stepIndex + 1, steps.length - 1)].key);
   }
   function back() {
-    setStep(STEPS[Math.max(stepIndex - 1, 0)].key);
+    setValidationMessage("");
+    setStep(steps[Math.max(stepIndex - 1, 0)].key);
+  }
+
+  function handleNextAttempt() {
+    const msg = getValidationMessage();
+    if (msg) {
+      setValidationMessage(msg);
+    } else {
+      setValidationMessage("");
+      next();
+    }
   }
 
   async function submit() {
@@ -448,8 +490,8 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     <Modal isOpen={isOpen} onClose={onClose} className="max-w-3xl" title="Nova prodaja">
       {/* Stepper */}
       <div className="px-6 pt-5">
-        <ol className="flex items-center gap-2 text-xs">
-          {STEPS.map((s, i) => {
+        <ol className="flex items-center gap-2 text-xs flex-wrap">
+          {steps.map((s, i) => {
             const done = i < stepIndex;
             const active = i === stepIndex;
             return (
@@ -466,7 +508,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                   {done ? "\u2713" : i + 1}
                 </span>
                 <span className={active ? "font-medium text-gray-900 dark:text-white" : "text-gray-500"}>{s.label}</span>
-                {i < STEPS.length - 1 && <span className="text-gray-300 dark:text-gray-700">→</span>}
+                {i < steps.length - 1 && <span className="text-gray-300 dark:text-gray-700">→</span>}
               </li>
             );
           })}
@@ -476,8 +518,8 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       <div className="p-6 pt-4">
         {loading && <p className="text-sm text-gray-500">Učitavanje...</p>}
 
-        {/* Step 1: Arrangement + Departure */}
-        {step === "arrangement" && (
+        {/* Step: Trip — Package + Departure */}
+        {step === "trip" && (
           <div className="space-y-4">
             <div>
               <Label>Aranžman / Paket *</Label>
@@ -580,8 +622,8 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
           </div>
         )}
 
-        {/* Step 2: Client + Passengers + Options */}
-        {step === "details" && (
+        {/* Step: Travelers — Client + Passengers + Options */}
+        {step === "travelers" && (
           <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
             {/* Client section */}
             <div className="space-y-3">
@@ -675,7 +717,6 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               </div>
             )}
 
-
             <hr className="border-gray-100 dark:border-gray-800" />
 
             {/* Passenger entries */}
@@ -741,24 +782,10 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                 />
               )}
             </div>
-
-            <hr className="border-gray-100 dark:border-gray-800" />
-
-            {/* Price + Notes */}
-            <div className="grid grid-cols-1 gap-3">
-              <div>
-                <Label>Ukupan iznos (BAM)</Label>
-                <Input type="number" min="0" placeholder="0.00" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} />
-              </div>
-              <div>
-                <Label>Napomena</Label>
-                <Input type="text" placeholder="Npr. pomaže pri ulazu u avion..." value={notes} onChange={(e) => setNotes(e.target.value)} />
-              </div>
-            </div>
           </div>
         )}
 
-        {/* Step 3: Accommodation */}
+        {/* Step: Accommodation (conditional) */}
         {step === "accommodation" && (
           <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
             <div>
@@ -948,32 +975,35 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
           </div>
         )}
 
-        {/* Step 4: Review + Payment */}
-        {step === "review" && (
+        {/* Step: Payment — Price + Payment Terms */}
+        {step === "payment" && (
           <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
-            <h3 className="font-semibold text-gray-900 dark:text-white">Pregled prodaje</h3>
-            <dl className="rounded-xl border border-gray-200 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800 text-sm">
-              <Row label="Klijent" value={customerName} />
-              <Row label="Telefon" value={customerPhone} />
-              {customerEmail ? <Row label="Email" value={customerEmail} /> : null}
-              <Row label="Aranžman" value={selectedPackage?.name ?? "—"} />
-              <Row label="Termin" value={selectedDeparture ? `${new Date(selectedDeparture.depart_at).toLocaleDateString("bs-BA")} → ${new Date(selectedDeparture.return_at).toLocaleDateString("bs-BA")}` : "—"} />
-              {variantId ? <Row label="Opcija" value={variants.find((v) => v.id === variantId)?.name ?? "—"} /> : null}
-              <Row label="Prijevoz" value={selectedTransportType === "flight" ? "Avion" : selectedTransportType === "bus" ? "Autobus" : "Bez prijevoza"} />
-              <Row
-                label="Smještaj"
-                value={accommodationLinesWithOption.length > 0
-                  ? accommodationLinesWithOption.map(({ line, option }) => `${option?.hotel?.name || "Hotel"} · ${option?.roomLabel || "—"} · ${line.roomCount} soba`).join(" | ")
-                  : "—"}
-              />
-              <Row label="Putnici" value={`${partySize} ${passengers.filter((p) => p.full_name.trim()).length > 0 ? `(${passengers.filter((p) => p.full_name.trim()).map((p) => p.full_name).join(", ")})` : ""}`} />
-              {createGroup ? <Row label="Grupa" value={groupName || "Da"} /> : null}
-              {accommodationLinesWithOption.length > 0 ? <Row label="Smještaj ukupno" value={`${accommodationTotal} BAM`} /> : null}
-              <Row label="Ukupno" value={`${(Number(totalAmount || 0) + accommodationTotal) || "0"} BAM`} />
-              {notes ? <Row label="Napomena" value={notes} /> : null}
-            </dl>
+            
 
-            {/* Payment plan */}
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <Label>Ukupan iznos (BAM)</Label>
+                <Input type="number" min="0" placeholder="0.00" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} />
+              </div>
+            </div>
+
+            {accommodationTotal > 0 && (
+              <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Bazna cijena</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{totalAmount || "0"} BAM</span>
+                </div>
+                <div className="flex justify-between text-sm mt-1">
+                  <span className="text-gray-500">Smještaj</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{accommodationTotal} BAM</span>
+                </div>
+                <div className="flex justify-between text-sm mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                  <span className="font-medium text-gray-900 dark:text-white">Ukupno</span>
+                  <span className="font-semibold text-brand-600 dark:text-brand-400">{(Number(totalAmount || 0) + accommodationTotal) || "0"} BAM</span>
+                </div>
+              </div>
+            )}
+
             <div>
               <Label>Način plaćanja</Label>
               <div className="flex gap-2 mt-2 flex-wrap">
@@ -997,7 +1027,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                   <Label className="!m-0">Depozit %</Label>
                   <Input type="number" min="1" max="99" value={String(depositPct)} onChange={(e) => setDepositPct(Math.min(99, Math.max(1, parseInt(e.target.value) || 10)))} className="w-20 !py-1.5 !text-sm" />
                   <span className="text-xs text-gray-500">
-                    = {Math.round((totalAmount ? Number(totalAmount) : 0) * (depositPct / 100))} BAM
+                    = {Math.round((Number(totalAmount || 0) + accommodationTotal) * (depositPct / 100))} BAM
                   </span>
                 </div>
               )}
@@ -1006,11 +1036,54 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                   <Label className="!m-0">Broj rata</Label>
                   <Input type="number" min="2" max="24" value={String(installmentCount)} onChange={(e) => setInstallmentCount(Math.min(24, Math.max(2, parseInt(e.target.value) || 2)))} className="w-20 !py-1.5 !text-sm" />
                   <span className="text-xs text-gray-500">
-                    ≈ {totalAmount ? Math.round(Number(totalAmount) / installmentCount) : 0} BAM / rata
+                    ≈ {totalAmount ? Math.round((Number(totalAmount) + accommodationTotal) / installmentCount) : 0} BAM / rata
                   </span>
                 </div>
               )}
             </div>
+
+            <div>
+              <Label>Napomena</Label>
+              <Input type="text" placeholder="Npr. pomaže pri ulazu u avion..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        {/* Step: Review — Read-only summary */}
+        {step === "review" && (
+          <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+            <h3 className="font-semibold text-gray-900 dark:text-white">Pregled prodaje</h3>
+            <dl className="rounded-xl border border-gray-200 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800 text-sm">
+              <Row label="Klijent" value={customerName} />
+              <Row label="Telefon" value={customerPhone} />
+              {customerEmail ? <Row label="Email" value={customerEmail} /> : null}
+              <Row label="Aranžman" value={selectedPackage?.name ?? "—"} />
+              <Row label="Termin" value={selectedDeparture ? `${new Date(selectedDeparture.depart_at).toLocaleDateString("bs-BA")} → ${new Date(selectedDeparture.return_at).toLocaleDateString("bs-BA")}` : "—"} />
+              {variantId ? <Row label="Opcija" value={variants.find((v) => v.id === variantId)?.name ?? "—"} /> : null}
+              <Row label="Prijevoz" value={selectedTransportType === "flight" ? "Avion" : selectedTransportType === "bus" ? "Autobus" : "Bez prijevoza"} />
+              <Row
+                label="Smještaj"
+                value={accommodationLinesWithOption.length > 0
+                  ? accommodationLinesWithOption.map(({ line, option }) => `${option?.hotel?.name || "Hotel"} · ${option?.roomLabel || "—"} · ${line.roomCount} soba`).join(" | ")
+                  : "—"}
+              />
+              <Row label="Putnici" value={`${partySize} ${passengers.filter((p) => p.full_name.trim()).length > 0 ? `(${passengers.filter((p) => p.full_name.trim()).map((p) => p.full_name).join(", ")})` : ""}`} />
+              {createGroup ? <Row label="Grupa" value={groupName || "Da"} /> : null}
+              {accommodationLinesWithOption.length > 0 ? <Row label="Smještaj ukupno" value={`${accommodationTotal} BAM`} /> : null}
+              <Row label="Ukupno" value={`${(Number(totalAmount || 0) + accommodationTotal) || "0"} BAM`} />
+              <Row label="Plaćanje" value={paymentPlan === "full" ? "Puna uplata" : paymentPlan === "deposit" ? `Depozit ${depositPct}% + ostatak` : `${installmentCount} rata`} />
+              {paymentPlan === "deposit" && (
+                <Row label="Iznos depozita" value={`${Math.round((Number(totalAmount || 0) + accommodationTotal) * (depositPct / 100))} BAM`} />
+              )}
+              {notes ? <Row label="Napomena" value={notes} /> : null}
+            </dl>
+          </div>
+        )}
+
+        {/* Validation message */}
+        {validationMessage && (
+          <div className="mt-3 rounded-lg border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-3">
+            <p className="text-sm text-error-600 dark:text-error-400">{validationMessage}</p>
           </div>
         )}
 
@@ -1024,7 +1097,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               Odustani
             </Button>
             {step !== "review" ? (
-              <Button onClick={next} disabled={!canNext || loading}>
+              <Button onClick={handleNextAttempt} disabled={loading}>
                 Dalje
               </Button>
             ) : (

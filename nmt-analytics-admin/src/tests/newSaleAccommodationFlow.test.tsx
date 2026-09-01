@@ -140,6 +140,7 @@ describe('NewSaleWizard accommodation flow', () => {
     fireEvent.click(screen.getByLabelText('Haris Hadžić'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
     fireEvent.click(screen.getByRole('button', { name: 'Potvrdi prodaju' }));
 
     await waitFor(() => expect(createReservation).toHaveBeenCalledTimes(1));
@@ -220,7 +221,8 @@ describe('NewSaleWizard accommodation flow', () => {
     fireEvent.click(screen.getByLabelText('Ahmed Alić'));
     fireEvent.click(screen.getByLabelText('Kenan Alić'));
 
-    expect(continueButton.disabled).toBe(true);
+    fireEvent.click(continueButton);
+    expect(screen.getByText("Smještaj mora pokriti sve putnike.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '+ Dodaj još smještaja' }));
     fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: 'allocation-single' } });
@@ -228,7 +230,8 @@ describe('NewSaleWizard accommodation flow', () => {
     fireEvent.change(screen.getAllByRole('spinbutton')[3], { target: { value: '1' } });
     fireEvent.click(screen.getByLabelText('Faruk Alić'));
 
-    expect(continueButton.disabled).toBe(true);
+    fireEvent.click(continueButton);
+    expect(screen.getByText("Smještaj mora pokriti sve putnike.")).toBeInTheDocument();
     expect(screen.getByText('Smještaj mora pokriti sve putnike u rezervaciji.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '+ Dodaj još smještaja' }));
@@ -242,7 +245,7 @@ describe('NewSaleWizard accommodation flow', () => {
     expect(continueButton.disabled).toBe(false);
 
     fireEvent.click(continueButton);
-    expect(screen.getByText('Pregled prodaje')).toBeInTheDocument();
+    expect(screen.getByText('Ukupan iznos (BAM)')).toBeInTheDocument();
   });
 
   it('selects a visible accommodation card without creating duplicate empty lines', async () => {
@@ -330,8 +333,13 @@ describe('NewSaleWizard accommodation flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
     fireEvent.change(screen.getByPlaceholderText('Npr. Ahmed Hodžić'), { target: { value: 'Amina Hadžić' } });
     fireEvent.change(screen.getByPlaceholderText('+387 61 234 567'), { target: { value: '+38761100001' } });
+    // accommodation -> payment
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+    // payment -> review
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+    // -> review
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+    await waitFor(() => expect(screen.getByText('Pregled prodaje')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Potvrdi prodaju' }));
 
     await waitFor(() => expect(toastError).toHaveBeenCalledWith('Nema dovoljno mjesta na odabranom polasku.'));
