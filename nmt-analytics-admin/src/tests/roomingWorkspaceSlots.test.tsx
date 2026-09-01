@@ -197,6 +197,28 @@ describe('RoomingWorkspace room slots', () => {
     expect(getDepartureRoomSlots).toHaveBeenCalledTimes(2);
   });
 
+  it('treats display-label room types as compatible with canonical slot codes', async () => {
+    const displayLabelPassengers = passengers.map((p, index) => ({
+      ...p,
+      roomType: index === 0 ? 'Double' : 'double',
+    }));
+
+    render(<RoomingWorkspace departureId="departure-1" passengers={displayLabelPassengers as any} />);
+
+    await screen.findByText('Amina Hadžić');
+    fireEvent.click(within(screen.getByText('Amina Hadžić').closest('.rounded-lg.border') as HTMLElement).getByRole('button', { name: 'Select Room' }));
+
+    const compatibleTarget = within(screen.getByRole('button', { name: /Hotel Azure Antalya · Double 01/ }));
+    expect(compatibleTarget.queryByText('Not compatible')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Hotel Azure Antalya · Triple 01/ })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /Hotel Azure Antalya · Double 01/ }));
+
+    await waitFor(() => {
+      expect(assignPassengerToRoomSlot).toHaveBeenCalledWith('slot-double-1', 'passenger-1');
+    });
+  });
+
   it('renders fallback load failure text instead of crashing when translations are missing', async () => {
     useTMock.mockReturnValue({ t: { departures: {} } } as any);
     getDepartureRoomSlots.mockRejectedValueOnce(new Error());

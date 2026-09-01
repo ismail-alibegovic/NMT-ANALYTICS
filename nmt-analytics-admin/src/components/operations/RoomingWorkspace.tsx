@@ -169,7 +169,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
       const matchesRequirement = !passenger?.hotelAllocationId || (
         passenger.hotelAllocationId === slot.hotelAllocationId &&
         (!passenger.hotelId || passenger.hotelId === slot.hotelId) &&
-        (!passenger.roomType || passenger.roomType === slot.roomType)
+        (!passenger.roomType || passenger.roomType.toLowerCase() === slot.roomType.toLowerCase())
       );
       return { slot, occupied, isFull, matchesRequirement };
     });
