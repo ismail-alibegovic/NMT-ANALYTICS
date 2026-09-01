@@ -299,9 +299,6 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
   function selectAccommodationOption(optionId: string) {
     setAccommodationLines((current) => {
-      const existingIndex = current.findIndex((line) => line.hotelAllocationId === optionId);
-      if (existingIndex >= 0) return current;
-
       const emptyIndex = current.findIndex((line) => !line.hotelAllocationId);
       if (emptyIndex >= 0) {
         return current.map((line, index) => index === emptyIndex
@@ -896,21 +893,12 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                         </button>
                       </div>
 
-                      <div>
-                        <Label>Allotment</Label>
-                        <select
-                          value={line.hotelAllocationId}
-                          onChange={(e) => updateAccommodationLine(index, { hotelAllocationId: e.target.value, passengerIndexes: [] })}
-                          className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900"
-                        >
-                          <option value="">-- Odaberi smještaj --</option>
-                          {accommodationOptions.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {(option.hotel?.name || "Hotel")} · {option.roomLabel} · slobodno {option.availableRooms}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      {option && (
+                        <div className="rounded-lg bg-gray-50 px-3 py-2.5 text-sm dark:bg-gray-900">
+                          <span className="font-medium text-gray-900 dark:text-white">{option.hotel?.name || "Hotel"}</span>
+                          <span className="text-gray-500"> · {option.roomLabel || option.roomType} · slobodno {option.availableRooms}</span>
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
