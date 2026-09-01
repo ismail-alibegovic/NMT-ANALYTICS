@@ -5,6 +5,7 @@ import NewSaleWizard from '../components/reservations/NewSaleWizard';
 const getPackages = vi.fn();
 const getDepartures = vi.fn();
 const getDepartureAccommodationOptions = vi.fn();
+const getPackageServices = vi.fn();
 const getCustomers = vi.fn();
 const createReservation = vi.fn();
 
@@ -27,6 +28,10 @@ vi.mock('../api/customers', () => ({
 
 vi.mock('../api/reservations', () => ({
   createReservation: (...args: any[]) => createReservation(...args),
+}));
+
+vi.mock('../api/operations', () => ({
+  getPackageServices: (...args: any[]) => getPackageServices(...args),
 }));
 
 vi.mock('../context/ToastContext', () => ({
@@ -80,6 +85,7 @@ describe('NewSaleWizard — clear transport alternatives', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getDepartureAccommodationOptions.mockResolvedValue({ items: [] });
+    getPackageServices.mockResolvedValue([]);
     getCustomers.mockResolvedValue({ data: [] });
     createReservation.mockResolvedValue({ id: 'reservation-1' });
   });

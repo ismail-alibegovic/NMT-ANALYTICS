@@ -286,7 +286,9 @@ export interface PackageService {
 }
 
 export async function getPackageServices(packageId: string): Promise<PackageService[]> {
-  const { data } = await get<{ data: PackageService[] }>(`/package-services/${packageId}`);
+  const { data } = await get<{ data: PackageService[] }>('/package-services', {
+    params: { packageId, limit: 200 },
+  });
   return data.data || [];
 }
 
@@ -298,7 +300,7 @@ export async function createPackageService(packageId: string, payload: {
   description?: string;
   isOptional?: boolean;
 }): Promise<PackageService> {
-  const { data } = await post<PackageService>(`/package-services/${packageId}/services`, payload);
+  const { data } = await post<PackageService>('/package-services', { packageId, ...payload });
   return data;
 }
 

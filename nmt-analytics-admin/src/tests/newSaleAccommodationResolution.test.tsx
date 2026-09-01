@@ -4,12 +4,14 @@ import NewSaleWizard from "../components/reservations/NewSaleWizard";
 const getPackages = vi.fn();
 const getDepartures = vi.fn();
 const getDepartureAccommodationOptions = vi.fn();
+const getPackageServices = vi.fn();
 const getCustomers = vi.fn();
 const createReservation = vi.fn();
 const useToast = vi.fn();
 
 vi.mock("../api/packages", () => ({ getPackages: (...args: any[]) => getPackages(...args) }));
 vi.mock("../api/departures", () => ({ getDepartures: (...args: any[]) => getDepartures(...args), getDepartureAccommodationOptions: (...args: any[]) => getDepartureAccommodationOptions(...args) }));
+vi.mock("../api/operations", () => ({ getPackageServices: (...args: any[]) => getPackageServices(...args) }));
 vi.mock("../api/customers", () => ({ getCustomers: (...args: any[]) => getCustomers(...args) }));
 vi.mock("../api/reservations", () => ({ createReservation: (...args: any[]) => createReservation(...args) }));
 vi.mock("../context/ToastContext", () => ({ useToast: (...args: any[]) => useToast(...args) }));
@@ -55,6 +57,7 @@ describe("NewSaleWizard — accommodation resolution race", () => {
     vi.clearAllMocks();
     getPackages.mockResolvedValue({ data: [pkg] });
     getDepartures.mockResolvedValue({ data: [departure] });
+    getPackageServices.mockResolvedValue([]);
     getCustomers.mockResolvedValue({ data: [] });
     createReservation.mockResolvedValue({ id: "reservation-1" });
     // Default: accommodation resolves with option
