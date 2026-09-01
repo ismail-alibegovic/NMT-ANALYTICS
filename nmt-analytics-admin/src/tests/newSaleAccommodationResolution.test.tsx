@@ -50,15 +50,6 @@ const accommodationOption = {
   hotel: { id: "hotel-1", name: "Hotel Azure Antalya", destination: "Antalya", stars: 4 },
 };
 
-async function selectPackageAndDeparture() {
-  await waitFor(() => expect(screen.getByText("Antalya Summer 2027")).toBeInTheDocument());
-  fireEvent.click(screen.getByText("Antalya Summer 2027"));
-  await waitFor(() => {
-    const depButtons = screen.getAllByText(/Hotel Azure/).length || screen.queryAllByText(/15\.06\./).length;
-    expect(depButtons > 0 || screen.queryAllByRole("button").length > 3).toBe(true);
-  });
-}
-
 describe("NewSaleWizard — accommodation resolution race", () => {
   beforeEach(() => {
     vi.clearAllMocks();
