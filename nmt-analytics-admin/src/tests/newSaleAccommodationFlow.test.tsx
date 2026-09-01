@@ -96,7 +96,7 @@ describe('NewSaleWizard accommodation flow', () => {
     createReservation.mockResolvedValue({ id: 'reservation-1' });
   });
 
-  it('creates a reservation with plural accommodation requirements and passenger mapping', async () => {
+  it('creates a reservation with automatic accommodation requirements for a standard booking', async () => {
     const onCreated = vi.fn();
     const onClose = vi.fn();
     render(
@@ -123,21 +123,10 @@ describe('NewSaleWizard accommodation flow', () => {
 
     expect((await screen.findAllByText('Hotel Azure Antalya')).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: /Double/ }));
-    let spinButtons = screen.getAllByRole('spinbutton');
-    fireEvent.change(spinButtons[0], { target: { value: '1' } });
-    fireEvent.change(spinButtons[1], { target: { value: '2' } });
-    fireEvent.click(screen.getAllByLabelText('Amina Hadžić')[0]);
-    fireEvent.click(screen.getAllByLabelText('Emir Hadžić')[0]);
-
-    fireEvent.click(screen.getByRole('button', { name: '+ Dodaj još smještaja' }));
-    fireEvent.click(screen.getByRole('button', { name: /Single/ }));
-    spinButtons = screen.getAllByRole('spinbutton');
-    fireEvent.change(spinButtons[2], { target: { value: '1' } });
-    fireEvent.change(spinButtons[3], { target: { value: '1' } });
-    fireEvent.click(screen.getByLabelText('Haris Hadžić'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+    expect(await screen.findByText('Pregled prodaje')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Potvrdi prodaju' }));
 
     await waitFor(() => expect(createReservation).toHaveBeenCalledTimes(1));
@@ -146,38 +135,25 @@ describe('NewSaleWizard accommodation flow', () => {
       customerPhone: '+38761100001',
       departureId: 'departure-1',
       upsert: true,
-      totalAmount: 2370,
+      totalAmount: 2570,
       hotelName: 'Hotel Azure Antalya',
       roomType: 'Double',
       accommodationRequirements: [
         {
           hotelAllocationId: 'allocation-double',
-          roomCount: 1,
-          guestsExpected: 2,
+          roomCount: 2,
+          guestsExpected: 3,
           notes: undefined,
-          passengerIndexes: [0, 1],
-        },
-        {
-          hotelAllocationId: 'allocation-single',
-          roomCount: 1,
-          guestsExpected: 1,
-          notes: undefined,
-          passengerIndexes: [2],
+          passengerIndexes: [0, 1, 2],
         },
       ],
     }));
     expect(createReservation.mock.calls[0][0].options.accommodation).toEqual([
       expect.objectContaining({
         hotel_allocation_id: 'allocation-double',
-        room_count: 1,
-        total_sell_price: 790,
-        passenger_indexes: [0, 1],
-      }),
-      expect.objectContaining({
-        hotel_allocation_id: 'allocation-single',
-        room_count: 1,
-        total_sell_price: 590,
-        passenger_indexes: [2],
+        room_count: 2,
+        total_sell_price: 1580,
+        passenger_indexes: [0, 1, 2],
       }),
     ]);
     expect(toastSuccess).toHaveBeenCalledWith('Rezervacija kreirana');
@@ -185,7 +161,7 @@ describe('NewSaleWizard accommodation flow', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('enables Continue only after a valid 4-traveler double-plus-two-singles mapping', async () => {
+  it('enables Continue after a valid 4-traveler automatic double mapping', async () => {
     render(
       <NewSaleWizard
         isOpen
@@ -213,27 +189,13 @@ describe('NewSaleWizard accommodation flow', () => {
     expect(continueButton.disabled).toBe(false);
 
     fireEvent.click(screen.getAllByRole('button', { name: /Hotel Azure Antalya/i })[0]);
-    fireEvent.change(screen.getAllByRole('spinbutton')[0], { target: { value: '1' } });
-    fireEvent.change(screen.getAllByRole('spinbutton')[1], { target: { value: '2' } });
-    fireEvent.click(screen.getByLabelText('Ahmed Alić'));
-    fireEvent.click(screen.getByLabelText('Kenan Alić'));
-
-    fireEvent.click(continueButton);
-    expect(screen.getByText("Smještaj mora pokriti sve putnike.")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: '+ Dodaj još smještaja' }));
-    fireEvent.click(screen.getByRole('button', { name: /Single/ }));
-    fireEvent.change(screen.getAllByRole('spinbutton')[2], { target: { value: '2' } });
-    fireEvent.change(screen.getAllByRole('spinbutton')[3], { target: { value: '2' } });
-    fireEvent.click(screen.getByLabelText('Faruk Alić'));
-    fireEvent.click(screen.getByLabelText('Nedim Alić'));
 
     expect(screen.getByText('Ukupno pokriveno: 4 / 4 putnika')).toBeInTheDocument();
     expect(screen.queryByText('Smještaj mora pokriti sve putnike u rezervaciji.')).not.toBeInTheDocument();
     expect(continueButton.disabled).toBe(false);
 
     fireEvent.click(continueButton);
-    expect(screen.getByText('Ukupan iznos (BAM)')).toBeInTheDocument();
+    expect(await screen.findByText('Ukupan iznos (BAM)')).toBeInTheDocument();
   });
 
   it('selects a visible accommodation card without creating duplicate empty lines', async () => {
