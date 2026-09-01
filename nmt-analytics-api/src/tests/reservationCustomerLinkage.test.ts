@@ -7,6 +7,8 @@ const USER_ID = 'user-1';
 const EXISTING_CUSTOMER_ID = '11111111-1111-4111-8111-111111111111';
 const NEW_CUSTOMER_ID = '22222222-2222-4222-8222-222222222222';
 const RESERVATION_ID = '33333333-3333-4333-8333-333333333333';
+const DEPARTURE_ID = '44444444-4444-4444-8444-444444444444';
+const HOTEL_ALLOCATION_ID = '55555555-5555-4555-8555-555555555555';
 
 let customers = [
   {
@@ -20,6 +22,9 @@ let customers = [
 ];
 
 let reservations: any[] = [];
+let createdDeparturePassengers = [
+  { id: 'passenger-1', full_name: 'Traveller One' },
+];
 const replaceReservationAccommodation = vi.fn(async () => []);
 type LooseRow = Record<string, any>;
 
@@ -151,7 +156,7 @@ vi.mock('../lib/supabase', () => {
   }
 
   function buildDeparturesQuery() {
-    let rows = [{ id: 'departure-1', org_id: ORG_ID, package_id: 'package-1', packages: { name: 'Test package' } }];
+    let rows = [{ id: DEPARTURE_ID, org_id: ORG_ID, package_id: 'package-1', packages: { name: 'Test package' } }];
     const builder: any = {
       select: vi.fn(() => builder),
       eq: vi.fn((column: string, value: any) => {
@@ -168,7 +173,7 @@ vi.mock('../lib/supabase', () => {
     return {
       insert: vi.fn(() => ({
         select: vi.fn(() => ({
-          single: vi.fn(async () => ({ data: { id: 'passenger-1', full_name: 'Traveller One' }, error: null })),
+          single: vi.fn(async () => ({ data: createdDeparturePassengers.shift() || null, error: null })),
         })),
       })),
       select: vi.fn(() => ({
@@ -225,6 +230,9 @@ beforeEach(() => {
     },
   ];
   reservations = [];
+  createdDeparturePassengers = [
+    { id: 'passenger-1', full_name: 'Traveller One' },
+  ];
 });
 
 describe('POST /api/reservations customer linkage', () => {
@@ -255,5 +263,73 @@ describe('POST /api/reservations customer linkage', () => {
       customer_name: 'New Commercial Customer',
       customer_phone: '+38762222222',
     });
+  });
+
+  it('maps accommodation passengerIndexes to persisted passengerIds before saving accommodation requirements', async () => {
+    createdDeparturePassengers = [
+      { id: 'passenger-a', full_name: 'Traveller A' },
+      { id: 'passenger-b', full_name: 'Traveller B' },
+      { id: 'passenger-c', full_name: 'Traveller C' },
+    ];
+    replaceReservationAccommodation.mockResolvedValueOnce([
+      {
+        id: 'requirement-1',
+        reservationId: RESERVATION_ID,
+        hotelAllocationId: HOTEL_ALLOCATION_ID,
+        roomCount: 2,
+        guestsExpected: 3,
+        passengerIds: ['passenger-a', 'passenger-b', 'passenger-c'],
+      },
+    ] as any);
+
+    const res = await request(app)
+      .post('/api/reservations')
+      .send({
+        customerName: 'Accommodation Customer',
+        customerPhone: '+38763333333',
+        customerEmail: 'accommodation@example.com',
+        departureId: DEPARTURE_ID,
+        partySize: 3,
+        passengers: [
+          { full_name: 'Traveller A' },
+          { full_name: 'Traveller B' },
+          { full_name: 'Traveller C' },
+        ],
+        reservationAt: '2026-09-01T12:00:00.000Z',
+        status: 'pending',
+        source: 'agent',
+        upsert: true,
+        accommodationRequirements: [
+          {
+            hotelAllocationId: HOTEL_ALLOCATION_ID,
+            roomCount: 2,
+            guestsExpected: 3,
+            passengerIndexes: [0, 1, 2],
+          },
+        ],
+      });
+
+    expect(res.status).toBe(201);
+    expect(replaceReservationAccommodation).toHaveBeenCalledWith(
+      RESERVATION_ID,
+      ORG_ID,
+      [
+        expect.objectContaining({
+          hotelAllocationId: HOTEL_ALLOCATION_ID,
+          roomCount: 2,
+          guestsExpected: 3,
+          passengerIds: ['passenger-a', 'passenger-b', 'passenger-c'],
+        }),
+      ],
+    );
+    expect(res.body.accommodationRequirements).toEqual([
+      expect.objectContaining({
+        id: 'requirement-1',
+        hotelAllocationId: HOTEL_ALLOCATION_ID,
+        roomCount: 2,
+        guestsExpected: 3,
+        passengerIds: ['passenger-a', 'passenger-b', 'passenger-c'],
+      }),
+    ]);
   });
 });
