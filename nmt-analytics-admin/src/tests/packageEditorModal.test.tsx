@@ -164,7 +164,7 @@ vi.mock('../icons', () => {
 });
 
 function getHotelSelect() {
-  return screen.getAllByRole('combobox')[3];
+  return screen.getAllByRole('combobox')[5];
 }
 
 function getHotelCard(name: string) {

@@ -14,6 +14,7 @@ import {
   type PackageTransportType,
   type PackageVariant,
   type PackageVariantTier,
+  type TravelerRequirements,
 } from "../../api/packages";
 import {
   getPackageHotels,
@@ -25,6 +26,9 @@ import {
   type RoomOption,
 } from "../../api/packageHotels";
 import { createHotel, getHotels, type Hotel } from "../../api/operations";
+import TravelerRequirementsFields, {
+  DEFAULT_TRAVELER_REQUIREMENTS,
+} from "../travelers/TravelerRequirementsFields";
 
 type Variant = {
   id?: string;
@@ -133,6 +137,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
   const [active, setActive] = useState(true);
   const [transportType, setTransportType] = useState<PackageTransportType>("none");
   const [transportCapacity, setTransportCapacity] = useState<number | "">("");
+  const [travelerReq, setTravelerReq] = useState<TravelerRequirements>(DEFAULT_TRAVELER_REQUIREMENTS);
   const [tripType, setTripType] = useState<string>("");
   const [variants, setVariants] = useState<Variant[]>([]);
   const [catalogHotels, setCatalogHotels] = useState<Hotel[]>([]);
@@ -168,6 +173,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       setTransportType(initial.transportType ?? initial.transport_type ?? "none");
       setTripType(initial.tripType ?? initial.trip_type ?? "");
       setTransportCapacity(initial.transportCapacity ?? initial.transport_capacity ?? "");
+      setTravelerReq(initial.travelerRequirements ?? DEFAULT_TRAVELER_REQUIREMENTS);
       setVariants((initial.variants ?? []).map((variant: PackageVariant) => ({
         id: variant.id,
         name: variant.name || "",
@@ -190,6 +196,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       setTransportType("none");
       setTripType("");
       setTransportCapacity("");
+      setTravelerReq(DEFAULT_TRAVELER_REQUIREMENTS);
       setVariants([]);
     } else {
       setName("");
@@ -202,6 +209,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
       setTransportType("none");
       setTripType("");
       setTransportCapacity("");
+      setTravelerReq(DEFAULT_TRAVELER_REQUIREMENTS);
       setVariants([]);
     }
     setSubmitting(false);
@@ -558,6 +566,7 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
         transportType,
         tripType: tripType || null,
         transportCapacity: transportType === "none" ? null : Number(transportCapacity || 0),
+        travelerRequirements: travelerReq,
         variants: variants.map((v) => ({
           id: v.id,
           name: v.name.trim(),
@@ -724,6 +733,13 @@ export default function PackageEditorModal({ isOpen, onClose, onSaved, initial, 
               />
             </div>
           </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
+          <div className="mb-3">
+            <h4 className="text-base font-semibold text-gray-900 dark:text-white">Podaci putnika</h4>
+          </div>
+          <TravelerRequirementsFields value={travelerReq} onChange={setTravelerReq} />
         </div>
 
         <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
