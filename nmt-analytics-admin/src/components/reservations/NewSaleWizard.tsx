@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
@@ -8,16 +8,20 @@ import { getPackages, Package } from "../../api/packages";
 import { getDepartures, getDepartureAccommodationOptions, Departure, DepartureCapabilities, type DepartureAccommodationOption } from "../../api/departures";
 import { getCustomers, Customer } from "../../api/customers";
 import { createReservation } from "../../api/reservations";
+import { getPackageServices, type PackageService } from "../../api/operations";
 
-type Step = "trip" | "travelers" | "accommodation" | "payment" | "review";
+type Step = "trip" | "travelers" | "accommodation" | "addons" | "payment" | "review";
 
-function getSteps(hasAccommodation: boolean): { key: Step; label: string }[] {
+function getSteps(hasAccommodation: boolean, hasOptionalAddons: boolean): { key: Step; label: string }[] {
   const steps: { key: Step; label: string }[] = [
     { key: "trip", label: "Putovanje" },
     { key: "travelers", label: "Klijent i putnici" },
   ];
   if (hasAccommodation) {
     steps.push({ key: "accommodation", label: "Smještaj" });
+  }
+  if (hasOptionalAddons) {
+    steps.push({ key: "addons", label: "Add-ons" });
   }
   steps.push({ key: "payment", label: "Cijena i plaćanje" });
   steps.push({ key: "review", label: "Pregled" });
@@ -40,6 +44,11 @@ interface AccommodationLine {
   guestsExpected: number;
   notes: string;
   passengerIndexes: number[];
+}
+
+interface SelectedAddon {
+  serviceId: string;
+  quantity: number;
 }
 
 function buildAutomaticAccommodationLine(
@@ -94,6 +103,10 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const [accommodationOptions, setAccommodationOptions] = useState<DepartureAccommodationOption[]>([]);
   const [accommodationResolved, setAccommodationResolved] = useState<"idle" | "loading" | "resolved" | "error">("idle");
   const [accommodationLines, setAccommodationLines] = useState<AccommodationLine[]>([]);
+  const [packageServices, setPackageServices] = useState<PackageService[]>([]);
+  const [packageServicesResolved, setPackageServicesResolved] = useState<"idle" | "loading" | "resolved" | "error">("idle");
+  const packageServicesRequestId = useRef(0);
+  const [selectedAddons, setSelectedAddons] = useState<Record<string, SelectedAddon>>({});
   const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
@@ -129,7 +142,18 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const availableTransportTypes = Array.from(new Set(activeDepartures.map((d) => (d as any).transport_type ?? "none")));
 
   const hasAccommodation = accommodationResolved === "resolved" && accommodationOptions.length > 0;
-  const steps = getSteps(hasAccommodation);
+  const optionalAddons = packageServices.filter((service) => service.isOptional === true);
+  const selectedAddonItems = Object.values(selectedAddons)
+    .map((selection) => {
+      const service = optionalAddons.find((item) => item.id === selection.serviceId);
+      return service ? { service, quantity: selection.quantity } : null;
+    })
+    .filter((item): item is { service: PackageService; quantity: number } => Boolean(item));
+  const addOnsTotal = selectedAddonItems.reduce((sum, item) => sum + (item.service.unitPrice || 0) * item.quantity, 0);
+  const hasOptionalAddons = packageServicesResolved === "resolved" && optionalAddons.length > 0;
+  const steps = getSteps(hasAccommodation, hasOptionalAddons);
+  const preAddonsStep: Step = hasAccommodation ? "accommodation" : "travelers";
+  const shouldGatePackageServicesResolution = Boolean(packageId) && step === preAddonsStep;
 
   const accommodationLinesWithOption = accommodationLines.map((line) => ({
     line,
@@ -139,6 +163,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     accommodationLines.length === 1 &&
     !!accommodationLines[0]?.hotelAllocationId;
   const accommodationTotal = accommodationLinesWithOption.reduce((sum, item) => sum + ((item.option?.unitSellPrice || 0) * item.line.roomCount), 0);
+  const displayedTotal = (Number(totalAmount || 0) + accommodationTotal + addOnsTotal) || 0;
   const accommodationCoverage = accommodationLines.reduce((sum, line) => sum + line.guestsExpected, 0);
   const mappedPassengerIndexes = accommodationLines.flatMap((line) => line.passengerIndexes);
   const uniqueMappedPassengerIndexes = new Set(mappedPassengerIndexes);
@@ -221,8 +246,10 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   function reset() {
     setStep("trip");
     setAccommodationResolved("idle");
+    setPackageServicesResolved("idle");
     setPackageId(""); setDepartureId(""); setVariantId("");
     setAccommodationOptions([]); setAccommodationLines([]);
+    setPackageServices([]); setSelectedAddons({});
     setCustomerSearch(""); setSelectedCustomerId(null);
     setCustomerName(""); setCustomerPhone(""); setCustomerEmail("");
     setPartySize(1); setTotalAmount(""); setNotes("");
@@ -261,13 +288,39 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     }
   }
 
+  const loadPackageServices = useCallback((nextPackageId: string) => {
+    const requestId = packageServicesRequestId.current + 1;
+    packageServicesRequestId.current = requestId;
+    setPackageServices([]);
+    setSelectedAddons({});
+    setPackageServicesResolved("loading");
+
+    getPackageServices(nextPackageId)
+      .then((services) => {
+        if (packageServicesRequestId.current !== requestId) return;
+        setPackageServices(services);
+        setPackageServicesResolved("resolved");
+      })
+      .catch(() => {
+        if (packageServicesRequestId.current !== requestId) return;
+        setPackageServices([]);
+        setSelectedAddons({});
+        setPackageServicesResolved("error");
+      });
+  }, []);
+
   // When package is selected, load its departures
   useEffect(() => {
     if (!packageId) {
+      packageServicesRequestId.current += 1;
       setDepartures([]); setDepartureId("");
+      setPackageServices([]);
+      setPackageServicesResolved("idle");
+      setSelectedAddons({});
       return;
     }
     setDepartureId("");
+    loadPackageServices(packageId);
     getDepartures({ packageId, limit: 200 })
       .then((r) => {
         const deps = r.data ?? [];
@@ -282,7 +335,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         }
       })
       .catch(() => setDepartures([]));
-  }, [packageId, initialDepartureId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [packageId, initialDepartureId, loadPackageServices]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!departureId) {
@@ -409,6 +462,31 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     }));
   }
 
+  function retryPackageServices() {
+    if (!packageId) return;
+    loadPackageServices(packageId);
+  }
+
+  function toggleAddon(serviceId: string) {
+    if (!optionalAddons.some((service) => service.id === serviceId)) return;
+    setSelectedAddons((current) => {
+      if (current[serviceId]) {
+        const next = { ...current };
+        delete next[serviceId];
+        return next;
+      }
+      return { ...current, [serviceId]: { serviceId, quantity: 1 } };
+    });
+  }
+
+  function updateAddonQuantity(serviceId: string, quantity: number) {
+    if (!selectedAddons[serviceId]) return;
+    setSelectedAddons((current) => ({
+      ...current,
+      [serviceId]: { ...current[serviceId], quantity: Math.max(1, quantity || 1) },
+    }));
+  }
+
   const stepIndex = steps.findIndex((s) => s.key === step);
 
   function getValidationMessage(): string {
@@ -422,12 +500,16 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       if (!customerPhone.trim()) return "Unesite telefon.";
       if (accommodationResolved === "loading") return "Smještaj se još učitava...";
       if (accommodationResolved === "error") return "Nije moguće provjeriti smještaj za ovaj polazak. Pokušajte ponovo.";
+      if (shouldGatePackageServicesResolution && packageServicesResolved === "loading") return "Dodatne usluge se još učitavaju...";
+      if (shouldGatePackageServicesResolution && packageServicesResolved === "error") return "Nije moguće učitati dodatne usluge za ovaj paket.";
       return "";
     }
     if (step === "accommodation") {
       if (accommodationLines.length > 0 && passengers.some((passenger) => !passenger.full_name.trim())) {
         return "Unesite ime svih putnika prije nastavka sa smještajem.";
       }
+      if (shouldGatePackageServicesResolution && packageServicesResolved === "loading") return "Dodatne usluge se još učitavaju...";
+      if (shouldGatePackageServicesResolution && packageServicesResolved === "error") return "Nije moguće učitati dodatne usluge za ovaj paket.";
       if (accommodationLines.length === 0) return "";
       const inventoryBlockedLine = accommodationLines.find((line) => {
         const validation = getAccommodationLineValidation(line);
@@ -450,8 +532,9 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
   const canNext = (() => {
     if (step === "trip") return !!packageId && !!departureId;
-    if (step === "travelers") return !!customerName.trim() && !!customerPhone.trim() && accommodationResolved !== "loading" && accommodationResolved !== "error";
+    if (step === "travelers") return !!customerName.trim() && !!customerPhone.trim() && accommodationResolved !== "loading" && accommodationResolved !== "error" && (!shouldGatePackageServicesResolution || packageServicesResolved === "resolved");
     if (step === "accommodation") {
+      if (shouldGatePackageServicesResolution && packageServicesResolved !== "resolved") return false;
       if (accommodationOptions.length === 0) return true;
       if (accommodationLines.length === 0) return true;
       if (passengers.some((passenger) => !passenger.full_name.trim())) return false;
@@ -736,6 +819,19 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                 </button>
               </div>
             )}
+            {shouldGatePackageServicesResolution && packageServicesResolved === "loading" && (
+              <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-sm text-gray-500">
+                Dodatne usluge se još učitavaju...
+              </div>
+            )}
+            {shouldGatePackageServicesResolution && packageServicesResolved === "error" && (
+              <div className="rounded-xl border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-4 space-y-2">
+                <p className="text-sm text-error-600 dark:text-error-400">Nije moguće učitati dodatne usluge za ovaj paket.</p>
+                <button type="button" onClick={retryPackageServices} className="text-sm font-medium text-brand-600 hover:text-brand-500">
+                  Pokušajte ponovo
+                </button>
+              </div>
+            )}
             {/* Client section */}
             <div className="space-y-3">
               <div>
@@ -905,6 +1001,21 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                 Odaberite hotel i tip sobe iz kapaciteta konkretnog polaska. Broj sobe se dodjeljuje kasnije u rasporedu soba.
               </p>
             </div>
+
+            {shouldGatePackageServicesResolution && packageServicesResolved === "loading" && (
+              <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-sm text-gray-500">
+                Dodatne usluge se još učitavaju...
+              </div>
+            )}
+
+            {shouldGatePackageServicesResolution && packageServicesResolved === "error" && (
+              <div className="rounded-xl border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-4 space-y-2">
+                <p className="text-sm text-error-600 dark:text-error-400">Nije moguće učitati dodatne usluge za ovaj paket.</p>
+                <button type="button" onClick={retryPackageServices} className="text-sm font-medium text-brand-600 hover:text-brand-500">
+                  Pokušajte ponovo
+                </button>
+              </div>
+            )}
 
             {accommodationResolved === "loading" && <p className="text-sm text-gray-500">Učitavanje smještaja...</p>}
 
@@ -1129,6 +1240,93 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
           </div>
         )}
 
+        {/* Step: Add-ons — Optional package services */}
+        {step === "addons" && (
+          <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-white">Add-ons</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Odaberite opcionalne usluge za ovaj paket. Uključene usluge nisu dodatno naplaćene ovdje.
+              </p>
+            </div>
+
+            {packageServicesResolved === "loading" && <p className="text-sm text-gray-500">Učitavanje dodatnih usluga...</p>}
+
+            {packageServicesResolved === "error" && (
+              <div className="rounded-xl border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-4 space-y-2">
+                <p className="text-sm text-error-600 dark:text-error-400">Nije moguće učitati opcionalne usluge za ovaj paket.</p>
+                <button type="button" onClick={retryPackageServices} className="text-sm font-medium text-brand-600 hover:text-brand-500">
+                  Pokušajte ponovo
+                </button>
+              </div>
+            )}
+
+            {packageServicesResolved === "resolved" && optionalAddons.length > 0 && (
+              <div className="space-y-3">
+                {optionalAddons.map((service) => {
+                  const selected = selectedAddons[service.id];
+                  const quantity = selected?.quantity ?? 1;
+                  const lineTotal = (service.unitPrice || 0) * quantity;
+                  return (
+                    <div
+                      key={service.id}
+                      className={`rounded-xl border p-4 transition ${
+                        selected
+                          ? "border-brand-500 bg-brand-50 ring-2 ring-brand-500/20 dark:border-brand-400 dark:bg-brand-500/10"
+                          : "border-gray-200 dark:border-gray-800"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(selected)}
+                          onChange={() => toggleAddon(service.id)}
+                          className="mt-1 rounded"
+                          aria-label={`Odaberi ${service.providerName}`}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-semibold text-gray-900 dark:text-white">{service.providerName}</p>
+                              <p className="text-xs uppercase tracking-wide text-gray-500">{service.serviceType}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-semibold text-brand-600 dark:text-brand-400">
+                                {service.unitPrice} {service.currency || "BAM"}
+                              </p>
+                              {selected ? <p className="text-xs text-gray-500">Ukupno {lineTotal} {service.currency || "BAM"}</p> : null}
+                            </div>
+                          </div>
+                          {service.description ? <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{service.description}</p> : null}
+                          {selected && (
+                            <div className="mt-3 flex items-center gap-2">
+                              <Label className="!m-0">Količina</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={String(quantity)}
+                                onChange={(event) => updateAddonQuantity(service.id, parseInt(event.target.value) || 1)}
+                                className="w-24 !py-1.5 !text-sm"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium text-gray-900 dark:text-white">Add-ons ukupno</span>
+                    <span className="font-semibold text-brand-600 dark:text-brand-400">{addOnsTotal} BAM</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Step: Payment — Price + Payment Terms */}
         {step === "payment" && (
           <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
@@ -1141,19 +1339,27 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               </div>
             </div>
 
-            {accommodationTotal > 0 && (
+            {(accommodationTotal > 0 || addOnsTotal > 0) && (
               <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Bazna cijena</span>
                   <span className="font-medium text-gray-900 dark:text-white">{totalAmount || "0"} BAM</span>
                 </div>
-                <div className="flex justify-between text-sm mt-1">
-                  <span className="text-gray-500">Smještaj</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{accommodationTotal} BAM</span>
-                </div>
+                {accommodationTotal > 0 && (
+                  <div className="flex justify-between text-sm mt-1">
+                    <span className="text-gray-500">Smještaj</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{accommodationTotal} BAM</span>
+                  </div>
+                )}
+                {addOnsTotal > 0 && (
+                  <div className="flex justify-between text-sm mt-1">
+                    <span className="text-gray-500">Add-ons</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{addOnsTotal} BAM</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
                   <span className="font-medium text-gray-900 dark:text-white">Ukupno</span>
-                  <span className="font-semibold text-brand-600 dark:text-brand-400">{(Number(totalAmount || 0) + accommodationTotal) || "0"} BAM</span>
+                  <span className="font-semibold text-brand-600 dark:text-brand-400">{displayedTotal} BAM</span>
                 </div>
               </div>
             )}
@@ -1181,7 +1387,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                   <Label className="!m-0">Depozit %</Label>
                   <Input type="number" min="1" max="99" value={String(depositPct)} onChange={(e) => setDepositPct(Math.min(99, Math.max(1, parseInt(e.target.value) || 10)))} className="w-20 !py-1.5 !text-sm" />
                   <span className="text-xs text-gray-500">
-                    = {Math.round((Number(totalAmount || 0) + accommodationTotal) * (depositPct / 100))} BAM
+                    = {Math.round(displayedTotal * (depositPct / 100))} BAM
                   </span>
                 </div>
               )}
@@ -1190,7 +1396,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                   <Label className="!m-0">Broj rata</Label>
                   <Input type="number" min="2" max="24" value={String(installmentCount)} onChange={(e) => setInstallmentCount(Math.min(24, Math.max(2, parseInt(e.target.value) || 2)))} className="w-20 !py-1.5 !text-sm" />
                   <span className="text-xs text-gray-500">
-                    ≈ {totalAmount ? Math.round((Number(totalAmount) + accommodationTotal) / installmentCount) : 0} BAM / rata
+                    ≈ {displayedTotal ? Math.round(displayedTotal / installmentCount) : 0} BAM / rata
                   </span>
                 </div>
               )}
@@ -1224,10 +1430,19 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               <Row label="Putnici" value={`${partySize} ${passengers.filter((p) => p.full_name.trim()).length > 0 ? `(${passengers.filter((p) => p.full_name.trim()).map((p) => p.full_name).join(", ")})` : ""}`} />
               {createGroup ? <Row label="Grupa" value={groupName || "Da"} /> : null}
               {accommodationLinesWithOption.length > 0 ? <Row label="Smještaj ukupno" value={`${accommodationTotal} BAM`} /> : null}
-              <Row label="Ukupno" value={`${(Number(totalAmount || 0) + accommodationTotal) || "0"} BAM`} />
+              {selectedAddonItems.length > 0 ? (
+                <Row
+                  label="Add-ons"
+                  value={selectedAddonItems
+                    .map(({ service, quantity }) => `${service.providerName} × ${quantity} — ${(service.unitPrice || 0) * quantity} ${service.currency || "BAM"}`)
+                    .join(" | ")}
+                />
+              ) : null}
+              {selectedAddonItems.length > 0 ? <Row label="Add-ons ukupno" value={`${addOnsTotal} BAM`} /> : null}
+              <Row label="Ukupno" value={`${displayedTotal} BAM`} />
               <Row label="Plaćanje" value={paymentPlan === "full" ? "Puna uplata" : paymentPlan === "deposit" ? `Depozit ${depositPct}% + ostatak` : `${installmentCount} rata`} />
               {paymentPlan === "deposit" && (
-                <Row label="Iznos depozita" value={`${Math.round((Number(totalAmount || 0) + accommodationTotal) * (depositPct / 100))} BAM`} />
+                <Row label="Iznos depozita" value={`${Math.round(displayedTotal * (depositPct / 100))} BAM`} />
               )}
               {notes ? <Row label="Napomena" value={notes} /> : null}
             </dl>
