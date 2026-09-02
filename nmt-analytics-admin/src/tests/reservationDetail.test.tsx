@@ -13,6 +13,7 @@ vi.mock("../context/ToastContext", () => ({
 vi.mock("../api/reservations", () => ({
   getReservation: vi.fn(),
   downloadVoucher: vi.fn(),
+  getReservationAccommodation: vi.fn(),
   downloadInvoice: vi.fn(),
   formatReservationCurrency: (v: any, _c?: string) => `${Number(v || 0).toFixed(0)} BAM`,
   formatReservationDate: (v: any) => v || "",
@@ -59,12 +60,13 @@ vi.mock("../icons", async () => {
   return out;
 });
 
-import { getReservation } from "../api/reservations";
+import { getReservation, getReservationAccommodation } from "../api/reservations";
 import { getDeparturePassengers } from "../api/departures";
 import ReservationDetail from "../pages/ReservationDetail";
 
 const mockGetReservation = getReservation as ReturnType<typeof vi.fn>;
 const mockGetDeparturePassengers = getDeparturePassengers as ReturnType<typeof vi.fn>;
+const mockGetAccommodation = getReservationAccommodation as ReturnType<typeof vi.fn>;
 
 const BASE_RESERVATION = {
   id: "res-abc12345",
@@ -104,7 +106,10 @@ function renderPage(id: string) {
 
 describe("ReservationDetail", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    mockGetReservation.mockResolvedValue(BASE_RESERVATION);
+    mockGetAccommodation.mockResolvedValue([]);
+    mockGetDeparturePassengers.mockResolvedValue({ manifest: [] });
   });
 
   it("renders package and departure links when IDs are present", async () => {
@@ -119,7 +124,7 @@ describe("ReservationDetail", () => {
     expect(depLink.closest("a")).toBeTruthy();
   });
 
-  it("renders sold accommodation from top-level options, ignoring nested server snapshot", async () => {
+  it("renders canonical current accommodation from getReservationAccommodation", async () => {
     mockGetReservation.mockResolvedValue({
       ...BASE_RESERVATION,
       options: {
@@ -127,7 +132,7 @@ describe("ReservationDetail", () => {
         variant_name: "Standard",
         transport_type: "bus",
         accommodation: [
-          { hotel_name: "Hotel Azur", room_type: "Double", room_label: "Double", room_count: 1, guests_expected: 2 },
+          { hotel_name: "Old snapshot hotel", room_type: "Single", room_count: 1, guests_expected: 1 },
         ],
         base_total_at_booking: 800,
         accommodation_total_at_booking: 200,
@@ -141,6 +146,9 @@ describe("ReservationDetail", () => {
         },
       },
     });
+    mockGetAccommodation.mockResolvedValue([
+      { id: "acc-1", reservationId: "res-abc12345", departureId: "dep-1", hotelAllocationId: "ha-1", hotelId: "h-1", roomType: "Double", roomLabel: "Double", roomCount: 1, guestsExpected: 2, capacityPerRoom: 2, unitSellPrice: 100, unitNetPrice: 80, totalSellPrice: 100, hotel: { id: "h-1", name: "Hotel Azur", destination: "Antalya", stars: 4 } },
+    ]);
     renderPage("res-abc12345");
     await waitFor(() => {
       expect(screen.getByText("Ahmed Hodžić")).toBeInTheDocument();
@@ -151,6 +159,7 @@ describe("ReservationDetail", () => {
     expect(screen.getByText(/2 putnika/)).toBeInTheDocument();
     expect(screen.getByText("Autobus")).toBeInTheDocument();
     expect(screen.queryByText(/Wrong package snapshot hotel/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Old snapshot hotel/)).not.toBeInTheDocument();
   });
 
   it("renders purchased add-ons from selected_addons", async () => {
@@ -255,9 +264,60 @@ describe("ReservationDetail", () => {
     });
     expect(callCount).toBe(2);
   });
+
+  it("re-fetches current accommodation after successful edit", async () => {
+    mockGetReservation.mockResolvedValue(BASE_RESERVATION);
+    mockGetAccommodation
+      .mockResolvedValueOnce([
+        { id: "acc-1", reservationId: "res-abc12345", departureId: "dep-1", hotelAllocationId: "ha-1", hotelId: "h-1", roomType: "Double", roomLabel: "Double", roomCount: 1, guestsExpected: 2, capacityPerRoom: 2, unitSellPrice: 100, unitNetPrice: 80, totalSellPrice: 100, hotel: { id: "h-1", name: "Hotel Stari", stars: 4 } },
+      ])
+      .mockResolvedValueOnce([
+        { id: "acc-2", reservationId: "res-abc12345", departureId: "dep-1", hotelAllocationId: "ha-2", hotelId: "h-2", roomType: "Single", roomLabel: "Single", roomCount: 2, guestsExpected: 2, capacityPerRoom: 1, unitSellPrice: 60, unitNetPrice: 50, totalSellPrice: 120, hotel: { id: "h-2", name: "Hotel Novi", stars: 5 } },
+      ]);
+    renderPage("res-abc12345");
+    await waitFor(() => {
+      expect(screen.getByText("Ahmed Hodžić")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Usluge"));
+    await waitFor(() => { const dds = document.querySelectorAll("dd.text-gray-900"); expect(Array.from(dds).some(dd => (dd.textContent || "").includes("Hotel Stari"))).toBe(true); });
+    fireEvent.click(screen.getByText("Pregled"));
+    await waitFor(() => {
+      expect(screen.getByText("Uredi rezervaciju")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Uredi rezervaciju"));
+    await waitFor(() => {
+      expect(screen.getByTestId("edit-modal")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId("edit-save"));
+    fireEvent.click(screen.getByText("Usluge"));
+    await waitFor(() => { const dds = document.querySelectorAll("dd.text-gray-900"); expect(Array.from(dds).some(dd => (dd.textContent || "").includes("Hotel Novi"))).toBe(true); });
+    expect(mockGetAccommodation).toHaveBeenCalledTimes(2);
+  });
+
+  it("is safe when current accommodation is empty", async () => {
+    mockGetReservation.mockResolvedValue({
+      ...BASE_RESERVATION,
+      options: {
+        booking_snapshot_version: 1,
+        transport_type: "bus",
+        base_total_at_booking: 800,
+        total_at_booking: 800,
+      },
+    });
+    mockGetAccommodation.mockResolvedValue([]);
+    renderPage("res-abc12345");
+    await waitFor(() => {
+      expect(screen.getByText("Ahmed Hodžić")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Usluge"));
+    await waitFor(() => {
+      expect(screen.getByText("Autobus")).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/soba/)).not.toBeInTheDocument();
+  });
   describe("Putnici — traveler readiness", () => {
     beforeEach(() => {
-      vi.clearAllMocks();
+      vi.resetAllMocks();
       mockGetReservation.mockResolvedValue(BASE_RESERVATION);
     });
 

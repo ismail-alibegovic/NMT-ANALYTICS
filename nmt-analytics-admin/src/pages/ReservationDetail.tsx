@@ -22,6 +22,8 @@ import {
   downloadInvoice,
   Reservation,
   ReservationPassenger,
+  getReservationAccommodation,
+  ReservationAccommodationRequirement,
   formatReservationCurrency,
   formatReservationDate,
   reservationPaymentStatusBadge,
@@ -57,6 +59,7 @@ export default function ReservationDetail() {
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [passengers, setPassengers] = useState<ReservationPassenger[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentAccommodation, setCurrentAccommodation] = useState<ReservationAccommodationRequirement[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
@@ -90,6 +93,13 @@ export default function ReservationDetail() {
 
         setReservation(res);
         setPassengers(pax as unknown as ReservationPassenger[]);
+
+        try {
+          const acc = await getReservationAccommodation(id);
+          setCurrentAccommodation(acc);
+        } catch {
+          setCurrentAccommodation([]);
+        }
 
         // Check for existing contracts
         try {
@@ -125,6 +135,13 @@ export default function ReservationDetail() {
       : [];
     setReservation(res);
     setPassengers(pax as unknown as ReservationPassenger[]);
+
+    try {
+      const acc = await getReservationAccommodation(id);
+      setCurrentAccommodation(acc);
+    } catch {
+      setCurrentAccommodation([]);
+    }
   };
 
   const handleDownloadVoucher = async () => {
@@ -208,7 +225,6 @@ export default function ReservationDetail() {
   // sold accommodation or sold price values.
   const bookingSnapshot = options.booking_snapshot_version !== undefined ? options : null;
   const purchasedAddons = options.selected_addons || [];
-  const accommodationLines = options.accommodation || [];
 
   const readinessLabels: Record<string, { label: string; color: "success" | "warning" | "error" | "info" }> = {
     ready: { label: "Spremno", color: "success" },
@@ -416,7 +432,7 @@ export default function ReservationDetail() {
             <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">Prodane usluge</h3>
 
-              {!bookingSnapshot && purchasedAddons.length === 0 ? (
+              {!bookingSnapshot && purchasedAddons.length === 0 && currentAccommodation.length === 0 ? (
                 <p className="mt-3 text-sm text-gray-500">
                   Nema snimljenih usluga za ovu rezervaciju.
                 </p>
@@ -438,15 +454,15 @@ export default function ReservationDetail() {
                     </>
                   )}
 
-                  {accommodationLines.length > 0 && (
+                  {currentAccommodation.length > 0 && (
                     <div className="sm:col-span-2 mt-2">
                       <dt className="text-gray-500 mb-2">Smještaj</dt>
-                      {accommodationLines.map((line: any, i: number) => (
+                      {currentAccommodation.map((line, i) => (
                         <dd key={i} className="text-gray-900 dark:text-white mb-1">
-                          {line.hotel_name || line.hotel || "—"}
-                          {line.room_type || line.roomType ? ` — ${line.room_type || line.room_label || line.roomType || line.roomLabel}` : ""}
+                          {line.hotel?.name || line.hotelId || "—"}
+                          {line.roomLabel ? ` — ${line.roomLabel}` : ""}
                           <span className="text-gray-500">
-                            {" "}· {line.room_count ?? line.roomCount ?? 0} soba · {line.guests_expected ?? line.guestsExpected ?? 0} putnika
+                            {" "}· {line.roomCount} soba · {line.guestsExpected} putnika
                           </span>
                         </dd>
                       ))}
