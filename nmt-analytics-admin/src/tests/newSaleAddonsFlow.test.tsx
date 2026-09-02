@@ -403,6 +403,8 @@ describe('NewSaleWizard — M05.1 optional add-ons', () => {
     fireEvent.click(screen.getByText('Istanbul Weekend'));
 
     await waitFor(() => expect(getPackageServices).toHaveBeenCalledWith('package-b'));
+    await waitFor(() => expect(getDepartures).toHaveBeenCalledWith({ packageId: 'package-b', limit: 200 }));
+    await waitFor(() => expect(getDepartureAccommodationOptions).toHaveBeenCalledWith('departure-b'));
     expect(screen.queryByText('Travel insurance')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
