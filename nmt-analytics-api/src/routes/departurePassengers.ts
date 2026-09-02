@@ -252,26 +252,34 @@ router.delete('/departure-passengers/:id', authenticateToken, requireOrgContext,
     const { id } = req.params;
     const orgId = req.orgId!;
 
-    const { data: existing, error: fetchErr } = await supabaseAdmin
-      .from('departure_passengers')
-      .select('id, reservation_id, departure_id, full_name')
-      .eq('id', id)
-      .eq('org_id', orgId)
-      .single();
+    // M08.3: canonical atomic removal. The DB function owns group lock
+    // enforcement, primary reassignment, last-member group cleanup, and
+    // member_count integrity. Org isolation is enforced inside the RPC.
+    const { data: rpcResult, error: rpcErr } = await supabaseAdmin.rpc(
+      'delete_departure_passenger_safe',
+      {
+        p_org_id: orgId,
+        p_passenger_id: id,
+      },
+    );
 
-    if (fetchErr || !existing) {
-      return apiError(res, 404, 'NOT_FOUND', 'Passenger not found');
+    if (rpcErr) {
+      const rpcCode = (rpcErr as { message?: string }).message || '';
+      if (rpcCode === 'GROUP_LOCKED') {
+        return apiError(
+          res,
+          409,
+          'GROUP_LOCKED',
+          'Unlock the passenger group before removing this passenger.',
+        );
+      }
+      if (rpcCode === 'PASSENGER_NOT_FOUND') {
+        return apiError(res, 404, 'NOT_FOUND', 'Passenger not found');
+      }
+      return handleSupabaseError(res, rpcErr, 'Failed to delete passenger');
     }
 
-    const { error: deleteErr } = await supabaseAdmin
-      .from('departure_passengers')
-      .delete()
-      .eq('id', id)
-      .eq('org_id', orgId);
-
-    if (deleteErr) {
-      return handleSupabaseError(res, deleteErr, 'Failed to delete passenger');
-    }
+    const removal = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
 
     if (req.user?.id) {
       await logAuditEntry({
@@ -281,10 +289,14 @@ router.delete('/departure-passengers/:id', authenticateToken, requireOrgContext,
         entity: 'departure_passenger',
         entity_id: id,
         metadata: {
-          passenger_name: existing.full_name,
-          reservation_id: existing.reservation_id,
-          departure_id: existing.departure_id,
-          note: 'Passenger removed from departure. Group memberships, seat, and accommodation assignments cascade-deleted.',
+          passenger_name: removal?.full_name ?? null,
+          reservation_id: removal?.reservation_id ?? null,
+          departure_id: removal?.departure_id ?? null,
+          group_id: removal?.group_id ?? null,
+          group_deleted: removal?.group_deleted === true,
+          reassigned_primary_passenger_id: removal?.new_primary_passenger_id ?? null,
+          reassigned_primary_passenger_name: removal?.new_primary_passenger_name ?? null,
+          note: 'Passenger removed via atomic safe-delete. Group lock enforced; primary reassigned deterministically when required; seat and accommodation assignments cascade-deleted.',
         },
       }).catch((auditErr) => {
         console.warn('DELETE passenger audit log failed:', auditErr);

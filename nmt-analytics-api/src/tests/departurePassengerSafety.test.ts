@@ -197,6 +197,30 @@ vi.mock('../lib/supabase', () => ({
       insert: buildInsertQuery(table).insert,
       delete: vi.fn(() => buildDeleteQuery()),
     })),
+    rpc: vi.fn(async (_name: string, args: { p_org_id: string; p_passenger_id: string }) => {
+      const row = passengers.find(
+        (item) => item.id === args.p_passenger_id && item.org_id === args.p_org_id,
+      )
+      if (!row) {
+        return { data: null, error: { message: 'PASSENGER_NOT_FOUND' } }
+      }
+      passengers = passengers.filter((item) => item.id !== args.p_passenger_id)
+      return {
+        data: [
+          {
+            passenger_id: row.id,
+            reservation_id: row.reservation_id,
+            departure_id: row.departure_id,
+            full_name: row.full_name,
+            group_id: null,
+            group_deleted: false,
+            new_primary_passenger_id: null,
+            new_primary_passenger_name: null,
+          },
+        ],
+        error: null,
+      }
+    }),
   },
   supabase: {},
   handleSupabaseError: (res: Response, err: { code?: string; message?: string }, message: string) =>
