@@ -244,11 +244,12 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
       booked: number | null;
       status: string | null;
       transport_type: string | null;
+      traveler_requirements: Record<string, unknown> | null;
     } | null = null;
     if (upsert) {
       const { data: existing, error: existingError } = await supabaseAdmin
         .from('departures')
-        .select('id, return_at, capacity, booked, status, transport_type')
+        .select('id, return_at, capacity, booked, status, transport_type, traveler_requirements')
         .eq('org_id', orgId)
         .eq('package_id', packageId)
         .eq('depart_at', departAt)
@@ -323,6 +324,7 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
           booked: previousDeparture.booked,
           status: previousDeparture.status,
           transport_type: previousDeparture.transport_type,
+          traveler_requirements: previousDeparture.traveler_requirements,
         })
         .eq('id', previousDeparture.id)
         .eq('org_id', orgId);

@@ -70,6 +70,8 @@ async function completeSale(
 ) {
   fireEvent.change(screen.getByPlaceholderText('Npr. Ahmed Hodžić'), { target: { value: customerName } });
   fireEvent.change(screen.getByPlaceholderText('+387 61 234 567'), { target: { value: customerPhone } });
+  await waitFor(() => expect(screen.queryByText('Smještaj se još učitava...')).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Dalje' })).toBeEnabled());
   fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
   await waitFor(() => expect(screen.getByText('Ukupan iznos (BAM)')).toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
