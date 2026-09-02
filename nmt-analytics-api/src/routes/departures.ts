@@ -17,6 +17,11 @@ import {
 } from '../lib/departureAccommodation';
 import { getAccommodationOptions } from '../lib/reservationAccommodation';
 import { getDepartureBookedMap } from '../lib/departureCapacity';
+import {
+  camelToSnakeTravelerRequirements,
+  snakeToCamelTravelerRequirements,
+  travelerRequirementsWriteSchema,
+} from '../lib/travelerRequirements';
 
 const router = Router();
 
@@ -25,9 +30,13 @@ const router = Router();
  */
 function transformDeparture(departure: any) {
   const statusInfo = getDepartureStatus(departure.booked || 0, departure.capacity || 0);
+  const capabilities = resolveDepartureCapabilities(departure, departure.packages);
 
   return {
     ...departure,
+    travelerRequirements: snakeToCamelTravelerRequirements(departure.traveler_requirements),
+    resolvedTravelerRequirements: capabilities.travelerRequirements,
+    capabilities: departure.capabilities ?? capabilities,
     packageName: departure.packages?.name || '-',
     destination: departure.packages?.destination || '-',
     occupancyStatus: statusInfo
@@ -54,6 +63,7 @@ const createDepartureSchema = z.object({
   booked: z.coerce.number().int().min(0).default(0),
   upsert: z.boolean().default(false),
   transportType: z.enum(['bus', 'flight', 'none']).optional(),
+  travelerRequirements: travelerRequirementsWriteSchema.optional().nullable(),
 }).refine((data) => new Date(data.returnAt) > new Date(data.departAt), {
   message: 'Return date must be after departure date',
   path: ['returnAt'],
@@ -69,6 +79,7 @@ const putDepartureSchema = z.object({
   transportType: z.enum(['bus', 'flight', 'none']).optional(),
   flight_id: z.string().uuid().nullable().optional(),
   document_readiness_required: z.boolean().optional(),
+  travelerRequirements: travelerRequirementsWriteSchema.optional().nullable(),
 }).transform((data) => ({
   ...data,
   departAt: data.departAt.includes('Z') ? data.departAt : data.departAt.endsWith(':00') ? data.departAt + 'Z' : data.departAt + ':00Z',
@@ -88,6 +99,7 @@ const updateDepartureSchema = z.object({
   transportType: z.enum(['bus', 'flight', 'none']).optional(),
   flight_id: z.string().uuid().nullable().optional(),
   document_readiness_required: z.boolean().optional(),
+  travelerRequirements: travelerRequirementsWriteSchema.optional().nullable(),
 }).transform((data) => {
   const result: any = { ...data };
   if (data.departAt) {
@@ -138,7 +150,8 @@ router.get('/departures', authenticateToken, requireOrgContext, async (req, res,
           name,
           destination,
           base_price,
-          currency
+          currency,
+          traveler_requirements
         )
       `, { count: 'exact' })
       .eq('org_id', orgId)
@@ -207,7 +220,7 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
       return;
     }
 
-    const { packageId, departAt, returnAt, capacity, booked, status, upsert, transportType } = validationResult.data;
+    const { packageId, departAt, returnAt, capacity, booked, status, upsert, transportType, travelerRequirements } = validationResult.data;
     const orgId = req.orgId!;
 
     const { data: packageData, error: packageError } = await supabaseAdmin
@@ -257,6 +270,9 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
         booked: booked,
         status: status,
         transport_type: effectiveTransportType,
+        ...(travelerRequirements !== undefined ? {
+          traveler_requirements: travelerRequirements === null ? null : camelToSnakeTravelerRequirements(travelerRequirements),
+        } : {}),
       }, {
         onConflict: upsert ? 'org_id,package_id,depart_at,transport_type' : undefined,
         ignoreDuplicates: !upsert
@@ -268,7 +284,8 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
           name,
           destination,
           base_price,
-          currency
+          currency,
+          traveler_requirements
         )
       `)
       .single();
@@ -313,7 +330,7 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
       return;
     }
 
-    res.status(upsert ? 200 : 201).json(departure);
+    res.status(upsert ? 200 : 201).json(transformDeparture(departure));
 
   } catch (error) {
     console.error('Error in POST /departures:', error);
@@ -417,7 +434,7 @@ router.put('/departures/:id', authenticateToken, requireOrgContext, auditDepartu
       return;
     }
 
-    const { packageId, departAt, returnAt, capacity, status, booked, transportType, flight_id, document_readiness_required } = validationResult.data;
+    const { packageId, departAt, returnAt, capacity, status, booked, transportType, flight_id, document_readiness_required, travelerRequirements } = validationResult.data;
     const orgId = req.orgId!;
 
     const { data: packageData, error: packageError } = await supabaseAdmin
@@ -444,6 +461,9 @@ router.put('/departures/:id', authenticateToken, requireOrgContext, auditDepartu
         ...(booked !== undefined ? { booked } : {}),
         ...(flight_id !== undefined ? { flight_id } : {}),
         ...(document_readiness_required !== undefined ? { document_readiness_required } : {}),
+        ...(travelerRequirements !== undefined ? {
+          traveler_requirements: travelerRequirements === null ? null : camelToSnakeTravelerRequirements(travelerRequirements),
+        } : {}),
       })
       .eq('id', id)
       .eq('org_id', orgId)
@@ -454,7 +474,8 @@ router.put('/departures/:id', authenticateToken, requireOrgContext, auditDepartu
           name,
           destination,
           base_price,
-          currency
+          currency,
+          traveler_requirements
         )
       `)
       .single();
@@ -467,7 +488,7 @@ router.put('/departures/:id', authenticateToken, requireOrgContext, auditDepartu
       throw error;
     }
 
-    res.json(departure);
+    res.json(transformDeparture(departure));
 
   } catch (error) {
     console.error('Error in PUT /departures/:id:', error);
@@ -487,7 +508,7 @@ router.patch('/departures/:id', authenticateToken, requireOrgContext, auditDepar
       return;
     }
 
-    const { packageId, departAt, returnAt, capacity, status, booked, transportType, flight_id, document_readiness_required } = validationResult.data;
+    const { packageId, departAt, returnAt, capacity, status, booked, transportType, flight_id, document_readiness_required, travelerRequirements } = validationResult.data;
     const orgId = req.orgId!;
 
     // Validate flight_id: must be null or a real same-org flight
@@ -528,6 +549,7 @@ router.patch('/departures/:id', authenticateToken, requireOrgContext, auditDepar
     if (transportType !== undefined) updateData.transport_type = transportType;
     if (flight_id !== undefined) updateData.flight_id = flight_id;
     if (document_readiness_required !== undefined) updateData.document_readiness_required = document_readiness_required;
+    if (travelerRequirements !== undefined) updateData.traveler_requirements = travelerRequirements === null ? null : camelToSnakeTravelerRequirements(travelerRequirements);
 
     const { data: departure, error } = await supabaseAdmin
       .from('departures')
@@ -541,7 +563,8 @@ router.patch('/departures/:id', authenticateToken, requireOrgContext, auditDepar
           name,
           destination,
           base_price,
-          currency
+          currency,
+          traveler_requirements
         )
       `)
       .single();
@@ -554,7 +577,7 @@ router.patch('/departures/:id', authenticateToken, requireOrgContext, auditDepar
       return handleSupabaseError(res, error, "Failed to update departure");
     }
 
-    res.json(departure);
+    res.json(transformDeparture(departure));
 
   } catch (error) {
     console.error('Error in PATCH /departures/:id:', error);
@@ -608,7 +631,7 @@ router.get('/departures/readiness-summary', authenticateToken, requireOrgContext
 
     const { data: departures, error: depErr } = await supabaseAdmin
       .from('departures')
-      .select('id, depart_at, return_at, transport_type, flight_id, document_readiness_required, package_id, packages!inner(id, name, destination, transport_type, trip_type)')
+      .select('id, depart_at, return_at, transport_type, flight_id, document_readiness_required, traveler_requirements, package_id, packages!inner(id, name, destination, transport_type, trip_type, traveler_requirements)')
       .eq('org_id', orgId)
       .eq('status', 'active')
       .gte('depart_at', dateFrom)
@@ -622,7 +645,7 @@ router.get('/departures/readiness-summary', authenticateToken, requireOrgContext
 
     const { data: allPassengers } = await supabaseAdmin
       .from('departure_passengers')
-      .select('id, departure_id, id_document_type, id_document_number, id_document_expiry')
+      .select('id, departure_id, id_document_type, id_document_number, id_document_expiry, nationality, date_of_birth')
       .eq('org_id', orgId)
       .in('departure_id', departureIds);
 
@@ -682,7 +705,8 @@ router.get('/departures/readiness-summary', authenticateToken, requireOrgContext
       if (capabilities.needTravelDocuments) {
         const depPassengers = passengersByDeparture.get(departure.id) || [];
         const readinessCtx = {
-          needTravelDocuments: true,
+          needTravelDocuments: capabilities.needTravelDocuments,
+          travelerRequirements: capabilities.travelerRequirements,
           departDateKey: toTravelDateKey(departure.depart_at),
           returnDateKey: toTravelDateKey(departure.return_at),
         };
@@ -758,7 +782,8 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
           base_price,
           currency,
           transport_type,
-          trip_type
+          trip_type,
+          traveler_requirements
         )
       `)
       .eq('id', id)
@@ -888,6 +913,7 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
       accommodationBuildings,
       passengerGroups,
       capabilities,
+      resolvedTravelerRequirements: capabilities.travelerRequirements,
     });
   } catch (error) {
     console.error('Error in GET /departures/:id:', error);
@@ -952,7 +978,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
     // Verify departure exists + belongs to org
     const { data: departure, error: depErr } = await supabaseAdmin
       .from('departures')
-      .select('id, depart_at, return_at, capacity, booked, package_id, transport_type, flight_id, document_readiness_required, packages(id, name, destination, currency, transport_type)')
+      .select('id, depart_at, return_at, capacity, booked, package_id, transport_type, flight_id, document_readiness_required, traveler_requirements, packages(id, name, destination, currency, transport_type, traveler_requirements)')
       .eq('id', id)
       .eq('org_id', orgId)
       .single();
@@ -1194,6 +1220,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
     const depCaps = resolveDepartureCapabilities(departure as any, (departure as any).packages as any);
     const readinessCtx = {
       needTravelDocuments: depCaps.needTravelDocuments,
+      travelerRequirements: depCaps.travelerRequirements,
       departDateKey: toTravelDateKey((departure as any).depart_at),
       returnDateKey: toTravelDateKey((departure as any).return_at),
     };

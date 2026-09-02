@@ -1,3 +1,5 @@
+import { resolveTravelerRequirements, type ResolvedTravelerRequirements } from '../lib/travelerRequirements';
+
 /**
  * Business logic utilities shared across the API.
  * Standardized with the Admin UI.
@@ -82,6 +84,7 @@ export interface DepartureCapabilities {
   hasAccommodation: boolean;
   /** Travel-document readiness applies to this departure (flight OR explicit flag). */
   needTravelDocuments: boolean;
+  travelerRequirements: ResolvedTravelerRequirements;
   /** Raw opt-in flag from the departures row. */
   documentReadinessRequired: boolean;
   /** Flight departure has a linked flight configured. null for non-flight departures. */
@@ -103,8 +106,9 @@ export function resolveDepartureCapabilities(
     package_id?: string | null;
     document_readiness_required?: boolean | null;
     flight_id?: string | null;
+    traveler_requirements?: unknown;
   },
-  pkg?: { transport_type?: string | null; trip_type?: string | null; destination?: string | null } | null,
+  pkg?: { transport_type?: string | null; trip_type?: string | null; destination?: string | null; traveler_requirements?: unknown } | null,
   packageHasAccommodation = false,
 ): DepartureCapabilities {
   const effectiveTransportType =
@@ -117,6 +121,12 @@ export function resolveDepartureCapabilities(
   const isBus = effectiveTransportType === 'bus';
   const isFlight = effectiveTransportType === 'flight';
   const documentReadinessRequired = departure.document_readiness_required === true;
+  const travelerRequirements = resolveTravelerRequirements({
+    packageTravelerRequirements: pkg?.traveler_requirements,
+    departureTravelerRequirements: departure.traveler_requirements,
+    effectiveTransportType,
+    documentReadinessRequired,
+  });
 
   return {
     transportType: isBus ? 'bus' : isFlight ? 'flight' : 'none',
@@ -124,7 +134,8 @@ export function resolveDepartureCapabilities(
     hasFlight: isFlight,
     hasManagedSeatLayout: isBus,
     hasAccommodation: packageHasAccommodation,
-    needTravelDocuments: isFlight || documentReadinessRequired,
+    needTravelDocuments: travelerRequirements.documentType !== 'none',
+    travelerRequirements,
     documentReadinessRequired,
     flightConfigured: isFlight ? departure.flight_id != null : null,
   };

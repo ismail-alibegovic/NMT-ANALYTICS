@@ -1,4 +1,5 @@
 import { get, post, patch, del } from './client';
+import type { TravelerRequirements } from './packages';
 
 export interface DepartureCapabilities {
   transportType: "bus" | "flight" | "none";
@@ -8,6 +9,7 @@ export interface DepartureCapabilities {
   hasManagedSeatLayout: boolean;
   hasAccommodation: boolean;
   needTravelDocuments?: boolean;
+  travelerRequirements?: Required<TravelerRequirements>;
 }
 
 export interface LinkedFlight {
@@ -54,6 +56,8 @@ export interface Departure {
     expiredBeforeDeparture: number;
     expiredBeforeReturn: number;
   };
+  travelerRequirements?: TravelerRequirements | null;
+  resolvedTravelerRequirements?: Required<TravelerRequirements>;
   packageServices?: any[];
   packageHotels?: any[];
   hotelAllocations?: any[];
@@ -123,6 +127,7 @@ export interface CreateDepartureData {
   status?: 'active' | 'cancelled' | 'completed';
   booked?: number;
   transportType?: 'bus' | 'flight' | 'none';
+  travelerRequirements?: TravelerRequirements | null;
 }
 
 export interface UpdateDepartureData {
@@ -134,6 +139,7 @@ export interface UpdateDepartureData {
   status?: 'active' | 'cancelled' | 'completed';
   transportType?: 'bus' | 'flight' | 'none';
   flight_id?: string | null;
+  travelerRequirements?: TravelerRequirements | null;
 }
 
 export interface DepartureFilters {

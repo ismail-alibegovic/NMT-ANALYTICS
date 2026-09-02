@@ -38,6 +38,7 @@ const packageData = {
   name: 'Istanbul Tour',
   destination: 'Istanbul',
   transport_type: 'bus',
+  traveler_requirements: {},
 };
 
 let departuresDb: any[] = [];
@@ -68,7 +69,7 @@ function matchesFilters(row: Record<string, any>, filters: Record<string, any>) 
 function withPackage(row: any) {
   return {
     ...row,
-    packages: { id: packageData.id, name: packageData.name, destination: packageData.destination, base_price: null, currency: 'EUR' },
+    packages: { id: packageData.id, name: packageData.name, destination: packageData.destination, base_price: null, currency: 'EUR', traveler_requirements: packageData.traveler_requirements },
   };
 }
 
@@ -251,5 +252,33 @@ describe('POST /departures — transport identity', () => {
     expect(res.status).toBe(201);
     expect(departuresDb.length).toBe(1);
     expect(departuresDb[0].transport_type).toBe('none');
+  });
+
+  it('stores departure traveler requirements override and exposes resolved output', async () => {
+    const res = await request(app).post('/api/departures').send({
+      ...basePayload,
+      transportType: 'bus',
+      travelerRequirements: {
+        travelScope: 'domestic',
+        documentType: 'none',
+      },
+    });
+
+    expect(res.status).toBe(201);
+    expect(departuresDb[0].traveler_requirements).toEqual({
+      travel_scope: 'domestic',
+      document_type: 'none',
+    });
+    expect(res.body.travelerRequirements).toEqual({
+      travelScope: 'domestic',
+      documentType: 'none',
+    });
+    expect(res.body.resolvedTravelerRequirements).toMatchObject({
+      travelScope: 'domestic',
+      documentType: 'none',
+      allowFillLater: true,
+      requireExpiry: false,
+    });
+    expect(res.body.capabilities.needTravelDocuments).toBe(false);
   });
 });

@@ -1,8 +1,8 @@
 /**
  * Travel-document readiness — single source of truth for passenger document status.
  *
- * Relevance rule (approved):
- *   needTravelDocuments = hasFlight || departures.document_readiness_required === true
+ * Relevance rule:
+ *   needTravelDocuments is derived from resolved package/departure traveler requirements.
  *
  * When documents are NOT required, every passenger resolves to "not_required" and
  * no warnings are derived from empty document fields.
@@ -50,10 +50,18 @@ export interface PassengerDocumentInput {
   id_document_type?: string | null;
   id_document_number?: string | null;
   id_document_expiry?: string | null;
+  nationality?: string | null;
+  date_of_birth?: string | null;
 }
 
 export interface ReadinessDepartureContext {
   needTravelDocuments: boolean;
+  travelerRequirements?: {
+    documentType: 'none' | 'id_card' | 'passport';
+    requireExpiry: boolean;
+    requireNationality: boolean;
+    requireDateOfBirth: boolean;
+  };
   /** YYYY-MM-DD travel-date key of depart_at */
   departDateKey: string | null;
   /** YYYY-MM-DD travel-date key of return_at (null when the trip has none) */
@@ -68,14 +76,19 @@ export function computePassengerDocumentReadiness(
   passenger: PassengerDocumentInput,
   ctx: ReadinessDepartureContext,
 ): DocumentReadinessStatus {
-  if (!ctx.needTravelDocuments) return "not_required";
+  const requirements = ctx.travelerRequirements;
+  if (!ctx.needTravelDocuments || requirements?.documentType === "none") return "not_required";
 
-  // Missing: any required document field absent (type/none, number, expiry).
   if (!hasText(passenger.id_document_type)) return "missing";
   if (passenger.id_document_type === "none") return "missing";
+  if (requirements?.documentType && passenger.id_document_type !== requirements.documentType) return "missing";
   if (!hasText(passenger.id_document_number)) return "missing";
+  if (requirements?.requireNationality && !hasText(passenger.nationality)) return "missing";
+  if (requirements?.requireDateOfBirth && !hasText(passenger.date_of_birth)) return "missing";
 
   const expiryKey = toTravelDateKey(passenger.id_document_expiry);
+  const requireExpiry = requirements?.requireExpiry ?? true;
+  if (!requireExpiry) return "ready";
   if (!expiryKey) return "missing";
 
   // Expired before departure: expiry day strictly before the departure day.

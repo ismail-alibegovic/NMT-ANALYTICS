@@ -13,6 +13,12 @@ const packageRow = {
   currency: 'BAM',
   is_active: true,
   description: 'Core package',
+  traveler_requirements: {
+    travel_scope: 'international',
+    document_type: 'passport',
+    allow_fill_later: true,
+    require_expiry: true,
+  },
   created_at: '2026-08-24T10:00:00.000Z',
 };
 
@@ -181,6 +187,12 @@ describe('GET /api/packages/:id', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.id).toBe(packageRow.id);
+    expect(res.body.data.travelerRequirements).toEqual({
+      travelScope: 'international',
+      documentType: 'passport',
+      allowFillLater: true,
+      requireExpiry: true,
+    });
     expect(res.body.data.package_services).toHaveLength(1);
     expect(res.body.data.package_hotels[0]).toMatchObject({
       hotelId: 'hotel-1',
