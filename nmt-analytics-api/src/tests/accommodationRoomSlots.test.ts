@@ -15,6 +15,8 @@ let slots: Record<string, any>[] = []
 let assignments: Record<string, any>[] = []
 let passengers: Record<string, any>[] = []
 let insertPayload: Record<string, any> | null = null
+let lockAssignmentBeforeUpdate = false
+let lockAssignmentBeforeDelete = false
 
 function matches(row: Record<string, any>, eqs: any[] = []) {
   for (let i = 0; i < eqs.length; i += 2) {
@@ -74,7 +76,23 @@ function makeQuery(table: string) {
         return { data: null, error: null }
       }
       if (table === 'departure_room_slot_assignments') {
+        if (q._delete) {
+          if (lockAssignmentBeforeDelete) {
+            const current = assignments.find((row) => row.id === ASSIGNMENT_ID)
+            if (current) current.locked = true
+            lockAssignmentBeforeDelete = false
+          }
+          const assignment = assignments.find((row) => matches(row, q._eqs))
+          if (!assignment) return { data: null, error: null }
+          assignments = assignments.filter((row) => row.id !== assignment.id)
+          return { data: { id: assignment.id }, error: null }
+        }
         if (q._updatePayload) {
+          if (lockAssignmentBeforeUpdate) {
+            const current = assignments.find((row) => row.id === ASSIGNMENT_ID)
+            if (current) current.locked = true
+            lockAssignmentBeforeUpdate = false
+          }
           const assignment = assignments.find((row) => matches(row, q._eqs))
           if (!assignment) return { data: null, error: null }
           Object.assign(assignment, q._updatePayload)
@@ -156,6 +174,8 @@ async function buildApp() {
 describe('room slot assignment lock semantics', () => {
   beforeEach(() => {
     insertPayload = null
+    lockAssignmentBeforeUpdate = false
+    lockAssignmentBeforeDelete = false
     slots = [
       { id: SLOT_ID, org_id: ORG_ID, departure_id: DEPARTURE_ID, hotel_allocation_id: 'allocation-1', hotel_id: 'hotel-1', room_type: 'double', slot_number: 1, display_label: 'Double 01', capacity: 2, actual_hotel_room_number: null },
       { id: TARGET_SLOT_ID, org_id: ORG_ID, departure_id: DEPARTURE_ID, hotel_allocation_id: 'allocation-1', hotel_id: 'hotel-1', room_type: 'double', slot_number: 2, display_label: 'Double 02', capacity: 2, actual_hotel_room_number: null },
@@ -229,6 +249,32 @@ describe('room slot assignment lock semantics', () => {
     expect(del.status).toBe(204)
     expect(assignments).toHaveLength(0)
   })
+
+  it('rejects move when assignment becomes locked before the guarded update', async () => {
+    assignments = [{ id: ASSIGNMENT_ID, org_id: ORG_ID, departure_id: DEPARTURE_ID, room_slot_id: SLOT_ID, passenger_id: PASSENGER_ID, reservation_id: 'reservation-1', passenger_name: 'Passenger One', is_manual: true, locked: false }]
+    lockAssignmentBeforeUpdate = true
+    const app = await buildApp()
+
+    const move = await request(app).post(`/api/room-slot-assignments/${ASSIGNMENT_ID}/move`).send({ targetSlotId: TARGET_SLOT_ID })
+
+    expect(move.status).toBe(409)
+    expect(move.body.code).toBe('ROOM_ASSIGNMENT_LOCKED')
+    expect(assignments[0].room_slot_id).toBe(SLOT_ID)
+    expect(assignments[0].locked).toBe(true)
+  })
+
+  it('rejects unassign when assignment becomes locked before the guarded delete', async () => {
+    assignments = [{ id: ASSIGNMENT_ID, org_id: ORG_ID, departure_id: DEPARTURE_ID, room_slot_id: SLOT_ID, passenger_id: PASSENGER_ID, reservation_id: 'reservation-1', passenger_name: 'Passenger One', is_manual: true, locked: false }]
+    lockAssignmentBeforeDelete = true
+    const app = await buildApp()
+
+    const del = await request(app).delete(`/api/room-slot-assignments/${ASSIGNMENT_ID}`)
+
+    expect(del.status).toBe(409)
+    expect(del.body.code).toBe('ROOM_ASSIGNMENT_LOCKED')
+    expect(assignments).toHaveLength(1)
+    expect(assignments[0].locked).toBe(true)
+  })
 })
 
 describe('room slot physical hotel room number', () => {
@@ -244,7 +290,7 @@ describe('room slot physical hotel room number', () => {
   it('sets, changes and clears actualHotelRoomNumber only', async () => {
     const app = await buildApp()
 
-    const set = await request(app).patch(`/api/room-slots/${SLOT_ID}`).send({ actualHotelRoomNumber: ' 214 ', capacity: 99, roomType: 'single' })
+    const set = await request(app).patch(`/api/room-slots/${SLOT_ID}`).send({ actualHotelRoomNumber: ' 214 ' })
     expect(set.status).toBe(200)
     expect(set.body.actualHotelRoomNumber).toBe('214')
     expect(set.body.capacity).toBe(2)
@@ -263,5 +309,17 @@ describe('room slot physical hotel room number', () => {
 
     expect(res.status).toBe(404)
     expect(slots[0].actual_hotel_room_number).toBeNull()
+  })
+
+  it('rejects payloads without actualHotelRoomNumber without mutating the slot', async () => {
+    slots[0].actual_hotel_room_number = '214'
+    const app = await buildApp()
+
+    const res = await request(app).patch(`/api/room-slots/${SLOT_ID}`).send({ capacity: 99 })
+
+    expect(res.status).toBe(400)
+    expect(res.body.code).toBe('VALIDATION_ERROR')
+    expect(slots[0].actual_hotel_room_number).toBe('214')
+    expect(slots[0].capacity).toBe(2)
   })
 })

@@ -68,8 +68,8 @@ const lockAssignmentSchema = z.object({
 });
 
 const updateRoomSlotSchema = z.object({
-  actualHotelRoomNumber: z.string().max(100).nullable().optional(),
-}).passthrough();
+  actualHotelRoomNumber: z.string().max(100).nullable(),
+}).strict();
 
 function roomSlotOut(slot: any) {
   const assignments = slot.assignments || [];
@@ -127,6 +127,17 @@ function roomAssignmentOut(assignment: any) {
 
 function roomAssignmentLocked(res: Response) {
   return apiError(res, 409, 'ROOM_ASSIGNMENT_LOCKED', 'Unlock the room assignment before changing it.');
+}
+
+async function loadAssignmentLockState(orgId: string, assignmentId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('departure_room_slot_assignments')
+    .select('id, locked')
+    .eq('id', assignmentId)
+    .eq('org_id', orgId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
 }
 
 type SlotPassengerValidation =
@@ -288,12 +299,20 @@ router.delete(
       if (!assignment) return apiError(res, 404, 'NOT_FOUND', 'Room slot assignment not found');
       if (assignment.locked) return roomAssignmentLocked(res);
 
-      const { error } = await supabaseAdmin
+      const { data: deletedAssignment, error } = await supabaseAdmin
         .from('departure_room_slot_assignments')
         .delete()
         .eq('id', req.params.assignmentId)
-        .eq('org_id', req.orgId!);
+        .eq('org_id', req.orgId!)
+        .eq('locked', false)
+        .select('id')
+        .maybeSingle();
       if (error) return handleSupabaseError(res, error, 'Failed to unassign passenger');
+      if (!deletedAssignment) {
+        const currentAssignment = await loadAssignmentLockState(req.orgId!, req.params.assignmentId);
+        if (currentAssignment?.locked) return roomAssignmentLocked(res);
+        return apiError(res, 404, 'NOT_FOUND', 'Room slot assignment not found');
+      }
       return res.status(204).send();
     } catch (err) {
       console.error('DELETE /room-slot-assignments/:assignmentId:', err);
@@ -339,9 +358,15 @@ router.post(
         .update({ room_slot_id: slot.id })
         .eq('id', assignment.id)
         .eq('org_id', orgId)
+        .eq('locked', false)
         .select()
-        .single();
+        .maybeSingle();
       if (error) return handleSupabaseError(res, error, 'Failed to move passenger');
+      if (!data) {
+        const currentAssignment = await loadAssignmentLockState(orgId, assignment.id);
+        if (currentAssignment?.locked) return roomAssignmentLocked(res);
+        return apiError(res, 404, 'NOT_FOUND', 'Room slot assignment not found');
+      }
       return res.json(data);
     } catch (err) {
       console.error('POST /room-slot-assignments/:assignmentId/move:', err);
