@@ -561,6 +561,8 @@ export interface DepartureRoomSlotAssignment {
   passengerId: string;
   reservationId?: string | null;
   passengerName: string;
+  isManual: boolean;
+  locked: boolean;
   createdAt?: string;
 }
 
@@ -600,6 +602,16 @@ export async function unassignPassengerFromRoomSlot(assignmentId: string): Promi
 
 export async function moveRoomSlotAssignment(assignmentId: string, targetSlotId: string) {
   const { data } = await post(`/room-slot-assignments/${assignmentId}/move`, { targetSlotId });
+  return data;
+}
+
+export async function setRoomSlotAssignmentLocked(assignmentId: string, locked: boolean): Promise<DepartureRoomSlotAssignment> {
+  const { data } = await patch<DepartureRoomSlotAssignment>(`/room-slot-assignments/${assignmentId}/lock`, { locked });
+  return data;
+}
+
+export async function updateRoomSlotPhysicalNumber(slotId: string, actualHotelRoomNumber: string | null): Promise<DepartureRoomSlot> {
+  const { data } = await patch<DepartureRoomSlot>(`/room-slots/${slotId}`, { actualHotelRoomNumber });
   return data;
 }
 

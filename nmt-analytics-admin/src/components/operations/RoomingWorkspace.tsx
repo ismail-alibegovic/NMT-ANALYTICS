@@ -7,7 +7,9 @@ import {
   assignPassengerToRoomSlot,
   getDepartureRoomSlots,
   moveRoomSlotAssignment,
+  setRoomSlotAssignmentLocked,
   unassignPassengerFromRoomSlot,
+  updateRoomSlotPhysicalNumber,
 } from "../../api/departures";
 
 interface Props {
@@ -59,12 +61,26 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     remainingBeds: 'Remaining',
     noAccommodationConfigured: 'Accommodation Not Configured',
     noAccommodationHint: 'Accommodation is part of this departure, but rooms are not yet configured.',
+    locked: 'Locked',
+    lock: 'Lock',
+    unlock: 'Unlock',
+    lockedMutationHint: 'Unlock the assignment before changing it.',
+    lockFailed: 'Lock update failed',
+    hotelRoomNumber: 'Hotel room number',
+    setNumber: 'Set number',
+    roomNumberNotAssigned: 'Room number not assigned',
+    saveRoomNumber: 'Save',
+    clearRoomNumber: 'Clear',
+    roomNumberUpdateFailed: 'Room number update failed',
   };
   const [slots, setSlots] = useState<DepartureRoomSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assignTarget, setAssignTarget] = useState<AssignTarget | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savingAssignmentId, setSavingAssignmentId] = useState<string | null>(null);
+  const [roomNumberDrafts, setRoomNumberDrafts] = useState<Record<string, string>>({});
+  const [editingRoomNumberSlotId, setEditingRoomNumberSlotId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -207,6 +223,34 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     }
   }
 
+  async function setAssignmentLock(assignmentId: string, locked: boolean) {
+    setSavingAssignmentId(assignmentId);
+    setError(null);
+    try {
+      await setRoomSlotAssignmentLocked(assignmentId, locked);
+      await load();
+    } catch (err: any) {
+      setError(err?.message || rm.lockFailed);
+    } finally {
+      setSavingAssignmentId(null);
+    }
+  }
+
+  async function savePhysicalRoomNumber(slotId: string) {
+    setSaving(true);
+    setError(null);
+    try {
+      const draft = roomNumberDrafts[slotId] ?? "";
+      await updateRoomSlotPhysicalNumber(slotId, draft.trim() || null);
+      setEditingRoomNumberSlotId(null);
+      await load();
+    } catch (err: any) {
+      setError(err?.message || rm.roomNumberUpdateFailed);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center p-12 text-gray-400">{rm.loading}</div>;
   }
@@ -301,7 +345,6 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
                         <div>
                           <p className="font-medium text-gray-900 dark:text-white">{slot.displayLabel}</p>
                           <p className="text-xs text-gray-500">
-                            {slot.actualHotelRoomNumber ? `${rm.room} ${slot.actualHotelRoomNumber} · ` : ""}
                             {slot.assignments.length}/{slot.capacity}
                           </p>
                         </div>
@@ -309,21 +352,78 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
                           {Math.max(0, slot.capacity - slot.assignments.length)} {rm.free}
                         </Badge>
                       </div>
+                      <div className="mb-2 rounded-lg border border-gray-100 bg-gray-50 px-2.5 py-2 dark:border-gray-800 dark:bg-white/[0.03]">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{rm.hotelRoomNumber}</p>
+                            {editingRoomNumberSlotId === slot.id ? (
+                              <input
+                                aria-label={rm.hotelRoomNumber}
+                                value={roomNumberDrafts[slot.id] ?? slot.actualHotelRoomNumber ?? ""}
+                                onChange={(event) => setRoomNumberDrafts((current) => ({ ...current, [slot.id]: event.target.value }))}
+                                maxLength={100}
+                                className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                              />
+                            ) : (
+                              <p className="truncate text-sm text-gray-700 dark:text-gray-300">
+                                {slot.actualHotelRoomNumber || rm.roomNumberNotAssigned}
+                              </p>
+                            )}
+                          </div>
+                          {editingRoomNumberSlotId === slot.id ? (
+                            <div className="flex shrink-0 items-center gap-2">
+                              <button type="button" disabled={saving} className="text-xs text-brand-600 hover:underline disabled:opacity-50" onClick={() => savePhysicalRoomNumber(slot.id)}>
+                                {rm.saveRoomNumber}
+                              </button>
+                              <button type="button" disabled={saving} className="text-xs text-gray-500 hover:underline disabled:opacity-50" onClick={() => setRoomNumberDrafts((current) => ({ ...current, [slot.id]: "" }))}>
+                                {rm.clearRoomNumber}
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              className="shrink-0 text-xs text-brand-600 hover:underline"
+                              onClick={() => {
+                                setRoomNumberDrafts((current) => ({ ...current, [slot.id]: slot.actualHotelRoomNumber || "" }));
+                                setEditingRoomNumberSlotId(slot.id);
+                              }}
+                            >
+                              {rm.setNumber}
+                            </button>
+                          )}
+                        </div>
+                      </div>
                       <div className="space-y-1.5">
                         {slot.assignments.length === 0 ? (
                           <p className="text-xs text-gray-400">{rm.noPassengers}</p>
                         ) : slot.assignments.map((assignment) => {
                           const passenger = passengerById.get(assignment.passengerId);
+                          const assignmentSaving = savingAssignmentId === assignment.id;
                           return (
                             <div key={assignment.id} className="flex items-center gap-2 rounded-md bg-gray-50 px-2.5 py-1.5 dark:bg-white/[0.04]">
                               <span className="size-2.5 rounded-full" style={{ background: passenger?.groupColor || "#9ca3af" }} />
                               <span className="flex-1 truncate text-sm text-gray-700 dark:text-gray-300">{assignment.passengerName}</span>
-                              <button type="button" className="text-xs text-brand-600 hover:underline" onClick={() => setAssignTarget({ passengerId: assignment.passengerId, passengerName: assignment.passengerName, currentAssignmentId: assignment.id })}>
-                                {rm.move}
-                              </button>
-                              <button type="button" className="text-xs text-error-600 hover:underline" onClick={() => unassign(assignment.id)}>
-                                {rm.unassign}
-                              </button>
+                              {assignment.locked && <Badge color="warning" size="sm">{rm.locked}</Badge>}
+                              {assignment.locked ? (
+                                <>
+                                  <span className="text-xs text-gray-500" title={rm.lockedMutationHint}>{rm.lockedMutationHint}</span>
+                                  <button type="button" disabled={assignmentSaving} className="text-xs text-brand-600 hover:underline disabled:opacity-50" onClick={() => setAssignmentLock(assignment.id, false)}>
+                                    {rm.unlock}
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button type="button" className="text-xs text-brand-600 hover:underline" onClick={() => setAssignTarget({ passengerId: assignment.passengerId, passengerName: assignment.passengerName, currentAssignmentId: assignment.id })}>
+                                    {rm.move}
+                                  </button>
+                                  <button type="button" className="text-xs text-error-600 hover:underline" onClick={() => unassign(assignment.id)}>
+                                    {rm.unassign}
+                                  </button>
+                                  <button type="button" disabled={assignmentSaving} className="text-xs text-gray-600 hover:underline disabled:opacity-50 dark:text-gray-300" onClick={() => setAssignmentLock(assignment.id, true)}>
+                                    {rm.lock}
+                                  </button>
+                                </>
+                              )}
                             </div>
                           );
                         })}
