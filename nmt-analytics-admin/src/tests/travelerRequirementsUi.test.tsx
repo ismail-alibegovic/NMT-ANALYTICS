@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import PackageEditorModal from '../components/packages/PackageEditorModal';
 import DepartureFormModal from '../components/departures/DepartureFormModal';
 
@@ -358,7 +358,7 @@ describe('TravelerRequirements UI — DepartureFormModal', () => {
     const setTravelerMode = vi.fn();
     const setTravelerReq = vi.fn();
 
-    const { rerender } = render(
+    render(
       <DepartureFormModal
         isOpen={true}
         onClose={vi.fn()}

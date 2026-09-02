@@ -142,7 +142,7 @@ export default function DepartureFormModal({
             <h4 className="text-base font-semibold text-gray-900 dark:text-white">Podaci putnika</h4>
             {selectedPackage && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Pravila paketa{selectedPackage.travelerRequirements ? `: ${selectedPackage.travelerRequirements.documentType === 'none' ? 'Nije potreban' : selectedPackage.travelerRequirements.documentType === 'passport' ? 'Pasoš' : selectedPackage.travelerRequirements.documentType === 'id_card' ? 'Lična karta' : '—'}` : ' —'}
+                Pravila paketa{selectedPackage.travelerRequirements?.documentType != null ? (() => { const dt = selectedPackage.travelerRequirements.documentType; return ': ' + (dt === 'none' ? 'Nije potreban' : dt === 'passport' ? 'Pasoš' : dt === 'id_card' ? 'Lična karta' : '—'); })() : ': Automatska pravila'}
               </p>
             )}
           </div>
