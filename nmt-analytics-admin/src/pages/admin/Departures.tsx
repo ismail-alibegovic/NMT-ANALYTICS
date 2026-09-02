@@ -9,7 +9,9 @@ import Badge from "../../components/ui/badge/Badge";
 import { useToast } from "../../context/ToastContext";
 import { formatDate, getDepartureStatus } from "../../utils/business";
 import Button from "../../components/ui/button/Button";
-import { FormModal } from "../../components/ui/FormModal";
+import DepartureFormModal from "../../components/departures/DepartureFormModal";
+import type { TravelerRequirements } from "../../api/packages";
+import { DEFAULT_TRAVELER_REQUIREMENTS } from "../../components/travelers/TravelerRequirementsFields";
 import ImportModal from "../../components/import/ImportModal";
 import { FileIcon, TableIcon, CalenderIcon } from "../../icons";
 import DepartureCalendarView from "../../components/departures/DepartureCalendarView";
@@ -47,6 +49,8 @@ export default function Departures() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingDeparture, setEditingDeparture] = useState<Departure | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [travelerMode, setTravelerMode] = useState<"inherit" | "override">("inherit");
+  const [travelerReq, setTravelerReq] = useState<TravelerRequirements>({ ...DEFAULT_TRAVELER_REQUIREMENTS });
 
   // Filter states
   const [packageId, setPackageId] = useState<string>("");
@@ -132,11 +136,28 @@ export default function Departures() {
 
   const handleCreate = () => {
     setEditingDeparture(null);
+    setTravelerMode("inherit");
+    setTravelerReq({ ...DEFAULT_TRAVELER_REQUIREMENTS });
     setModalOpen(true);
   };
 
   const handleEdit = (dep: Departure) => {
     setEditingDeparture(dep);
+    const rawOverride = dep.travelerRequirements ?? null;
+    if (rawOverride) {
+      setTravelerMode("override");
+      setTravelerReq({
+        travelScope: rawOverride.travelScope ?? "unspecified",
+        documentType: rawOverride.documentType ?? "none",
+        allowFillLater: rawOverride.allowFillLater ?? true,
+        requireExpiry: rawOverride.requireExpiry ?? false,
+        requireNationality: rawOverride.requireNationality ?? false,
+        requireDateOfBirth: rawOverride.requireDateOfBirth ?? false,
+      });
+    } else {
+      setTravelerMode("inherit");
+      setTravelerReq({ ...DEFAULT_TRAVELER_REQUIREMENTS });
+    }
     setModalOpen(true);
   };
 
@@ -175,6 +196,7 @@ export default function Departures() {
           status: data.status,
           booked: Number(data.booked),
           transportType: data.transport_type || 'none',
+          travelerRequirements: travelerMode === "inherit" ? null : travelerReq,
         });
       } else {
         await createDeparture({
@@ -185,6 +207,7 @@ export default function Departures() {
           status: data.status || 'active',
           booked: Number(data.booked),
           transportType: data.transport_type || 'none',
+          travelerRequirements: travelerMode === "inherit" ? null : travelerReq,
         });
       }
       setModalOpen(false);
@@ -196,39 +219,6 @@ export default function Departures() {
     }
   };
 
-  const formFields = [
-    {
-      name: 'packageId',
-      label: 'Paket',
-      type: 'select' as const,
-      required: true,
-      options: packages.map(p => ({ value: p.id, label: `${p.name} - ${p.destination}` })),
-    },
-    { name: 'departAt', label: 'Polazak', type: 'datetime-local' as const, required: true },
-    { name: 'returnAt', label: 'Povratak', type: 'datetime-local' as const, required: true },
-    { name: 'capacity', label: 'Kapacitet (broj mjesta)', type: 'number' as const, required: true },
-    { name: 'booked', label: 'Trenutno zauzeto', type: 'number' as const },
-    {
-      name: 'status',
-      label: 'Status',
-      type: 'select' as const,
-      options: [
-        { value: 'active', label: 'Aktivan' },
-        { value: 'cancelled', label: 'Otkazan' },
-        { value: 'completed', label: 'Završen' },
-      ],
-    },
-    {
-      name: 'transport_type',
-      label: 'Prijevoz',
-      type: 'select' as const,
-      options: [
-        { value: 'none', label: 'Bez prijevoza' },
-        { value: 'bus', label: 'Autobus' },
-        { value: 'flight', label: 'Avion' },
-      ],
-    },
-  ];
 
   const columns: Column<Departure>[] = [
     {
@@ -484,21 +474,17 @@ export default function Departures() {
         }}
       />
 
-      <FormModal
+      <DepartureFormModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editingDeparture ? 'Uredi polazak' : 'Dodaj polazak'}
-        fields={formFields}
+        packages={packages}
+        editingDeparture={editingDeparture}
         onSubmit={handleSubmit}
-        initialData={editingDeparture ? {
-          packageId: editingDeparture.package_id,
-          departAt: editingDeparture.depart_at?.slice(0, 16) || '',
-          returnAt: editingDeparture.return_at?.slice(0, 16) || '',
-          capacity: editingDeparture.capacity,
-          status: editingDeparture.status,
-          booked: editingDeparture.booked,
-        } : { status: 'active' }}
-        submitButtonText={editingDeparture ? 'Sačuvaj' : 'Dodaj'}
+        travelerMode={travelerMode}
+        setTravelerMode={setTravelerMode}
+        travelerReq={travelerReq}
+        setTravelerReq={setTravelerReq}
         loading={submitting}
       />
     </>
