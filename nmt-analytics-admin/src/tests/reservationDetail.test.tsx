@@ -117,19 +117,25 @@ describe("ReservationDetail", () => {
     expect(depLink.closest("a")).toBeTruthy();
   });
 
-  it("renders accommodation snapshot when booking_snapshot exists", async () => {
+  it("renders sold accommodation from top-level options, ignoring nested server snapshot", async () => {
     mockGetReservation.mockResolvedValue({
       ...BASE_RESERVATION,
       options: {
+        booking_snapshot_version: 1,
+        variant_name: "Standard",
+        transport_type: "bus",
+        accommodation: [
+          { hotel_name: "Hotel Azur", room_type: "Double", room_label: "Double", room_count: 1, guests_expected: 2 },
+        ],
+        base_total_at_booking: 800,
+        accommodation_total_at_booking: 200,
+        total_at_booking: 1000,
         booking_snapshot: {
-          variant_name: "Standard",
-          transport_type: "bus",
+          version: 1,
+          services: [],
           accommodation: [
-            { hotel_name: "Hotel Azur", room_type: "Double", room_label: "Double", room_count: 1, guests_expected: 2 },
+            { hotelName: "Wrong package snapshot hotel", roomType: "Single", roomsBooked: 9 },
           ],
-          base_total_at_booking: 800,
-          accommodation_total_at_booking: 200,
-          total_at_booking: 1000,
         },
       },
     });
@@ -142,12 +148,14 @@ describe("ReservationDetail", () => {
     expect(screen.getByText(/1 soba/)).toBeInTheDocument();
     expect(screen.getByText(/2 putnika/)).toBeInTheDocument();
     expect(screen.getByText("Autobus")).toBeInTheDocument();
+    expect(screen.queryByText(/Wrong package snapshot hotel/)).not.toBeInTheDocument();
   });
 
   it("renders purchased add-ons from selected_addons", async () => {
     mockGetReservation.mockResolvedValue({
       ...BASE_RESERVATION,
       options: {
+        booking_snapshot_version: 1,
         booking_snapshot: {
           base_total_at_booking: 800,
           total_at_booking: 1000,
@@ -169,16 +177,15 @@ describe("ReservationDetail", () => {
     expect(screen.getByText(/VIP/)).toBeInTheDocument();
   });
 
-  it("shows price breakdown from booking snapshot", async () => {
+  it("shows price breakdown from top-level options", async () => {
     mockGetReservation.mockResolvedValue({
       ...BASE_RESERVATION,
       options: {
-        booking_snapshot: {
-          base_total_at_booking: 800,
-          accommodation_total_at_booking: 200,
-          addons_total_at_booking: 100,
-          total_at_booking: 1100,
-        },
+        booking_snapshot_version: 1,
+        base_total_at_booking: 800,
+        accommodation_total_at_booking: 200,
+        addons_total_at_booking: 100,
+        total_at_booking: 1100,
       },
     });
     renderPage("res-abc12345");

@@ -202,9 +202,13 @@ export default function ReservationDetail() {
   const reservationPhone = reservation.customerPhone || (reservation as any).customer?.phone || "";
 
   const options = (reservation as any)?.options || {};
-  const bookingSnapshot = options.booking_snapshot || null;
+  // The commercial "What Was Sold" snapshot lives at the TOP LEVEL of
+  // reservation.options. The nested server-side `booking_snapshot` is a
+  // separate package/services catalogue snapshot and must NOT be used for
+  // sold accommodation or sold price values.
+  const bookingSnapshot = options.booking_snapshot_version !== undefined ? options : null;
   const purchasedAddons = options.selected_addons || [];
-  const accommodationLines = bookingSnapshot?.accommodation || [];
+  const accommodationLines = options.accommodation || [];
 
   const paxColumns: Column<ReservationPassenger>[] = [
     {
