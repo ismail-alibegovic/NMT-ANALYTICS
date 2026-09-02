@@ -40,6 +40,15 @@ function autoColor(existingCount: number): string {
   return GROUP_COLORS[existingCount % GROUP_COLORS.length];
 }
 
+function groupLocked(res: Response) {
+  return apiError(
+    res,
+    409,
+    'GROUP_LOCKED',
+    'Unlock the passenger group before changing membership or deleting it.',
+  );
+}
+
 // GET /api/departures/:departureId/groups
 router.get(
   '/departures/:departureId/passenger-groups',
@@ -218,6 +227,16 @@ router.delete(
     try {
       const { id } = req.params;
       const orgId = req.orgId!;
+      const { data: group } = await supabaseAdmin
+        .from('trip_passenger_groups')
+        .select('id, locked')
+        .eq('id', id)
+        .eq('org_id', orgId)
+        .maybeSingle();
+
+      if (!group) return apiError(res, 404, 'NOT_FOUND', 'Group not found');
+      if (group.locked === true) return groupLocked(res);
+
       const { error } = await supabaseAdmin
         .from('trip_passenger_groups')
         .delete()
@@ -249,12 +268,13 @@ router.post(
       // Verify group belongs to org + fetch departure_id for cross-departure check
       const { data: group } = await supabaseAdmin
         .from('trip_passenger_groups')
-        .select('id, departure_id')
+        .select('id, departure_id, locked')
         .eq('id', id)
         .eq('org_id', orgId)
         .single();
 
       if (!group) return apiError(res, 404, 'NOT_FOUND', 'Group not found');
+      if (group.locked === true) return groupLocked(res);
 
       // Check if passenger is already in any group for this departure
       const { data: existingDepartureGroups } = await supabaseAdmin
@@ -322,7 +342,7 @@ router.delete(
       // Verify group belongs to req.orgId before deleting member
       const { data: group } = await supabaseAdmin
         .from('trip_passenger_groups')
-        .select('id')
+        .select('id, locked')
         .eq('id', id)
         .eq('org_id', orgId)
         .maybeSingle();
@@ -330,6 +350,7 @@ router.delete(
       if (!group) {
         return apiError(res, 404, 'NOT_FOUND', 'Passenger group not found');
       }
+      if (group.locked === true) return groupLocked(res);
 
       const { error } = await supabaseAdmin
         .from('trip_passenger_group_members')

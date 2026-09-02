@@ -48,6 +48,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
   const [formSeatPref, setFormSeatPref] = useState("");
   const [formAccommPref, setFormAccommPref] = useState("");
   const [formMemberIds, setFormMemberIds] = useState<string[]>([]);
+  const [formLocked, setFormLocked] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -117,6 +118,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
     setFormSeatPref("");
     setFormAccommPref("");
     setFormMemberIds([]);
+    setFormLocked(false);
     setError("");
     setModal({ mode: "create" });
   };
@@ -128,6 +130,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
     setFormSeatPref(group.seating_preference || "");
     setFormAccommPref(group.accommodation_preference || "");
     setFormMemberIds((group.members || []).map((m) => m.passenger_id));
+    setFormLocked(group.locked ?? false);
     setError("");
     setModal({ mode: "edit", group });
   };
@@ -156,19 +159,22 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
           color: formColor || undefined,
           seatingPreference: formSeatPref || undefined,
           accommodationPreference: formAccommPref || undefined,
+          locked: formLocked,
         });
 
-        const currentMembers = (modal.group.members || []).map((m) => m.passenger_id);
-        const toAdd = formMemberIds.filter((id) => !currentMembers.includes(id));
-        const toRemove = currentMembers.filter((id) => !formMemberIds.includes(id));
+        if (!formLocked) {
+          const currentMembers = (modal.group.members || []).map((m) => m.passenger_id);
+          const toAdd = formMemberIds.filter((id) => !currentMembers.includes(id));
+          const toRemove = currentMembers.filter((id) => !formMemberIds.includes(id));
 
-        for (const pid of toAdd) {
-          try { await addGroupMember(modal.group.id, pid); } catch { /* allowed to fail */ }
-        }
-        for (const pid of toRemove) {
-          const member = (modal.group.members || []).find((m) => m.passenger_id === pid);
-          if (member) {
-            try { await removeGroupMember(modal.group.id, member.id); } catch { /* allowed to fail */ }
+          for (const pid of toAdd) {
+            try { await addGroupMember(modal.group.id, pid); } catch { /* allowed to fail */ }
+          }
+          for (const pid of toRemove) {
+            const member = (modal.group.members || []).find((m) => m.passenger_id === pid);
+            if (member) {
+              try { await removeGroupMember(modal.group.id, member.id); } catch { /* allowed to fail */ }
+            }
           }
         }
       }
@@ -191,6 +197,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
   };
 
   const handleDelete = async (group: PassengerGroup) => {
+    if (group.locked) return;
     try {
       await deletePassengerGroup(group.id);
       setDeleteConfirm(null);
@@ -266,9 +273,16 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                         </svg>
                       </button>
                       <button
-                        onClick={() => setDeleteConfirm(group)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
-                        title={String(t.departure.drustva.deleteGroup)}
+                        onClick={() => {
+                          if (!group.locked) setDeleteConfirm(group);
+                        }}
+                        disabled={group.locked}
+                        className={`p-1.5 rounded-lg ${
+                          group.locked
+                            ? "cursor-not-allowed text-gray-300 dark:text-gray-700"
+                            : "text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        }`}
+                        title={String(group.locked ? t.departure.drustva.unlockBeforeDelete : t.departure.drustva.deleteGroup)}
                       >
                         <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -384,6 +398,27 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                 </div>
               </div>
 
+              {modal.mode === "edit" && (
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                  <label className="flex items-center justify-between gap-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <span>{String(t.departure.drustva.lockState)}</span>
+                    <select
+                      value={formLocked ? "locked" : "unlocked"}
+                      onChange={(e) => setFormLocked(e.target.value === "locked")}
+                      className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    >
+                      <option value="unlocked">{String(t.departure.drustva.unlocked)}</option>
+                      <option value="locked">{String(t.departure.drustva.locked)}</option>
+                    </select>
+                  </label>
+                  {formLocked && (
+                    <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                      {String(t.departure.drustva.lockedMembersHelp)}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {String(t.departure.drustva.primaryPassenger)}
@@ -453,18 +488,20 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                     {passengers.map((p) => {
                       if (!p.id) return null;
                       const isOtherGroup = occupiedByOtherGroup(modal.group?.id || "").has(p.id);
+                      const membersLocked = modal.mode === "edit" && formLocked;
                       return (
                         <label
                           key={p.id}
                           className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 ${
-                            isOtherGroup ? "opacity-50 cursor-not-allowed" : ""
+                            isOtherGroup || membersLocked ? "opacity-50 cursor-not-allowed" : ""
                           }`}
                         >
                           <input
                             type="checkbox"
                             checked={formMemberIds.includes(p.id)}
-                            disabled={isOtherGroup}
+                            disabled={isOtherGroup || membersLocked}
                             onChange={() => {
+                              if (membersLocked) return;
                               setFormMemberIds((prev) =>
                                 prev.includes(p.id!) ? prev.filter((x) => x !== p.id) : [...prev, p.id!],
                               );

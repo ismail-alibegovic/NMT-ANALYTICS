@@ -13,6 +13,8 @@ const TEST_ORG = '00000000-0000-0000-0000-000000000001'
 const DEPARTURE_ID = '10000000-0000-4000-8000-000000000001'
 const PAX_A = '30000000-0000-4000-8000-00000000000a'
 const PAX_B = '30000000-0000-4000-8000-00000000000b'
+const PAX_C = '30000000-0000-4000-8000-00000000000c'
+const OTHER_DEPARTURE_ID = '20000000-0000-4000-8000-000000000002'
 
 const ALLOWED_ACCOMMODATION_PREFS = [
   'same_room',
@@ -23,11 +25,23 @@ const ALLOWED_ACCOMMODATION_PREFS = [
 ]
 
 let insertedGroup: Record<string, any> | null = null
-
-const passengerRows = [
-  { id: PAX_A, reservation_id: 'r-a', departure_id: DEPARTURE_ID },
-  { id: PAX_B, reservation_id: 'r-b', departure_id: DEPARTURE_ID },
+let groupRows: Record<string, any>[] = []
+let memberRows: Record<string, any>[] = []
+let passengerRows = [
+  { id: PAX_A, org_id: TEST_ORG, reservation_id: 'r-a', departure_id: DEPARTURE_ID },
+  { id: PAX_B, org_id: TEST_ORG, reservation_id: 'r-b', departure_id: DEPARTURE_ID },
+  { id: PAX_C, org_id: TEST_ORG, reservation_id: 'r-c', departure_id: DEPARTURE_ID },
 ]
+
+function matchesQuery(row: Record<string, any>, eqs: any[] = [], ins: Array<{ col: string; vals: any[] }> = []) {
+  for (let i = 0; i < eqs.length; i += 2) {
+    if (row[eqs[i]] !== eqs[i + 1]) return false
+  }
+  for (const filter of ins) {
+    if (!filter.vals.includes(row[filter.col])) return false
+  }
+  return true
+}
 
 function makeQuery(table: string) {
   const q: any = {
@@ -44,8 +58,20 @@ function makeQuery(table: string) {
           }
         } else {
           insertedGroup = { id: 'group-1', ...payload }
+          groupRows.push(insertedGroup!)
         }
+      } else if (table === 'trip_passenger_group_members') {
+        const payloads = Array.isArray(payload) ? payload : [payload]
+        memberRows.push(...payloads.map((row, index) => ({ id: row.id || `member-${memberRows.length + index + 1}`, ...row })))
       }
+      return q
+    },
+    update: (payload: any) => {
+      q._updatePayload = payload
+      return q
+    },
+    delete: () => {
+      q._delete = true
       return q
     },
     eq: (col: string, val: any) => {
@@ -53,13 +79,30 @@ function makeQuery(table: string) {
       q._eqs.push(col, val);
       return q;
     },
-    in: () => q,
+    in: (col: string, vals: any[]) => {
+      if (!q._ins) q._ins = []
+      q._ins.push({ col, vals })
+      return q
+    },
     limit: () => q,
     order: () => q,
     single: async () =>
-      q._insertError
-        ? { data: null, error: q._insertError }
-        : { data: insertedGroup, error: null },
+      {
+        if (q._insertError) return { data: null, error: q._insertError }
+        if (table === 'trip_passenger_groups' && q._updatePayload) {
+          const row = groupRows.find((candidate) => matchesQuery(candidate, q._eqs))
+          if (!row) return { data: null, error: null }
+          Object.assign(row, q._updatePayload)
+          return { data: row, error: null }
+        }
+        if (table === 'trip_passenger_groups' && (q._eqs || []).length > 0) {
+          return { data: groupRows.find((row) => matchesQuery(row, q._eqs)) || null, error: null }
+        }
+        if (table === 'departure_passengers') {
+          return { data: passengerRows.find((row) => matchesQuery(row, q._eqs, q._ins)) || null, error: null }
+        }
+        return { data: insertedGroup, error: null }
+      },
   }
 
   q.maybeSingle = async () => {
@@ -67,12 +110,7 @@ function makeQuery(table: string) {
     // org_id filter matches TEST_ORG (simulating cross-org rejection).
     const eqVals = (q._eqs || []) as string[];
     if (table === 'trip_passenger_groups') {
-      // eq order: ('id', <group>) then ('org_id', <org>)
-      const orgVal = eqVals[3];  // 0=id,1=value,2=org_id,3=org_value
-      if (orgVal === TEST_ORG || orgVal === undefined) {
-        return { data: { id: eqVals[1] || 'group-1', org_id: TEST_ORG, departure_id: DEPARTURE_ID }, error: null };
-      }
-      return { data: null, error: null };
+      return { data: groupRows.find((row) => matchesQuery(row, q._eqs)) || null, error: null };
     }
     return { data: null, error: null };
   };
@@ -80,14 +118,21 @@ function makeQuery(table: string) {
   // Terminal thenable for non-.single() awaits (validation + count queries).
   q.then = (resolve: (v: any) => void) => {
     if (table === 'departure_passengers') {
-      return resolve({ data: passengerRows, error: null })
+      return resolve({ data: passengerRows.filter((row) => matchesQuery(row, q._eqs, q._ins)), error: null })
     }
     if (table === 'trip_passenger_groups') {
-      return resolve({ data: [], error: null, count: 0 })
+      if (q._delete) {
+        groupRows = groupRows.filter((row) => !matchesQuery(row, q._eqs))
+        return resolve({ data: [], error: null })
+      }
+      return resolve({ data: groupRows.filter((row) => matchesQuery(row, q._eqs, q._ins)), error: null, count: groupRows.length })
     }
     if (table === 'trip_passenger_group_members') {
-      // insert() members success, and duplicate-check returns none.
-      return resolve({ data: [], error: null })
+      if (q._delete) {
+        memberRows = memberRows.filter((row) => !matchesQuery(row, q._eqs))
+        return resolve({ data: [], error: null })
+      }
+      return resolve({ data: memberRows.filter((row) => matchesQuery(row, q._eqs, q._ins)), error: null })
     }
     return resolve({ data: [], error: null })
   }
@@ -129,6 +174,13 @@ async function buildApp() {
 describe('POST /departures/:departureId/passenger-groups', () => {
   beforeEach(() => {
     insertedGroup = null
+    groupRows = []
+    memberRows = []
+    passengerRows = [
+      { id: PAX_A, org_id: TEST_ORG, reservation_id: 'r-a', departure_id: DEPARTURE_ID },
+      { id: PAX_B, org_id: TEST_ORG, reservation_id: 'r-b', departure_id: DEPARTURE_ID },
+      { id: PAX_C, org_id: TEST_ORG, reservation_id: 'r-c', departure_id: DEPARTURE_ID },
+    ]
   })
 
   it('creates a group with a valid accommodation_preference when none is provided', async () => {
@@ -153,12 +205,112 @@ describe('POST /departures/:departureId/passenger-groups', () => {
   })
 })
 
+describe('passenger group lock semantics', () => {
+  beforeEach(() => {
+    insertedGroup = null
+    groupRows = [
+      {
+        id: 'group-locked',
+        org_id: TEST_ORG,
+        departure_id: DEPARTURE_ID,
+        locked: true,
+        capacity: 2,
+        return_at: null,
+      },
+      {
+        id: 'group-open',
+        org_id: TEST_ORG,
+        departure_id: DEPARTURE_ID,
+        locked: false,
+      },
+    ]
+    memberRows = [
+      { id: 'member-a', group_id: 'group-locked', passenger_id: PAX_A, reservation_id: 'r-a' },
+      { id: 'member-b', group_id: 'group-open', passenger_id: PAX_B, reservation_id: 'r-b' },
+    ]
+    passengerRows = [
+      { id: PAX_A, org_id: TEST_ORG, reservation_id: 'r-a', departure_id: DEPARTURE_ID },
+      { id: PAX_B, org_id: TEST_ORG, reservation_id: 'r-b', departure_id: DEPARTURE_ID },
+      { id: PAX_C, org_id: TEST_ORG, reservation_id: 'r-c', departure_id: DEPARTURE_ID },
+    ]
+  })
+
+  it('rejects adding a member to a locked group', async () => {
+    const app = await buildApp()
+    const res = await request(app)
+      .post('/api/passenger-groups/group-locked/members')
+      .send({ passengerId: PAX_C })
+
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('GROUP_LOCKED')
+    expect(memberRows.some((row) => row.group_id === 'group-locked' && row.passenger_id === PAX_C)).toBe(false)
+  })
+
+  it('rejects removing a member from a locked group', async () => {
+    const app = await buildApp()
+    const res = await request(app)
+      .delete('/api/passenger-groups/group-locked/members/member-a')
+
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('GROUP_LOCKED')
+    expect(memberRows.some((row) => row.id === 'member-a')).toBe(true)
+  })
+
+  it('rejects deleting a locked group', async () => {
+    const app = await buildApp()
+    const res = await request(app)
+      .delete('/api/passenger-groups/group-locked')
+
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('GROUP_LOCKED')
+    expect(groupRows.some((row) => row.id === 'group-locked')).toBe(true)
+  })
+
+  it('allows metadata PATCH to unlock a locked group', async () => {
+    const app = await buildApp()
+    const res = await request(app)
+      .patch('/api/passenger-groups/group-locked')
+      .send({ locked: false })
+
+    expect(res.status).toBe(200)
+    expect(res.body.locked).toBe(false)
+    expect(groupRows.find((row) => row.id === 'group-locked')?.locked).toBe(false)
+  })
+
+  it('keeps existing unlocked add-member behavior', async () => {
+    const app = await buildApp()
+    const res = await request(app)
+      .post('/api/passenger-groups/group-open/members')
+      .send({ passengerId: PAX_C })
+
+    expect(res.status).toBe(201)
+    expect(memberRows.some((row) => row.group_id === 'group-open' && row.passenger_id === PAX_C)).toBe(true)
+  })
+
+  it('keeps cross-departure passenger protection when unlocked', async () => {
+    passengerRows = [
+      { id: PAX_A, org_id: TEST_ORG, reservation_id: 'r-a', departure_id: DEPARTURE_ID },
+      { id: PAX_B, org_id: TEST_ORG, reservation_id: 'r-b', departure_id: DEPARTURE_ID },
+      { id: PAX_C, org_id: TEST_ORG, reservation_id: 'r-c', departure_id: OTHER_DEPARTURE_ID },
+    ]
+    const app = await buildApp()
+    const res = await request(app)
+      .post('/api/passenger-groups/group-open/members')
+      .send({ passengerId: PAX_C })
+
+    expect(res.status).toBe(400)
+    expect(res.body.code).toBe('VALIDATION_ERROR')
+    expect(memberRows.some((row) => row.group_id === 'group-open' && row.passenger_id === PAX_C)).toBe(false)
+  })
+})
+
 describe('DELETE /passenger-groups/:id/members/:memberId - tenant safety', () => {
   const ORG_B = '33333333-3333-3333-3333-333333333333';
   const GROUP_ID = 'group-org-a';
   const MEMBER_ID = PAX_A;
 
   it('org A must not be able to delete membership from org B group', async () => {
+    groupRows = [{ id: GROUP_ID, org_id: TEST_ORG, departure_id: DEPARTURE_ID, locked: false }]
     const app = await buildApp();
     const res = await request(app)
       .delete(`/api/passenger-groups/${GROUP_ID}/members/${MEMBER_ID}`)
