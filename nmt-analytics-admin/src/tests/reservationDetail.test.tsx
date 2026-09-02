@@ -60,9 +60,11 @@ vi.mock("../icons", async () => {
 });
 
 import { getReservation } from "../api/reservations";
+import { getDeparturePassengers } from "../api/departures";
 import ReservationDetail from "../pages/ReservationDetail";
 
 const mockGetReservation = getReservation as ReturnType<typeof vi.fn>;
+const mockGetDeparturePassengers = getDeparturePassengers as ReturnType<typeof vi.fn>;
 
 const BASE_RESERVATION = {
   id: "res-abc12345",
@@ -253,4 +255,92 @@ describe("ReservationDetail", () => {
     });
     expect(callCount).toBe(2);
   });
+  describe("Putnici — traveler readiness", () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      mockGetReservation.mockResolvedValue(BASE_RESERVATION);
+    });
+
+    function paxFixture(overrides: Record<string, any>) {
+      return {
+        reservation_id: "res-abc12345",
+        full_name: "Ahmed Hodžić",
+        ...overrides,
+      };
+    }
+
+    it("shows ready passenger with readiness badge and summary", async () => {
+      mockGetDeparturePassengers.mockResolvedValue({
+        manifest: [paxFixture({ documentReadinessStatus: "ready" })],
+      });
+      renderPage("res-abc12345");
+      await waitFor(() => { expect(screen.getByText("Ahmed Hodžić")).toBeInTheDocument(); });
+      fireEvent.click(screen.getByText("Putnici"));
+      expect(await screen.findByText("Spremno")).toBeInTheDocument();
+      expect(screen.getByText(/Putni podaci:/)).toBeInTheDocument();
+      expect(screen.getByText(/1 spreman/)).toBeInTheDocument();
+    });
+
+    it("shows missing passenger with attention summary and departure link", async () => {
+      mockGetDeparturePassengers.mockResolvedValue({
+        manifest: [paxFixture({ documentReadinessStatus: "missing" })],
+      });
+      renderPage("res-abc12345");
+      await waitFor(() => { expect(screen.getByText("Ahmed Hodžić")).toBeInTheDocument(); });
+      fireEvent.click(screen.getByText("Putnici"));
+      expect(await screen.findByText("Dopuniti podatke")).toBeInTheDocument();
+      expect(screen.getByText(/zahtijeva pažnju/)).toBeInTheDocument();
+      const depLink = screen.getByText("Otvori polazak");
+      expect(depLink.closest("a")).toBeTruthy();
+      expect(depLink.getAttribute("href")).toBe("/departures/dep-1");
+    });
+
+    it("shows expired_before_departure passenger with correct badge", async () => {
+      mockGetDeparturePassengers.mockResolvedValue({
+        manifest: [paxFixture({ documentReadinessStatus: "expired_before_departure" })],
+      });
+      renderPage("res-abc12345");
+      await waitFor(() => { expect(screen.getByText("Ahmed Hodžić")).toBeInTheDocument(); });
+      fireEvent.click(screen.getByText("Putnici"));
+      expect(await screen.findByText("Ističe prije polaska")).toBeInTheDocument();
+    });
+
+    it("shows no readiness warning when all passengers are not_required", async () => {
+      mockGetDeparturePassengers.mockResolvedValue({
+        manifest: [paxFixture({ documentReadinessStatus: "not_required" })],
+      });
+      renderPage("res-abc12345");
+      await waitFor(() => { expect(screen.getByText("Ahmed Hodžić")).toBeInTheDocument(); });
+      fireEvent.click(screen.getByText("Putnici"));
+      expect(await screen.findByText("Nije potrebno")).toBeInTheDocument();
+      expect(screen.queryByText(/Putni podaci:/)).not.toBeInTheDocument();
+      expect(screen.queryByText("Otvori polazak")).not.toBeInTheDocument();
+    });
+
+    it("ignores passengers from another reservation", async () => {
+      mockGetDeparturePassengers.mockResolvedValue({
+        manifest: [
+          paxFixture({ documentReadinessStatus: "ready", full_name: "Ahmed Hodžić" }),
+          { ...paxFixture({ documentReadinessStatus: "missing", full_name: "Other Person" }), reservation_id: "other-res-999" },
+        ],
+      });
+      renderPage("res-abc12345");
+      await waitFor(() => { expect(screen.getByText("Ahmed Hodžić")).toBeInTheDocument(); });
+      fireEvent.click(screen.getByText("Putnici"));
+      await waitFor(() => { expect(screen.getByText("Spremno")).toBeInTheDocument(); });
+      expect(screen.queryByText("Other Person")).not.toBeInTheDocument();
+      expect(screen.queryByText("Dopuniti podatke")).not.toBeInTheDocument();
+    });
+
+    it("is safe when there are no passengers", async () => {
+      mockGetDeparturePassengers.mockResolvedValue({ manifest: [] });
+      renderPage("res-abc12345");
+      await waitFor(() => { expect(screen.getByText("Ahmed Hodžić")).toBeInTheDocument(); });
+      fireEvent.click(screen.getByText("Putnici"));
+      await waitFor(() => { expect(screen.getByText("Nema putnika")).toBeInTheDocument(); });
+      expect(screen.queryByText(/Putni podaci:/)).not.toBeInTheDocument();
+      expect(screen.queryByText("Otvori polazak")).not.toBeInTheDocument();
+    });
+  });
+
 });

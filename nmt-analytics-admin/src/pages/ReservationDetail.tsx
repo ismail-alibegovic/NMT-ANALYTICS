@@ -210,6 +210,25 @@ export default function ReservationDetail() {
   const purchasedAddons = options.selected_addons || [];
   const accommodationLines = options.accommodation || [];
 
+  const readinessLabels: Record<string, { label: string; color: "success" | "warning" | "error" | "info" }> = {
+    ready: { label: "Spremno", color: "success" },
+    missing: { label: "Dopuniti podatke", color: "warning" },
+    expired_before_departure: { label: "Ističe prije polaska", color: "error" },
+    expired_before_return: { label: "Ističe prije povratka", color: "error" },
+    not_required: { label: "Nije potrebno", color: "info" },
+  };
+
+  const readinessCounts = passengers.reduce(
+    (acc, p) => {
+      const s = ((p as any).documentReadinessStatus as string) || "not_required";
+      acc[s] = (acc[s] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+  const needsAttentionCount = (readinessCounts.missing || 0) + (readinessCounts.expired_before_departure || 0) + (readinessCounts.expired_before_return || 0);
+  const allNotRequired = Object.keys(readinessCounts).every((k) => k === "not_required");
+
   const paxColumns: Column<ReservationPassenger>[] = [
     {
       key: "fullName",
@@ -219,13 +238,37 @@ export default function ReservationDetail() {
     {
       key: "idDocument",
       header: "Dokument",
-      render: (_v, item) =>
-        String((item as any).idDocument ?? (item as any).id_document ?? (item as any).id_document_number ?? "—"),
+      render: (_v, item) => {
+        const type = ((item as any).id_document_type as string) || "";
+        const num = ((item as any).id_document_number as string) || "";
+        if (!type && !num) return "—";
+        const label = type === "passport" ? "Pasoš" : type === "id_card" ? "LK" : type;
+        return num ? `${label}: ${num}` : label || "—";
+      },
+    },
+    {
+      key: "expiry",
+      header: "Ističe",
+      render: (_v, item) => String((item as any).id_document_expiry || "—"),
     },
     {
       key: "nationality",
-      header: "Nacionalnost",
-      render: (_v, item) => String((item as any).nationality ?? "—"),
+      header: "Državljanstvo",
+      render: (_v, item) => String((item as any).nationality || "—"),
+    },
+    {
+      key: "dateOfBirth",
+      header: "Datum rođenja",
+      render: (_v, item) => String((item as any).date_of_birth || "—"),
+    },
+    {
+      key: "readiness",
+      header: "Spremnost",
+      render: (_v, item) => {
+        const s = ((item as any).documentReadinessStatus as string) || "not_required";
+        const info = readinessLabels[s] || { label: s, color: "info" as const };
+        return <Badge color={info.color} size="sm">{info.label}</Badge>;
+      },
     },
   ];
 
@@ -335,7 +378,24 @@ export default function ReservationDetail() {
             {passengers.length === 0 ? (
               <EmptyState icon={<GroupIcon className="size-8" />} title="Nema putnika" description="Ova rezervacija nema zasebne putničke zapise." />
             ) : (
-              <DataTable columns={paxColumns} data={passengers} />
+              <>
+                {!allNotRequired && (
+                  <div className={`mb-4 rounded-lg border p-3 flex flex-wrap items-center justify-between gap-3 ${needsAttentionCount > 0 ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950" : "border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950"}`}>
+                    <div className="text-sm">
+                      <span className="font-medium">Putni podaci:</span>{" "}
+                      {readinessCounts.ready ? `${readinessCounts.ready} ${readinessCounts.ready === 1 ? "spreman" : "spremna"}` : ""}
+                      {readinessCounts.ready && needsAttentionCount > 0 ? " · " : ""}
+                      {needsAttentionCount > 0 ? `${needsAttentionCount} ${needsAttentionCount === 1 ? "zahtijeva pažnju" : "zahtijevaju pažnju"}` : ""}
+                    </div>
+                    {needsAttentionCount > 0 && reservation.departureId && (
+                      <Link to={`/departures/${reservation.departureId}`} className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline">
+                        Otvori polazak
+                      </Link>
+                    )}
+                  </div>
+                )}
+                <DataTable columns={paxColumns} data={passengers} />
+              </>
             )}
           </div>
         )}
