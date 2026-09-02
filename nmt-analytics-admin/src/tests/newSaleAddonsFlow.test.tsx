@@ -364,7 +364,7 @@ describe('NewSaleWizard — M05.1 optional add-ons', () => {
     expect(screen.getByText('Ukupno').parentElement).toHaveTextContent('1100 BAM');
   });
 
-  it('shows selected add-ons on Review and keeps createReservation payload unchanged', async () => {
+  it('shows selected add-ons on Review and submits selected add-ons with the full total', async () => {
     renderWizard();
     await goToAddons();
 
@@ -385,8 +385,13 @@ describe('NewSaleWizard — M05.1 optional add-ons', () => {
     await waitFor(() => expect(createReservation).toHaveBeenCalledTimes(1));
 
     const payload = createReservation.mock.calls[0][0];
-    expect(payload.totalAmount).toBe(1000);
-    expect(payload.options.total_at_booking).toBe(1000);
+    expect(payload.totalAmount).toBe(1100);
+    expect(payload.selectedAddons).toEqual([
+      { serviceId: 'service-insurance', quantity: 1 },
+      { serviceId: 'service-transfer', quantity: 2 },
+    ]);
+    expect(payload.options.addons_total_at_booking).toBe(100);
+    expect(payload.options.total_at_booking).toBe(1100);
     expect(payload.options.optional_addons).toBeUndefined();
     expect(payload.selectedServiceIds).toBeUndefined();
   });

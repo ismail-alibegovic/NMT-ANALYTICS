@@ -9,6 +9,12 @@ const NEW_CUSTOMER_ID = '22222222-2222-4222-8222-222222222222';
 const RESERVATION_ID = '33333333-3333-4333-8333-333333333333';
 const DEPARTURE_ID = '44444444-4444-4444-8444-444444444444';
 const HOTEL_ALLOCATION_ID = '55555555-5555-4555-8555-555555555555';
+const PACKAGE_A_ID = '66666666-6666-4666-8666-666666666666';
+const PACKAGE_B_ID = '77777777-7777-4777-8777-777777777777';
+const INSURANCE_ID = '88888888-8888-4888-8888-888888888888';
+const PACKAGE_B_SERVICE_ID = '99999999-9999-4999-8999-999999999999';
+const INCLUDED_SERVICE_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const CROSS_ORG_SERVICE_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 let customers = [
   {
@@ -25,6 +31,7 @@ let reservations: any[] = [];
 let createdDeparturePassengers = [
   { id: 'passenger-1', full_name: 'Traveller One' },
 ];
+let packageServices: any[] = [];
 const replaceReservationAccommodation = vi.fn(async () => []);
 type LooseRow = Record<string, any>;
 
@@ -156,7 +163,7 @@ vi.mock('../lib/supabase', () => {
   }
 
   function buildDeparturesQuery() {
-    let rows = [{ id: DEPARTURE_ID, org_id: ORG_ID, package_id: 'package-1', packages: { name: 'Test package' } }];
+    let rows = [{ id: DEPARTURE_ID, org_id: ORG_ID, package_id: PACKAGE_A_ID, packages: { name: 'Test package' } }];
     const builder: any = {
       select: vi.fn(() => builder),
       eq: vi.fn((column: string, value: any) => {
@@ -164,6 +171,24 @@ vi.mock('../lib/supabase', () => {
         return builder;
       }),
       single: vi.fn(async () => ({ data: rows[0] || null, error: rows[0] ? null : { code: 'PGRST116', message: 'Not found' } })),
+      then: (resolve: any) => Promise.resolve(resolve({ data: rows, error: null, count: rows.length })),
+    };
+    return builder;
+  }
+
+  function buildPackageServicesQuery() {
+    let rows = packageServices.slice();
+    const builder: any = {
+      select: vi.fn(() => builder),
+      eq: vi.fn((column: string, value: any) => {
+        rows = rows.filter((row: LooseRow) => row[column] === value);
+        return builder;
+      }),
+      in: vi.fn((column: string, values: any[]) => {
+        const allowed = new Set(values);
+        rows = rows.filter((row: LooseRow) => allowed.has(row[column]));
+        return builder;
+      }),
       then: (resolve: any) => Promise.resolve(resolve({ data: rows, error: null, count: rows.length })),
     };
     return builder;
@@ -191,7 +216,8 @@ vi.mock('../lib/supabase', () => {
         if (table === 'reservations') return buildReservationsQuery();
         if (table === 'departures') return buildDeparturesQuery();
         if (table === 'departure_passengers') return buildDeparturePassengersQuery();
-        if (table === 'package_services' || table === 'package_hotels') {
+        if (table === 'package_services') return buildPackageServicesQuery();
+        if (table === 'package_hotels') {
           return {
             select: vi.fn(() => ({
               eq: vi.fn(() => ({
@@ -232,6 +258,52 @@ beforeEach(() => {
   reservations = [];
   createdDeparturePassengers = [
     { id: 'passenger-1', full_name: 'Traveller One' },
+  ];
+  packageServices = [
+    {
+      id: INSURANCE_ID,
+      org_id: ORG_ID,
+      package_id: PACKAGE_A_ID,
+      service_type: 'insurance',
+      provider_name: 'Travel insurance',
+      description: 'Medical and baggage coverage',
+      unit_price: 50,
+      currency: 'BAM',
+      is_optional: true,
+    },
+    {
+      id: PACKAGE_B_SERVICE_ID,
+      org_id: ORG_ID,
+      package_id: PACKAGE_B_ID,
+      service_type: 'tour',
+      provider_name: 'Other package excursion',
+      description: 'Wrong package',
+      unit_price: 75,
+      currency: 'BAM',
+      is_optional: true,
+    },
+    {
+      id: INCLUDED_SERVICE_ID,
+      org_id: ORG_ID,
+      package_id: PACKAGE_A_ID,
+      service_type: 'hotel',
+      provider_name: 'Included Hotel',
+      description: 'Included in package',
+      unit_price: 300,
+      currency: 'BAM',
+      is_optional: false,
+    },
+    {
+      id: CROSS_ORG_SERVICE_ID,
+      org_id: 'other-org',
+      package_id: PACKAGE_A_ID,
+      service_type: 'insurance',
+      provider_name: 'Foreign insurance',
+      description: 'Foreign org',
+      unit_price: 10,
+      currency: 'BAM',
+      is_optional: true,
+    },
   ];
 });
 
@@ -331,5 +403,108 @@ describe('POST /api/reservations customer linkage', () => {
         passengerIds: ['passenger-a', 'passenger-b', 'passenger-c'],
       }),
     ]);
+  });
+
+  it('persists server-generated selected add-on snapshot from package service data', async () => {
+    const res = await request(app)
+      .post('/api/reservations')
+      .send({
+        customerName: 'Add-on Customer',
+        customerPhone: '+38764444444',
+        departureId: DEPARTURE_ID,
+        partySize: 1,
+        reservationAt: '2026-09-01T12:00:00.000Z',
+        status: 'pending',
+        source: 'agent',
+        selectedAddons: [
+          { serviceId: INSURANCE_ID, quantity: 2 },
+        ],
+      });
+
+    expect(res.status).toBe(201);
+    expect(reservations).toHaveLength(1);
+    expect(reservations[0].options.selected_addons).toEqual([
+      {
+        service_id: INSURANCE_ID,
+        service_type: 'insurance',
+        provider_name: 'Travel insurance',
+        description: 'Medical and baggage coverage',
+        unit_price: 50,
+        currency: 'BAM',
+        quantity: 2,
+        line_total: 100,
+      },
+    ]);
+    expect(reservations[0].options.addons_total_at_booking).toBe(100);
+    expect(res.body.options.selected_addons[0]).toMatchObject({
+      service_id: INSURANCE_ID,
+      quantity: 2,
+      line_total: 100,
+    });
+  });
+
+  it.each([
+    ['unrelated package service', PACKAGE_B_SERVICE_ID],
+    ['included package service', INCLUDED_SERVICE_ID],
+    ['cross-org package service', CROSS_ORG_SERVICE_ID],
+  ])('rejects %s as invalid selected add-on', async (_label, serviceId) => {
+    const res = await request(app)
+      .post('/api/reservations')
+      .send({
+        customerName: 'Invalid Add-on Customer',
+        customerPhone: '+38765555555',
+        departureId: DEPARTURE_ID,
+        partySize: 1,
+        reservationAt: '2026-09-01T12:00:00.000Z',
+        status: 'pending',
+        source: 'agent',
+        selectedAddons: [
+          { serviceId, quantity: 1 },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('INVALID_ADDON_SELECTION');
+    expect(reservations).toHaveLength(0);
+  });
+
+  it('rejects duplicate selected add-on service IDs at validation', async () => {
+    const res = await request(app)
+      .post('/api/reservations')
+      .send({
+        customerName: 'Duplicate Add-on Customer',
+        customerPhone: '+38766666666',
+        departureId: DEPARTURE_ID,
+        partySize: 1,
+        reservationAt: '2026-09-01T12:00:00.000Z',
+        status: 'pending',
+        source: 'agent',
+        selectedAddons: [
+          { serviceId: INSURANCE_ID, quantity: 1 },
+          { serviceId: INSURANCE_ID, quantity: 2 },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(reservations).toHaveLength(0);
+  });
+
+  it('keeps existing create flow unchanged when selectedAddons is omitted', async () => {
+    const res = await request(app)
+      .post('/api/reservations')
+      .send({
+        customerName: 'No Add-ons Customer',
+        customerPhone: '+38767777777',
+        departureId: DEPARTURE_ID,
+        partySize: 1,
+        reservationAt: '2026-09-01T12:00:00.000Z',
+        status: 'pending',
+        source: 'agent',
+      });
+
+    expect(res.status).toBe(201);
+    expect(reservations[0].options.selected_addons).toBeUndefined();
+    expect(reservations[0].options.addons_total_at_booking).toBeUndefined();
   });
 });

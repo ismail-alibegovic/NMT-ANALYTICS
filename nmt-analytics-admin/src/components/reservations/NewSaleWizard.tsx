@@ -577,8 +577,12 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     try {
       const filledPassengers = passengers.filter((p) => p.full_name.trim());
       const baseTotal = totalAmount ? Number(totalAmount) : 0;
-      const total = baseTotal + accommodationTotal;
+      const total = displayedTotal;
       const depositAmount = paymentPlan === "deposit" ? Math.round(total * (depositPct / 100)) : 0;
+      const selectedAddonsPayload = selectedAddonItems.map(({ service, quantity }) => ({
+        serviceId: service.id,
+        quantity,
+      }));
       const normalizedAccommodationLines = accommodationLinesWithOption
         .filter((item) => item.option)
         .map((item) => ({
@@ -622,6 +626,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         installment_count: paymentPlan === "installments" ? installmentCount : undefined,
         base_total_at_booking: baseTotal,
         accommodation_total_at_booking: accommodationTotal,
+        addons_total_at_booking: addOnsTotal,
         total_at_booking: total,
         passengers_snapshot: filledPassengers.map((p) => ({
           full_name: p.full_name,
@@ -646,6 +651,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         hotelName: accommodationLinesWithOption[0]?.option?.hotel?.name || selectedPackage?.destination || undefined,
         roomType: accommodationLinesWithOption[0]?.option?.roomLabel || undefined,
         accommodationRequirements: normalizedAccommodationLines,
+        selectedAddons: selectedAddonsPayload.length > 0 ? selectedAddonsPayload : undefined,
         options: bookingSnapshot,
         passengers: filledPassengers.length > 0 ? filledPassengers : undefined,
         create_passenger_group: createGroup && filledPassengers.length > 1,

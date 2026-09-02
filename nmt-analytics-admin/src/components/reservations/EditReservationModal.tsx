@@ -38,6 +38,17 @@ interface AccommodationLineDraft {
   passengerIds: string[];
 }
 
+interface PurchasedAddonSnapshot {
+  service_id: string;
+  service_type?: string | null;
+  provider_name?: string | null;
+  description?: string | null;
+  unit_price: number;
+  currency: string;
+  quantity: number;
+  line_total: number;
+}
+
 export default function EditReservationModal({
   isOpen,
   onClose,
@@ -63,6 +74,8 @@ export default function EditReservationModal({
   const [accommodationLoading, setAccommodationLoading] = useState(false);
   const [accommodationError, setAccommodationError] = useState<string | null>(null);
   const [accommodationLines, setAccommodationLines] = useState<AccommodationLineDraft[]>([]);
+  const [purchasedAddons, setPurchasedAddons] = useState<PurchasedAddonSnapshot[]>([]);
+  const [purchasedAddonsTotal, setPurchasedAddonsTotal] = useState(0);
 
   const statusOptions = [
     { value: "pending", label: "Na čekanju" },
@@ -100,6 +113,8 @@ export default function EditReservationModal({
     setAccommodationLines([]);
     setReservationPassengers([]);
     setAccommodationError(null);
+    setPurchasedAddons([]);
+    setPurchasedAddonsTotal(0);
 
     getReservation(reservationId)
       .then(async (res) => {
@@ -108,6 +123,20 @@ export default function EditReservationModal({
         setPartySize(res.participants || res.partySize || 1);
         setTotalAmount(String(res.totalAmount || 0));
         setStatus(res.status);
+        const addonSnapshot = Array.isArray(res.options?.selected_addons)
+          ? res.options.selected_addons
+          : [];
+        setPurchasedAddons(addonSnapshot.map((addon: any) => ({
+          service_id: String(addon.service_id || ""),
+          service_type: addon.service_type || null,
+          provider_name: addon.provider_name || null,
+          description: addon.description || null,
+          unit_price: Number(addon.unit_price || 0),
+          currency: addon.currency || res.currency || "BAM",
+          quantity: Math.max(1, Number(addon.quantity || 1)),
+          line_total: Number(addon.line_total || 0),
+        })));
+        setPurchasedAddonsTotal(Number(res.options?.addons_total_at_booking || 0));
 
         if (res.departureId) {
           setDepartureId(res.departureId);
@@ -436,6 +465,29 @@ export default function EditReservationModal({
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {purchasedAddons.length > 0 && (
+              <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Dodatne usluge</h4>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Snapshot dodatnih usluga kupljenih pri rezervaciji.</p>
+                <div className="mt-3 space-y-2">
+                  {purchasedAddons.map((addon) => (
+                    <div key={addon.service_id} className="flex items-start justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-gray-900">
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">{addon.provider_name || addon.service_type || "Dodatna usluga"}</p>
+                        {addon.description ? <p className="text-xs text-gray-500 dark:text-gray-400">{addon.description}</p> : null}
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{addon.quantity} × {addon.unit_price} {addon.currency}</p>
+                      </div>
+                      <p className="font-semibold text-gray-900 dark:text-white">{addon.line_total} {addon.currency}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 text-sm dark:border-gray-800">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Dodatne usluge ukupno</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{purchasedAddonsTotal} {purchasedAddons[0]?.currency || "BAM"}</span>
+                </div>
               </div>
             )}
 

@@ -85,6 +85,10 @@ export interface CreateReservationData {
   assignedTo?: string | null;
   upsert?: boolean;
   accommodationRequirements?: ReservationAccommodationRequirementInput[];
+  selectedAddons?: {
+    serviceId: string;
+    quantity: number;
+  }[];
 }
 
 export interface UpdateReservationData {

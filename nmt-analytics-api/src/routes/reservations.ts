@@ -55,6 +55,11 @@ const accommodationRequirementLineSchema = z.object({
   passengerIndexes: z.array(z.number().int().min(0)).optional(),
 });
 
+const selectedAddonSchema = z.object({
+  serviceId: z.string().uuid('Invalid add-on service ID'),
+  quantity: z.number().int().min(1),
+});
+
 const createReservationSchema = z.object({
   customerName: z.string().min(1, 'Customer name is required'),
   customerPhone: z.string().min(1, 'Phone number is required'),
@@ -92,6 +97,21 @@ const createReservationSchema = z.object({
   checkOut: z.string().optional().nullable(),
   tourGuide: z.string().optional().nullable(),
   accommodationRequirements: z.array(accommodationRequirementLineSchema).optional(),
+  selectedAddons: z.array(selectedAddonSchema).optional(),
+}).superRefine((data, ctx) => {
+  const selectedAddons = data.selectedAddons || [];
+  const serviceIds = new Set<string>();
+  for (const addon of selectedAddons) {
+    if (serviceIds.has(addon.serviceId)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['selectedAddons'],
+        message: 'Duplicate add-on service IDs are not allowed',
+      });
+      return;
+    }
+    serviceIds.add(addon.serviceId);
+  }
 });
 
 const updateReservationSchema = z.object({
@@ -144,6 +164,79 @@ function handleDepartureCapacityError(res: Response, error: unknown) {
   }
 
   return null;
+}
+
+type ValidatedAddonSnapshot = {
+  service_id: string;
+  service_type: string | null;
+  provider_name: string | null;
+  description: string | null;
+  unit_price: number;
+  currency: string;
+  quantity: number;
+  line_total: number;
+};
+
+async function resolveSelectedAddons(
+  orgId: string,
+  departureId: string | undefined,
+  selectedAddons: z.infer<typeof selectedAddonSchema>[] | undefined,
+): Promise<{ snapshot: ValidatedAddonSnapshot[]; total: number; packageId: string | null } | { error: true }> {
+  if (!selectedAddons || selectedAddons.length === 0) {
+    return { snapshot: [], total: 0, packageId: null };
+  }
+
+  if (!departureId) {
+    return { error: true };
+  }
+
+  const { data: departure } = await supabaseAdmin
+    .from('departures')
+    .select('id, package_id')
+    .eq('id', departureId)
+    .eq('org_id', orgId)
+    .single();
+
+  if (!departure?.package_id) {
+    return { error: true };
+  }
+
+  const requestedIds = selectedAddons.map((addon) => addon.serviceId);
+  const { data: services } = await supabaseAdmin
+    .from('package_services')
+    .select('id, service_type, provider_name, description, unit_price, currency, is_optional')
+    .eq('org_id', orgId)
+    .eq('package_id', departure.package_id)
+    .eq('is_optional', true)
+    .in('id', requestedIds);
+
+  if (!services || services.length !== requestedIds.length) {
+    return { error: true };
+  }
+
+  const serviceById = new Map((services || []).map((service: any) => [service.id, service]));
+  const snapshot = selectedAddons.map((addon) => {
+    const service = serviceById.get(addon.serviceId);
+    if (!service) throw new Error('INVALID_ADDON_SELECTION');
+    const unitPrice = Number(service.unit_price || 0);
+    const lineTotal = unitPrice * addon.quantity;
+    return {
+      service_id: service.id,
+      service_type: service.service_type || null,
+      provider_name: service.provider_name || null,
+      description: service.description || null,
+      unit_price: unitPrice,
+      currency: service.currency || 'BAM',
+      quantity: addon.quantity,
+      line_total: lineTotal,
+    };
+  });
+
+  return {
+    snapshot,
+    total: snapshot.reduce((sum, addon) => sum + addon.line_total, 0),
+    packageId: departure.package_id,
+  };
 }
 
 /**
@@ -340,9 +433,35 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       return apiError(res, 400, "VALIDATION_ERROR", "Invalid request body", validationResult.error.issues);
     }
 
-    const { departureId, status, partySize, customerId, upsert, options, notes, hotelName, roomType, checkIn, checkOut, tourGuide, customerEmail, assignedTo, passengers, create_passenger_group, group_name, accommodationRequirements, ...rest } = validationResult.data;
+    const { departureId, status, partySize, customerId, upsert, options, notes, hotelName, roomType, checkIn, checkOut, tourGuide, customerEmail, assignedTo, passengers, create_passenger_group, group_name, accommodationRequirements, selectedAddons, ...rest } = validationResult.data;
     const orgId = req.orgId!;
     let capacityRv: any = null;
+    const resolvedAddons = await resolveSelectedAddons(orgId, departureId, selectedAddons);
+    if ('error' in resolvedAddons) {
+      return apiError(res, 400, 'INVALID_ADDON_SELECTION', 'One or more selected add-ons are invalid for this departure');
+    }
+    const hasSelectedAddons = Boolean(selectedAddons && selectedAddons.length > 0);
+    const canonicalOptions = { ...((options as any) || {}) };
+    delete (canonicalOptions as any).selected_addons;
+    delete (canonicalOptions as any).addons_total_at_booking;
+    if (canonicalOptions.booking_snapshot && typeof canonicalOptions.booking_snapshot === 'object') {
+      canonicalOptions.booking_snapshot = { ...canonicalOptions.booking_snapshot };
+      delete canonicalOptions.booking_snapshot.selected_addons;
+      delete canonicalOptions.booking_snapshot.addons_total_at_booking;
+    }
+    if (hasSelectedAddons) {
+      canonicalOptions.selected_addons = resolvedAddons.snapshot;
+      canonicalOptions.addons_total_at_booking = resolvedAddons.total;
+    }
+    if (canonicalOptions.booking_snapshot && typeof canonicalOptions.booking_snapshot === 'object') {
+      canonicalOptions.booking_snapshot = {
+        ...canonicalOptions.booking_snapshot,
+        ...(hasSelectedAddons ? {
+          selected_addons: resolvedAddons.snapshot,
+          addons_total_at_booking: resolvedAddons.total,
+        } : {}),
+      };
+    }
 
     if (customerId) {
       const { data: customer } = await supabaseAdmin
@@ -417,7 +536,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       currency: rest.currency || 'BAM',
       source: rest.source || 'agent',
       assigned_to: assignedTo || (config.DEV_BYPASS_AUTH && req.user!.id === '00000000-0000-0000-0000-000000000000' ? null : req.user!.id),
-      options: options || {},
+      options: canonicalOptions,
       notes: notes || null,
       hotel_name: hotelName || null,
       room_type: roomType || null,
@@ -556,7 +675,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
     // Snapshot selected services and accommodation into reservations.options
     if (departureId) {
       try {
-        const pkgId = capacityRv?.data?.package_id || null;
+        const pkgId = resolvedAddons.packageId || capacityRv?.data?.package_id || null;
         const effectivePkgId = pkgId || (await supabaseAdmin
           .from('departures')
           .select('package_id')
@@ -604,12 +723,46 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
         }
 
         // Merge snapshot into options, preserving any wizard-selected options
-        const existingOptions = (options as any) || {};
+        const existingOptions = canonicalOptions;
         await supabaseAdmin
           .from('reservations')
-          .update({ options: { ...existingOptions, accommodation_requirements: createdAccommodation, booking_snapshot: snapshot } })
+          .update({
+            options: {
+              ...existingOptions,
+              ...(hasSelectedAddons ? {
+                selected_addons: resolvedAddons.snapshot,
+                addons_total_at_booking: resolvedAddons.total,
+              } : {}),
+              accommodation_requirements: createdAccommodation,
+              booking_snapshot: {
+                ...snapshot,
+                ...(hasSelectedAddons ? {
+                  selected_addons: resolvedAddons.snapshot,
+                  addons_total_at_booking: resolvedAddons.total,
+                } : {}),
+              },
+            },
+          })
           .eq('id', reservation.id)
           .eq('org_id', orgId);
+        reservation = {
+          ...reservation,
+          options: {
+            ...existingOptions,
+            ...(hasSelectedAddons ? {
+              selected_addons: resolvedAddons.snapshot,
+              addons_total_at_booking: resolvedAddons.total,
+            } : {}),
+            accommodation_requirements: createdAccommodation,
+            booking_snapshot: {
+              ...snapshot,
+              ...(hasSelectedAddons ? {
+                selected_addons: resolvedAddons.snapshot,
+                addons_total_at_booking: resolvedAddons.total,
+              } : {}),
+            },
+          },
+        };
       } catch (snapErr) {
         console.error('Failed to snapshot booking data:', snapErr);
         // Non-fatal — reservation is still valid
