@@ -14,6 +14,7 @@ const DEPARTURE_ID = '10000000-0000-4000-8000-000000000001'
 const PAX_A = '30000000-0000-4000-8000-00000000000a'
 const PAX_B = '30000000-0000-4000-8000-00000000000b'
 const PAX_C = '30000000-0000-4000-8000-00000000000c'
+const PAX_D = '30000000-0000-4000-8000-00000000000d'
 const OTHER_DEPARTURE_ID = '20000000-0000-4000-8000-000000000002'
 
 const ALLOWED_ACCOMMODATION_PREFS = [
@@ -28,10 +29,45 @@ let insertedGroup: Record<string, any> | null = null
 let groupRows: Record<string, any>[] = []
 let memberRows: Record<string, any>[] = []
 let passengerRows = [
-  { id: PAX_A, org_id: TEST_ORG, reservation_id: 'r-a', departure_id: DEPARTURE_ID },
-  { id: PAX_B, org_id: TEST_ORG, reservation_id: 'r-b', departure_id: DEPARTURE_ID },
-  { id: PAX_C, org_id: TEST_ORG, reservation_id: 'r-c', departure_id: DEPARTURE_ID },
+  { id: PAX_A, org_id: TEST_ORG, full_name: 'Passenger A', reservation_id: 'r-a', departure_id: DEPARTURE_ID },
+  { id: PAX_B, org_id: TEST_ORG, full_name: 'Passenger B', reservation_id: 'r-b', departure_id: DEPARTURE_ID },
+  { id: PAX_C, org_id: TEST_ORG, full_name: 'Passenger C', reservation_id: 'r-c', departure_id: DEPARTURE_ID },
 ]
+
+function replaceMembersAtomic(args: Record<string, any>) {
+  const group = groupRows.find((row) => row.id === args.p_group_id && row.org_id === args.p_org_id)
+  if (!group) return { data: null, error: { message: 'GROUP_NOT_FOUND' } }
+  if (group.locked) return { data: null, error: { message: 'GROUP_LOCKED' } }
+  const memberIds = args.p_member_ids || []
+  if (memberIds.length === 0) return { data: null, error: { message: 'GROUP_MEMBERS_REQUIRED' } }
+  if (new Set(memberIds).size !== memberIds.length) return { data: null, error: { message: 'DUPLICATE_MEMBER_IDS' } }
+  if (!args.p_primary_passenger_id || !memberIds.includes(args.p_primary_passenger_id)) {
+    return { data: null, error: { message: 'PRIMARY_NOT_MEMBER' } }
+  }
+  const desiredPassengers = passengerRows.filter(
+    (row) => memberIds.includes(row.id) && row.org_id === args.p_org_id && row.departure_id === group.departure_id,
+  )
+  if (desiredPassengers.length !== memberIds.length) return { data: null, error: { message: 'INVALID_GROUP_PASSENGERS' } }
+  const departureGroupIds = groupRows
+    .filter((row) => row.org_id === args.p_org_id && row.departure_id === group.departure_id && row.id !== group.id)
+    .map((row) => row.id)
+  const conflict = memberRows.some((row) => departureGroupIds.includes(row.group_id) && memberIds.includes(row.passenger_id))
+  if (conflict) return { data: null, error: { message: 'DUPLICATE_GROUP_MEMBERSHIP' } }
+
+  memberRows = memberRows.filter((row) => row.group_id !== group.id)
+  memberRows.push(...desiredPassengers.map((passenger, index) => ({
+    id: `member-rpc-${index + 1}`,
+    group_id: group.id,
+    passenger_id: passenger.id,
+    reservation_id: passenger.reservation_id,
+    is_primary: passenger.id === args.p_primary_passenger_id,
+  })))
+  const primary = desiredPassengers.find((passenger) => passenger.id === args.p_primary_passenger_id)
+  group.primary_passenger_id = args.p_primary_passenger_id
+  group.primary_passenger_name = primary?.full_name || null
+  group.member_count = memberIds.length
+  return { data: [group], error: null }
+}
 
 function matchesQuery(row: Record<string, any>, eqs: any[] = [], ins: Array<{ col: string; vals: any[] }> = []) {
   for (let i = 0; i < eqs.length; i += 2) {
@@ -140,7 +176,10 @@ function makeQuery(table: string) {
 }
 
 vi.mock('../lib/supabase', () => ({
-  supabaseAdmin: { from: (table: string) => makeQuery(table) },
+  supabaseAdmin: {
+    from: (table: string) => makeQuery(table),
+    rpc: vi.fn((_name: string, args: Record<string, any>) => Promise.resolve(replaceMembersAtomic(args))),
+  },
   handleSupabaseError: (res: Response, error: any) =>
     res.status(500).json({ error: { code: error?.code || 'DB', message: error?.message } }),
 }))
@@ -177,9 +216,9 @@ describe('POST /departures/:departureId/passenger-groups', () => {
     groupRows = []
     memberRows = []
     passengerRows = [
-      { id: PAX_A, org_id: TEST_ORG, reservation_id: 'r-a', departure_id: DEPARTURE_ID },
-      { id: PAX_B, org_id: TEST_ORG, reservation_id: 'r-b', departure_id: DEPARTURE_ID },
-      { id: PAX_C, org_id: TEST_ORG, reservation_id: 'r-c', departure_id: DEPARTURE_ID },
+      { id: PAX_A, org_id: TEST_ORG, full_name: 'Passenger A', reservation_id: 'r-a', departure_id: DEPARTURE_ID },
+      { id: PAX_B, org_id: TEST_ORG, full_name: 'Passenger B', reservation_id: 'r-b', departure_id: DEPARTURE_ID },
+      { id: PAX_C, org_id: TEST_ORG, full_name: 'Passenger C', reservation_id: 'r-c', departure_id: DEPARTURE_ID },
     ]
   })
 
@@ -202,6 +241,167 @@ describe('POST /departures/:departureId/passenger-groups', () => {
 
     expect(res.status).toBe(201)
     expect(insertedGroup!.accommodation_preference).toBe('same_room')
+  })
+
+  it('persists a selected primaryPassengerId on create', async () => {
+    const app = await buildApp()
+    const res = await request(app)
+      .post(`/api/departures/${DEPARTURE_ID}/passenger-groups`)
+      .send({ memberIds: [PAX_A, PAX_B], primaryPassengerId: PAX_B })
+
+    expect(res.status).toBe(201)
+    expect(insertedGroup!.primary_passenger_id).toBe(PAX_B)
+    expect(insertedGroup!.primary_passenger_name).toBe('Passenger B')
+    expect(memberRows.filter((row) => row.group_id === insertedGroup!.id && row.is_primary)).toHaveLength(1)
+    expect(memberRows.find((row) => row.group_id === insertedGroup!.id && row.is_primary)?.passenger_id).toBe(PAX_B)
+  })
+
+  it('defaults primary passenger to the first requested member when not supplied', async () => {
+    const app = await buildApp()
+    const res = await request(app)
+      .post(`/api/departures/${DEPARTURE_ID}/passenger-groups`)
+      .send({ memberIds: [PAX_A, PAX_B] })
+
+    expect(res.status).toBe(201)
+    expect(insertedGroup!.primary_passenger_id).toBe(PAX_A)
+    expect(memberRows.find((row) => row.group_id === insertedGroup!.id && row.is_primary)?.passenger_id).toBe(PAX_A)
+  })
+
+  it('rejects primaryPassengerId outside memberIds on create', async () => {
+    const app = await buildApp()
+    const res = await request(app)
+      .post(`/api/departures/${DEPARTURE_ID}/passenger-groups`)
+      .send({ memberIds: [PAX_A, PAX_B], primaryPassengerId: PAX_C })
+
+    expect(res.status).toBe(400)
+    expect(res.body.code).toBe('PRIMARY_NOT_MEMBER')
+    expect(groupRows).toHaveLength(0)
+    expect(memberRows).toHaveLength(0)
+  })
+})
+
+describe('PUT /passenger-groups/:id/members - atomic membership replacement', () => {
+  beforeEach(() => {
+    insertedGroup = null
+    groupRows = [
+      {
+        id: 'group-open',
+        org_id: TEST_ORG,
+        departure_id: DEPARTURE_ID,
+        locked: false,
+        primary_passenger_id: PAX_A,
+        primary_passenger_name: 'Passenger A',
+        member_count: 2,
+      },
+      {
+        id: 'group-other',
+        org_id: TEST_ORG,
+        departure_id: DEPARTURE_ID,
+        locked: false,
+      },
+      {
+        id: 'group-locked',
+        org_id: TEST_ORG,
+        departure_id: DEPARTURE_ID,
+        locked: true,
+      },
+    ]
+    memberRows = [
+      { id: 'member-a', group_id: 'group-open', passenger_id: PAX_A, reservation_id: 'client-forged-a', is_primary: true },
+      { id: 'member-b', group_id: 'group-open', passenger_id: PAX_B, reservation_id: 'client-forged-b', is_primary: false },
+    ]
+    passengerRows = [
+      { id: PAX_A, org_id: TEST_ORG, full_name: 'Passenger A', reservation_id: 'r-a', departure_id: DEPARTURE_ID },
+      { id: PAX_B, org_id: TEST_ORG, full_name: 'Passenger B', reservation_id: 'r-b', departure_id: DEPARTURE_ID },
+      { id: PAX_C, org_id: TEST_ORG, full_name: 'Passenger C', reservation_id: 'r-c', departure_id: DEPARTURE_ID },
+      { id: PAX_D, org_id: TEST_ORG, full_name: 'Passenger D', reservation_id: 'r-d', departure_id: OTHER_DEPARTURE_ID },
+    ]
+  })
+
+  it('replaces [A,B] with [B,C] and persists C as the only primary', async () => {
+    const app = await buildApp()
+    const res = await request(app)
+      .put('/api/passenger-groups/group-open/members')
+      .send({ memberIds: [PAX_B, PAX_C], primaryPassengerId: PAX_C })
+
+    expect(res.status).toBe(200)
+    const groupMembers = memberRows.filter((row) => row.group_id === 'group-open')
+    expect(groupMembers.map((row) => row.passenger_id).sort()).toEqual([PAX_B, PAX_C].sort())
+    expect(groupRows.find((row) => row.id === 'group-open')?.primary_passenger_id).toBe(PAX_C)
+    expect(groupRows.find((row) => row.id === 'group-open')?.primary_passenger_name).toBe('Passenger C')
+    expect(groupMembers.filter((row) => row.is_primary)).toHaveLength(1)
+    expect(groupMembers.find((row) => row.is_primary)?.passenger_id).toBe(PAX_C)
+  })
+
+  it('rejects primary outside desired memberIds with no mutation', async () => {
+    const before = JSON.stringify({ groupRows, memberRows })
+    const app = await buildApp()
+    const res = await request(app)
+      .put('/api/passenger-groups/group-open/members')
+      .send({ memberIds: [PAX_B], primaryPassengerId: PAX_C })
+
+    expect(res.status).toBe(400)
+    expect(res.body.code).toBe('PRIMARY_NOT_MEMBER')
+    expect(JSON.stringify({ groupRows, memberRows })).toBe(before)
+  })
+
+  it('rejects cross-departure passenger with no mutation', async () => {
+    const before = JSON.stringify({ groupRows, memberRows })
+    const app = await buildApp()
+    const res = await request(app)
+      .put('/api/passenger-groups/group-open/members')
+      .send({ memberIds: [PAX_B, PAX_D], primaryPassengerId: PAX_B })
+
+    expect(res.status).toBe(400)
+    expect(res.body.code).toBe('CROSS_DEPARTURE')
+    expect(JSON.stringify({ groupRows, memberRows })).toBe(before)
+  })
+
+  it('rejects a passenger already belonging to another group with no mutation', async () => {
+    memberRows.push({ id: 'member-c-other', group_id: 'group-other', passenger_id: PAX_C, reservation_id: 'r-c', is_primary: false })
+    const before = JSON.stringify({ groupRows, memberRows })
+    const app = await buildApp()
+    const res = await request(app)
+      .put('/api/passenger-groups/group-open/members')
+      .send({ memberIds: [PAX_B, PAX_C], primaryPassengerId: PAX_B })
+
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('DUPLICATE_GROUP_MEMBERSHIP')
+    expect(JSON.stringify({ groupRows, memberRows })).toBe(before)
+  })
+
+  it('rejects locked groups with 409 GROUP_LOCKED', async () => {
+    const app = await buildApp()
+    const res = await request(app)
+      .put('/api/passenger-groups/group-locked/members')
+      .send({ memberIds: [PAX_A], primaryPassengerId: PAX_A })
+
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('GROUP_LOCKED')
+  })
+
+  it('does not mutate cross-org groups', async () => {
+    const before = JSON.stringify({ groupRows, memberRows })
+    const app = await buildApp()
+    const res = await request(app)
+      .put('/api/passenger-groups/group-open/members')
+      .set('x-org-id', '33333333-3333-3333-3333-333333333333')
+      .send({ memberIds: [PAX_B, PAX_C], primaryPassengerId: PAX_C })
+
+    expect(res.status).toBe(404)
+    expect(JSON.stringify({ groupRows, memberRows })).toBe(before)
+  })
+
+  it('uses reservation_id from departure_passengers during canonical replacement', async () => {
+    const app = await buildApp()
+    const res = await request(app)
+      .put('/api/passenger-groups/group-open/members')
+      .send({ memberIds: [PAX_C], primaryPassengerId: PAX_C })
+
+    expect(res.status).toBe(200)
+    expect(memberRows.filter((row) => row.group_id === 'group-open')).toEqual([
+      expect.objectContaining({ passenger_id: PAX_C, reservation_id: 'r-c', is_primary: true }),
+    ])
   })
 })
 
@@ -229,9 +429,9 @@ describe('passenger group lock semantics', () => {
       { id: 'member-b', group_id: 'group-open', passenger_id: PAX_B, reservation_id: 'r-b' },
     ]
     passengerRows = [
-      { id: PAX_A, org_id: TEST_ORG, reservation_id: 'r-a', departure_id: DEPARTURE_ID },
-      { id: PAX_B, org_id: TEST_ORG, reservation_id: 'r-b', departure_id: DEPARTURE_ID },
-      { id: PAX_C, org_id: TEST_ORG, reservation_id: 'r-c', departure_id: DEPARTURE_ID },
+      { id: PAX_A, org_id: TEST_ORG, full_name: 'Passenger A', reservation_id: 'r-a', departure_id: DEPARTURE_ID },
+      { id: PAX_B, org_id: TEST_ORG, full_name: 'Passenger B', reservation_id: 'r-b', departure_id: DEPARTURE_ID },
+      { id: PAX_C, org_id: TEST_ORG, full_name: 'Passenger C', reservation_id: 'r-c', departure_id: DEPARTURE_ID },
     ]
   })
 
@@ -289,9 +489,9 @@ describe('passenger group lock semantics', () => {
 
   it('keeps cross-departure passenger protection when unlocked', async () => {
     passengerRows = [
-      { id: PAX_A, org_id: TEST_ORG, reservation_id: 'r-a', departure_id: DEPARTURE_ID },
-      { id: PAX_B, org_id: TEST_ORG, reservation_id: 'r-b', departure_id: DEPARTURE_ID },
-      { id: PAX_C, org_id: TEST_ORG, reservation_id: 'r-c', departure_id: OTHER_DEPARTURE_ID },
+      { id: PAX_A, org_id: TEST_ORG, full_name: 'Passenger A', reservation_id: 'r-a', departure_id: DEPARTURE_ID },
+      { id: PAX_B, org_id: TEST_ORG, full_name: 'Passenger B', reservation_id: 'r-b', departure_id: DEPARTURE_ID },
+      { id: PAX_C, org_id: TEST_ORG, full_name: 'Passenger C', reservation_id: 'r-c', departure_id: OTHER_DEPARTURE_ID },
     ]
     const app = await buildApp()
     const res = await request(app)

@@ -5,8 +5,10 @@ import DrustvaTab from "../components/operations/DrustvaTab";
 import { I18nProvider } from "../lib/i18n/context";
 import {
   addGroupMember,
+  createPassengerGroup,
   deletePassengerGroup,
   removeGroupMember,
+  replacePassengerGroupMembers,
   updatePassengerGroup,
 } from "../api/departures";
 
@@ -14,12 +16,15 @@ vi.mock("../api/departures", () => ({
   createPassengerGroup: vi.fn(),
   updatePassengerGroup: vi.fn().mockResolvedValue({}),
   deletePassengerGroup: vi.fn().mockResolvedValue(undefined),
+  replacePassengerGroupMembers: vi.fn().mockResolvedValue({}),
   addGroupMember: vi.fn().mockResolvedValue({ added: true }),
   removeGroupMember: vi.fn().mockResolvedValue(undefined),
 }));
 
 const mockUpdateGroup = updatePassengerGroup as ReturnType<typeof vi.fn>;
+const mockCreateGroup = createPassengerGroup as ReturnType<typeof vi.fn>;
 const mockDeleteGroup = deletePassengerGroup as ReturnType<typeof vi.fn>;
+const mockReplaceMembers = replacePassengerGroupMembers as ReturnType<typeof vi.fn>;
 const mockAddMember = addGroupMember as ReturnType<typeof vi.fn>;
 const mockRemoveMember = removeGroupMember as ReturnType<typeof vi.fn>;
 
@@ -139,11 +144,98 @@ describe("DrustvaTab group lock semantics", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
-      expect(mockAddMember).toHaveBeenCalledWith("group-open", "p-2");
+      expect(mockReplaceMembers).toHaveBeenCalledWith("group-open", {
+        memberIds: ["p-1", "p-2"],
+        primaryPassengerId: "p-1",
+      });
     });
+    expect(mockAddMember).not.toHaveBeenCalled();
+    expect(mockRemoveMember).not.toHaveBeenCalled();
 
     const card = screen.getByText("Otvorena grupa").closest(".overflow-hidden") as HTMLElement;
     await userEvent.click(within(card).getByTitle("Delete Group"));
     expect(screen.getByText("Delete group?")).toBeInTheDocument();
+  });
+
+  it("sends selected primaryPassengerId when creating a group", async () => {
+    renderTab([]);
+
+    await userEvent.click(screen.getByRole("button", { name: /New Group/i }));
+    await userEvent.click(screen.getByLabelText("Ahmed Hodžić"));
+    await userEvent.click(screen.getByLabelText("Lejla Hodžić"));
+    await userEvent.selectOptions(screen.getByLabelText("Primary Passenger"), "p-2");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(mockCreateGroup).toHaveBeenCalledWith(
+        "dep-1",
+        expect.objectContaining({
+          memberIds: ["p-1", "p-2"],
+          primaryPassengerId: "p-2",
+        }),
+      );
+    });
+  });
+
+  it("removing the current primary automatically leaves a valid remaining primary", async () => {
+    renderTab([
+      {
+        ...unlockedGroup,
+        members: [
+          { id: "m-1", group_id: "group-open", passenger_id: "p-1", reservation_id: "r-1", is_primary: true },
+          { id: "m-2", group_id: "group-open", passenger_id: "p-2", reservation_id: "r-2", is_primary: false },
+        ],
+      } as any,
+    ]);
+
+    await openEdit("Otvorena grupa");
+    await userEvent.click(screen.getByLabelText("Ahmed Hodžić"));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(mockReplaceMembers).toHaveBeenCalledWith("group-open", {
+        memberIds: ["p-2"],
+        primaryPassengerId: "p-2",
+      });
+    });
+  });
+
+  it("uses one replace call when changing only the primary passenger", async () => {
+    renderTab([
+      {
+        ...unlockedGroup,
+        members: [
+          { id: "m-1", group_id: "group-open", passenger_id: "p-1", reservation_id: "r-1", is_primary: true },
+          { id: "m-2", group_id: "group-open", passenger_id: "p-2", reservation_id: "r-2", is_primary: false },
+        ],
+      } as any,
+    ]);
+
+    await openEdit("Otvorena grupa");
+    await userEvent.selectOptions(screen.getByLabelText("Primary Passenger"), "p-2");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(mockReplaceMembers).toHaveBeenCalledWith("group-open", {
+        memberIds: ["p-1", "p-2"],
+        primaryPassengerId: "p-2",
+      });
+    });
+    expect(mockAddMember).not.toHaveBeenCalled();
+    expect(mockRemoveMember).not.toHaveBeenCalled();
+  });
+
+  it("keeps the modal open and does not refresh when atomic membership replacement fails", async () => {
+    const onRefresh = vi.fn();
+    mockReplaceMembers.mockRejectedValueOnce(new Error("Group members could not be saved"));
+    renderTab([unlockedGroup as any], onRefresh);
+
+    await openEdit("Otvorena grupa");
+    await userEvent.click(screen.getByLabelText("Lejla Hodžić"));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Group members could not be saved.")).toBeInTheDocument();
+    expect(screen.getByText("Edit Group")).toBeInTheDocument();
+    expect(onRefresh).not.toHaveBeenCalled();
   });
 });

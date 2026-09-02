@@ -20,6 +20,7 @@ const createGroupSchema = z.object({
   seatingPreference: z.enum(['keep_together','prefer_together','no_preference']).optional(),
   accommodationPreference: z.enum(['same_room','adjacent_rooms','same_floor','nearby','no_preference']).optional(),
   memberIds: z.array(z.string().uuid()).min(1),
+  primaryPassengerId: z.string().uuid().optional(),
 });
 
 const updateGroupSchema = z.object({
@@ -36,6 +37,11 @@ const addMemberSchema = z.object({
   reservationId: z.string().uuid().optional(),
 });
 
+const replaceMembersSchema = z.object({
+  memberIds: z.array(z.string().uuid()).min(1),
+  primaryPassengerId: z.string().uuid(),
+});
+
 function autoColor(existingCount: number): string {
   return GROUP_COLORS[existingCount % GROUP_COLORS.length];
 }
@@ -47,6 +53,32 @@ function groupLocked(res: Response) {
     'GROUP_LOCKED',
     'Unlock the passenger group before changing membership or deleting it.',
   );
+}
+
+function passengerGroupRpcError(res: Response, error: { message?: string; code?: string }, fallback = 'Failed to replace group members') {
+  const message = String(error?.message || '');
+  if (message.includes('GROUP_LOCKED')) return groupLocked(res);
+  if (message.includes('GROUP_NOT_FOUND')) return apiError(res, 404, 'NOT_FOUND', 'Group not found');
+  if (message.includes('DUPLICATE_GROUP_MEMBERSHIP')) {
+    return apiError(res, 409, 'DUPLICATE_GROUP_MEMBERSHIP', 'Some passengers are already members of another group in this departure');
+  }
+  if (message.includes('PRIMARY_NOT_MEMBER')) return apiError(res, 400, 'PRIMARY_NOT_MEMBER', 'Primary passenger must be a member of the group');
+  if (message.includes('INVALID_GROUP_PASSENGERS')) return apiError(res, 400, 'CROSS_DEPARTURE', 'All passengers must belong to the same departure and organization');
+  if (message.includes('DUPLICATE_MEMBER_IDS')) return apiError(res, 400, 'VALIDATION_ERROR', 'Group member IDs must be unique');
+  if (message.includes('GROUP_MEMBERS_REQUIRED')) return apiError(res, 400, 'VALIDATION_ERROR', 'At least one passenger is required');
+  return handleSupabaseError(res, error, fallback);
+}
+
+async function fetchGroupWithMembers(groupId: string, orgId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('trip_passenger_groups')
+    .select('*, members:trip_passenger_group_members(*)')
+    .eq('id', groupId)
+    .eq('org_id', orgId)
+    .single();
+
+  if (error) throw error;
+  return data;
 }
 
 // GET /api/departures/:departureId/groups
@@ -90,11 +122,16 @@ router.post(
       if (!r.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', r.error.issues);
 
       const { name, notes, seatingPreference, accommodationPreference, memberIds } = r.data;
+      const primaryPassengerId = r.data.primaryPassengerId || memberIds[0];
+
+      if (!memberIds.includes(primaryPassengerId)) {
+        return apiError(res, 400, 'PRIMARY_NOT_MEMBER', 'Primary passenger must be a member of the group');
+      }
 
       // Validate all passengers BEFORE creating the group row (no orphans)
       const { data: passengers, error: paxCheckErr } = await supabaseAdmin
         .from('departure_passengers')
-        .select('id, reservation_id, departure_id')
+        .select('id, full_name, reservation_id, departure_id')
         .eq('org_id', orgId)
         .eq('departure_id', departureId)
         .in('id', memberIds);
@@ -146,18 +183,19 @@ router.post(
           seating_preference: seatingPreference || 'prefer_together',
           accommodation_preference: accommodationPreference || 'no_preference',
           notes: notes || null,
-          primary_passenger_id: memberIds[0],
+          primary_passenger_id: primaryPassengerId,
+          primary_passenger_name: (passengers || []).find((p: any) => p.id === primaryPassengerId)?.full_name || null,
         })
         .select()
         .single();
 
       if (groupErr) return handleSupabaseError(res, groupErr, 'Failed to create group');
 
-      const memberInserts = (passengers || []).map((p: any, i: number) => ({
+      const memberInserts = (passengers || []).map((p: any) => ({
         group_id: group.id,
         passenger_id: p.id,
         reservation_id: p.reservation_id,
-        is_primary: i === 0,
+        is_primary: p.id === primaryPassengerId,
       }));
 
       const { error: memberErr } = await supabaseAdmin
@@ -323,6 +361,47 @@ router.post(
       return res.status(201).json({ added: true });
     } catch (err) {
       console.error('POST /groups/:id/members:', err);
+      return apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err));
+    }
+  },
+);
+
+// PUT /api/groups/:id/members
+router.put(
+  '/passenger-groups/:id/members',
+  authenticateToken,
+  requireOrgContext,
+  requireMinimumRole('manager'),
+  async (req, res: Response) => {
+    try {
+      const { id } = req.params;
+      const orgId = req.orgId!;
+      const r = replaceMembersSchema.safeParse(req.body);
+      if (!r.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', r.error.issues);
+
+      const { data: group } = await supabaseAdmin
+        .from('trip_passenger_groups')
+        .select('id, locked')
+        .eq('id', id)
+        .eq('org_id', orgId)
+        .maybeSingle();
+
+      if (!group) return apiError(res, 404, 'NOT_FOUND', 'Group not found');
+      if (group.locked === true) return groupLocked(res);
+
+      const { error } = await supabaseAdmin.rpc('replace_passenger_group_members', {
+        p_org_id: orgId,
+        p_group_id: id,
+        p_member_ids: r.data.memberIds,
+        p_primary_passenger_id: r.data.primaryPassengerId,
+      });
+
+      if (error) return passengerGroupRpcError(res, error);
+
+      const refreshed = await fetchGroupWithMembers(id, orgId);
+      return res.json(refreshed);
+    } catch (err) {
+      console.error('PUT /groups/:id/members:', err);
       return apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err));
     }
   },
