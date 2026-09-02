@@ -8,6 +8,11 @@ import { createSuccessResponse } from '../middleware/logging';
 import { formatListResponse, paginationQuerySchema, dateRangeQuerySchema, getPaginationParams, getDateRangeParams } from '../utils/pagination';
 import { apiError } from "../lib/errors";
 import { requireMinimumRole } from '../middleware/requireRole';
+import {
+  camelToSnakeTravelerRequirements,
+  snakeToCamelTravelerRequirements,
+  travelerRequirementsWriteSchema,
+} from '../lib/travelerRequirements';
 
 const router = Router();
 
@@ -72,6 +77,13 @@ function packageHotelDetailOut(row: any) {
   };
 }
 
+function packageOut(row: any) {
+  return {
+    ...row,
+    travelerRequirements: snakeToCamelTravelerRequirements(row.traveler_requirements) ?? {},
+  };
+}
+
 export function buildPackageUpdateData(validated: Record<string, any>) {
   const updateData: any = {};
 
@@ -90,6 +102,7 @@ export function buildPackageUpdateData(validated: Record<string, any>) {
   if (validated.tags !== undefined) updateData.tags = validated.tags;
   if (validated.transportCapacity !== undefined) updateData.transport_capacity = validated.transportCapacity;
   if (validated.variants !== undefined) updateData.variants = validated.variants;
+  if (validated.travelerRequirements !== undefined) updateData.traveler_requirements = camelToSnakeTravelerRequirements(validated.travelerRequirements);
 
   return updateData;
 }
@@ -122,6 +135,7 @@ const createPackageSchema = z.object({
   tags: z.array(z.string()).optional().nullable(),
   transportCapacity: z.number().int().min(0).optional().nullable(),
   variants: z.array(packageVariantSchema).optional().nullable(),
+  travelerRequirements: travelerRequirementsWriteSchema.optional(),
 });
 
 const updatePackageSchema = z.object({
@@ -140,6 +154,7 @@ const updatePackageSchema = z.object({
   tags: z.array(z.string()).optional().nullable(),
   transportCapacity: z.number().int().min(0).optional().nullable(),
   variants: z.array(packageVariantSchema).optional().nullable(),
+  travelerRequirements: travelerRequirementsWriteSchema.optional(),
 });
 
 /**
@@ -182,7 +197,7 @@ router.get('/packages', authenticateToken, requireOrgContext, async (req: any, r
 
     if (error) throw error;
 
-    return res.json(formatListResponse(packages || [], count || 0, page, limit));
+    return res.json(formatListResponse((packages || []).map(packageOut), count || 0, page, limit));
 
   } catch (error) {
     next(error);
@@ -235,6 +250,9 @@ router.post('/packages', authenticateToken, requireOrgContext, auditPackageCreat
         trip_type: validated.tripType ?? null,
         tags: validated.tags ?? null,
         itinerary_id: validated.itineraryId ?? null,
+        traveler_requirements: validated.travelerRequirements !== undefined
+          ? camelToSnakeTravelerRequirements(validated.travelerRequirements)
+          : {},
       })
       .select()
       .single();
@@ -273,7 +291,7 @@ router.post('/packages', authenticateToken, requireOrgContext, auditPackageCreat
       }
     }
 
-    return res.status(201).json(packageData);
+    return res.status(201).json(packageOut(packageData));
 
   } catch (error) {
     next(error);
@@ -312,6 +330,9 @@ router.put('/packages/:id', authenticateToken, requireOrgContext, auditPackageUp
         transport_type: validated.transportType,
         transport_capacity: validated.transportCapacity,
         variants: validated.variants,
+        traveler_requirements: validated.travelerRequirements !== undefined
+          ? camelToSnakeTravelerRequirements(validated.travelerRequirements)
+          : undefined,
       })
       .eq('id', id)
       .eq('org_id', orgId)
@@ -320,7 +341,7 @@ router.put('/packages/:id', authenticateToken, requireOrgContext, auditPackageUp
 
     if (error) return handleSupabaseError(res, error, "Failed to update package");
 
-    return res.json(packageData);
+    return res.json(packageOut(packageData));
   } catch (error) {
     next(error);
   }
@@ -353,7 +374,7 @@ router.patch('/packages/:id', authenticateToken, requireOrgContext, auditPackage
 
     if (error) return handleSupabaseError(res, error, "Failed to update package");
 
-    return res.json(packageData);
+    return res.json(packageOut(packageData));
   } catch (error) {
     next(error);
   }
@@ -461,7 +482,7 @@ router.get('/packages/:id', authenticateToken, requireOrgContext, async (req: an
     ]);
 
     res.json(createSuccessResponse({
-      ...pkg,
+      ...packageOut(pkg),
       package_services: servicesRes.data || [],
       package_hotels: hotelsRes.data?.map(packageHotelDetailOut) || [],
       departures: departuresRes.data || [],

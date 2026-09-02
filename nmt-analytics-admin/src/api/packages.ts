@@ -4,6 +4,15 @@ import { type PackageHotel, normalizePackageHotel } from './packageHotels';
 export type PackageTransportType = 'bus' | 'flight' | 'none';
 export type PackageVariantTier = 'standard' | 'premium' | 'deluxe' | 'custom';
 
+export interface TravelerRequirements {
+  travelScope?: 'unspecified' | 'domestic' | 'international';
+  documentType?: 'none' | 'id_card' | 'passport';
+  allowFillLater?: boolean;
+  requireExpiry?: boolean;
+  requireNationality?: boolean;
+  requireDateOfBirth?: boolean;
+}
+
 export interface Package {
   id: string;
   org_id?: string;
@@ -22,6 +31,7 @@ export interface Package {
   tripType?: string | null;
   tags?: string[] | null;
   variants?: PackageVariant[];
+  travelerRequirements?: TravelerRequirements;
   created_at: string;
   // Read compatibility aliases
   base_price?: number;
@@ -86,6 +96,7 @@ export interface PackageUpsertInput {
   tags?: string[] | null;
   variants?: PackageVariant[] | null;
   itineraryId?: string | null;
+  travelerRequirements?: TravelerRequirements;
 }
 
 export interface PackageListResponse {
@@ -130,6 +141,7 @@ export function normalizePackage(raw: RawPackage): Package {
   const transportCapacity = raw.transportCapacity ?? raw.transport_capacity ?? null;
   const tripType = raw.tripType ?? raw.trip_type ?? null;
   const variants = Array.isArray(raw.variants) ? raw.variants.map(normalizeVariant) : [];
+  const travelerRequirements = raw.travelerRequirements ?? raw.traveler_requirements ?? {};
 
   return {
     ...raw,
@@ -143,6 +155,7 @@ export function normalizePackage(raw: RawPackage): Package {
     transportCapacity,
     tripType,
     variants,
+    travelerRequirements,
     base_price: raw.base_price ?? price,
     is_active: raw.is_active ?? active,
     transport_type: raw.transport_type ?? transportType,
@@ -195,6 +208,7 @@ export function serializePackageUpsert(input: PackageUpsertInput): Record<string
       .filter((variant) => variant.name.trim())
       .map(serializePackageVariant),
     ...(input.itineraryId ? { itineraryId: input.itineraryId } : {}),
+    ...(input.travelerRequirements !== undefined ? { travelerRequirements: input.travelerRequirements } : {}),
   };
 }
 

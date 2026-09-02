@@ -422,6 +422,11 @@ describe('departure accommodation allotments', () => {
       return_at: '2026-09-17T08:00:00.000Z',
       capacity: 30,
       transport_type: 'bus',
+      traveler_requirements: {
+        travel_scope: 'international',
+        document_type: 'passport',
+        require_expiry: true,
+      },
     }];
     failHotelAllocationInsert = true;
     const app = express();
@@ -436,6 +441,10 @@ describe('departure accommodation allotments', () => {
         departAt: '2026-09-10T08:00:00.000Z',
         returnAt: '2026-09-17T08:00:00.000Z',
         capacity: 40,
+        travelerRequirements: {
+          travelScope: 'domestic',
+          documentType: 'none',
+        },
         upsert: true,
       });
 
@@ -446,5 +455,10 @@ describe('departure accommodation allotments', () => {
     expect(departures[0].id).toBe(DEPARTURE);
     expect(departures[0].capacity).toBe(30);
     expect(departures[0].return_at).toBe('2026-09-17T08:00:00.000Z');
+    expect(departures[0].traveler_requirements).toEqual({
+      travel_scope: 'international',
+      document_type: 'passport',
+      require_expiry: true,
+    });
   });
 });

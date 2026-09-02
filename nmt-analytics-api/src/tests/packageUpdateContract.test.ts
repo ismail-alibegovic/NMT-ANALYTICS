@@ -45,6 +45,12 @@ describe('package update contract helpers', () => {
       transportType: 'bus',
       transportCapacity: 50,
       tripType: 'pilgrimage',
+      travelerRequirements: {
+        travelScope: 'international',
+        documentType: 'passport',
+        allowFillLater: true,
+        requireExpiry: true,
+      },
       variants: [
         normalizePackageVariantInput({
           id: 'variant-1',
@@ -69,6 +75,12 @@ describe('package update contract helpers', () => {
       transport_type: 'bus',
       trip_type: 'pilgrimage',
       transport_capacity: 50,
+      traveler_requirements: {
+        travel_scope: 'international',
+        document_type: 'passport',
+        allow_fill_later: true,
+        require_expiry: true,
+      },
       variants: [
         {
           id: 'variant-1',
