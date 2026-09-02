@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
@@ -105,6 +105,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const [accommodationLines, setAccommodationLines] = useState<AccommodationLine[]>([]);
   const [packageServices, setPackageServices] = useState<PackageService[]>([]);
   const [packageServicesResolved, setPackageServicesResolved] = useState<"idle" | "loading" | "resolved" | "error">("idle");
+  const packageServicesRequestId = useRef(0);
   const [selectedAddons, setSelectedAddons] = useState<Record<string, SelectedAddon>>({});
   const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -151,6 +152,8 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const addOnsTotal = selectedAddonItems.reduce((sum, item) => sum + (item.service.unitPrice || 0) * item.quantity, 0);
   const hasOptionalAddons = packageServicesResolved === "resolved" && optionalAddons.length > 0;
   const steps = getSteps(hasAccommodation, hasOptionalAddons);
+  const preAddonsStep: Step = hasAccommodation ? "accommodation" : "travelers";
+  const shouldGatePackageServicesResolution = Boolean(packageId) && step === preAddonsStep;
 
   const accommodationLinesWithOption = accommodationLines.map((line) => ({
     line,
@@ -285,9 +288,31 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     }
   }
 
+  const loadPackageServices = useCallback((nextPackageId: string) => {
+    const requestId = packageServicesRequestId.current + 1;
+    packageServicesRequestId.current = requestId;
+    setPackageServices([]);
+    setSelectedAddons({});
+    setPackageServicesResolved("loading");
+
+    getPackageServices(nextPackageId)
+      .then((services) => {
+        if (packageServicesRequestId.current !== requestId) return;
+        setPackageServices(services);
+        setPackageServicesResolved("resolved");
+      })
+      .catch(() => {
+        if (packageServicesRequestId.current !== requestId) return;
+        setPackageServices([]);
+        setSelectedAddons({});
+        setPackageServicesResolved("error");
+      });
+  }, []);
+
   // When package is selected, load its departures
   useEffect(() => {
     if (!packageId) {
+      packageServicesRequestId.current += 1;
       setDepartures([]); setDepartureId("");
       setPackageServices([]);
       setPackageServicesResolved("idle");
@@ -295,19 +320,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       return;
     }
     setDepartureId("");
-    setPackageServices([]);
-    setSelectedAddons({});
-    setPackageServicesResolved("loading");
-    getPackageServices(packageId)
-      .then((services) => {
-        setPackageServices(services);
-        setPackageServicesResolved("resolved");
-      })
-      .catch(() => {
-        setPackageServices([]);
-        setSelectedAddons({});
-        setPackageServicesResolved("error");
-      });
+    loadPackageServices(packageId);
     getDepartures({ packageId, limit: 200 })
       .then((r) => {
         const deps = r.data ?? [];
@@ -322,7 +335,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         }
       })
       .catch(() => setDepartures([]));
-  }, [packageId, initialDepartureId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [packageId, initialDepartureId, loadPackageServices]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!departureId) {
@@ -451,19 +464,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
   function retryPackageServices() {
     if (!packageId) return;
-    setPackageServices([]);
-    setSelectedAddons({});
-    setPackageServicesResolved("loading");
-    getPackageServices(packageId)
-      .then((services) => {
-        setPackageServices(services);
-        setPackageServicesResolved("resolved");
-      })
-      .catch(() => {
-        setPackageServices([]);
-        setSelectedAddons({});
-        setPackageServicesResolved("error");
-      });
+    loadPackageServices(packageId);
   }
 
   function toggleAddon(serviceId: string) {
@@ -499,12 +500,16 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       if (!customerPhone.trim()) return "Unesite telefon.";
       if (accommodationResolved === "loading") return "Smještaj se još učitava...";
       if (accommodationResolved === "error") return "Nije moguće provjeriti smještaj za ovaj polazak. Pokušajte ponovo.";
+      if (shouldGatePackageServicesResolution && packageServicesResolved === "loading") return "Dodatne usluge se još učitavaju...";
+      if (shouldGatePackageServicesResolution && packageServicesResolved === "error") return "Nije moguće učitati dodatne usluge za ovaj paket.";
       return "";
     }
     if (step === "accommodation") {
       if (accommodationLines.length > 0 && passengers.some((passenger) => !passenger.full_name.trim())) {
         return "Unesite ime svih putnika prije nastavka sa smještajem.";
       }
+      if (shouldGatePackageServicesResolution && packageServicesResolved === "loading") return "Dodatne usluge se još učitavaju...";
+      if (shouldGatePackageServicesResolution && packageServicesResolved === "error") return "Nije moguće učitati dodatne usluge za ovaj paket.";
       if (accommodationLines.length === 0) return "";
       const inventoryBlockedLine = accommodationLines.find((line) => {
         const validation = getAccommodationLineValidation(line);
@@ -527,8 +532,9 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
   const canNext = (() => {
     if (step === "trip") return !!packageId && !!departureId;
-    if (step === "travelers") return !!customerName.trim() && !!customerPhone.trim() && accommodationResolved !== "loading" && accommodationResolved !== "error";
+    if (step === "travelers") return !!customerName.trim() && !!customerPhone.trim() && accommodationResolved !== "loading" && accommodationResolved !== "error" && (!shouldGatePackageServicesResolution || packageServicesResolved === "resolved");
     if (step === "accommodation") {
+      if (shouldGatePackageServicesResolution && packageServicesResolved !== "resolved") return false;
       if (accommodationOptions.length === 0) return true;
       if (accommodationLines.length === 0) return true;
       if (passengers.some((passenger) => !passenger.full_name.trim())) return false;
@@ -813,6 +819,19 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                 </button>
               </div>
             )}
+            {shouldGatePackageServicesResolution && packageServicesResolved === "loading" && (
+              <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-sm text-gray-500">
+                Dodatne usluge se još učitavaju...
+              </div>
+            )}
+            {shouldGatePackageServicesResolution && packageServicesResolved === "error" && (
+              <div className="rounded-xl border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-4 space-y-2">
+                <p className="text-sm text-error-600 dark:text-error-400">Nije moguće učitati dodatne usluge za ovaj paket.</p>
+                <button type="button" onClick={retryPackageServices} className="text-sm font-medium text-brand-600 hover:text-brand-500">
+                  Pokušajte ponovo
+                </button>
+              </div>
+            )}
             {/* Client section */}
             <div className="space-y-3">
               <div>
@@ -982,6 +1001,21 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                 Odaberite hotel i tip sobe iz kapaciteta konkretnog polaska. Broj sobe se dodjeljuje kasnije u rasporedu soba.
               </p>
             </div>
+
+            {shouldGatePackageServicesResolution && packageServicesResolved === "loading" && (
+              <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-sm text-gray-500">
+                Dodatne usluge se još učitavaju...
+              </div>
+            )}
+
+            {shouldGatePackageServicesResolution && packageServicesResolved === "error" && (
+              <div className="rounded-xl border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-4 space-y-2">
+                <p className="text-sm text-error-600 dark:text-error-400">Nije moguće učitati dodatne usluge za ovaj paket.</p>
+                <button type="button" onClick={retryPackageServices} className="text-sm font-medium text-brand-600 hover:text-brand-500">
+                  Pokušajte ponovo
+                </button>
+              </div>
+            )}
 
             {accommodationResolved === "loading" && <p className="text-sm text-gray-500">Učitavanje smještaja...</p>}
 

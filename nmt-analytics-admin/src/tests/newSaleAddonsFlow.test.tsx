@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import NewSaleWizard from '../components/reservations/NewSaleWizard';
 
 const getPackages = vi.fn();
@@ -166,6 +166,16 @@ function renderWizard(initialPackageId = 'package-a', initialDepartureId = 'depa
   );
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
+}
+
 async function goToTravelers() {
   expect(await screen.findByText('Antalya Summer 2027')).toBeInTheDocument();
   await waitFor(() => expect(getPackageServices).toHaveBeenCalledWith('package-a'));
@@ -195,6 +205,109 @@ describe('NewSaleWizard — M05.1 optional add-ons', () => {
     getDepartureAccommodationOptions.mockResolvedValue({ departureId: 'departure-a', items: [] });
     getCustomers.mockResolvedValue({ data: [] });
     createReservation.mockResolvedValue({ id: 'reservation-1' });
+  });
+
+  it('blocks navigation past the pre-add-ons step while package services are loading', async () => {
+    const servicesRequest = deferred<any[]>();
+    getPackageServices.mockReturnValue(servicesRequest.promise);
+    renderWizard();
+
+    expect(await screen.findByText('Antalya Summer 2027')).toBeInTheDocument();
+    await waitFor(() => expect(getPackageServices).toHaveBeenCalledWith('package-a'));
+    await waitFor(() => expect(getDepartureAccommodationOptions).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+    fireEvent.change(screen.getByPlaceholderText('Npr. Ahmed Hodžić'), { target: { value: 'Amina Hadžić' } });
+    fireEvent.change(screen.getByPlaceholderText('+387 61 234 567'), { target: { value: '+38761100001' } });
+    fireEvent.change(screen.getByPlaceholderText('Putnik 1 - puno ime'), { target: { value: 'Amina Hadžić' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+
+    expect(screen.queryByText('Ukupan iznos (BAM)')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Dodatne usluge se još učitavaju...').length).toBeGreaterThan(0);
+
+    await act(async () => {
+      servicesRequest.resolve([insurance]);
+      await servicesRequest.promise;
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+
+    expect(await screen.findByRole('heading', { name: 'Add-ons' })).toBeInTheDocument();
+    expect(screen.getByText('Travel insurance')).toBeInTheDocument();
+  });
+
+  it('shows a recoverable package-services error before Payment', async () => {
+    const failedRequest = deferred<any[]>();
+    getPackageServices.mockReturnValueOnce(failedRequest.promise);
+    renderWizard();
+
+    expect(await screen.findByText('Antalya Summer 2027')).toBeInTheDocument();
+    await waitFor(() => expect(getPackageServices).toHaveBeenCalledWith('package-a'));
+
+    await act(async () => {
+      failedRequest.reject(new Error('network'));
+      await failedRequest.promise.catch(() => undefined);
+    });
+
+    await waitFor(() => expect(getDepartureAccommodationOptions).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+    fireEvent.change(screen.getByPlaceholderText('Npr. Ahmed Hodžić'), { target: { value: 'Amina Hadžić' } });
+    fireEvent.change(screen.getByPlaceholderText('+387 61 234 567'), { target: { value: '+38761100001' } });
+    fireEvent.change(screen.getByPlaceholderText('Putnik 1 - puno ime'), { target: { value: 'Amina Hadžić' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+
+    expect(screen.queryByText('Ukupan iznos (BAM)')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Nije moguće učitati dodatne usluge za ovaj paket.').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Pokušajte ponovo' })).toBeInTheDocument();
+
+    const retryRequest = deferred<any[]>();
+    getPackageServices.mockReturnValueOnce(retryRequest.promise);
+    fireEvent.click(screen.getByRole('button', { name: 'Pokušajte ponovo' }));
+
+    await act(async () => {
+      retryRequest.resolve([insurance]);
+      await retryRequest.promise;
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+
+    expect(await screen.findByRole('heading', { name: 'Add-ons' })).toBeInTheDocument();
+    expect(screen.getByText('Travel insurance')).toBeInTheDocument();
+  });
+
+  it('ignores stale out-of-order package-services responses after package changes', async () => {
+    const packageARequest = deferred<any[]>();
+    const packageBRequest = deferred<any[]>();
+    getPackageServices.mockImplementation((packageId: string) => {
+      if (packageId === 'package-a') return packageARequest.promise;
+      if (packageId === 'package-b') return packageBRequest.promise;
+      return Promise.resolve([]);
+    });
+    renderWizard();
+
+    expect(await screen.findByText('Antalya Summer 2027')).toBeInTheDocument();
+    await waitFor(() => expect(getPackageServices).toHaveBeenCalledWith('package-a'));
+    fireEvent.click(screen.getByText('Istanbul Weekend'));
+    await waitFor(() => expect(getPackageServices).toHaveBeenCalledWith('package-b'));
+
+    await act(async () => {
+      packageBRequest.resolve([excursion]);
+      await packageBRequest.promise;
+    });
+    await act(async () => {
+      packageARequest.resolve([insurance]);
+      await packageARequest.promise;
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+    fireEvent.change(screen.getByPlaceholderText('Npr. Ahmed Hodžić'), { target: { value: 'Amina Hadžić' } });
+    fireEvent.change(screen.getByPlaceholderText('+387 61 234 567'), { target: { value: '+38761100001' } });
+    fireEvent.change(screen.getByPlaceholderText('Putnik 1 - puno ime'), { target: { value: 'Amina Hadžić' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+
+    expect(await screen.findByRole('heading', { name: 'Add-ons' })).toBeInTheDocument();
+    expect(screen.getByText('Bosphorus excursion')).toBeInTheDocument();
+    expect(screen.queryByText('Travel insurance')).not.toBeInTheDocument();
   });
 
   it('scopes selectable add-ons to optional services from the selected package', async () => {
