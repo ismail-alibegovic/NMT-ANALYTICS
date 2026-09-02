@@ -7,8 +7,9 @@ import { useToast } from "../../context/ToastContext";
 import { getPackages, Package } from "../../api/packages";
 import { getDepartures, getDepartureAccommodationOptions, Departure, DepartureCapabilities, type DepartureAccommodationOption } from "../../api/departures";
 import { getCustomers, Customer } from "../../api/customers";
-import { createReservation } from "../../api/reservations";
+import { createReservation, type CreateReservationPassengerInput } from "../../api/reservations";
 import { getPackageServices, type PackageService } from "../../api/operations";
+import type { TravelerRequirements } from "../../api/packages";
 
 type Step = "trip" | "travelers" | "accommodation" | "addons" | "payment" | "review";
 
@@ -32,8 +33,11 @@ type Variant = { id: string; name: string; priceModifier?: number; accommodation
 
 interface PassengerEntry {
   full_name: string;
-  id_document_type?: string;
+  id_document_type?: "passport" | "id_card" | "none";
   id_document_number?: string;
+  id_document_expiry?: string;
+  nationality?: string;
+  date_of_birth?: string;
 }
 
 type PaymentPlan = "full" | "deposit" | "installments";
@@ -50,6 +54,17 @@ interface SelectedAddon {
   serviceId: string;
   quantity: number;
 }
+
+type ResolvedTravelerRequirements = Required<TravelerRequirements>;
+
+const noTravelerDocumentsRequired: ResolvedTravelerRequirements = {
+  travelScope: "unspecified",
+  documentType: "none",
+  allowFillLater: true,
+  requireExpiry: false,
+  requireNationality: false,
+  requireDateOfBirth: false,
+};
 
 function buildAutomaticAccommodationLine(
   optionId: string,
@@ -129,6 +144,13 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const selectedPackage = packages.find((p) => p.id === packageId);
   const selectedDeparture = departures.find((d) => d.id === departureId);
   const capabilities: DepartureCapabilities | undefined = (selectedDeparture as any)?.capabilities;
+  const travelerRequirements: ResolvedTravelerRequirements =
+    selectedDeparture?.resolvedTravelerRequirements ||
+    capabilities?.travelerRequirements ||
+    noTravelerDocumentsRequired;
+  const travelDocumentsRelevant = travelerRequirements.documentType !== "none";
+  const documentNumberLabel = travelerRequirements.documentType === "id_card" ? "Broj lične karte" : "Broj pasoša";
+  const documentNumberPlaceholder = travelerRequirements.documentType === "id_card" ? "Broj lične karte" : "Broj pasoša";
 
   const variants: Variant[] = Array.isArray(selectedPackage?.variants)
     ? (selectedPackage!.variants as unknown as Variant[])
@@ -225,6 +247,38 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       return [{ ...nextLine, notes: current[0].notes }];
     });
   }, [accommodationOptions, isStandardSingleAccommodationSelection, partySize]);
+
+  useEffect(() => {
+    setPassengers((prev) => prev.map((passenger) => {
+      if (!travelDocumentsRelevant) {
+        return { full_name: passenger.full_name };
+      }
+      const requiredDocumentType = travelerRequirements.documentType;
+      if (passenger.id_document_type && passenger.id_document_type !== requiredDocumentType) {
+        return {
+          full_name: passenger.full_name,
+          id_document_type: requiredDocumentType,
+          id_document_number: "",
+          id_document_expiry: "",
+          nationality: "",
+          date_of_birth: "",
+        };
+      }
+      return {
+        ...passenger,
+        id_document_type: requiredDocumentType,
+        ...(travelerRequirements.requireExpiry ? {} : { id_document_expiry: "" }),
+        ...(travelerRequirements.requireNationality ? {} : { nationality: "" }),
+        ...(travelerRequirements.requireDateOfBirth ? {} : { date_of_birth: "" }),
+      };
+    }));
+  }, [
+    travelDocumentsRelevant,
+    travelerRequirements.documentType,
+    travelerRequirements.requireExpiry,
+    travelerRequirements.requireNationality,
+    travelerRequirements.requireDateOfBirth,
+  ]);
 
   function retryAccommodation() {
     if (!departureId) return;
@@ -487,6 +541,25 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     }));
   }
 
+  function getTravelerDocumentStatus(passenger: PassengerEntry) {
+    if (!travelDocumentsRelevant) return "not_required";
+    const hasRequiredNumber = Boolean(passenger.id_document_number?.trim());
+    const hasRequiredExpiry = !travelerRequirements.requireExpiry || Boolean(passenger.id_document_expiry);
+    const hasRequiredNationality = !travelerRequirements.requireNationality || Boolean(passenger.nationality?.trim());
+    const hasRequiredDateOfBirth = !travelerRequirements.requireDateOfBirth || Boolean(passenger.date_of_birth);
+    return hasRequiredNumber && hasRequiredExpiry && hasRequiredNationality && hasRequiredDateOfBirth ? "ready" : "missing";
+  }
+
+  function getTravelerReadinessSummary() {
+    if (!travelDocumentsRelevant) return "";
+    const namedPassengers = passengers.filter((passenger) => passenger.full_name.trim());
+    const ready = namedPassengers.filter((passenger) => getTravelerDocumentStatus(passenger) === "ready").length;
+    const missing = Math.max(0, partySize - ready);
+    const readyLabel = ready === 1 ? "1 spreman" : `${ready} spremna`;
+    if (missing === 0) return `Putni podaci: ${readyLabel}`;
+    return `Putni podaci: ${readyLabel} · ${missing} dopuniti kasnije`;
+  }
+
   const stepIndex = steps.findIndex((s) => s.key === step);
 
   function getValidationMessage(): string {
@@ -498,6 +571,14 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     if (step === "travelers") {
       if (!customerName.trim()) return "Unesite ime klijenta.";
       if (!customerPhone.trim()) return "Unesite telefon.";
+      if (travelDocumentsRelevant) {
+        const missingNameIndex = passengers.findIndex((passenger) => !passenger.full_name.trim());
+        if (missingNameIndex >= 0) return `Unesite ime putnika ${missingNameIndex + 1}.`;
+        if (!travelerRequirements.allowFillLater) {
+          const missingDocumentIndex = passengers.findIndex((passenger) => getTravelerDocumentStatus(passenger) !== "ready");
+          if (missingDocumentIndex >= 0) return `Nedostaju obavezni putni podaci za putnika ${missingDocumentIndex + 1}.`;
+        }
+      }
       if (accommodationResolved === "loading") return "Smještaj se još učitava...";
       if (accommodationResolved === "error") return "Nije moguće provjeriti smještaj za ovaj polazak. Pokušajte ponovo.";
       if (shouldGatePackageServicesResolution && packageServicesResolved === "loading") return "Dodatne usluge se još učitavaju...";
@@ -532,7 +613,18 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
   const canNext = (() => {
     if (step === "trip") return !!packageId && !!departureId;
-    if (step === "travelers") return !!customerName.trim() && !!customerPhone.trim() && accommodationResolved !== "loading" && accommodationResolved !== "error" && (!shouldGatePackageServicesResolution || packageServicesResolved === "resolved");
+    if (step === "travelers") {
+      const travelerDocumentsValid =
+        !travelDocumentsRelevant ||
+        (passengers.every((passenger) => passenger.full_name.trim()) &&
+          (travelerRequirements.allowFillLater || passengers.every((passenger) => getTravelerDocumentStatus(passenger) === "ready")));
+      return !!customerName.trim() &&
+        !!customerPhone.trim() &&
+        travelerDocumentsValid &&
+        accommodationResolved !== "loading" &&
+        accommodationResolved !== "error" &&
+        (!shouldGatePackageServicesResolution || packageServicesResolved === "resolved");
+    }
     if (step === "accommodation") {
       if (shouldGatePackageServicesResolution && packageServicesResolved !== "resolved") return false;
       if (accommodationOptions.length === 0) return true;
@@ -575,7 +667,20 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     if (submitting) return;
     setSubmitting(true);
     try {
-      const filledPassengers = passengers.filter((p) => p.full_name.trim());
+      const filledPassengers: CreateReservationPassengerInput[] = passengers
+        .filter((p) => p.full_name.trim())
+        .map((p) => {
+          const base = { full_name: p.full_name.trim() };
+          if (!travelDocumentsRelevant) return base;
+          return {
+            ...base,
+            id_document_type: travelerRequirements.documentType,
+            id_document_number: p.id_document_number?.trim() || undefined,
+            id_document_expiry: travelerRequirements.requireExpiry ? p.id_document_expiry || undefined : undefined,
+            nationality: travelerRequirements.requireNationality ? p.nationality?.trim() || undefined : undefined,
+            date_of_birth: travelerRequirements.requireDateOfBirth ? p.date_of_birth || undefined : undefined,
+          };
+        });
       const baseTotal = totalAmount ? Number(totalAmount) : 0;
       const total = displayedTotal;
       const depositAmount = paymentPlan === "deposit" ? Math.round(total * (depositPct / 100)) : 0;
@@ -632,6 +737,9 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
           full_name: p.full_name,
           id_document_type: p.id_document_type,
           id_document_number: p.id_document_number,
+          id_document_expiry: p.id_document_expiry,
+          nationality: p.nationality,
+          date_of_birth: p.date_of_birth,
         })),
       };
 
@@ -656,7 +764,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         passengers: filledPassengers.length > 0 ? filledPassengers : undefined,
         create_passenger_group: createGroup && filledPassengers.length > 1,
         group_name: groupName || undefined,
-      } as any);
+      });
       success("Rezervacija kreirana");
       onCreated?.();
       onClose();
@@ -942,39 +1050,98 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                 </div>
               </div>
               <p className="text-xs text-gray-500 -mt-1 mb-2">Klijent/booking holder može biti i jedan od putnika.</p>
-              <div className="space-y-2 max-h-[180px] overflow-y-auto">
+              {travelDocumentsRelevant && travelerRequirements.allowFillLater && (
+                <div className="mb-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+                  Podatke putnog dokumenta možete dopuniti kasnije.
+                </div>
+              )}
+              <div className="space-y-2 max-h-[240px] overflow-y-auto">
                 {passengers.map((p, i) => (
-                  <div key={i} className="flex items-center gap-2 p-2 rounded-lg border border-gray-100 dark:border-gray-800">
-                    <span className="text-xs font-medium text-gray-400 w-5">{i + 1}.</span>
-                    <Input
-                      type="text"
-                      placeholder={`Putnik ${i + 1} - puno ime`}
-                      value={p.full_name}
-                      onChange={(e) => {
-                        setPassengers((prev) => {
-                          const next = [...prev];
-                          next[i] = { ...next[i], full_name: e.target.value };
-                          return next;
-                        });
-                      }}
-                      className="flex-1 !py-1.5 !text-sm"
-                    />
-                    {capabilities?.hasFlight && (
-                      <>
+                  <div key={i} className="rounded-lg border border-gray-100 p-2 dark:border-gray-800">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-400 w-5">{i + 1}.</span>
+                      <Input
+                        type="text"
+                        placeholder={`Putnik ${i + 1} - puno ime`}
+                        value={p.full_name}
+                        onChange={(e) => {
+                          setPassengers((prev) => {
+                            const next = [...prev];
+                            next[i] = { ...next[i], full_name: e.target.value };
+                            return next;
+                          });
+                        }}
+                        className="flex-1 !py-1.5 !text-sm"
+                      />
+                      {travelDocumentsRelevant && travelerRequirements.allowFillLater && getTravelerDocumentStatus(p) === "missing" && (
+                        <span className="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                          Dopuniti kasnije
+                        </span>
+                      )}
+                    </div>
+                    {travelDocumentsRelevant && (
+                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <Input
                           type="text"
-                          placeholder="Pas. br."
+                          aria-label={`${documentNumberLabel} putnika ${i + 1}`}
+                          placeholder={documentNumberPlaceholder}
                           value={p.id_document_number || ""}
                           onChange={(e) => {
                             setPassengers((prev) => {
                               const next = [...prev];
-                              next[i] = { ...next[i], id_document_number: e.target.value, id_document_type: "passport" };
+                              next[i] = { ...next[i], id_document_number: e.target.value, id_document_type: travelerRequirements.documentType };
                               return next;
                             });
                           }}
-                          className="w-28 !py-1.5 !text-sm"
+                          className="!py-1.5 !text-sm"
                         />
-                      </>
+                        {travelerRequirements.requireExpiry && (
+                          <Input
+                            type="date"
+                            aria-label={`Datum isteka putnika ${i + 1}`}
+                            value={p.id_document_expiry || ""}
+                            onChange={(e) => {
+                              setPassengers((prev) => {
+                                const next = [...prev];
+                                next[i] = { ...next[i], id_document_expiry: e.target.value, id_document_type: travelerRequirements.documentType };
+                                return next;
+                              });
+                            }}
+                            className="!py-1.5 !text-sm"
+                          />
+                        )}
+                        {travelerRequirements.requireNationality && (
+                          <Input
+                            type="text"
+                            aria-label={`Državljanstvo putnika ${i + 1}`}
+                            placeholder="Državljanstvo"
+                            value={p.nationality || ""}
+                            onChange={(e) => {
+                              setPassengers((prev) => {
+                                const next = [...prev];
+                                next[i] = { ...next[i], nationality: e.target.value, id_document_type: travelerRequirements.documentType };
+                                return next;
+                              });
+                            }}
+                            className="!py-1.5 !text-sm"
+                          />
+                        )}
+                        {travelerRequirements.requireDateOfBirth && (
+                          <Input
+                            type="date"
+                            aria-label={`Datum rođenja putnika ${i + 1}`}
+                            value={p.date_of_birth || ""}
+                            onChange={(e) => {
+                              setPassengers((prev) => {
+                                const next = [...prev];
+                                next[i] = { ...next[i], date_of_birth: e.target.value, id_document_type: travelerRequirements.documentType };
+                                return next;
+                              });
+                            }}
+                            className="!py-1.5 !text-sm"
+                          />
+                        )}
+                      </div>
                     )}
                   </div>
                 ))}
@@ -1427,6 +1594,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               <Row label="Termin" value={selectedDeparture ? `${new Date(selectedDeparture.depart_at).toLocaleDateString("bs-BA")} → ${new Date(selectedDeparture.return_at).toLocaleDateString("bs-BA")}` : "—"} />
               {variantId ? <Row label="Opcija" value={variants.find((v) => v.id === variantId)?.name ?? "—"} /> : null}
               <Row label="Prijevoz" value={selectedTransportType === "flight" ? "Avion" : selectedTransportType === "bus" ? "Autobus" : "Bez prijevoza"} />
+              {travelDocumentsRelevant ? <Row label="Putni podaci" value={getTravelerReadinessSummary().replace("Putni podaci: ", "")} /> : null}
               <Row
                 label="Smještaj"
                 value={accommodationLinesWithOption.length > 0

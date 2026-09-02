@@ -61,9 +61,22 @@ export interface ReservationAccommodationRequirementInput {
   passengerIndexes?: number[];
 }
 
+export interface CreateReservationPassengerInput {
+  full_name: string;
+  id_document_type?: 'passport' | 'id_card' | 'none';
+  id_document_number?: string;
+  id_document_expiry?: string;
+  nationality?: string;
+  date_of_birth?: string;
+  phone?: string;
+  email?: string;
+  notes?: string;
+}
+
 export interface CreateReservationData {
   customerName: string;
   customerPhone: string;
+  customerEmail?: string | null;
   partySize: number;
   /** ISO date string. Defaults to now if omitted on the backend. */
   reservationAt?: string;
@@ -89,6 +102,9 @@ export interface CreateReservationData {
     serviceId: string;
     quantity: number;
   }[];
+  passengers?: CreateReservationPassengerInput[];
+  create_passenger_group?: boolean;
+  group_name?: string;
 }
 
 export interface UpdateReservationData {

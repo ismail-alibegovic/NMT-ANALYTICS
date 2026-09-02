@@ -31,6 +31,7 @@ let reservations: any[] = [];
 let createdDeparturePassengers = [
   { id: 'passenger-1', full_name: 'Traveller One' },
 ];
+let insertedDeparturePassengers: any[] = [];
 let packageServices: any[] = [];
 const replaceReservationAccommodation = vi.fn(async () => []);
 type LooseRow = Record<string, any>;
@@ -196,11 +197,14 @@ vi.mock('../lib/supabase', () => {
 
   function buildDeparturePassengersQuery() {
     return {
-      insert: vi.fn(() => ({
+      insert: vi.fn((payload: any) => {
+        insertedDeparturePassengers.push(payload);
+        return {
         select: vi.fn(() => ({
           single: vi.fn(async () => ({ data: createdDeparturePassengers.shift() || null, error: null })),
         })),
-      })),
+      };
+      }),
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
           eq: vi.fn(async () => ({ data: [], error: null })),
@@ -259,6 +263,7 @@ beforeEach(() => {
   createdDeparturePassengers = [
     { id: 'passenger-1', full_name: 'Traveller One' },
   ];
+  insertedDeparturePassengers = [];
   packageServices = [
     {
       id: INSURANCE_ID,
@@ -506,5 +511,119 @@ describe('POST /api/reservations customer linkage', () => {
     expect(res.status).toBe(201);
     expect(reservations[0].options.selected_addons).toBeUndefined();
     expect(reservations[0].options.addons_total_at_booking).toBeUndefined();
+  });
+
+  it('persists traveler document values into departure passengers', async () => {
+    createdDeparturePassengers = [
+      { id: 'passenger-doc', full_name: 'Ahmed Hodžić' },
+    ];
+
+    const res = await request(app)
+      .post('/api/reservations')
+      .send({
+        customerName: 'Document Customer',
+        customerPhone: '+38768888888',
+        departureId: DEPARTURE_ID,
+        partySize: 1,
+        reservationAt: '2026-09-01T12:00:00.000Z',
+        status: 'pending',
+        source: 'agent',
+        passengers: [
+          {
+            full_name: 'Ahmed Hodžić',
+            id_document_type: 'passport',
+            id_document_number: 'P123456',
+            id_document_expiry: '2028-06-20',
+            nationality: 'BA',
+            date_of_birth: '1998-03-12',
+          },
+        ],
+      });
+
+    expect(res.status).toBe(201);
+    expect(insertedDeparturePassengers[0]).toMatchObject({
+      org_id: ORG_ID,
+      departure_id: DEPARTURE_ID,
+      reservation_id: RESERVATION_ID,
+      full_name: 'Ahmed Hodžić',
+      id_document_type: 'passport',
+      id_document_number: 'P123456',
+      id_document_expiry: '2028-06-20',
+      nationality: 'BA',
+      date_of_birth: '1998-03-12',
+    });
+  });
+
+  it('rejects invalid traveler document type', async () => {
+    const res = await request(app)
+      .post('/api/reservations')
+      .send({
+        customerName: 'Invalid Type Customer',
+        customerPhone: '+38769999991',
+        departureId: DEPARTURE_ID,
+        partySize: 1,
+        reservationAt: '2026-09-01T12:00:00.000Z',
+        status: 'pending',
+        source: 'agent',
+        passengers: [
+          { full_name: 'Ahmed Hodžić', id_document_type: 'visa' },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(insertedDeparturePassengers).toHaveLength(0);
+  });
+
+  it('rejects invalid traveler document expiry calendar date', async () => {
+    const res = await request(app)
+      .post('/api/reservations')
+      .send({
+        customerName: 'Invalid Expiry Customer',
+        customerPhone: '+38769999992',
+        departureId: DEPARTURE_ID,
+        partySize: 1,
+        reservationAt: '2026-09-01T12:00:00.000Z',
+        status: 'pending',
+        source: 'agent',
+        passengers: [
+          { full_name: 'Ahmed Hodžić', id_document_type: 'passport', id_document_expiry: '2028-02-31' },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(insertedDeparturePassengers).toHaveLength(0);
+  });
+
+  it('accepts omitted traveler document values for fill-in-later bookings', async () => {
+    createdDeparturePassengers = [
+      { id: 'passenger-later', full_name: 'Ahmed Hodžić' },
+    ];
+
+    const res = await request(app)
+      .post('/api/reservations')
+      .send({
+        customerName: 'Fill Later Customer',
+        customerPhone: '+38769999993',
+        departureId: DEPARTURE_ID,
+        partySize: 1,
+        reservationAt: '2026-09-01T12:00:00.000Z',
+        status: 'pending',
+        source: 'agent',
+        passengers: [
+          { full_name: 'Ahmed Hodžić' },
+        ],
+      });
+
+    expect(res.status).toBe(201);
+    expect(insertedDeparturePassengers[0]).toMatchObject({
+      full_name: 'Ahmed Hodžić',
+      id_document_type: null,
+      id_document_number: null,
+      id_document_expiry: null,
+      nationality: null,
+      date_of_birth: null,
+    });
   });
 });

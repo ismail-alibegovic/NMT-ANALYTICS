@@ -60,6 +60,20 @@ const selectedAddonSchema = z.object({
   quantity: z.number().int().min(1),
 });
 
+const VALID_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isValidCalendarDate(v: string): boolean {
+  const d = new Date(v + "T00:00:00Z");
+  if (isNaN(d.getTime())) return false;
+  const [y, m, day] = v.split("-").map(Number);
+  return d.getUTCFullYear() === y && d.getUTCMonth() + 1 === m && d.getUTCDate() === day;
+}
+
+const dateString = z
+  .string()
+  .regex(VALID_DATE, "Must be YYYY-MM-DD")
+  .refine(isValidCalendarDate, "Invalid calendar date");
+
 const createReservationSchema = z.object({
   customerName: z.string().min(1, 'Customer name is required'),
   customerPhone: z.string().min(1, 'Phone number is required'),
@@ -79,8 +93,9 @@ const createReservationSchema = z.object({
   options: z.record(z.string(), z.any()).optional(),
   passengers: z.array(z.object({
     full_name: z.string().min(1),
-    id_document_type: z.string().optional(),
+    id_document_type: z.enum(['passport', 'id_card', 'none']).optional(),
     id_document_number: z.string().optional(),
+    id_document_expiry: dateString.optional(),
     date_of_birth: z.string().optional(),
     nationality: z.string().optional(),
     phone: z.string().optional(),
@@ -577,6 +592,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
               full_name: p.full_name,
               id_document_type: p.id_document_type || null,
               id_document_number: p.id_document_number || null,
+              id_document_expiry: p.id_document_expiry || null,
               date_of_birth: p.date_of_birth || null,
               nationality: p.nationality || null,
               phone: p.phone || null,
