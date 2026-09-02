@@ -1625,6 +1625,7 @@ export const en = {
       errorDuplicate: 'Passenger already belongs to another group on this departure',
       errorCrossDeparture: 'Passenger must belong to the same departure',
       errorPrimaryInvalid: 'Primary passenger must be a group member',
+      errorMembersSave: 'Group members could not be saved.',
       errorGeneric: 'Error saving',
       noGroups: 'No groups on this departure',
       noGroupsDesc: 'Create groups to organize passengers, seating, and accommodation.',

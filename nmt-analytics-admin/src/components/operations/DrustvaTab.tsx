@@ -5,8 +5,7 @@ import {
   createPassengerGroup,
   updatePassengerGroup,
   deletePassengerGroup,
-  addGroupMember,
-  removeGroupMember,
+  replacePassengerGroupMembers,
 } from "../../api/departures";
 import { computeGroupSeatingStatus } from "../../utils/seatGeometry";
 
@@ -123,6 +122,19 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
     setModal({ mode: "create" });
   };
 
+  const resolvePrimaryPassenger = (memberIds: string[]) => {
+    if (formPrimary && memberIds.includes(formPrimary)) return formPrimary;
+    return memberIds[0] || null;
+  };
+
+  const setMembersAndPrimary = (nextMemberIds: string[]) => {
+    setFormMemberIds(nextMemberIds);
+    setFormPrimary((current) => {
+      if (current && nextMemberIds.includes(current)) return current;
+      return nextMemberIds[0] || null;
+    });
+  };
+
   const openEdit = (group: PassengerGroup) => {
     setFormName(group.name || "");
     setFormColor(group.color || COLORS[0]);
@@ -146,12 +158,18 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
     setError("");
     try {
       if (modal.mode === "create") {
+        const primaryPassengerId = resolvePrimaryPassenger(formMemberIds);
+        if (!primaryPassengerId) {
+          setError(String(t.departure.drustva.errorPrimaryInvalid));
+          return;
+        }
         await createPassengerGroup(departureId, {
           name: formName || undefined,
           notes: null,
           seatingPreference: formSeatPref || undefined,
           accommodationPreference: formAccommPref || undefined,
           memberIds: formMemberIds,
+          primaryPassengerId,
         });
       } else if (modal.group) {
         await updatePassengerGroup(modal.group.id, {
@@ -163,19 +181,15 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
         });
 
         if (!formLocked) {
-          const currentMembers = (modal.group.members || []).map((m) => m.passenger_id);
-          const toAdd = formMemberIds.filter((id) => !currentMembers.includes(id));
-          const toRemove = currentMembers.filter((id) => !formMemberIds.includes(id));
-
-          for (const pid of toAdd) {
-            try { await addGroupMember(modal.group.id, pid); } catch { /* allowed to fail */ }
+          const primaryPassengerId = resolvePrimaryPassenger(formMemberIds);
+          if (!primaryPassengerId) {
+            setError(String(t.departure.drustva.errorPrimaryInvalid));
+            return;
           }
-          for (const pid of toRemove) {
-            const member = (modal.group.members || []).find((m) => m.passenger_id === pid);
-            if (member) {
-              try { await removeGroupMember(modal.group.id, member.id); } catch { /* allowed to fail */ }
-            }
-          }
+          await replacePassengerGroupMembers(modal.group.id, {
+            memberIds: formMemberIds,
+            primaryPassengerId,
+          });
         }
       }
       closeModal();
@@ -188,6 +202,8 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
         setError(String(t.departure.drustva.errorCrossDeparture));
       } else if (msg.includes("primary")) {
         setError(String(t.departure.drustva.errorPrimaryInvalid));
+      } else if (modal?.mode === "edit") {
+        setError(String(t.departure.drustva.errorMembersSave));
       } else {
         setError(String(t.departure.drustva.errorGeneric));
       }
@@ -424,8 +440,10 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                   {String(t.departure.drustva.primaryPassenger)}
                 </label>
                 <select
+                  aria-label={String(t.departure.drustva.primaryPassenger)}
                   value={formPrimary || ""}
                   onChange={(e) => setFormPrimary(e.target.value || null)}
+                  disabled={modal?.mode === "edit" && formLocked}
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 >
                   <option value="">{String(t.departure.drustva.selectPrimary)}</option>
@@ -502,12 +520,10 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                             disabled={isOtherGroup || membersLocked}
                             onChange={() => {
                               if (membersLocked) return;
-                              setFormMemberIds((prev) =>
-                                prev.includes(p.id!) ? prev.filter((x) => x !== p.id) : [...prev, p.id!],
-                              );
-                              if (formPrimary === p.id && formMemberIds.includes(p.id!)) {
-                                setFormPrimary(null);
-                              }
+                              const nextMemberIds = formMemberIds.includes(p.id!)
+                                ? formMemberIds.filter((x) => x !== p.id)
+                                : [...formMemberIds, p.id!];
+                              setMembersAndPrimary(nextMemberIds);
                             }}
                             className="rounded border-gray-300 text-brand-500 focus:ring-brand-500"
                           />

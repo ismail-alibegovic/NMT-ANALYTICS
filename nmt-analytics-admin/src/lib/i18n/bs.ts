@@ -1625,6 +1625,7 @@ export const bs: Translations = {
       errorDuplicate: 'Putnik već pripada drugoj grupi na ovom polasku',
       errorCrossDeparture: 'Putnik mora pripadati istom polasku',
       errorPrimaryInvalid: 'Glavni putnik mora biti član grupe',
+      errorMembersSave: 'Članove grupe nije moguće sačuvati.',
       errorGeneric: 'Greška prilikom čuvanja',
       noGroups: 'Nema grupa na ovom polasku',
       noGroupsDesc: 'Kreirajte grupe da biste organizovali putnike, sjedenje i smještaj.',

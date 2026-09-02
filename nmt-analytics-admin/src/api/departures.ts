@@ -1,4 +1,4 @@
-import { get, post, patch, del } from './client';
+import { get, post, patch, put, del } from './client';
 import type { TravelerRequirements } from './packages';
 
 export interface DepartureCapabilities {
@@ -414,6 +414,7 @@ export interface CreateGroupPayload {
   seatingPreference?: string;
   accommodationPreference?: string;
   memberIds: string[];
+  primaryPassengerId?: string;
 }
 
 export async function createPassengerGroup(departureId: string, payload: CreateGroupPayload): Promise<PassengerGroup> {
@@ -446,6 +447,19 @@ export async function addGroupMember(groupId: string, passengerId: string): Prom
 
 export async function removeGroupMember(groupId: string, memberId: string): Promise<void> {
   await del(`/passenger-groups/${groupId}/members/${memberId}`);
+}
+
+export interface ReplacePassengerGroupMembersPayload {
+  memberIds: string[];
+  primaryPassengerId: string;
+}
+
+export async function replacePassengerGroupMembers(
+  groupId: string,
+  payload: ReplacePassengerGroupMembersPayload,
+): Promise<PassengerGroup> {
+  const { data } = await put<PassengerGroup>(`/passenger-groups/${groupId}/members`, payload);
+  return data;
 }
 
 export interface UpdatePassengerDocumentData {
