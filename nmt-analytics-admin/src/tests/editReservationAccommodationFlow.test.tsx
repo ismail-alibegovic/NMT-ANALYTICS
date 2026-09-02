@@ -54,6 +54,8 @@ const reservation = {
   partySize: 2,
   totalAmount: 1780,
   status: 'confirmed',
+  currency: 'BAM',
+  options: {},
 };
 
 const departure = {
@@ -190,5 +192,33 @@ describe('EditReservationModal accommodation flow', () => {
     await waitFor(() => expect(toastError).toHaveBeenCalledWith('Accommodation overbooked'));
     expect(onSuccess).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('shows persisted purchased add-ons from the reservation snapshot when reopened', async () => {
+    getReservation.mockResolvedValueOnce({
+      ...reservation,
+      options: {
+        selected_addons: [
+          {
+            service_id: 'service-insurance',
+            service_type: 'insurance',
+            provider_name: 'Travel insurance',
+            unit_price: 50,
+            currency: 'BAM',
+            quantity: 2,
+            line_total: 100,
+          },
+        ],
+        addons_total_at_booking: 100,
+      },
+    });
+
+    render(<EditReservationModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} reservationId="reservation-1" />);
+
+    expect(await screen.findByText('Dodatne usluge')).toBeInTheDocument();
+    expect(screen.getByText('Travel insurance')).toBeInTheDocument();
+    expect(screen.getByText('2 × 50 BAM')).toBeInTheDocument();
+    expect(screen.getAllByText('100 BAM').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Dodatne usluge ukupno')).toBeInTheDocument();
   });
 });
