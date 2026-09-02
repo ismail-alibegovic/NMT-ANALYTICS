@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router";
+import { Link, useParams, useNavigate } from "react-router";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
@@ -14,6 +14,7 @@ import {
   GroupIcon,
   PlugInIcon,
   FileIcon,
+  PencilIcon,
 } from "../icons";
 import {
   getReservation,
@@ -31,6 +32,7 @@ import {
   Contract,
 } from "../api/contracts";
 import { sendReservationManualMessage } from "../api/manualMessaging";
+import EditReservationModal from "../components/reservations/EditReservationModal";
 
 type Tab = "overview" | "passengers" | "payments" | "services" | "documents";
 
@@ -41,6 +43,12 @@ const tabs: { key: Tab; label: string }[] = [
   { key: "services", label: "Usluge" },
   { key: "documents", label: "Dokumenti" },
 ];
+
+const transportLabels: Record<string, string> = {
+  bus: "Autobus",
+  flight: "Avion",
+  none: "Bez prijevoza",
+};
 
 export default function ReservationDetail() {
   const { id } = useParams<{ id: string }>();
@@ -57,6 +65,9 @@ export default function ReservationDetail() {
   const [existingContracts, setExistingContracts] = useState<Contract[]>([]);
   const [generating, setGenerating] = useState(false);
   const [generatedContract, setGeneratedContract] = useState<Contract | null>(null);
+
+  // Edit modal state
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -95,6 +106,26 @@ export default function ReservationDetail() {
       }
     })();
   }, [id, navigate, showError]);
+
+  const reloadReservation = async () => {
+    if (!id) return;
+    const res = await getReservation(id);
+    const departureId = res.departureId;
+    const pax = departureId
+      ? await import("../api/departures").then(async (m) => {
+          try {
+            const manifest = await m.getDeparturePassengers(departureId);
+            return (manifest.manifest || []).filter(
+              (p: any) => p.reservationId === id || p.reservation_id === id
+            );
+          } catch {
+            return [];
+          }
+        })
+      : [];
+    setReservation(res);
+    setPassengers(pax as unknown as ReservationPassenger[]);
+  };
 
   const handleDownloadVoucher = async () => {
     if (!id) return;
@@ -170,6 +201,11 @@ export default function ReservationDetail() {
   const reservationEmail = (reservation as any).customer?.email || (reservation as any).customers?.email || "";
   const reservationPhone = reservation.customerPhone || (reservation as any).customer?.phone || "";
 
+  const options = (reservation as any)?.options || {};
+  const bookingSnapshot = options.booking_snapshot || null;
+  const purchasedAddons = options.selected_addons || [];
+  const accommodationLines = bookingSnapshot?.accommodation || [];
+
   const paxColumns: Column<ReservationPassenger>[] = [
     {
       key: "fullName",
@@ -189,6 +225,13 @@ export default function ReservationDetail() {
     },
   ];
 
+  const priceRows = [
+    { label: "Osnovna cijena", key: "base_total_at_booking" },
+    { label: "Smještaj", key: "accommodation_total_at_booking" },
+    { label: "Dodatne usluge", key: "addons_total_at_booking" },
+    { label: "Ukupno pri booking-u", key: "total_at_booking" },
+  ].filter((row) => bookingSnapshot?.[row.key] !== undefined);
+
   return (
     <>
       <PageMeta title={`Rezervacija ${reservationShortId}`} description="" />
@@ -204,6 +247,9 @@ export default function ReservationDetail() {
             {reservation.status.toUpperCase()}
           </Badge>
           <div className="ml-auto flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setEditModalOpen(true)}>
+              <PencilIcon className="size-4" /> Uredi rezervaciju
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setContractModalOpen(true)}>
               <FileIcon className="size-4" /> Ugovor
             </Button>
@@ -239,8 +285,24 @@ export default function ReservationDetail() {
             </div>
             <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-4">
               <dt className="text-sm text-gray-500">Paket</dt>
-              <dd className="text-lg font-semibold text-gray-900 dark:text-white">{reservation.packageName}</dd>
-              <dd className="text-sm text-gray-500">{reservation.departureName}</dd>
+              <dd className="text-lg font-semibold text-gray-900 dark:text-white">
+                {reservation.packageId ? (
+                  <Link to={`/packages/${reservation.packageId}`} className="text-brand-600 dark:text-brand-400 hover:underline">
+                    {reservation.packageName}
+                  </Link>
+                ) : (
+                  reservation.packageName
+                )}
+              </dd>
+              {reservation.departureId ? (
+                <dd className="text-sm text-gray-500">
+                  <Link to={`/departures/${reservation.departureId}`} className="text-brand-600 dark:text-brand-400 hover:underline">
+                    {reservation.departureName}
+                  </Link>
+                </dd>
+              ) : (
+                <dd className="text-sm text-gray-500">{reservation.departureName}</dd>
+              )}
             </div>
             <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-4">
               <dt className="text-sm text-gray-500">Datum</dt>
@@ -285,12 +347,89 @@ export default function ReservationDetail() {
 
         {/* Services Tab */}
         {activeTab === "services" && (
-          <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
-            <p className="text-sm text-gray-500">
-              {(reservation as any)?.options?.booking_snapshot
-                ? `Booking snapshot v${(reservation as any).options.booking_snapshot.booking_snapshot_version || 1}`
-                : "Nema snimljenih usluga za ovu rezervaciju."}
-            </p>
+          <div className="space-y-6">
+            {/* Sold booking data */}
+            <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">Prodane usluge</h3>
+
+              {!bookingSnapshot && purchasedAddons.length === 0 ? (
+                <p className="mt-3 text-sm text-gray-500">
+                  Nema snimljenih usluga za ovu rezervaciju.
+                </p>
+              ) : (
+                <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  {bookingSnapshot?.variant_name && (
+                    <>
+                      <dt className="text-gray-500">Varijanta</dt>
+                      <dd className="text-gray-900 dark:text-white">{bookingSnapshot.variant_name}</dd>
+                    </>
+                  )}
+
+                  {bookingSnapshot?.transport_type && (
+                    <>
+                      <dt className="text-gray-500">Prijevoz</dt>
+                      <dd className="text-gray-900 dark:text-white">
+                        {transportLabels[bookingSnapshot.transport_type] || bookingSnapshot.transport_type}
+                      </dd>
+                    </>
+                  )}
+
+                  {accommodationLines.length > 0 && (
+                    <div className="sm:col-span-2 mt-2">
+                      <dt className="text-gray-500 mb-2">Smještaj</dt>
+                      {accommodationLines.map((line: any, i: number) => (
+                        <dd key={i} className="text-gray-900 dark:text-white mb-1">
+                          {line.hotel_name || line.hotel || "—"}
+                          {line.room_type || line.roomType ? ` — ${line.room_type || line.room_label || line.roomType || line.roomLabel}` : ""}
+                          <span className="text-gray-500">
+                            {" "}· {line.room_count ?? line.roomCount ?? 0} soba · {line.guests_expected ?? line.guestsExpected ?? 0} putnika
+                          </span>
+                        </dd>
+                      ))}
+                    </div>
+                  )}
+
+                  {purchasedAddons.length > 0 && (
+                    <div className="sm:col-span-2 mt-2">
+                      <dt className="text-gray-500 mb-2">Dodatne usluge</dt>
+                      {purchasedAddons.map((addon: any, i: number) => (
+                        <dd key={i} className="text-gray-900 dark:text-white mb-1">
+                          {addon.provider_name || addon.service_type || "—"}
+                          {addon.description ? <span className="text-gray-500"> — {addon.description}</span> : ""}
+                          <span className="text-gray-500">
+                            {" "}· {addon.quantity ?? 1} × {addon.unit_price ?? 0} {addon.currency || reservation.currency}
+                          </span>
+                        </dd>
+                      ))}
+                    </div>
+                  )}
+
+                  {reservation.notes && (
+                    <>
+                      <dt className="text-gray-500">Napomene</dt>
+                      <dd className="text-gray-900 dark:text-white">{reservation.notes}</dd>
+                    </>
+                  )}
+                </dl>
+              )}
+            </div>
+
+            {/* Price breakdown */}
+            {priceRows.length > 0 && (
+              <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">Cijena pri booking-u</h3>
+                <dl className="mt-4 space-y-2 text-sm">
+                  {priceRows.map((row) => (
+                    <div key={row.key} className="flex justify-between">
+                      <dt className="text-gray-500">{row.label}</dt>
+                      <dd className={`font-medium text-gray-900 dark:text-white ${row.key === "total_at_booking" ? "text-base" : ""}`}>
+                        {formatReservationCurrency(Number(bookingSnapshot[row.key] ?? 0), reservation.currency)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
           </div>
         )}
 
@@ -314,6 +453,21 @@ export default function ReservationDetail() {
           </div>
         )}
       </div>
+
+      {/* Edit Reservation Modal */}
+      <EditReservationModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        onSuccess={async () => {
+          setEditModalOpen(false);
+          try {
+            await reloadReservation();
+          } catch (err: any) {
+            showError(err?.message || "Failed to reload reservation");
+          }
+        }}
+        reservationId={id || null}
+      />
 
       {/* Contract Generation Modal */}
       <Modal isOpen={contractModalOpen} onClose={() => { setContractModalOpen(false); setGeneratedContract(null); }} className="max-w-md">
