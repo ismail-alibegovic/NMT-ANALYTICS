@@ -443,6 +443,7 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
                   aria-label={String(t.departure.drustva.primaryPassenger)}
                   value={formPrimary || ""}
                   onChange={(e) => setFormPrimary(e.target.value || null)}
+                  disabled={modal?.mode === "edit" && formLocked}
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 >
                   <option value="">{String(t.departure.drustva.selectPrimary)}</option>

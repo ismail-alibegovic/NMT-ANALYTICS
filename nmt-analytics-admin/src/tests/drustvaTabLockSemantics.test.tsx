@@ -109,6 +109,26 @@ describe("DrustvaTab group lock semantics", () => {
     expect(mockRemoveMember).not.toHaveBeenCalled();
   });
 
+  it("disables primary passenger changes while the group remains locked", async () => {
+    renderTab();
+
+    await openEdit("Porodica Hodžić");
+
+    const primarySelect = screen.getByLabelText("Primary Passenger");
+    expect(primarySelect).toBeDisabled();
+    expect(primarySelect).toHaveValue("p-1");
+
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(mockUpdateGroup).toHaveBeenCalledWith(
+        "group-locked",
+        expect.objectContaining({ locked: true }),
+      );
+    });
+    expect(mockReplaceMembers).not.toHaveBeenCalled();
+  });
+
   it("saves Locked to Unlocked through the existing update payload", async () => {
     renderTab();
 

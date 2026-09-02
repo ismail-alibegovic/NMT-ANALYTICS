@@ -28,6 +28,7 @@ const ALLOWED_ACCOMMODATION_PREFS = [
 let insertedGroup: Record<string, any> | null = null
 let groupRows: Record<string, any>[] = []
 let memberRows: Record<string, any>[] = []
+let rpcUniqueConflictOnce = false
 let passengerRows = [
   { id: PAX_A, org_id: TEST_ORG, full_name: 'Passenger A', reservation_id: 'r-a', departure_id: DEPARTURE_ID },
   { id: PAX_B, org_id: TEST_ORG, full_name: 'Passenger B', reservation_id: 'r-b', departure_id: DEPARTURE_ID },
@@ -35,6 +36,10 @@ let passengerRows = [
 ]
 
 function replaceMembersAtomic(args: Record<string, any>) {
+  if (rpcUniqueConflictOnce) {
+    rpcUniqueConflictOnce = false
+    return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } }
+  }
   const group = groupRows.find((row) => row.id === args.p_group_id && row.org_id === args.p_org_id)
   if (!group) return { data: null, error: { message: 'GROUP_NOT_FOUND' } }
   if (group.locked) return { data: null, error: { message: 'GROUP_LOCKED' } }
@@ -368,6 +373,17 @@ describe('PUT /passenger-groups/:id/members - atomic membership replacement', ()
     expect(res.status).toBe(409)
     expect(res.body.code).toBe('DUPLICATE_GROUP_MEMBERSHIP')
     expect(JSON.stringify({ groupRows, memberRows })).toBe(before)
+  })
+
+  it('maps database unique membership conflicts to 409 DUPLICATE_GROUP_MEMBERSHIP', async () => {
+    rpcUniqueConflictOnce = true
+    const app = await buildApp()
+    const res = await request(app)
+      .put('/api/passenger-groups/group-open/members')
+      .send({ memberIds: [PAX_B, PAX_C], primaryPassengerId: PAX_B })
+
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('DUPLICATE_GROUP_MEMBERSHIP')
   })
 
   it('rejects locked groups with 409 GROUP_LOCKED', async () => {

@@ -59,6 +59,9 @@ function passengerGroupRpcError(res: Response, error: { message?: string; code?:
   const message = String(error?.message || '');
   if (message.includes('GROUP_LOCKED')) return groupLocked(res);
   if (message.includes('GROUP_NOT_FOUND')) return apiError(res, 404, 'NOT_FOUND', 'Group not found');
+  if (error?.code === '23505') {
+    return apiError(res, 409, 'DUPLICATE_GROUP_MEMBERSHIP', 'Some passengers are already members of another group in this departure');
+  }
   if (message.includes('DUPLICATE_GROUP_MEMBERSHIP')) {
     return apiError(res, 409, 'DUPLICATE_GROUP_MEMBERSHIP', 'Some passengers are already members of another group in this departure');
   }
