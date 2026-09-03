@@ -198,7 +198,7 @@ export function generateRoomingProposal(input: RoomingProposalInput): RoomingPro
   }
 
   function hasFullRequirement(p: (typeof passengers)[number]): boolean {
-    return Boolean(p.hotelAllocationId && p.roomType);
+    return Boolean(p.hotelId && p.hotelAllocationId && p.roomType);
   }
 
   function slotCompatible(slotId: string, p: (typeof passengers)[number]): boolean {
@@ -250,15 +250,10 @@ export function generateRoomingProposal(input: RoomingProposalInput): RoomingPro
   // Classify passengers without a sold accommodation requirement BEFORE proposing.
   const eligibleForProposal = new Set<string>();
   for (const p of passengersToPropose) {
-    if (!p.reservationHasAccommodation) {
-      // Distinguish "no requirement" vs "requirement exists but not mapped".
-      if (!p.hotelAllocationId && !p.hotelId && !p.roomType) {
-        resolveUnresolved(p, 'NO_ACCOMMODATION_REQUIREMENT', `${p.fullName} has no accommodation requirement`);
-      } else if (!hasFullRequirement(p)) {
-        resolveUnresolved(p, 'PASSENGER_REQUIREMENT_UNASSIGNED', `${p.fullName} has no mapped room requirement`);
-      } else {
-        eligibleForProposal.add(p.id);
-      }
+    if (p.reservationHasAccommodation === false) {
+      resolveUnresolved(p, 'NO_ACCOMMODATION_REQUIREMENT', `${p.fullName} has no accommodation requirement`);
+    } else if (!hasFullRequirement(p)) {
+      resolveUnresolved(p, 'PASSENGER_REQUIREMENT_UNASSIGNED', `${p.fullName} has no mapped room requirement`);
     } else {
       eligibleForProposal.add(p.id);
     }

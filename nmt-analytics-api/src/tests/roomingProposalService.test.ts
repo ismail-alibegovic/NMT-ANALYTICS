@@ -13,8 +13,8 @@ function makeInput(overrides: Partial<RoomingProposalInput> = {}): RoomingPropos
       { id: 's3', roomType: 'single', capacity: 1, hotelAllocationId: 'a1', hotelId: 'h1', assignedCount: 0 },
     ],
     passengers: [
-      { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double' },
-      { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double' },
+      { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+      { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
     ],
     existingAssignments: [],
     groups: [],
@@ -51,8 +51,8 @@ describe('generateRoomingProposal', () => {
   it('preserves manual/locked assignments', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       existingAssignments: [
         { id: 'as1', passengerId: 'p1', slotId: 's1', isManual: true, locked: true, passengerName: 'P1' },
@@ -69,8 +69,8 @@ describe('generateRoomingProposal', () => {
   it('manual unlocked assignment is fixed (not replaceable)', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       existingAssignments: [
         { id: 'as1', passengerId: 'p1', slotId: 's1', isManual: true, locked: false, passengerName: 'P1' },
@@ -86,8 +86,8 @@ describe('generateRoomingProposal', () => {
   it('locked non-manual assignment is fixed', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       existingAssignments: [
         { id: 'as1', passengerId: 'p1', slotId: 's1', isManual: false, locked: true, passengerName: 'P1' },
@@ -103,7 +103,7 @@ describe('generateRoomingProposal', () => {
   it('replaceable assignments are only manual=false + locked=false', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       existingAssignments: [
         { id: 'as1', passengerId: 'p1', slotId: 's1', isManual: false, locked: false, passengerName: 'P1' },
@@ -117,9 +117,9 @@ describe('generateRoomingProposal', () => {
   it('replaceable assignment old slot capacity is released for proposal', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p3', fullName: 'P3', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p3', fullName: 'P3', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       slots: [
         { id: 's1', roomType: 'double', capacity: 2, hotelAllocationId: 'a1', hotelId: 'h1', assignedCount: 0 },
@@ -136,11 +136,11 @@ describe('generateRoomingProposal', () => {
   it('never exceeds slot capacity', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p3', fullName: 'P3', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p4', fullName: 'P4', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p5', fullName: 'P5', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p3', fullName: 'P3', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p4', fullName: 'P4', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p5', fullName: 'P5', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       slots: [
         { id: 's1', roomType: 'double', capacity: 2, hotelAllocationId: 'a1', hotelId: 'h1', assignedCount: 0 },
@@ -162,7 +162,7 @@ describe('generateRoomingProposal', () => {
   it('respects accommodation requirement (room type)', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'single' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'single', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       slots: [
         { id: 's1', roomType: 'double', capacity: 2, hotelAllocationId: 'a1', hotelId: 'h1', assignedCount: 0 },
@@ -177,7 +177,7 @@ describe('generateRoomingProposal', () => {
   it('never duplicates a passenger', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
       ],
     });
     const out = generateRoomingProposal(input);
@@ -188,8 +188,8 @@ describe('generateRoomingProposal', () => {
   it('keeps same_room group together when possible', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       groups: [{ id: 'g1', name: 'Group A', accommodationPreference: 'same_room', passengerIds: ['p1', 'p2'] }],
     });
@@ -202,9 +202,9 @@ describe('generateRoomingProposal', () => {
   it('falls back with a warning when group preference is impossible', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p3', fullName: 'P3', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p3', fullName: 'P3', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       slots: [
         { id: 's1', roomType: 'double', capacity: 2, hotelAllocationId: 'a1', hotelId: 'h1', assignedCount: 0 },
@@ -219,7 +219,7 @@ describe('generateRoomingProposal', () => {
   it('marks passengers unresolved when no compatible room exists', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'triple' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'triple', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       slots: [
         { id: 's1', roomType: 'double', capacity: 2, hotelAllocationId: 'a1', hotelId: 'h1', assignedCount: 0 },
@@ -234,7 +234,7 @@ describe('generateRoomingProposal', () => {
   it('passenger without accommodation requirement is unresolved', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1' },
+        { id: 'p1', fullName: 'P1', reservationHasAccommodation: false },
       ],
     });
     const out = generateRoomingProposal(input);
@@ -308,8 +308,8 @@ describe('M10.1 correctness', () => {
   it('manual=true locked=false → FIXED, not replaceable', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       existingAssignments: [
         { id: 'as1', passengerId: 'p1', slotId: 's1', isManual: true, locked: false, passengerName: 'P1' },
@@ -325,8 +325,8 @@ describe('M10.1 correctness', () => {
   it('manual=false locked=true → FIXED', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       existingAssignments: [
         { id: 'as1', passengerId: 'p1', slotId: 's1', isManual: false, locked: true, passengerName: 'P1' },
@@ -340,8 +340,8 @@ describe('M10.1 correctness', () => {
   it('manual=false locked=false → replaceable', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       existingAssignments: [
         { id: 'as1', passengerId: 'p1', slotId: 's1', isManual: false, locked: false, passengerName: 'P1' },
@@ -355,9 +355,9 @@ describe('M10.1 correctness', () => {
   it('replaceable capacity released — old slot not consuming proposal capacity', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p3', fullName: 'P3', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p3', fullName: 'P3', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       slots: [
         { id: 's1', roomType: 'double', capacity: 2, hotelAllocationId: 'a1', hotelId: 'h1', assignedCount: 0 },
@@ -378,10 +378,10 @@ describe('M10.1 correctness', () => {
     }
   });
 
-  it('passenger without any requirement fields → unresolved NO_ACCOMMODATION_REQUIREMENT', () => {
+  it('passenger with reservationHasAccommodation:false and no mapped fields → NO_ACCOMMODATION_REQUIREMENT', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'NR', hotelAllocationId: undefined, roomType: undefined },
+        { id: 'p1', fullName: 'NR', hotelAllocationId: undefined, roomType: undefined, reservationHasAccommodation: false },
       ],
       existingAssignments: [],
     });
@@ -394,7 +394,20 @@ describe('M10.1 correctness', () => {
   it('passenger with hotelAllocationId but no roomType → PASSENGER_REQUIREMENT_UNASSIGNED', () => {
     const input = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'PR', hotelAllocationId: 'a1', roomType: undefined },
+        { id: 'p1', fullName: 'PR', hotelAllocationId: 'a1', roomType: undefined, reservationHasAccommodation: true },
+      ],
+      existingAssignments: [],
+    });
+    const out = generateRoomingProposal(input);
+    expect(out.proposedAssignments).toHaveLength(0);
+    expect(out.unresolved).toHaveLength(1);
+    expect(out.unresolved[0].reason).toBe('PASSENGER_REQUIREMENT_UNASSIGNED');
+  });
+
+  it('passenger with reservationHasAccommodation:true but no mapped fields → PASSENGER_REQUIREMENT_UNASSIGNED and zero proposals', () => {
+    const input = makeInput({
+      passengers: [
+        { id: 'p1', fullName: 'UN', hotelAllocationId: undefined, hotelId: undefined, roomType: undefined, reservationHasAccommodation: true },
       ],
       existingAssignments: [],
     });
@@ -446,10 +459,10 @@ describe('M10.1 correctness', () => {
   it('shuffled input produces identical proposed assignment ordering (determinism)', () => {
     const base = makeInput({
       passengers: [
-        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p3', fullName: 'P3', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'p4', fullName: 'P4', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'p1', fullName: 'P1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p2', fullName: 'P2', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p3', fullName: 'P3', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'p4', fullName: 'P4', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       slots: [
         { id: 's1', roomType: 'double', capacity: 2, hotelAllocationId: 'a1', hotelId: 'h1', assignedCount: 0 },
@@ -468,10 +481,10 @@ describe('M10.1 correctness', () => {
   it('shuffled input with two competing groups produces identical full output', () => {
     const base = makeInput({
       passengers: [
-        { id: 'pa1', fullName: 'A1', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'pa2', fullName: 'A2', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'pb1', fullName: 'B1', hotelAllocationId: 'a1', roomType: 'double' },
-        { id: 'pb2', fullName: 'B2', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'pa1', fullName: 'A1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'pa2', fullName: 'A2', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'pb1', fullName: 'B1', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
+        { id: 'pb2', fullName: 'B2', hotelAllocationId: 'a1', roomType: 'double', hotelId: 'h1', reservationHasAccommodation: true },
       ],
       slots: [
         { id: 's1', roomType: 'double', capacity: 2, hotelAllocationId: 'a1', hotelId: 'h1', assignedCount: 0 },

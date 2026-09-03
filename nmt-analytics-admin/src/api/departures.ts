@@ -619,6 +619,7 @@ export interface RoomingProposalPassenger {
   passengerId: string;
   passengerName: string;
   slotId: string | null;
+  slotLabel?: string;
   reason?: string;
   message?: string;
 }
