@@ -1356,4 +1356,126 @@ router.get('/departures/:id/groups', authenticateToken, requireOrgContext, async
   }
 });
 
+
+
+/** GET /departures/:departureId/vehicle */
+router.get('/departures/:departureId/vehicle', authenticateToken, requireOrgContext, async (req, res) => {
+  try {
+    const { departureId } = req.params;
+    const orgId = req.orgId!;
+
+    const { data: departure, error: depErr } = await supabaseAdmin
+      .from('departures')
+      .select('id, transport_type, capacity')
+      .eq('id', departureId)
+      .eq('org_id', orgId)
+      .single();
+
+    if (depErr || !departure) {
+      return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
+    }
+
+    if (departure.transport_type !== 'bus') {
+      return apiError(res, 400, 'NOT_BUS_DEPARTURE', 'Vehicle data is only available for bus departures');
+    }
+
+    const { data: vehicle, error: vehicleErr } = await supabaseAdmin
+      .from('departure_vehicle_assignments')
+      .select('id, vehicle_label, registration_number, capacity, layout_type, created_at, updated_at')
+      .eq('departure_id', departureId)
+      .eq('org_id', orgId)
+      .maybeSingle();
+
+    if (vehicleErr) {
+      return handleSupabaseError(res, vehicleErr, 'Failed to load vehicle');
+    }
+
+    if (!vehicle) {
+      return res.json({ vehicle: null, seats: [] });
+    }
+
+    const { data: seats, error: seatsErr } = await supabaseAdmin
+      .from('departure_vehicle_seats')
+      .select('id, seat_number, seat_label, row_number, column_index, side, is_active')
+      .eq('departure_vehicle_assignment_id', vehicle.id)
+      .order('seat_number', { ascending: true });
+
+    if (seatsErr) {
+      return handleSupabaseError(res, seatsErr, 'Failed to load seats');
+    }
+
+    return res.json({ vehicle, seats });
+  } catch (err) {
+    console.error('GET /departures/:departureId/vehicle:', err);
+    apiError(res, 500, 'INTERNAL_ERROR', 'Failed to load vehicle');
+  }
+});
+
+const vehicleUpdateSchema = z.object({
+  vehicleLabel: z.string().min(1).max(200).optional(),
+  registrationNumber: z.string().max(50).nullable().optional(),
+  capacity: z.number().int().positive().max(500).optional(),
+  layoutType: z.enum(['standard_2_plus_2']).optional(),
+});
+
+/** PUT /departures/:departureId/vehicle — atomic RPC-backed vehicle create/update with seat sync */
+router.put('/departures/:departureId/vehicle', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res) => {
+  try {
+    const { departureId } = req.params;
+    const orgId = req.orgId!;
+    const parsed = vehicleUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid vehicle data', parsed.error.issues);
+    }
+
+    const { data: departure, error: depErr } = await supabaseAdmin
+      .from('departures')
+      .select('id, transport_type, capacity')
+      .eq('id', departureId)
+      .eq('org_id', orgId)
+      .single();
+
+    if (depErr || !departure) {
+      return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
+    }
+
+    if (departure.transport_type !== 'bus') {
+      return apiError(res, 400, 'NOT_BUS_DEPARTURE', 'Vehicle configuration is only available for bus departures');
+    }
+
+    const { data: rpcResult, error: rpcErr } = await supabaseAdmin
+      .rpc('update_vehicle_atomic', {
+        p_org_id: orgId,
+        p_departure_id: departureId,
+        p_vehicle_label: parsed.data.vehicleLabel ?? null,
+        p_registration_number: parsed.data.registrationNumber ?? null,
+        p_capacity: parsed.data.capacity ?? null,
+        p_layout_type: parsed.data.layoutType ?? null,
+      });
+
+    if (rpcErr) {
+      const msg = (rpcErr as { message?: string }).message || '';
+      if (msg.includes('DEPARTURE_NOT_FOUND')) {
+        return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
+      }
+      if (msg.includes('NOT_BUS_DEPARTURE')) {
+        return apiError(res, 400, 'NOT_BUS_DEPARTURE', 'Vehicle configuration is only available for bus departures');
+      }
+      if (msg.includes('CAPACITY_TOO_LOW')) {
+        return apiError(res, 400, 'CAPACITY_TOO_LOW', 'Vehicle capacity must be at least the departure capacity');
+      }
+      if (msg.includes('VEHICLE_CHANGE_CONFLICT') || msg.includes('seat')) {
+        return apiError(res, 409, 'VEHICLE_CHANGE_CONFLICT', 'Cannot reduce vehicle capacity — seats above new capacity are currently occupied');
+      }
+      return handleSupabaseError(res, rpcErr, 'Failed to update vehicle');
+    }
+
+    const result = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
+    return res.json(result);
+  } catch (err) {
+    console.error('PUT /departures/:departureId/vehicle:', err);
+    apiError(res, 500, 'INTERNAL_ERROR', 'Failed to update vehicle');
+  }
+});
+
 export default router;

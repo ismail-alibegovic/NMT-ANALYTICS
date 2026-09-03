@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
+import { requireMinimumRole } from '../middleware/requireRole';
 import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
 import { logAuditEntry } from '../middleware/auditLogger';
 import { z } from 'zod';
@@ -44,11 +45,18 @@ const createSchema = z.object({
   notes: z.string().optional(),
 });
 
+const seatAssignSchema = z.object({
+  seatNumber: z.number().int().positive().nullable(),
+});
+
+const seatLockSchema = z.object({
+  locked: z.boolean(),
+});
+
 const updateSchema = z.object({
   full_name: z.string().min(1).optional(),
   phone: z.string().optional(),
   email: z.string().optional(),
-  seat_number: z.number().int().optional().nullable(),
   id_document_number: z.string().optional(),
   id_document_type: z.enum(['passport', 'id_card', 'none']).optional(),
   nationality: z.string().optional(),
@@ -239,6 +247,91 @@ router.patch('/departure-passengers/:id', authenticateToken, requireOrgContext, 
   } catch (err) {
     console.error('PATCH /departure-passengers/:id:', err);
     apiError(res, 500, 'INTERNAL_ERROR', 'Failed to update passenger');
+  }
+});
+
+
+/** PATCH /departure-passengers/:id/seat — atomic manual seat assign/unassign via RPC */
+router.patch('/departure-passengers/:id/seat', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
+  try {
+    const { id } = req.params;
+    const parsed = seatAssignSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Expected { seatNumber: number | null }', parsed.error.issues);
+    }
+
+    const orgId = req.orgId!;
+    const { seatNumber } = parsed.data;
+
+    const { data: updated, error: rpcErr } = await supabaseAdmin
+      .rpc('manual_seat_assign', {
+        p_org_id: orgId,
+        p_passenger_id: id,
+        p_seat_number: seatNumber,
+      });
+
+    if (rpcErr) {
+      const msg = (rpcErr as { message?: string }).message || '';
+      if (msg.includes('PASSENGER_NOT_FOUND') || msg.includes('DEPARTURE_NOT_FOUND')
+          || msg.includes('SEAT_NOT_FOUND') || msg.includes('VEHICLE_NOT_FOUND')) {
+        return apiError(res, 404, 'NOT_FOUND', (rpcErr as { message?: string }).message || 'Resource not found');
+      }
+      if (msg.includes('NOT_BUS_DEPARTURE')) {
+        return apiError(res, 400, 'NOT_BUS_DEPARTURE', 'Manual seat assignment is only supported for bus departures');
+      }
+      if (msg.includes('SEAT_LOCKED')) {
+        return apiError(res, 409, 'SEAT_LOCKED', 'Unlock the seat before changing it.');
+      }
+      if (msg.includes('SEAT_CONFLICT') || msg.includes('seat_number')) {
+        return apiError(res, 409, 'SEAT_CONFLICT', 'That seat is already assigned to another passenger on this departure.');
+      }
+      return handleSupabaseError(res, rpcErr, 'Failed to update seat');
+    }
+
+    return res.json(Array.isArray(updated) ? updated[0] : updated);
+  } catch (err) {
+    console.error('PATCH /departure-passengers/:id/seat:', err);
+    apiError(res, 500, 'INTERNAL_ERROR', 'Failed to update seat');
+  }
+});
+
+/** PATCH /departure-passengers/:id/seat-lock — atomic lock/unlock seat assignment via RPC */
+router.patch('/departure-passengers/:id/seat-lock', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
+  try {
+    const { id } = req.params;
+    const parsed = seatLockSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Expected { locked: boolean }', parsed.error.issues);
+    }
+
+    const orgId = req.orgId!;
+    const { locked } = parsed.data;
+
+    const { data: updated, error: rpcErr } = await supabaseAdmin
+      .rpc('manual_seat_lock', {
+        p_org_id: orgId,
+        p_passenger_id: id,
+        p_locked: locked,
+      });
+
+    if (rpcErr) {
+      const msg = (rpcErr as { message?: string }).message || '';
+      if (msg.includes('PASSENGER_NOT_FOUND')) {
+        return apiError(res, 404, 'NOT_FOUND', (rpcErr as { message?: string }).message || 'Passenger not found');
+      }
+      if (msg.includes('NOT_BUS_DEPARTURE')) {
+        return apiError(res, 400, 'NOT_BUS_DEPARTURE', 'Seat locking is only supported for bus departures');
+      }
+      if (msg.includes('SEAT_NOT_ASSIGNED')) {
+        return apiError(res, 400, 'SEAT_NOT_ASSIGNED', 'Passenger does not have an assigned seat');
+      }
+      return handleSupabaseError(res, rpcErr, 'Failed to update seat lock');
+    }
+
+    return res.json(Array.isArray(updated) ? updated[0] : updated);
+  } catch (err) {
+    console.error('PATCH /departure-passengers/:id/seat-lock:', err);
+    apiError(res, 500, 'INTERNAL_ERROR', 'Failed to update seat lock');
   }
 });
 
