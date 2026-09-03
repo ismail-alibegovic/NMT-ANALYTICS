@@ -18,21 +18,21 @@ INSERT INTO public.departures (id, org_id, package_id, depart_at, return_at, cap
 VALUES ('d0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000001', '2026-10-01', '2026-10-07', 20);
 
 INSERT INTO public.hotels (id, org_id, name, destination, slug)
-VALUES ('h0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'Grand Hotel', 'Test City', 'grand-hotel');
+VALUES ('d0000000-0000-4000-8000-000000000002', 'c0000000-0000-4000-8000-000000000001', 'Grand Hotel', 'Test City', 'grand-hotel');
 
 INSERT INTO public.hotel_allocations (id, org_id, departure_id, hotel_id, room_type, rooms_reserved, capacity_per_room, check_in, check_out)
-VALUES ('a0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'h0000000-0000-4000-8000-000000000001', 'double', 2, 2, '2026-10-01', '2026-10-07');
+VALUES ('a0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000002', 'double', 2, 2, '2026-10-01', '2026-10-07');
 
 INSERT INTO public.reservations (id, org_id, departure_id, customer_id, customer_name, party_size, reservation_at)
-VALUES ('r0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', 'Test Customer', 2, now());
+VALUES ('f0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', 'Test Customer', 2, now());
 
 INSERT INTO public.reservation_accommodation_requirements (id, org_id, reservation_id, departure_id, hotel_allocation_id, hotel_id, room_type, room_count, guests_expected, capacity_per_room)
-VALUES ('e0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'r0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001', 'h0000000-0000-4000-8000-000000000001', 'double', 1, 2, 2);
+VALUES ('e0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'f0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000002', 'double', 1, 2, 2);
 
 INSERT INTO public.departure_passengers (id, org_id, departure_id, reservation_id, full_name, reservation_accommodation_requirement_id)
 VALUES
-  ('p0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'r0000000-0000-4000-8000-000000000001', 'Alice Test', 'e0000000-0000-4000-8000-000000000001'),
-  ('p0000000-0000-4000-8000-000000000002', 'c0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'r0000000-0000-4000-8000-000000000001', 'Bob Test', 'e0000000-0000-4000-8000-000000000001');
+  ('10000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'f0000000-0000-4000-8000-000000000001', 'Alice Test', 'e0000000-0000-4000-8000-000000000001'),
+  ('10000000-0000-4000-8000-000000000002', 'c0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'f0000000-0000-4000-8000-000000000001', 'Bob Test', 'e0000000-0000-4000-8000-000000000001');
 
 -- Sync room slots ------------------------------------------------------------
 SELECT public.sync_departure_room_slots_atomic(
@@ -76,7 +76,7 @@ BEGIN
 
   -- Create a replaceable auto assignment (p1 → slot1)
   INSERT INTO public.departure_room_slot_assignments (id, org_id, departure_id, room_slot_id, passenger_id, reservation_id, passenger_name, is_manual, locked)
-  VALUES (gen_random_uuid(), 'c0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', slot1, 'p0000000-0000-4000-8000-000000000001', 'r0000000-0000-4000-8000-000000000001', 'Alice Test', false, false)
+  VALUES (gen_random_uuid(), 'c0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', slot1, '10000000-0000-4000-8000-000000000001', 'f0000000-0000-4000-8000-000000000001', 'Alice Test', false, false)
   RETURNING id INTO a1_id;
 
   -- Apply: replace a1, propose p1 → slot2
@@ -84,7 +84,7 @@ BEGIN
     'c0000000-0000-4000-8000-000000000001'::UUID,
     'd0000000-0000-4000-8000-000000000001'::UUID,
     ARRAY[a1_id],
-    ('[{"passenger_id":"p0000000-0000-4000-8000-000000000001","room_slot_id":"' || slot2 || '"}]')::JSONB
+    ('[{"passenger_id":"10000000-0000-4000-8000-000000000001","room_slot_id":"' || slot2 || '"}]')::JSONB
   );
 
   IF r.error_detail IS NOT NULL THEN
@@ -100,7 +100,7 @@ BEGIN
   -- Verify p1 now in slot2 with correct org_id
   SELECT a.id, a.org_id INTO r
   FROM public.departure_room_slot_assignments a
-  WHERE a.passenger_id = 'p0000000-0000-4000-8000-000000000001'
+  WHERE a.passenger_id = '10000000-0000-4000-8000-000000000001'
     AND a.org_id = 'c0000000-0000-4000-8000-000000000001'
     AND a.departure_id = 'd0000000-0000-4000-8000-000000000001';
 
@@ -126,7 +126,7 @@ BEGIN
 
   -- Create MANUAL assignment (p2 → slot1, is_manual=true)
   INSERT INTO public.departure_room_slot_assignments (id, org_id, departure_id, room_slot_id, passenger_id, reservation_id, passenger_name, is_manual, locked)
-  VALUES (gen_random_uuid(), 'c0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', slot1, 'p0000000-0000-4000-8000-000000000002', 'r0000000-0000-4000-8000-000000000001', 'Bob Test', true, false)
+  VALUES (gen_random_uuid(), 'c0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', slot1, '10000000-0000-4000-8000-000000000002', 'f0000000-0000-4000-8000-000000000001', 'Bob Test', true, false)
   RETURNING id INTO b2_id;
 
   -- Send an apply that does NOT replace b2 (manual is not in replaceable list)
@@ -134,7 +134,7 @@ BEGIN
   -- First find p1's current assignment
   SELECT a.id INTO r
   FROM public.departure_room_slot_assignments a
-  WHERE a.passenger_id = 'p0000000-0000-4000-8000-000000000001'
+  WHERE a.passenger_id = '10000000-0000-4000-8000-000000000001'
     AND a.org_id = 'c0000000-0000-4000-8000-000000000001'
     AND a.departure_id = 'd0000000-0000-4000-8000-000000000001';
 
@@ -143,7 +143,7 @@ BEGIN
     'c0000000-0000-4000-8000-000000000001'::UUID,
     'd0000000-0000-4000-8000-000000000001'::UUID,
     ARRAY[r.id],  -- only p1's replaceable assignment
-    ('[{"passenger_id":"p0000000-0000-4000-8000-000000000001","room_slot_id":"' || slot1 || '"}]')::JSONB
+    ('[{"passenger_id":"10000000-0000-4000-8000-000000000001","room_slot_id":"' || slot1 || '"}]')::JSONB
   );
 
   IF r.error_detail IS NOT NULL THEN
@@ -153,7 +153,7 @@ BEGIN
   -- Verify p2's manual assignment still exists and untouched
   SELECT a.id INTO r
   FROM public.departure_room_slot_assignments a
-  WHERE a.passenger_id = 'p0000000-0000-4000-8000-000000000002'
+  WHERE a.passenger_id = '10000000-0000-4000-8000-000000000002'
     AND a.org_id = 'c0000000-0000-4000-8000-000000000001'
     AND a.departure_id = 'd0000000-0000-4000-8000-000000000001'
     AND a.is_manual = true;
@@ -184,7 +184,7 @@ BEGIN
   -- Record p1's current assignment (in slot1 from Test B)
   SELECT a.id INTO p1_old_assignment_id
   FROM public.departure_room_slot_assignments a
-  WHERE a.passenger_id = 'p0000000-0000-4000-8000-000000000001'
+  WHERE a.passenger_id = '10000000-0000-4000-8000-000000000001'
     AND a.org_id = 'c0000000-0000-4000-8000-000000000001'
     AND a.departure_id = 'd0000000-0000-4000-8000-000000000001';
 
@@ -197,7 +197,7 @@ BEGIN
     'c0000000-0000-4000-8000-000000000001'::UUID,
     'd0000000-0000-4000-8000-000000000001'::UUID,
     ARRAY[fake_id],  -- fake id — does not exist
-    ('[{"passenger_id":"p0000000-0000-4000-8000-000000000001","room_slot_id":"' || slot2 || '"}]')::JSONB
+    ('[{"passenger_id":"10000000-0000-4000-8000-000000000001","room_slot_id":"' || slot2 || '"}]')::JSONB
   );
 
   IF r.error_detail IS NULL OR r.error_detail = '' THEN
@@ -211,7 +211,7 @@ BEGIN
   -- Verify zero writes: p1 still in original slot
   IF NOT EXISTS (
     SELECT 1 FROM public.departure_room_slot_assignments a
-    WHERE a.passenger_id = 'p0000000-0000-4000-8000-000000000001'
+    WHERE a.passenger_id = '10000000-0000-4000-8000-000000000001'
       AND a.org_id = 'c0000000-0000-4000-8000-000000000001'
       AND a.departure_id = 'd0000000-0000-4000-8000-000000000001'
       AND a.id = p1_old_assignment_id
@@ -239,7 +239,7 @@ BEGIN
   -- We'll repurpose by locking p1's current assignment
   SELECT a.id, a.room_slot_id INTO locked_id, locked_old_room
   FROM public.departure_room_slot_assignments a
-  WHERE a.passenger_id = 'p0000000-0000-4000-8000-000000000001'
+  WHERE a.passenger_id = '10000000-0000-4000-8000-000000000001'
     AND a.org_id = 'c0000000-0000-4000-8000-000000000001'
     AND a.departure_id = 'd0000000-0000-4000-8000-000000000001';
 
@@ -255,7 +255,7 @@ BEGIN
     'c0000000-0000-4000-8000-000000000001'::UUID,
     'd0000000-0000-4000-8000-000000000001'::UUID,
     ARRAY[locked_id],
-    ('[{"passenger_id":"p0000000-0000-4000-8000-000000000001","room_slot_id":"' || locked_old_room || '"}]')::JSONB
+    ('[{"passenger_id":"10000000-0000-4000-8000-000000000001","room_slot_id":"' || locked_old_room || '"}]')::JSONB
   );
 
   IF r.error_detail IS NULL OR NOT (r.error_detail LIKE '%STALE%' OR r.error_detail LIKE '%stale%') THEN
@@ -270,6 +270,5 @@ BEGIN
   RAISE NOTICE 'Test D PASS — locked assignment protected from stale apply';
 END $$;
 
-RAISE NOTICE '=== ALL 4 integration tests PASSED ===';
 
 ROLLBACK;
