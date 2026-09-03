@@ -123,17 +123,21 @@ vi.mock('../middleware/requireRole', () => ({
   requireMinimumRole: () => (_req: any, _res: any, next: any) => next(),
 }));
 
+const MOCK_PROPOSAL = {
+  departureId: DEPARTURE,
+  stateFingerprint: FINGERPRINT,
+  summary: { totalPassengers: 1, fixedManualLocked: 0, proposedNew: 1, unresolved: 0 },
+  fixedAssignments: [],
+  replaceableAssignmentIds: ['ra-1'],
+  proposedAssignments: [{ passengerId: 'p1', slotId: 'slot-1', slotLabel: 'Double 01' }],
+  unresolved: [],
+  warnings: [],
+};
+
+let mockProposal: any = { ...MOCK_PROPOSAL };
+
 vi.mock('../services/roomingProposal', () => ({
-  generateRoomingProposal: () => ({
-    departureId: DEPARTURE,
-    stateFingerprint: FINGERPRINT,
-    summary: { totalPassengers: 0, fixedManualLocked: 0, proposedNew: 0, unresolved: 0 },
-    fixedAssignments: [],
-    replaceableAssignmentIds: [],
-    proposedAssignments: [],
-    unresolved: [],
-    warnings: [],
-  }),
+  generateRoomingProposal: () => ({ ...mockProposal }),
 }));
 
 async function getRouter() {
@@ -152,6 +156,11 @@ beforeEach(() => {
   passengers = [];
   requirements = [];
   groups = [];
+  mockProposal = {
+    ...MOCK_PROPOSAL,
+    proposedAssignments: [{ passengerId: 'p1', slotId: 'slot-1', slotLabel: 'Double 01' }],
+    replaceableAssignmentIds: ['ra-1'],
+  };
 });
 
 describe('POST /departures/:departureId/rooming/apply', () => {
@@ -159,7 +168,7 @@ describe('POST /departures/:departureId/rooming/apply', () => {
     return {
       stateFingerprint: FINGERPRINT,
       replaceableAssignmentIds: ['ra-1'],
-      proposedAssignments: [{ passengerId: 'p1', slotId: 'slot-1' }],
+      proposedAssignments: [{ passengerId: 'p1', roomSlotId: 'slot-1' }],
     };
   }
 
@@ -178,6 +187,7 @@ describe('POST /departures/:departureId/rooming/apply', () => {
       p_org_id: ORG,
       p_departure_id: DEPARTURE,
       p_replaceable_assignment_ids: ['ra-1'],
+      p_proposed: [{ passenger_id: 'p1', room_slot_id: 'slot-1' }],
     });
   });
 
@@ -209,6 +219,18 @@ describe('POST /departures/:departureId/rooming/apply', () => {
 
   it('maps ROOM_ASSIGNMENT_LOCKED to 409 STALE_PROPOSAL (race protection)', async () => {
     applyRpcResult = { data: [{ deleted_count: 0, inserted_count: 0, error_detail: 'ROOM_ASSIGNMENT_LOCKED' }], error: null };
+    const app = express();
+    app.use(express.json());
+    app.use(await getRouter());
+
+    const res = await request(app).post(`/departures/${DEPARTURE}/rooming/apply`).send(validBody());
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('STALE_PROPOSAL');
+  });
+
+  it('maps STALE_REPLACEABLE_ASSIGNMENTS to 409 STALE_PROPOSAL (race: replaceable became locked)', async () => {
+    applyRpcResult = { data: [{ deleted_count: 0, inserted_count: 0, error_detail: 'STALE_REPLACEABLE_ASSIGNMENTS (expected 1, found 0)' }], error: null };
     const app = express();
     app.use(express.json());
     app.use(await getRouter());
@@ -266,5 +288,102 @@ describe('POST /departures/:departureId/rooming/apply', () => {
 
     expect(res.status).toBe(400);
     expect(applyRpcSpy).not.toHaveBeenCalled();
+  });
+
+  // BLOCKER 1: roomSlotId contract — HTTP payload reaches RPC correctly
+  it('passes room_slot_id to the RPC from client roomSlotId', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use(await getRouter());
+
+    const res = await request(app)
+      .post(`/departures/${DEPARTURE}/rooming/apply`)
+      .send({
+        stateFingerprint: FINGERPRINT,
+        replaceableAssignmentIds: ['ra-1'],
+        proposedAssignments: [{ passengerId: 'p1', roomSlotId: 'slot-1' }],
+      });
+
+    expect(res.status).toBe(200);
+    expect(applyRpcSpy).toHaveBeenCalledTimes(1);
+    const rpcArgs = applyRpcSpy.mock.calls[0][0];
+    expect(rpcArgs.p_proposed).toEqual([{ passenger_id: 'p1', room_slot_id: 'slot-1' }]);
+  });
+
+  // BLOCKER 2: tampered proposedAssignments → 409, no RPC
+  it('returns 409 when proposedAssignments differ from server proposal (tampered slots)', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use(await getRouter());
+
+    const res = await request(app)
+      .post(`/departures/${DEPARTURE}/rooming/apply`)
+      .send({
+        stateFingerprint: FINGERPRINT,
+        replaceableAssignmentIds: ['ra-1'],
+        proposedAssignments: [{ passengerId: 'p1', roomSlotId: 'tampered-slot' }],
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('STALE_PROPOSAL');
+    expect(applyRpcSpy).not.toHaveBeenCalled();
+  });
+
+  // BLOCKER 3: tampered replaceableAssignmentIds → 409, no RPC
+  it('returns 409 when replaceableAssignmentIds differ from server proposal (tampered IDs)', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use(await getRouter());
+
+    const res = await request(app)
+      .post(`/departures/${DEPARTURE}/rooming/apply`)
+      .send({
+        stateFingerprint: FINGERPRINT,
+        replaceableAssignmentIds: ['tampered-id'],
+        proposedAssignments: [{ passengerId: 'p1', roomSlotId: 'slot-1' }],
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('STALE_PROPOSAL');
+    expect(applyRpcSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects tampered proposedAssignments with 409 STALE_PROPOSAL and zero writes', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use(await getRouter());
+
+    const res = await request(app)
+      .post(`/departures/${DEPARTURE}/rooming/apply`)
+      .send({ ...validBody(), proposedAssignments: [{ passengerId: 'p2', roomSlotId: 'slot-9' }] });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('STALE_PROPOSAL');
+    expect(applyRpcSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects tampered replaceableAssignmentIds with 409 STALE_PROPOSAL and zero writes', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use(await getRouter());
+
+    const res = await request(app)
+      .post(`/departures/${DEPARTURE}/rooming/apply`)
+      .send({ ...validBody(), replaceableAssignmentIds: ['ra-999'] });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('STALE_PROPOSAL');
+    expect(applyRpcSpy).not.toHaveBeenCalled();
+  });
+
+  it('maps STALE_REPLACEABLE_ASSIGNMENTS to 409 STALE_PROPOSAL (race: auto became manual/locked)', async () => {
+    applyRpcResult = { data: [{ deleted_count: 0, inserted_count: 0, error_detail: 'STALE_REPLACEABLE_ASSIGNMENTS' }], error: null };
+    const app = express();
+    app.use(express.json());
+    app.use(await getRouter());
+
+    const res = await request(app).post(`/departures/${DEPARTURE}/rooming/apply`).send(validBody());
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('STALE_PROPOSAL');
   });
 });

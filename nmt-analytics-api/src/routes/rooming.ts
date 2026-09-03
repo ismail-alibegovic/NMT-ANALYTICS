@@ -61,8 +61,9 @@ router.post(
         return res.status(error.status).json({ error: error.message });
       }
 
-      // 2. regenerate proposal and compare fingerprint
+      // 2. regenerate proposal and compare against submitted values
       const currentProposal = generateRoomingProposal(state!.input);
+
       if (currentProposal.stateFingerprint !== stateFingerprint) {
         return res.status(409).json({
           error: 'Proposal is stale. Generate a new proposal.',
@@ -70,11 +71,34 @@ router.post(
         });
       }
 
-      // 3. build proposed JSON payload for the RPC (passenger_id + room_slot_id)
-      const proposedJson = proposedAssignments.map((p: any) => ({
+      const submittedSlots = proposedAssignments
+        .map((p: any) => ({ passengerId: p.passengerId, slotId: p.roomSlotId }))
+        .sort((a: any, b: any) => a.passengerId.localeCompare(b.passengerId));
+
+      const serverSlots = currentProposal.proposedAssignments
+        .map((p) => ({ passengerId: p.passengerId, slotId: p.slotId }))
+        .sort((a, b) => a.passengerId.localeCompare(b.passengerId));
+
+      const submittedIds = [...(replaceableAssignmentIds || [])].sort();
+      const serverIds = [...(currentProposal.replaceableAssignmentIds || [])].sort();
+
+      if (
+        JSON.stringify(submittedSlots) !== JSON.stringify(serverSlots) ||
+        JSON.stringify(submittedIds) !== JSON.stringify(serverIds)
+      ) {
+        return res.status(409).json({
+          error: 'Proposal is stale. Generate a new proposal.',
+          code: 'STALE_PROPOSAL',
+        });
+      }
+
+      // 3. build RPC payload from SERVER proposal (never trust client data)
+      const proposedJson = currentProposal.proposedAssignments.map((p) => ({
         passenger_id: p.passengerId,
         room_slot_id: p.slotId,
       }));
+
+      const rpcReplaceableIds = currentProposal.replaceableAssignmentIds;
 
       // 4. atomic DB apply
       const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
@@ -82,7 +106,7 @@ router.post(
         {
           p_org_id: orgId,
           p_departure_id: departureId,
-          p_replaceable_assignment_ids: replaceableAssignmentIds,
+          p_replaceable_assignment_ids: rpcReplaceableIds,
           p_proposed: proposedJson,
           p_assigned_by: null,
         },
@@ -97,7 +121,10 @@ router.post(
       const errorDetail = row?.error_detail;
 
       if (errorDetail) {
-        if (errorDetail.includes('ROOM_ASSIGNMENT_LOCKED')) {
+        if (
+          errorDetail.includes('ROOM_ASSIGNMENT_LOCKED') ||
+          errorDetail.includes('STALE_REPLACEABLE_ASSIGNMENTS')
+        ) {
           return res.status(409).json({ error: 'Proposal is stale. Generate a new proposal.', code: 'STALE_PROPOSAL' });
         }
         if (errorDetail.includes('DEPARTURE_NOT_FOUND')) {
