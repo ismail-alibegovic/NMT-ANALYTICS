@@ -8,6 +8,7 @@ export interface RoomingProposalInput {
     capacity: number;
     hotelAllocationId: string;
     hotelId: string;
+    slotNumber?: number | null;
     assignedCount: number;
     displayLabel?: string;
   }[];
@@ -20,6 +21,7 @@ export interface RoomingProposalInput {
     groupId?: string;
     groupAccommodationPreference?: string;
     groupColor?: string;
+    reservationHasAccommodation?: boolean;
     groupName?: string;
   }[];
   existingAssignments: {
@@ -43,6 +45,7 @@ export interface ProposedAssignment {
   passengerId: string;
   passengerName: string;
   slotId: string;
+  slotLabel?: string;
   reason: 'manual_locked' | 'same_room_group' | 'preference_match' | 'capacity_fill';
 }
 
@@ -72,6 +75,15 @@ export interface RoomingProposalOutput {
   warnings: string[];
 }
 
+function stableSlotKey(slot: RoomingProposalInput['slots'][number]): string {
+  return [
+    slot.hotelAllocationId ?? '',
+    slot.roomType ?? '',
+    String(slot.slotNumber ?? ''),
+    slot.id,
+  ].join('|');
+}
+
 function computeFingerprint(
   departureId: string,
   slots: RoomingProposalInput['slots'],
@@ -82,16 +94,23 @@ function computeFingerprint(
   const material = JSON.stringify({
     departureId,
     slots: slots
-      .map((s) => ({ id: s.id, capacity: s.capacity, assignedCount: s.assignedCount }))
+      .map((s) => ({
+        id: s.id,
+        hotelId: s.hotelId,
+        hotelAllocationId: s.hotelAllocationId,
+        roomType: s.roomType,
+        slotNumber: s.slotNumber ?? null,
+        capacity: s.capacity,
+      }))
       .sort((a, b) => a.id.localeCompare(b.id)),
     passengerIds: passengers.map((p) => p.id).sort(),
     passengerRequirements: passengers
       .map((p) => ({
         id: p.id,
-        hotelAllocationId: p.hotelAllocationId,
-        hotelId: p.hotelId,
-        roomType: p.roomType,
-        groupId: p.groupId,
+        hotelAllocationId: p.hotelAllocationId ?? null,
+        hotelId: p.hotelId ?? null,
+        roomType: p.roomType ?? null,
+        groupId: p.groupId ?? null,
       }))
       .sort((a, b) => a.id.localeCompare(b.id)),
     assignments: existingAssignments
@@ -120,30 +139,11 @@ export function generateRoomingProposal(input: RoomingProposalInput): RoomingPro
   const fingerprint = computeFingerprint(departureId, slots, passengers, existingAssignments, groups);
 
   const slotMap = new Map(slots.map((s) => [s.id, s]));
-  const existingAssignmentMap = new Map<string, typeof existingAssignments[0]>();
-  const existingSlotOccupancy = new Map<string, number>();
-
+  const existingAssignmentMap = new Map<string, (typeof existingAssignments)[number]>();
+  function labelForSlot(slotId: string): string { const slot = slotMap.get(slotId); return slot?.displayLabel ?? (slot?.roomType ?? slotId); }
   for (const a of existingAssignments) {
     existingAssignmentMap.set(a.passengerId, a);
-    if (a.slotId) {
-      existingSlotOccupancy.set(a.slotId, (existingSlotOccupancy.get(a.slotId) ?? 0) + 1);
-    }
   }
-
-  const fixedAssignments: ProposedAssignment[] = [];
-  const replaceableAssignmentIds: string[] = [];
-  const proposedAssignments: ProposedAssignment[] = [];
-  const unresolved: UnresolvedPassenger[] = [];
-  const warnings: string[] = [];
-
-  const pendingSlotOccupancy = new Map<string, number>();
-  for (const [slotId, count] of existingSlotOccupancy) {
-    pendingSlotOccupancy.set(slotId, count);
-  }
-
-  const passengerRequirementMap = new Map(
-    passengers.map((p) => [p.id, p]),
-  );
 
   const groupById = new Map(groups.map((g) => [g.id, g]));
   const passengerGroups = new Map<string, string>();
@@ -153,41 +153,37 @@ export function generateRoomingProposal(input: RoomingProposalInput): RoomingPro
     }
   }
 
+  // FIXED = isManual OR locked. REPLACEABLE = manual=false AND locked=false.
+  const fixedAssignments: ProposedAssignment[] = [];
+  const replaceableAssignmentIds: string[] = [];
+  const fixedSlotOccupancy = new Map<string, number>();
+
   for (const a of existingAssignments) {
-    if (a.locked) {
+    const slotLabel = labelForSlot(a.slotId);
+    if (a.isManual || a.locked) {
       fixedAssignments.push({
         passengerId: a.passengerId,
         passengerName: a.passengerName,
         slotId: a.slotId,
+        slotLabel,
         reason: 'manual_locked',
       });
+      fixedSlotOccupancy.set(a.slotId, (fixedSlotOccupancy.get(a.slotId) ?? 0) + 1);
     } else {
       replaceableAssignmentIds.push(a.id);
     }
   }
 
   const fixedPassengerIds = new Set(fixedAssignments.map((a) => a.passengerId));
+  const replaceableAssignmentIdSet = new Set(replaceableAssignmentIds);
 
-  const unassigned = passengers.filter(
-    (p) => !existingAssignmentMap.has(p.id) && !fixedPassengerIds.has(p.id),
-  );
+  // Only FIXED existing assignments consume proposal capacity. Replaceable
+  // automatic assignments are being replanned, so their old slots are released.
+  const pendingSlotOccupancy = new Map<string, number>(fixedSlotOccupancy);
 
-  const unlockedAssignmentIds = new Set(replaceableAssignmentIds);
-
-  const passengersToPropose: typeof passengers = [
-    ...unassigned,
-    ...passengers.filter((p) => unlockedAssignmentIds.has(existingAssignmentMap.get(p.id)?.id ?? '')),
-  ];
-
-  const groupPassengers = new Map<string, (typeof passengersToPropose)[number][]>();
-  for (const p of passengersToPropose) {
-    const groupId = passengerGroups.get(p.id);
-    if (groupId) {
-      if (!groupPassengers.has(groupId)) groupPassengers.set(groupId, []);
-      groupPassengers.get(groupId)!.push(p);
-    }
-  }
-
+  const unresolved: UnresolvedPassenger[] = [];
+  const proposedAssignments: ProposedAssignment[] = [];
+  const warnings: string[] = [];
   const proposedPassengerIds = new Set<string>();
   const usedSlotOccupancy = new Map<string, number>();
 
@@ -196,6 +192,10 @@ export function generateRoomingProposal(input: RoomingProposalInput): RoomingPro
     if (!slot) return 0;
     const occupied = (usedSlotOccupancy.get(slotId) ?? 0) + (pendingSlotOccupancy.get(slotId) ?? 0);
     return Math.max(0, slot.capacity - occupied);
+  }
+
+  function hasFullRequirement(p: (typeof passengers)[number]): boolean {
+    return Boolean(p.hotelAllocationId && p.roomType);
   }
 
   function slotCompatible(slotId: string, p: (typeof passengers)[number]): boolean {
@@ -212,27 +212,68 @@ export function generateRoomingProposal(input: RoomingProposalInput): RoomingPro
       passengerId: p.id,
       passengerName: p.fullName,
       slotId,
+      slotLabel: labelForSlot(slotId),
       reason,
     });
     proposedPassengerIds.add(p.id);
     usedSlotOccupancy.set(slotId, (usedSlotOccupancy.get(slotId) ?? 0) + 1);
   }
 
-  const slotOrder = [...slots]
-    .sort((a, b) => (b.capacity - (usedSlotOccupancy.get(b.id) ?? 0)) - (a.capacity - (usedSlotOccupancy.get(a.id) ?? 0)));
+  // Stable slot ordering: hotelAllocationId, roomType, slotNumber, slotId.
+  const slotOrder = [...slots].sort((a, b) => stableSlotKey(a).localeCompare(stableSlotKey(b)));
+
+  // Determine which passengers are (re)planned: not fixed, and either unassigned
+  // or currently in a replaceable (automatic) assignment.
+  const passengersToPropose = passengers.filter((p) => {
+    if (fixedPassengerIds.has(p.id)) return false;
+    const existing = existingAssignmentMap.get(p.id);
+    if (existing && !replaceableAssignmentIdSet.has(existing.id)) return false;
+    return true;
+  });
+
+  const groupPassengers = new Map<string, (typeof passengersToPropose)[number][]>();
+  for (const p of passengersToPropose) {
+    const groupId = passengerGroups.get(p.id);
+    if (groupId) {
+      if (!groupPassengers.has(groupId)) groupPassengers.set(groupId, []);
+      groupPassengers.get(groupId)!.push(p);
+    }
+  }
+
+  function resolveUnresolved(p: (typeof passengers)[number], reason: UnresolvedPassenger['reason'], message: string) {
+    unresolved.push({ passengerId: p.id, passengerName: p.fullName, reason, message });
+  }
+
+  // Classify passengers without a sold accommodation requirement BEFORE proposing.
+  const eligibleForProposal = new Set<string>();
+  for (const p of passengersToPropose) {
+    if (!p.reservationHasAccommodation) {
+      // Distinguish "no requirement" vs "requirement exists but not mapped".
+      if (!p.hotelAllocationId && !p.hotelId && !p.roomType) {
+        resolveUnresolved(p, 'NO_ACCOMMODATION_REQUIREMENT', `${p.fullName} has no accommodation requirement`);
+      } else if (!hasFullRequirement(p)) {
+        resolveUnresolved(p, 'PASSENGER_REQUIREMENT_UNASSIGNED', `${p.fullName} has no mapped room requirement`);
+      } else {
+        eligibleForProposal.add(p.id);
+      }
+    } else {
+      eligibleForProposal.add(p.id);
+    }
+  }
 
   for (const [groupId, members] of groupPassengers) {
     const group = groupById.get(groupId);
     const pref = group?.accommodationPreference || 'no_preference';
     const isSameRoom = pref === 'same_room';
-    const sortedMembers = [...members].sort((a, b) => a.id.localeCompare(b.id));
+    const sortedMembers = members
+      .filter((p) => eligibleForProposal.has(p.id))
+      .sort((a, b) => a.id.localeCompare(b.id));
 
     if (isSameRoom && sortedMembers.length > 0) {
       let placed = false;
       for (const slot of slotOrder) {
-        const cap = remainingCapacity(slot.id);
         const allCompatible = sortedMembers.every((p) => slotCompatible(slot.id, p));
-        if (allCompatible && cap >= sortedMembers.length) {
+        if (allCompatible && remainingCapacity(slot.id) >= sortedMembers.length) {
           for (const p of sortedMembers) {
             assignToSlot(p, slot.id, 'same_room_group');
           }
@@ -245,7 +286,6 @@ export function generateRoomingProposal(input: RoomingProposalInput): RoomingPro
           `Group "${group?.name ?? groupId}" (same_room preference) could not be placed together — falling back to best-effort placement`,
         );
         for (const p of sortedMembers) {
-          if (proposedPassengerIds.has(p.id)) continue;
           let assigned = false;
           for (const slot of slotOrder) {
             if (slotCompatible(slot.id, p) && remainingCapacity(slot.id) > 0) {
@@ -255,12 +295,7 @@ export function generateRoomingProposal(input: RoomingProposalInput): RoomingPro
             }
           }
           if (!assigned) {
-            unresolved.push({
-              passengerId: p.id,
-              passengerName: p.fullName,
-              reason: 'NO_COMPATIBLE_ROOM_CAPACITY',
-              message: `No compatible room with available capacity for ${p.fullName}`,
-            });
+            resolveUnresolved(p, 'NO_COMPATIBLE_ROOM_CAPACITY', `No compatible room with available capacity for ${p.fullName}`);
           }
         }
       }
@@ -268,7 +303,6 @@ export function generateRoomingProposal(input: RoomingProposalInput): RoomingPro
     }
 
     for (const p of sortedMembers) {
-      if (proposedPassengerIds.has(p.id)) continue;
       let assigned = false;
       for (const slot of slotOrder) {
         if (slotCompatible(slot.id, p) && remainingCapacity(slot.id) > 0) {
@@ -278,19 +312,15 @@ export function generateRoomingProposal(input: RoomingProposalInput): RoomingPro
         }
       }
       if (!assigned) {
-        unresolved.push({
-          passengerId: p.id,
-          passengerName: p.fullName,
-          reason: 'NO_COMPATIBLE_ROOM_CAPACITY',
-          message: `No compatible room with available capacity for ${p.fullName}`,
-        });
+        resolveUnresolved(p, 'NO_COMPATIBLE_ROOM_CAPACITY', `No compatible room with available capacity for ${p.fullName}`);
       }
     }
   }
 
-  const ungroupedProposed = passengersToPropose.filter(
-    (p) => !passengerGroups.has(p.id) && !proposedPassengerIds.has(p.id),
-  );
+  const ungroupedProposed = passengersToPropose
+    .filter((p) => !passengerGroups.has(p.id))
+    .filter((p) => eligibleForProposal.has(p.id))
+    .sort((a, b) => a.id.localeCompare(b.id));
 
   for (const p of ungroupedProposed) {
     let assigned = false;
@@ -302,12 +332,7 @@ export function generateRoomingProposal(input: RoomingProposalInput): RoomingPro
       }
     }
     if (!assigned) {
-      unresolved.push({
-        passengerId: p.id,
-        passengerName: p.fullName,
-        reason: 'NO_COMPATIBLE_ROOM_CAPACITY',
-        message: `No compatible room with available capacity for ${p.fullName}`,
-      });
+      resolveUnresolved(p, 'NO_COMPATIBLE_ROOM_CAPACITY', `No compatible room with available capacity for ${p.fullName}`);
     }
   }
 

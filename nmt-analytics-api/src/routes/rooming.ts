@@ -22,6 +22,17 @@ router.post(
       const { departureId } = req.params;
       const orgId = req.orgId!;
 
+      // 0. verify departure belongs to caller org
+      const { data: departureCheck, error: departureErr } = await supabaseAdmin
+        .from('departures')
+        .select('id')
+        .eq('id', departureId)
+        .eq('org_id', orgId)
+        .maybeSingle();
+      if (departureErr || !departureCheck) {
+        return res.status(404).json({ error: 'Departure not found' });
+      }
+
       // 1. fetch operational room slots with their assignments
       const { data: slots, error: slotsErr } = await supabaseAdmin
         .from('departure_room_slots')
@@ -115,6 +126,7 @@ router.post(
           hotelAllocationId: req?.hotel_allocation_id ?? undefined,
           hotelId: req?.hotel_id ?? undefined,
           roomType: req?.room_type ?? undefined,
+          reservationHasAccommodation: Boolean(p.reservation_accommodation_requirement_id),
           groupId: grp?.groupId,
           groupAccommodationPreference: grp?.accPref,
           groupColor: grp?.color,
@@ -129,6 +141,7 @@ router.post(
         capacity: s.capacity,
         hotelAllocationId: s.hotel_allocation_id,
         hotelId: s.hotel_id,
+        slotNumber: s.slot_number ?? null,
         assignedCount: ((s as any).assignments || []).length,
         displayLabel: s.display_label ?? `${s.room_type} ${s.id.slice(0, 8)}`,
       }));
