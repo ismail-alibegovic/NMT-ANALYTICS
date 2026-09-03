@@ -3,15 +3,13 @@ import { supabaseAdmin } from '../lib/supabase';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
 import { requireMinimumRole } from '../middleware/requireRole';
-import {
-  generateRoomingProposal,
-  type RoomingProposalInput,
-} from '../services/roomingProposal';
+import { generateRoomingProposal } from '../services/roomingProposal';
+import { loadRoomingState } from '../services/roomingStateLoader';
 
 const router = Router();
 
 // POST /api/departures/:departureId/rooming/proposal
-// Generate an operational rooming proposal without writing to DB
+// Generate an operational rooming proposal without writing to DB.
 router.post(
   '/departures/:departureId/rooming/proposal',
   authenticateToken,
@@ -22,164 +20,110 @@ router.post(
       const { departureId } = req.params;
       const orgId = req.orgId!;
 
-      // 0. verify departure belongs to caller org
-      const { data: departureCheck, error: departureErr } = await supabaseAdmin
-        .from('departures')
-        .select('id')
-        .eq('id', departureId)
-        .eq('org_id', orgId)
-        .maybeSingle();
-      if (departureErr || !departureCheck) {
-        return res.status(404).json({ error: 'Departure not found' });
+      const { state, error } = await loadRoomingState(departureId, orgId);
+      if (error) {
+        return res.status(error.status).json({ error: error.message });
       }
 
-      // 0.5 sync operational room slots before loading proposal state (M09 canonical sync)
-      const { error: syncError } = await supabaseAdmin.rpc('sync_departure_room_slots_atomic', {
-        p_org_id: orgId,
-        p_departure_id: departureId,
-        p_hotel_allocation_id: null,
-      });
-      if (syncError) {
-        console.error('rooming proposal sync:', syncError);
-        return res.status(500).json({ error: 'Failed to sync room slots' });
-      }
-
-
-      // 1. fetch operational room slots with their assignments
-      const { data: slots, error: slotsErr } = await supabaseAdmin
-        .from('departure_room_slots')
-        .select('*, assignments:departure_room_slot_assignments(*), hotels:hotel_id(id, name, destination, stars)')
-        .eq('departure_id', departureId)
-        .eq('org_id', orgId);
-
-      if (slotsErr) throw slotsErr;
-
-      // 2. fetch departure passengers
-      const { data: passengers, error: passengersErr } = await supabaseAdmin
-        .from('departure_passengers')
-        .select('id, full_name, departure_id, reservation_id, reservation_accommodation_requirement_id')
-        .eq('departure_id', departureId)
-        .eq('org_id', orgId);
-
-      if (passengersErr) throw passengersErr;
-
-      // 3. resolve accommodation requirements by RESERVATION id (not only mapped passenger ids)
-      const reservationIds = Array.from(new Set((passengers || [])
-        .map((p: any) => p.reservation_id)
-        .filter(Boolean)));
-
-      // canonical full requirement shape for mapped passengers
-      const mappedRequirementIds = (passengers || [])
-        .map((p: any) => p.reservation_accommodation_requirement_id)
-        .filter(Boolean);
-
-      const requirementMap = new Map<string, any>();
-      const reservationHasAccommodation = new Set<string>();
-      if (reservationIds.length > 0) {
-        const { data: reqRows, error: reqErr } = await supabaseAdmin
-          .from('reservation_accommodation_requirements')
-          .select('id, reservation_id, hotel_id, hotel_allocation_id, room_type')
-          .eq('org_id', orgId)
-          .in('reservation_id', reservationIds);
-
-        if (reqErr) throw reqErr;
-        for (const r of reqRows || []) {
-          reservationHasAccommodation.add(r.reservation_id);
-          if (mappedRequirementIds.includes(r.id)) {
-            requirementMap.set(r.id, r);
-          }
-        }
-      }
-
-      // 4. fetch passenger groups with members
-      const { data: groups, error: groupsErr } = await supabaseAdmin
-        .from('trip_passenger_groups')
-        .select('*, members:trip_passenger_group_members(passenger_id, is_primary)')
-        .eq('departure_id', departureId)
-        .eq('org_id', orgId);
-
-      if (groupsErr) throw groupsErr;
-
-      // build group → passengerIds map
-      const groupRows = (groups || []).map((g: any) => ({
-        id: g.id,
-        name: g.name,
-        accommodationPreference: g.accommodation_preference ?? 'no_preference',
-        color: g.color,
-        passengerIds: (g.members || []).map((m: any) => m.passenger_id),
-      }));
-
-      // build passenger → group lookup
-      const passengerGroup = new Map<string, { groupId: string; accPref: string; color?: string; name: string }>();
-      for (const g of groupRows) {
-        for (const pid of g.passengerIds) {
-          passengerGroup.set(pid, {
-            groupId: g.id,
-            accPref: g.accommodationPreference,
-            color: g.color,
-            name: g.name,
-          });
-        }
-      }
-
-      // 5. build flat existingAssignments
-      const existingAssignments: RoomingProposalInput['existingAssignments'] = [];
-      for (const slot of slots || []) {
-        for (const a of (slot as any).assignments || []) {
-          existingAssignments.push({
-            id: a.id,
-            passengerId: a.passenger_id,
-            slotId: slot.id,
-            isManual: a.is_manual ?? false,
-            locked: a.locked ?? false,
-            passengerName: a.passenger_name,
-          });
-        }
-      }
-
-      // 6. build passenger list with requirement info + group membership
-      const passengerRows: RoomingProposalInput['passengers'] = (passengers || []).map((p: any) => {
-        const req = requirementMap.get(p.reservation_accommodation_requirement_id);
-        const grp = passengerGroup.get(p.id);
-        return {
-          id: p.id,
-          fullName: p.full_name,
-          hotelAllocationId: req?.hotel_allocation_id ?? undefined,
-          hotelId: req?.hotel_id ?? undefined,
-          roomType: req?.room_type ?? undefined,
-          reservationHasAccommodation: reservationHasAccommodation.has(p.reservation_id),
-          groupId: grp?.groupId,
-          groupAccommodationPreference: grp?.accPref,
-          groupColor: grp?.color,
-          groupName: grp?.name,
-        };
-      });
-
-      // 7. build slot list
-      const slotRows: RoomingProposalInput['slots'] = (slots || []).map((s: any) => ({
-        id: s.id,
-        roomType: s.room_type,
-        capacity: s.capacity,
-        hotelAllocationId: s.hotel_allocation_id,
-        hotelId: s.hotel_id,
-        slotNumber: s.slot_number ?? null,
-        assignedCount: ((s as any).assignments || []).length,
-        displayLabel: s.display_label ?? `${s.room_type} ${s.id.slice(0, 8)}`,
-      }));
-
-      // 8. call pure proposal service
-      const proposal = generateRoomingProposal({
-        departureId,
-        slots: slotRows,
-        passengers: passengerRows,
-        existingAssignments,
-        groups: groupRows,
-      });
-
+      const proposal = generateRoomingProposal(state!.input);
       return res.json(proposal);
     } catch (err: any) {
       console.error('POST /departures/:departureId/rooming/proposal:', err);
       return res.status(500).json({ error: 'Failed to generate rooming proposal' });
+    }
+  },
+);
+
+// POST /api/departures/:departureId/rooming/apply
+// Atomically apply a reviewed proposal. Stale-safe, capacity-safe, requirement-safe.
+router.post(
+  '/departures/:departureId/rooming/apply',
+  authenticateToken,
+  requireOrgContext,
+  requireMinimumRole('manager'),
+  async (req, res: Response) => {
+    try {
+      const { departureId } = req.params;
+      const orgId = req.orgId!;
+
+      const { stateFingerprint, replaceableAssignmentIds, proposedAssignments } = req.body ?? {};
+
+      if (typeof stateFingerprint !== 'string' || !stateFingerprint) {
+        return res.status(400).json({ error: 'stateFingerprint is required' });
+      }
+      if (!Array.isArray(replaceableAssignmentIds) || !Array.isArray(proposedAssignments)) {
+        return res.status(400).json({ error: 'replaceableAssignmentIds and proposedAssignments are required' });
+      }
+
+      // 1. reload canonical rooming state using the SAME logic as the proposal endpoint
+      const { state, error } = await loadRoomingState(departureId, orgId);
+      if (error) {
+        return res.status(error.status).json({ error: error.message });
+      }
+
+      // 2. regenerate proposal and compare fingerprint
+      const currentProposal = generateRoomingProposal(state!.input);
+      if (currentProposal.stateFingerprint !== stateFingerprint) {
+        return res.status(409).json({
+          error: 'Proposal is stale. Generate a new proposal.',
+          code: 'STALE_PROPOSAL',
+        });
+      }
+
+      // 3. build proposed JSON payload for the RPC (passenger_id + room_slot_id)
+      const proposedJson = proposedAssignments.map((p: any) => ({
+        passenger_id: p.passengerId,
+        room_slot_id: p.slotId,
+      }));
+
+      // 4. atomic DB apply
+      const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
+        'apply_rooming_proposal_atomic',
+        {
+          p_org_id: orgId,
+          p_departure_id: departureId,
+          p_replaceable_assignment_ids: replaceableAssignmentIds,
+          p_proposed: proposedJson,
+          p_assigned_by: null,
+        },
+      );
+
+      if (rpcError) {
+        console.error('rooming apply RPC:', rpcError);
+        return res.status(500).json({ error: 'Failed to apply rooming proposal' });
+      }
+
+      const row = (rpcResult as any)?.[0];
+      const errorDetail = row?.error_detail;
+
+      if (errorDetail) {
+        if (errorDetail.includes('ROOM_ASSIGNMENT_LOCKED')) {
+          return res.status(409).json({ error: 'Proposal is stale. Generate a new proposal.', code: 'STALE_PROPOSAL' });
+        }
+        if (errorDetail.includes('DEPARTURE_NOT_FOUND')) {
+          return res.status(404).json({ error: 'Departure not found' });
+        }
+        if (
+          errorDetail.includes('PASSENGER_NOT_FOUND') ||
+          errorDetail.includes('PASSENGER_REQUIREMENT_UNASSIGNED') ||
+          errorDetail.includes('REQUIREMENT_MISMATCH') ||
+          errorDetail.includes('SLOT_NOT_FOUND') ||
+          errorDetail.includes('NO_COMPATIBLE_ROOM_CAPACITY') ||
+          errorDetail.includes('DUPLICATE_PASSENGER')
+        ) {
+          return res.status(409).json({ error: 'Proposal is stale. Generate a new proposal.', code: 'STALE_PROPOSAL' });
+        }
+        return res.status(409).json({ error: errorDetail, code: 'APPLY_CONFLICT' });
+      }
+
+      return res.json({
+        applied: true,
+        deletedCount: row?.deleted_count ?? 0,
+        insertedCount: row?.inserted_count ?? 0,
+      });
+    } catch (err: any) {
+      console.error('POST /departures/:departureId/rooming/apply:', err);
+      return res.status(500).json({ error: 'Failed to apply rooming proposal' });
     }
   },
 );
