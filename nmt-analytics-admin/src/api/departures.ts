@@ -615,6 +615,37 @@ export async function updateRoomSlotPhysicalNumber(slotId: string, actualHotelRo
   return data;
 }
 
+export interface RoomingProposalPassenger {
+  passengerId: string;
+  passengerName: string;
+  slotId: string | null;
+  reason?: string;
+  message?: string;
+}
+
+export interface RoomingProposalSummary {
+  totalPassengers: number;
+  fixedManualLocked: number;
+  proposedNew: number;
+  unresolved: number;
+}
+
+export interface RoomingProposalOutput {
+  departureId: string;
+  stateFingerprint: string;
+  summary: RoomingProposalSummary;
+  fixedAssignments: RoomingProposalPassenger[];
+  replaceableAssignmentIds: string[];
+  proposedAssignments: RoomingProposalPassenger[];
+  unresolved: RoomingProposalPassenger[];
+  warnings: string[];
+}
+
+export async function generateOperationalRoomingProposal(departureId: string): Promise<RoomingProposalOutput> {
+  const { data } = await post<RoomingProposalOutput>(`/departures/${departureId}/rooming/proposal`, {});
+  return data;
+}
+
 export async function getAccommodationBuildings(departureId: string): Promise<AccommodationBuilding[]> {
   const res = await get(`/departures/${departureId}/accommodation`);
   return res.data ?? [];
