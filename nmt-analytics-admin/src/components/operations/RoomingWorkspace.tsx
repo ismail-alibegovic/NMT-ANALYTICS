@@ -12,6 +12,7 @@ import {
   setRoomSlotAssignmentLocked,
   unassignPassengerFromRoomSlot,
   updateRoomSlotPhysicalNumber,
+  applyRoomingProposal,
 } from "../../api/departures";
 
 interface Props {
@@ -87,6 +88,14 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     proposalNewAssignments: 'Proposed assignments',
     proposalToSlot: 'Room',
     proposalUnresolvedPassengers: 'Unresolved passengers',
+    applyProposal: 'Apply Proposal',
+    applyProposalBs: 'Primijeni prijedlog',
+    applying: 'Applying…',
+    applySuccess: (count: number) => `${count} assignments applied.`,
+    applySuccessBs: (count: number) => `${count} rasporeda primijenjeno.`,
+    staleProposal: 'Proposal is stale. Generate a new proposal.',
+    staleProposalBs: 'Prijedlog više nije aktuelan. Generišite novi.',
+    applyFailed: 'Apply failed',
   };
   const [slots, setSlots] = useState<DepartureRoomSlot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,6 +108,9 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
   const [savingAssignmentId, setSavingAssignmentId] = useState<string | null>(null);
   const [roomNumberDrafts, setRoomNumberDrafts] = useState<Record<string, string>>({});
   const [editingRoomNumberSlotId, setEditingRoomNumberSlotId] = useState<string | null>(null);
+  const [applyLoading, setApplyLoading] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [applyResult, setApplyResult] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -291,6 +303,38 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     }
   }
 
+  async function handleApply() {
+    if (!proposal) return;
+    setApplyLoading(true);
+    setApplyError(null);
+    setApplyResult(null);
+    try {
+      const result = await applyRoomingProposal(departureId, {
+        stateFingerprint: proposal.stateFingerprint,
+        proposedAssignments: proposal.proposedAssignments.map((pa: any) => ({
+          passengerId: pa.passengerId,
+          roomSlotId: pa.slotId,
+        })),
+        replaceableAssignmentIds: proposal.replaceableAssignmentIds,
+      });
+      setApplyResult(rm.applySuccess(result.insertedCount));
+      clearProposal();
+      await load();
+    } catch (err: any) {
+      if (
+        (err as any)?.message?.includes("STALE_PROPOSAL") ||
+        (err as any)?.status === 409
+      ) {
+        setApplyError((err as any)?.message || rm.staleProposal);
+        clearProposal();
+      } else {
+        setApplyError((err as any)?.message || rm.applyFailed);
+      }
+    } finally {
+      setApplyLoading(false);
+    }
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center p-12 text-gray-400">{rm.loading}</div>;
   }
@@ -349,13 +393,24 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
               <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-200">{rm.proposalTitle}</h3>
               <p className="mt-1 text-xs text-blue-600/80 dark:text-blue-300/80">{rm.proposalReadOnly}</p>
             </div>
-            <Button
-              variant="ghost"
-              onClick={clearProposal}
-              size="sm"
-            >
-              {rm.clearProposal}
-            </Button>
+            <div className="flex items-center gap-2">
+              {proposal.proposedAssignments.length > 0 && (
+                <Button
+                  onClick={handleApply}
+                  disabled={applyLoading}
+                  size="sm"
+                >
+                  {applyLoading ? rm.applying : rm.applyProposal}
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                onClick={clearProposal}
+                size="sm"
+              >
+                {rm.clearProposal}
+              </Button>
+            </div>
           </div>
 
           <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
@@ -412,8 +467,13 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
               </div>
             </div>
           )}
+
         </div>
       )}
+
+          {applyLoading && <p className="text-sm text-gray-500 mt-1">{rm.applying}</p>}
+          {applyError && <p className="text-sm text-error-600 mt-1">{applyError}</p>}
+          {applyResult && <p className="text-sm text-green-600 mt-1">{applyResult}</p>}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="space-y-4">

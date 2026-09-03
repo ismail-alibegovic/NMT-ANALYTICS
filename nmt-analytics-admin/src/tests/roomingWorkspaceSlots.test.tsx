@@ -9,6 +9,7 @@ const unassignPassengerFromRoomSlot = vi.fn();
 const setRoomSlotAssignmentLocked = vi.fn();
 const generateOperationalRoomingProposal = vi.fn();
 const updateRoomSlotPhysicalNumber = vi.fn();
+const applyRoomingProposal = vi.fn();
 const useTMock = vi.hoisted(() =>
   vi.fn(() => ({
     t: {
@@ -70,6 +71,11 @@ const useTMock = vi.hoisted(() =>
           proposalNewAssignments: 'Proposed assignments',
           proposalToSlot: 'Room',
           proposalUnresolvedPassengers: 'Unresolved passengers',
+          applyProposal: 'Apply Proposal',
+          applying: 'Applying…',
+          applySuccess: (count: number) => `${count} assignments applied.`,
+          staleProposal: 'Proposal is stale. Generate a new proposal.',
+          applyFailed: 'Apply failed',
         },
       },
     },
@@ -84,6 +90,7 @@ vi.mock('../api/departures', () => ({
   setRoomSlotAssignmentLocked: (...args: any[]) => setRoomSlotAssignmentLocked(...args),
   updateRoomSlotPhysicalNumber: (...args: any[]) => updateRoomSlotPhysicalNumber(...args),
   generateOperationalRoomingProposal: (...args: any[]) => generateOperationalRoomingProposal(...args),
+  applyRoomingProposal: (...args: any[]) => applyRoomingProposal(...args),
 }));
 
 vi.mock('../lib/i18n/context', () => ({
@@ -217,6 +224,11 @@ describe('RoomingWorkspace room slots', () => {
           proposalNewAssignments: 'Proposed assignments',
           proposalToSlot: 'Room',
           proposalUnresolvedPassengers: 'Unresolved passengers',
+          applyProposal: 'Apply Proposal',
+          applying: 'Applying…',
+          applySuccess: (count: number) => `${count} assignments applied.`,
+          staleProposal: 'Proposal is stale. Generate a new proposal.',
+          applyFailed: 'Apply failed',
           },
         },
       },
@@ -227,6 +239,7 @@ describe('RoomingWorkspace room slots', () => {
     unassignPassengerFromRoomSlot.mockResolvedValue({});
     setRoomSlotAssignmentLocked.mockResolvedValue({});
     updateRoomSlotPhysicalNumber.mockResolvedValue({});
+    applyRoomingProposal.mockResolvedValue({ applied: true, deletedCount: 0, insertedCount: 2 });
   });
 
   it('renders operational room slots and assigns passengers only to compatible slots', async () => {
@@ -491,6 +504,71 @@ describe('RoomingWorkspace room slots', () => {
     });
     expect(screen.queryByText('Rooming proposal')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Close preview' })).not.toBeInTheDocument();
+  });
+
+  it('applies a proposal successfully: reloads slots and clears the preview', async () => {
+    getDepartureRoomSlots.mockResolvedValueOnce(slots);
+    generateOperationalRoomingProposal.mockResolvedValueOnce({
+      departureId: 'departure-1',
+      stateFingerprint: 'abc123',
+      summary: { totalPassengers: 2, fixedManualLocked: 0, proposedNew: 2, unresolved: 0 },
+      fixedAssignments: [],
+      replaceableAssignmentIds: ['assign-old-1'],
+      proposedAssignments: [
+        { passengerId: 'passenger-1', passengerName: 'Amina Hadžić', slotId: 'slot-double-1', slotLabel: 'Double 01', reason: 'capacity_fill' },
+      ],
+      unresolved: [],
+      warnings: [],
+    });
+    applyRoomingProposal.mockResolvedValueOnce({ applied: true, deletedCount: 1, insertedCount: 1 });
+
+    render(<RoomingWorkspace departureId="departure-1" passengers={passengers as any} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Generate Rooming Proposal' }));
+    expect(await screen.findByText('Rooming proposal')).toBeInTheDocument();
+
+    getDepartureRoomSlots.mockResolvedValueOnce(slots);
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Proposal' }));
+
+    await waitFor(() => {
+      expect(applyRoomingProposal).toHaveBeenCalledWith('departure-1', expect.objectContaining({
+        stateFingerprint: 'abc123',
+        replaceableAssignmentIds: ['assign-old-1'],
+      }));
+    });
+    await waitFor(() => {
+      expect(screen.queryByText('Rooming proposal')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('1 assignments applied.')).toBeInTheDocument();
+  });
+
+  it('clears the preview and shows a stale error when apply returns STALE_PROPOSAL', async () => {
+    getDepartureRoomSlots.mockResolvedValueOnce(slots);
+    generateOperationalRoomingProposal.mockResolvedValueOnce({
+      departureId: 'departure-1',
+      stateFingerprint: 'abc123',
+      summary: { totalPassengers: 2, fixedManualLocked: 0, proposedNew: 2, unresolved: 0 },
+      fixedAssignments: [],
+      replaceableAssignmentIds: [],
+      proposedAssignments: [
+        { passengerId: 'passenger-1', passengerName: 'Amina Hadžić', slotId: 'slot-double-1', slotLabel: 'Double 01', reason: 'capacity_fill' },
+      ],
+      unresolved: [],
+      warnings: [],
+    });
+    const staleErr: any = new Error('Proposal is stale. Generate a new proposal.');
+    staleErr.status = 409;
+    applyRoomingProposal.mockRejectedValueOnce(staleErr);
+
+    render(<RoomingWorkspace departureId="departure-1" passengers={passengers as any} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Generate Rooming Proposal' }));
+    expect(await screen.findByText('Rooming proposal')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Proposal' }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Rooming proposal')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('Proposal is stale. Generate a new proposal.')).toBeInTheDocument();
   });
 
 });

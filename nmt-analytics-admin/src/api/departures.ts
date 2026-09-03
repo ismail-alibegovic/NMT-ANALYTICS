@@ -720,8 +720,22 @@ export async function generateRoomingProposal(departureId: string): Promise<Room
   return r.data;
 }
 
-export async function applyRoomingProposal(departureId: string, assignmentIds: string[]): Promise<{ applied: number }> {
-  const r = await post<{ applied: number }>(`/departures/${departureId}/rooming/apply`, { assignmentIds });
+export interface ApplyRoomingProposalInput {
+  stateFingerprint: string;
+  proposedAssignments: { passengerId: string; roomSlotId: string }[];
+  replaceableAssignmentIds: string[];
+}
+
+export interface ApplyRoomingProposalResult {
+  deletedCount: number;
+  insertedCount: number;
+}
+
+export async function applyRoomingProposal(
+  departureId: string,
+  input: ApplyRoomingProposalInput,
+): Promise<ApplyRoomingProposalResult> {
+  const r = await post<ApplyRoomingProposalResult>(`/departures/${departureId}/rooming/apply`, input);
   return r.data;
 }
 
