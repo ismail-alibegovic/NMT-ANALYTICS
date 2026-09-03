@@ -7,6 +7,7 @@ const assignPassengerToRoomSlot = vi.fn();
 const moveRoomSlotAssignment = vi.fn();
 const unassignPassengerFromRoomSlot = vi.fn();
 const setRoomSlotAssignmentLocked = vi.fn();
+const generateOperationalRoomingProposal = vi.fn();
 const updateRoomSlotPhysicalNumber = vi.fn();
 const useTMock = vi.hoisted(() =>
   vi.fn(() => ({
@@ -56,6 +57,19 @@ const useTMock = vi.hoisted(() =>
           saveRoomNumber: 'Save',
           clearRoomNumber: 'Clear',
           roomNumberUpdateFailed: 'Room number update failed',
+          proposalFailed: 'Proposal failed',
+          generateProposal: 'Generate Rooming Proposal',
+          proposalGenerating: 'Generating…',
+          proposalTitle: 'Rooming proposal',
+          proposalReadOnly: 'Review proposal — no assignments changed.',
+          clearProposal: 'Close preview',
+          proposalTotal: 'Total passengers',
+          proposalPreserved: 'Preserved',
+          proposalProposed: 'Proposed',
+          proposalUnresolved: 'Unresolved',
+          proposalNewAssignments: 'Proposed assignments',
+          proposalToSlot: 'Room',
+          proposalUnresolvedPassengers: 'Unresolved passengers',
         },
       },
     },
@@ -69,6 +83,7 @@ vi.mock('../api/departures', () => ({
   unassignPassengerFromRoomSlot: (...args: any[]) => unassignPassengerFromRoomSlot(...args),
   setRoomSlotAssignmentLocked: (...args: any[]) => setRoomSlotAssignmentLocked(...args),
   updateRoomSlotPhysicalNumber: (...args: any[]) => updateRoomSlotPhysicalNumber(...args),
+  generateOperationalRoomingProposal: (...args: any[]) => generateOperationalRoomingProposal(...args),
 }));
 
 vi.mock('../lib/i18n/context', () => ({
@@ -189,6 +204,19 @@ describe('RoomingWorkspace room slots', () => {
             saveRoomNumber: 'Save',
             clearRoomNumber: 'Clear',
             roomNumberUpdateFailed: 'Room number update failed',
+          proposalFailed: 'Proposal failed',
+          generateProposal: 'Generate Rooming Proposal',
+          proposalGenerating: 'Generating…',
+          proposalTitle: 'Rooming proposal',
+          proposalReadOnly: 'Review proposal — no assignments changed.',
+          clearProposal: 'Close preview',
+          proposalTotal: 'Total passengers',
+          proposalPreserved: 'Preserved',
+          proposalProposed: 'Proposed',
+          proposalUnresolved: 'Unresolved',
+          proposalNewAssignments: 'Proposed assignments',
+          proposalToSlot: 'Room',
+          proposalUnresolvedPassengers: 'Unresolved passengers',
           },
         },
       },
@@ -205,12 +233,12 @@ describe('RoomingWorkspace room slots', () => {
     render(<RoomingWorkspace departureId="departure-1" passengers={passengers as any} />);
 
     expect((await screen.findAllByText('Hotel Azure Antalya')).length).toBeGreaterThan(0);
-    expect(screen.getByText('Double 01')).toBeInTheDocument();
+    expect(screen.getAllByText(/Double 01/).length).toBeGreaterThan(0);
     expect(screen.getByText('Triple 01')).toBeInTheDocument();
     expect(screen.getAllByText('Porodica Hadžić').length).toBeGreaterThan(0);
     expect(getDepartureRoomSlots).toHaveBeenCalledWith('departure-1');
 
-    fireEvent.click(within(screen.getByText('Amina Hadžić').closest('.rounded-lg.border') as HTMLElement).getByRole('button', { name: 'Select Room' }));
+    fireEvent.click(within(screen.getAllByText('Amina Hadžić')[0].closest('.rounded-lg.border') as HTMLElement).getByRole('button', { name: 'Select Room' }));
 
     const compatibleTarget = within(screen.getByRole('button', { name: /Hotel Azure Antalya · Double 01/ }));
     expect(compatibleTarget.getByText(/double · 0\/2/)).toBeInTheDocument();
@@ -234,7 +262,7 @@ describe('RoomingWorkspace room slots', () => {
     render(<RoomingWorkspace departureId="departure-1" passengers={displayLabelPassengers as any} />);
 
     await screen.findByText('Amina Hadžić');
-    fireEvent.click(within(screen.getByText('Amina Hadžić').closest('.rounded-lg.border') as HTMLElement).getByRole('button', { name: 'Select Room' }));
+    fireEvent.click(within(screen.getAllByText('Amina Hadžić')[0].closest('.rounded-lg.border') as HTMLElement).getByRole('button', { name: 'Select Room' }));
 
     const compatibleTarget = within(screen.getByRole('button', { name: /Hotel Azure Antalya · Double 01/ }));
     expect(compatibleTarget.queryByText('Not compatible')).not.toBeInTheDocument();
@@ -396,4 +424,73 @@ describe('RoomingWorkspace room slots', () => {
       expect(updateRoomSlotPhysicalNumber).toHaveBeenCalledWith('slot-double-1', null);
     });
   });
+
+  it('renders Generate Rooming Proposal button and review panel', async () => {
+    getDepartureRoomSlots.mockResolvedValueOnce(slots);
+    generateOperationalRoomingProposal.mockResolvedValueOnce({
+      departureId: 'departure-1',
+      stateFingerprint: 'abc123',
+      summary: { totalPassengers: 2, fixedManualLocked: 0, proposedNew: 2, unresolved: 0 },
+      fixedAssignments: [],
+      replaceableAssignmentIds: [],
+      proposedAssignments: [
+        { passengerId: 'passenger-1', passengerName: 'Amina Hadžić', slotId: 'slot-double-1', slotLabel: 'Double 01', reason: 'capacity_fill' },
+        { passengerId: 'passenger-2', passengerName: 'Emina Begić', slotId: 'slot-single-1', slotLabel: 'Single 01', reason: 'capacity_fill' },
+      ],
+      unresolved: [],
+      warnings: [],
+    });
+
+    render(<RoomingWorkspace departureId="departure-1" passengers={passengers as any} />);
+
+    expect(await screen.findByRole('button', { name: 'Generate Rooming Proposal' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Rooming Proposal' }));
+
+    expect(await screen.findByText('Rooming proposal')).toBeInTheDocument();
+    expect(screen.getByText('Review proposal — no assignments changed.')).toBeInTheDocument();
+    expect(screen.getByText('Total passengers')).toBeInTheDocument();
+    expect(screen.getByText('Preserved')).toBeInTheDocument();
+    expect(screen.getByText('Proposed')).toBeInTheDocument();
+    expect(screen.getByText('Unresolved')).toBeInTheDocument();
+    expect(screen.getAllByText('Amina Hadžić')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('Emina Begić')[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/Double 01/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Single 01/).length).toBeGreaterThan(0);
+    expect(screen.getByText('Close preview')).toBeInTheDocument();
+  });
+
+  it('clears proposal preview after a manual assign mutation', async () => {
+    getDepartureRoomSlots.mockResolvedValueOnce(slots);
+    generateOperationalRoomingProposal.mockResolvedValueOnce({
+      departureId: 'departure-1',
+      stateFingerprint: 'abc123',
+      summary: { totalPassengers: 2, fixedManualLocked: 0, proposedNew: 2, unresolved: 0 },
+      fixedAssignments: [],
+      replaceableAssignmentIds: [],
+      proposedAssignments: [
+        { passengerId: 'passenger-1', passengerName: 'Amina Hadžić', slotId: 'slot-double-1', slotLabel: 'Double 01', reason: 'capacity_fill' },
+      ],
+      unresolved: [],
+      warnings: [],
+    });
+
+    render(<RoomingWorkspace departureId="departure-1" passengers={passengers as any} />);
+
+    expect(await screen.findByRole('button', { name: 'Generate Rooming Proposal' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Generate Rooming Proposal' }));
+    expect(await screen.findByText('Rooming proposal')).toBeInTheDocument();
+
+    assignPassengerToRoomSlot.mockResolvedValueOnce({});
+    getDepartureRoomSlots.mockResolvedValueOnce(slots);
+
+    fireEvent.click(within(screen.getByText('Emir Hadžić').closest('.rounded-lg.border') as HTMLElement).getByRole('button', { name: 'Select Room' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Hotel Azure Antalya · Double 01/ }));
+
+    await waitFor(() => {
+      expect(assignPassengerToRoomSlot).toHaveBeenCalled();
+    });
+    expect(screen.queryByText('Rooming proposal')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Close preview' })).not.toBeInTheDocument();
+  });
+
 });

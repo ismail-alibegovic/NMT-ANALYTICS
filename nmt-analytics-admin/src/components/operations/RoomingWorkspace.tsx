@@ -3,8 +3,10 @@ import { useT } from "../../lib/i18n/context";
 import Button from "../ui/button/Button";
 import Badge from "../ui/badge/Badge";
 import type { DeparturePassenger, DepartureRoomSlot } from "../../api/departures";
+import type { RoomingProposalOutput } from "../../api/departures";
 import {
   assignPassengerToRoomSlot,
+  generateOperationalRoomingProposal,
   getDepartureRoomSlots,
   moveRoomSlotAssignment,
   setRoomSlotAssignmentLocked,
@@ -72,10 +74,26 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     saveRoomNumber: 'Save',
     clearRoomNumber: 'Clear',
     roomNumberUpdateFailed: 'Room number update failed',
+    proposalFailed: 'Rooming proposal generation failed',
+    generateProposal: 'Generate Rooming Proposal',
+    proposalGenerating: 'Generating…',
+    proposalTitle: 'Rooming proposal',
+    proposalReadOnly: 'Review proposal — no room assignments have been changed.',
+    clearProposal: 'Close preview',
+    proposalTotal: 'Total passengers',
+    proposalPreserved: 'Preserved (manual/locked)',
+    proposalProposed: 'Proposed',
+    proposalUnresolved: 'Unresolved',
+    proposalNewAssignments: 'Proposed assignments',
+    proposalToSlot: 'Room',
+    proposalUnresolvedPassengers: 'Unresolved passengers',
   };
   const [slots, setSlots] = useState<DepartureRoomSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [proposal, setProposal] = useState<RoomingProposalOutput | null>(null);
+  const [proposalLoading, setProposalLoading] = useState(false);
+  const [proposalError, setProposalError] = useState<string | null>(null);
   const [assignTarget, setAssignTarget] = useState<AssignTarget | null>(null);
   const [saving, setSaving] = useState(false);
   const [savingAssignmentId, setSavingAssignmentId] = useState<string | null>(null);
@@ -97,6 +115,25 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
   useEffect(() => {
     load();
   }, [load]);
+
+  const clearProposal = useCallback(() => {
+    setProposal(null);
+    setProposalError(null);
+  }, []);
+
+  async function generateProposal() {
+    setProposalLoading(true);
+    setProposalError(null);
+    try {
+      const result = await generateOperationalRoomingProposal(departureId);
+      setProposal(result);
+    } catch (err: any) {
+      setProposal(null);
+      setProposalError(err?.message || rm.proposalFailed);
+    } finally {
+      setProposalLoading(false);
+    }
+  }
 
   const passengerById = useMemo(() => {
     const map = new Map<string, DeparturePassenger>();
@@ -202,6 +239,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
         await assignPassengerToRoomSlot(slotId, assignTarget.passengerId);
       }
       setAssignTarget(null);
+      clearProposal();
       await load();
     } catch (err: any) {
       setError(err?.message || rm.assignFailed);
@@ -215,6 +253,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     setError(null);
     try {
       await unassignPassengerFromRoomSlot(assignmentId);
+      clearProposal();
       await load();
     } catch (err: any) {
       setError(err?.message || rm.unassignFailed);
@@ -228,6 +267,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     setError(null);
     try {
       await setRoomSlotAssignmentLocked(assignmentId, locked);
+      clearProposal();
       await load();
     } catch (err: any) {
       setError(err?.message || rm.lockFailed);
@@ -287,6 +327,93 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
         <Metric value={unassignedPassengers.length} label={rm.unassignedCount} />
         <Metric value={Math.max(0, totalCapacity - totalOccupied)} label={rm.remainingBeds} />
       </div>
+
+            {!proposal && (
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={generateProposal}
+            disabled={proposalLoading}
+          >
+            {proposalLoading ? rm.proposalGenerating : rm.generateProposal}
+          </Button>
+          {proposalError && (
+            <p className="text-sm text-error-600 dark:text-error-400">{proposalError}</p>
+          )}
+        </div>
+      )}
+
+      {proposal && (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50/40 p-4 dark:border-blue-500/30 dark:bg-blue-500/8">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-200">{rm.proposalTitle}</h3>
+              <p className="mt-1 text-xs text-blue-600/80 dark:text-blue-300/80">{rm.proposalReadOnly}</p>
+            </div>
+            <Button
+              variant="ghost"
+              onClick={clearProposal}
+              size="sm"
+            >
+              {rm.clearProposal}
+            </Button>
+          </div>
+
+          <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
+            <div className="rounded-lg bg-white/60 p-2 dark:bg-white/5">
+              <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">{proposal.summary.totalPassengers}</div>
+              <div className="text-gray-500">{rm.proposalTotal}</div>
+            </div>
+            <div className="rounded-lg bg-white/60 p-2 dark:bg-white/5">
+              <div className="text-lg font-semibold text-green-700 dark:text-green-400">{proposal.summary.fixedManualLocked}</div>
+              <div className="text-gray-500">{rm.proposalPreserved}</div>
+            </div>
+            <div className="rounded-lg bg-white/60 p-2 dark:bg-white/5">
+              <div className="text-lg font-semibold text-blue-700 dark:text-blue-400">{proposal.summary.proposedNew}</div>
+              <div className="text-gray-500">{rm.proposalProposed}</div>
+            </div>
+            <div className="rounded-lg bg-white/60 p-2 dark:bg-white/5">
+              <div className="text-lg font-semibold text-amber-700 dark:text-amber-400">{proposal.summary.unresolved}</div>
+              <div className="text-gray-500">{rm.proposalUnresolved}</div>
+            </div>
+          </div>
+
+          {proposal.warnings.length > 0 && (
+            <div className="mt-3 space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-2 dark:border-amber-500/20 dark:bg-amber-500/8">
+              {proposal.warnings.map((w: string, i: number) => (
+                <p key={i} className="text-xs text-amber-700 dark:text-amber-400">⚠ {w}</p>
+              ))}
+            </div>
+          )}
+
+          {proposal.proposedAssignments.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{rm.proposalNewAssignments}</p>
+              <div className="max-h-40 space-y-1 overflow-y-auto">
+                {proposal.proposedAssignments.map((pa: any) => (
+                  <div key={pa.passengerId} className="flex items-center justify-between rounded bg-white/60 px-2 py-1 text-xs dark:bg-white/5">
+                    <span className="text-gray-800 dark:text-gray-200">{pa.passengerName}</span>
+                    <span className="text-gray-500">{rm.proposalToSlot}: {pa.slotLabel ?? pa.slotId?.slice(0, 8)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {proposal.unresolved.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{rm.proposalUnresolvedPassengers}</p>
+              <div className="max-h-40 space-y-1 overflow-y-auto">
+                {proposal.unresolved.map((up: any) => (
+                  <div key={up.passengerId} className="flex items-center justify-between rounded bg-white/60 px-2 py-1 text-xs dark:bg-white/5">
+                    <span className="text-gray-800 dark:text-gray-200">{up.passengerName}</span>
+                    <span className="text-amber-600 dark:text-amber-400">{up.reason}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="space-y-4">
