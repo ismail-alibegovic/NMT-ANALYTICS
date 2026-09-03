@@ -233,7 +233,7 @@ describe('RoomingWorkspace room slots', () => {
     render(<RoomingWorkspace departureId="departure-1" passengers={passengers as any} />);
 
     expect((await screen.findAllByText('Hotel Azure Antalya')).length).toBeGreaterThan(0);
-    expect(screen.getByText('Double 01')).toBeInTheDocument();
+    expect(screen.getAllByText(/Double 01/).length).toBeGreaterThan(0);
     expect(screen.getByText('Triple 01')).toBeInTheDocument();
     expect(screen.getAllByText('Porodica Hadžić').length).toBeGreaterThan(0);
     expect(getDepartureRoomSlots).toHaveBeenCalledWith('departure-1');
@@ -434,8 +434,8 @@ describe('RoomingWorkspace room slots', () => {
       fixedAssignments: [],
       replaceableAssignmentIds: [],
       proposedAssignments: [
-        { passengerId: 'passenger-1', passengerName: 'Amina Hadžić', slotId: 'slot-double-1', reason: 'capacity_fill' },
-        { passengerId: 'passenger-2', passengerName: 'Emina Begić', slotId: 'slot-single-1', reason: 'capacity_fill' },
+        { passengerId: 'passenger-1', passengerName: 'Amina Hadžić', slotId: 'slot-double-1', slotLabel: 'Double 01', reason: 'capacity_fill' },
+        { passengerId: 'passenger-2', passengerName: 'Emina Begić', slotId: 'slot-single-1', slotLabel: 'Single 01', reason: 'capacity_fill' },
       ],
       unresolved: [],
       warnings: [],
@@ -454,7 +454,9 @@ describe('RoomingWorkspace room slots', () => {
     expect(screen.getByText('Unresolved')).toBeInTheDocument();
     expect(screen.getAllByText('Amina Hadžić')[0]).toBeInTheDocument();
     expect(screen.getAllByText('Emina Begić')[0]).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Close preview' })).toBeInTheDocument();
+    expect(screen.getAllByText(/Double 01/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Single 01/).length).toBeGreaterThan(0);
+    expect(screen.getByText('Close preview')).toBeInTheDocument();
   });
 
   it('clears proposal preview after a manual assign mutation', async () => {
@@ -466,7 +468,7 @@ describe('RoomingWorkspace room slots', () => {
       fixedAssignments: [],
       replaceableAssignmentIds: [],
       proposedAssignments: [
-        { passengerId: 'passenger-1', passengerName: 'Amina Hadžić', slotId: 'slot-double-1', reason: 'capacity_fill' },
+        { passengerId: 'passenger-1', passengerName: 'Amina Hadžić', slotId: 'slot-double-1', slotLabel: 'Double 01', reason: 'capacity_fill' },
       ],
       unresolved: [],
       warnings: [],

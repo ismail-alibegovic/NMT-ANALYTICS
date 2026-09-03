@@ -33,6 +33,18 @@ router.post(
         return res.status(404).json({ error: 'Departure not found' });
       }
 
+      // 0.5 sync operational room slots before loading proposal state (M09 canonical sync)
+      const { error: syncError } = await supabaseAdmin.rpc('sync_departure_room_slots_atomic', {
+        p_org_id: orgId,
+        p_departure_id: departureId,
+        p_hotel_allocation_id: null,
+      });
+      if (syncError) {
+        console.error('rooming proposal sync:', syncError);
+        return res.status(500).json({ error: 'Failed to sync room slots' });
+      }
+
+
       // 1. fetch operational room slots with their assignments
       const { data: slots, error: slotsErr } = await supabaseAdmin
         .from('departure_room_slots')
@@ -51,22 +63,31 @@ router.post(
 
       if (passengersErr) throw passengersErr;
 
-      // 3. resolve accommodation requirements for passengers that have one
-      const requirementIds = (passengers || [])
+      // 3. resolve accommodation requirements by RESERVATION id (not only mapped passenger ids)
+      const reservationIds = Array.from(new Set((passengers || [])
+        .map((p: any) => p.reservation_id)
+        .filter(Boolean)));
+
+      // canonical full requirement shape for mapped passengers
+      const mappedRequirementIds = (passengers || [])
         .map((p: any) => p.reservation_accommodation_requirement_id)
         .filter(Boolean);
 
-      let requirementMap = new Map<string, any>();
-      if (requirementIds.length > 0) {
-        const { data: requirements, error: reqErr } = await supabaseAdmin
+      const requirementMap = new Map<string, any>();
+      const reservationHasAccommodation = new Set<string>();
+      if (reservationIds.length > 0) {
+        const { data: reqRows, error: reqErr } = await supabaseAdmin
           .from('reservation_accommodation_requirements')
-          .select('id, hotel_id, hotel_allocation_id, room_type')
+          .select('id, reservation_id, hotel_id, hotel_allocation_id, room_type')
           .eq('org_id', orgId)
-          .in('id', requirementIds);
+          .in('reservation_id', reservationIds);
 
         if (reqErr) throw reqErr;
-        for (const r of requirements || []) {
-          requirementMap.set(r.id, r);
+        for (const r of reqRows || []) {
+          reservationHasAccommodation.add(r.reservation_id);
+          if (mappedRequirementIds.includes(r.id)) {
+            requirementMap.set(r.id, r);
+          }
         }
       }
 
@@ -126,7 +147,7 @@ router.post(
           hotelAllocationId: req?.hotel_allocation_id ?? undefined,
           hotelId: req?.hotel_id ?? undefined,
           roomType: req?.room_type ?? undefined,
-          reservationHasAccommodation: Boolean(p.reservation_accommodation_requirement_id),
+          reservationHasAccommodation: reservationHasAccommodation.has(p.reservation_id),
           groupId: grp?.groupId,
           groupAccommodationPreference: grp?.accPref,
           groupColor: grp?.color,

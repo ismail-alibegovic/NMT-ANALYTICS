@@ -113,6 +113,9 @@ function computeFingerprint(
         groupId: p.groupId ?? null,
       }))
       .sort((a, b) => a.id.localeCompare(b.id)),
+    passengerReservationAccommodation: passengers
+      .map((p) => ({ id: p.id, reservationHasAccommodation: p.reservationHasAccommodation ?? false }))
+      .sort((a, b) => a.id.localeCompare(b.id)),
     assignments: existingAssignments
       .map((a) => ({
         id: a.id,
@@ -261,7 +264,8 @@ export function generateRoomingProposal(input: RoomingProposalInput): RoomingPro
     }
   }
 
-  for (const [groupId, members] of groupPassengers) {
+  const sortedGroupEntries = [...groupPassengers.entries()].sort(([aId], [bId]) => aId.localeCompare(bId));
+  for (const [groupId, members] of sortedGroupEntries) {
     const group = groupById.get(groupId);
     const pref = group?.accommodationPreference || 'no_preference';
     const isSameRoom = pref === 'same_room';
@@ -345,10 +349,10 @@ export function generateRoomingProposal(input: RoomingProposalInput): RoomingPro
       proposedNew: proposedAssignments.length,
       unresolved: unresolved.length,
     },
-    fixedAssignments,
-    replaceableAssignmentIds,
+    fixedAssignments: fixedAssignments.sort((a, b) => a.passengerId.localeCompare(b.passengerId)),
+    replaceableAssignmentIds: [...replaceableAssignmentIds].sort(),
     proposedAssignments,
-    unresolved,
+    unresolved: unresolved.sort((a, b) => a.passengerId.localeCompare(b.passengerId)),
     warnings,
   };
 }

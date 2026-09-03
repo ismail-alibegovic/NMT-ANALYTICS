@@ -392,7 +392,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
                 {proposal.proposedAssignments.map((pa: any) => (
                   <div key={pa.passengerId} className="flex items-center justify-between rounded bg-white/60 px-2 py-1 text-xs dark:bg-white/5">
                     <span className="text-gray-800 dark:text-gray-200">{pa.passengerName}</span>
-                    <span className="text-gray-500">{rm.proposalToSlot}: {pa.slotId?.slice(0, 8)}</span>
+                    <span className="text-gray-500">{rm.proposalToSlot}: {pa.slotLabel ?? pa.slotId?.slice(0, 8)}</span>
                   </div>
                 ))}
               </div>

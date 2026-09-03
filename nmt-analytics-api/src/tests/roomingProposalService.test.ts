@@ -464,4 +464,35 @@ describe('M10.1 correctness', () => {
       generateRoomingProposal(shuffled).proposedAssignments,
     );
   });
+
+  it('shuffled input with two competing groups produces identical full output', () => {
+    const base = makeInput({
+      passengers: [
+        { id: 'pa1', fullName: 'A1', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'pa2', fullName: 'A2', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'pb1', fullName: 'B1', hotelAllocationId: 'a1', roomType: 'double' },
+        { id: 'pb2', fullName: 'B2', hotelAllocationId: 'a1', roomType: 'double' },
+      ],
+      slots: [
+        { id: 's1', roomType: 'double', capacity: 2, hotelAllocationId: 'a1', hotelId: 'h1', assignedCount: 0 },
+      ],
+      groups: [
+        { id: 'ga', name: 'Group A', accommodationPreference: 'same_room', passengerIds: ['pa1', 'pa2'] },
+        { id: 'gb', name: 'Group B', accommodationPreference: 'same_room', passengerIds: ['pb1', 'pb2'] },
+      ],
+    });
+    const shuffled = makeInput({
+      passengers: [...base.passengers].reverse(),
+      slots: [...base.slots].reverse(),
+      groups: [...base.groups].reverse(),
+    });
+    const a = generateRoomingProposal(base);
+    const b = generateRoomingProposal(shuffled);
+    expect(a.proposedAssignments).toEqual(b.proposedAssignments);
+    expect(a.unresolved).toEqual(b.unresolved);
+    expect(a.warnings).toEqual(b.warnings);
+    expect(a.fixedAssignments).toEqual(b.fixedAssignments);
+    expect(a.replaceableAssignmentIds).toEqual(b.replaceableAssignmentIds);
+    expect(a.stateFingerprint).toBe(b.stateFingerprint);
+  });
 });
