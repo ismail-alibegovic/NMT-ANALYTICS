@@ -1418,7 +1418,7 @@ const vehicleUpdateSchema = z.object({
   layoutType: z.enum(['standard_2_plus_2']).optional(),
 });
 
-/** PUT /departures/:departureId/vehicle */
+/** PUT /departures/:departureId/vehicle — atomic RPC-backed vehicle create/update with seat sync */
 router.put('/departures/:departureId/vehicle', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res) => {
   try {
     const { departureId } = req.params;
@@ -1443,103 +1443,35 @@ router.put('/departures/:departureId/vehicle', authenticateToken, requireOrgCont
       return apiError(res, 400, 'NOT_BUS_DEPARTURE', 'Vehicle configuration is only available for bus departures');
     }
 
-    const { data: existing, error: existingErr } = await supabaseAdmin
-      .from('departure_vehicle_assignments')
-      .select('id, capacity')
-      .eq('departure_id', departureId)
-      .eq('org_id', orgId)
-      .maybeSingle();
+    const { data: rpcResult, error: rpcErr } = await supabaseAdmin
+      .rpc('update_vehicle_atomic', {
+        p_org_id: orgId,
+        p_departure_id: departureId,
+        p_vehicle_label: parsed.data.vehicleLabel ?? null,
+        p_registration_number: parsed.data.registrationNumber ?? null,
+        p_capacity: parsed.data.capacity ?? null,
+        p_layout_type: parsed.data.layoutType ?? null,
+      });
 
-    if (existingErr) {
-      return handleSupabaseError(res, existingErr, 'Failed to load vehicle');
+    if (rpcErr) {
+      const msg = (rpcErr as { message?: string }).message || '';
+      if (msg.includes('DEPARTURE_NOT_FOUND')) {
+        return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
+      }
+      if (msg.includes('NOT_BUS_DEPARTURE')) {
+        return apiError(res, 400, 'NOT_BUS_DEPARTURE', 'Vehicle configuration is only available for bus departures');
+      }
+      if (msg.includes('CAPACITY_TOO_LOW')) {
+        return apiError(res, 400, 'CAPACITY_TOO_LOW', 'Vehicle capacity must be at least the departure capacity');
+      }
+      if (msg.includes('VEHICLE_CHANGE_CONFLICT') || msg.includes('seat')) {
+        return apiError(res, 409, 'VEHICLE_CHANGE_CONFLICT', 'Cannot reduce vehicle capacity — seats above new capacity are currently occupied');
+      }
+      return handleSupabaseError(res, rpcErr, 'Failed to update vehicle');
     }
 
-    const newCapacity = parsed.data.capacity ?? existing?.capacity ?? departure.capacity;
-
-    if (parsed.data.capacity != null && parsed.data.capacity < departure.capacity) {
-      return apiError(res, 400, 'CAPACITY_TOO_LOW', 'Vehicle capacity must be at least the departure capacity');
-    }
-
-    const payload: Record<string, unknown> = {};
-    if (parsed.data.vehicleLabel !== undefined) payload.vehicle_label = parsed.data.vehicleLabel;
-    if (parsed.data.registrationNumber !== undefined) payload.registration_number = parsed.data.registrationNumber;
-    if (parsed.data.layoutType !== undefined) payload.layout_type = parsed.data.layoutType;
-
-    if (existing) {
-      if (parsed.data.capacity != null && parsed.data.capacity < existing.capacity) {
-        const { count, error: occupiedErr } = await supabaseAdmin
-          .from('departure_vehicle_seats')
-          .select('*', { count: 'exact', head: true })
-          .eq('departure_vehicle_assignment_id', existing.id)
-          .eq('is_active', true)
-          .gt('seat_number', parsed.data.capacity);
-
-        if (occupiedErr) {
-          return handleSupabaseError(res, occupiedErr, 'Failed to check seat occupancy');
-        }
-
-        if (count && count > 0) {
-          const { data: occupiedSeats } = await supabaseAdmin
-            .from('departure_passengers')
-            .select('id')
-            .eq('departure_id', departureId)
-            .gt('seat_number', parsed.data.capacity);
-
-          if (occupiedSeats && occupiedSeats.length > 0) {
-            return apiError(res, 409, 'VEHICLE_CHANGE_CONFLICT', 'Cannot reduce vehicle capacity — seats above new capacity are currently occupied');
-          }
-        }
-      }
-
-      if (parsed.data.capacity !== undefined) payload.capacity = parsed.data.capacity;
-      payload.updated_at = new Date().toISOString();
-
-      const { error: updateErr } = await supabaseAdmin
-        .from('departure_vehicle_assignments')
-        .update(payload)
-        .eq('id', existing.id)
-        .eq('org_id', orgId);
-
-      if (updateErr) {
-        return handleSupabaseError(res, updateErr, 'Failed to update vehicle');
-      }
-    } else {
-      if (parsed.data.capacity === undefined) {
-        return apiError(res, 400, 'VALIDATION_ERROR', 'capacity is required when creating a new vehicle');
-      }
-      payload.org_id = orgId;
-      payload.departure_id = departureId;
-      payload.capacity = newCapacity;
-      payload.vehicle_label = parsed.data.vehicleLabel ?? 'Bus ' + departureId.substring(0, 8);
-      payload.layout_type = parsed.data.layoutType ?? 'standard_2_plus_2';
-
-      const { error: insertErr } = await supabaseAdmin
-        .from('departure_vehicle_assignments')
-        .insert(payload);
-
-      if (insertErr) {
-        return handleSupabaseError(res, insertErr, 'Failed to create vehicle');
-      }
-    }
-
-    const { data: vehicle } = await supabaseAdmin
-      .from('departure_vehicle_assignments')
-      .select('id, vehicle_label, registration_number, capacity, layout_type, created_at, updated_at')
-      .eq('departure_id', departureId)
-      .eq('org_id', orgId)
-      .single();
-
-    if (!vehicle) {
-      return apiError(res, 500, 'INTERNAL_ERROR', 'Vehicle not found after update');
-    }
-
-    const { data: seats } = await supabaseAdmin
-      .from('departure_vehicle_seats')
-      .select('id, seat_number, seat_label, row_number, column_index, side, is_active')
-      .eq('departure_vehicle_assignment_id', vehicle.id)
-      .order('seat_number', { ascending: true });
-
-    return res.json({ vehicle, seats });
+    const result = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
+    return res.json(result);
   } catch (err) {
     console.error('PUT /departures/:departureId/vehicle:', err);
     apiError(res, 500, 'INTERNAL_ERROR', 'Failed to update vehicle');

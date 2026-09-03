@@ -132,29 +132,15 @@ router.post(
 );
 
 // POST /api/seats/clear-all
+// M11.1: gated — manual/locked seating model prohibits bulk clear operations.
+// Full clear-all will be available with M12 automatic seating.
 router.post(
   "/seats/clear-all",
   authenticateToken,
   requireOrgContext,
   requireMinimumRole("manager"),
-  async (req, res: Response) => {
-    try {
-      const orgId = req.orgId!;
-      const { departureId } = req.body || {};
-      if (!departureId) return apiError(res, 400, "VALIDATION_ERROR", "departureId required");
-
-      const { error } = await supabaseAdmin.from("departure_passengers")
-        .update({ seat_number: null, seat_is_manual: false, seat_locked: false })
-        .eq("org_id", orgId)
-        .eq("departure_id", departureId)
-        .eq("seat_locked", false);
-      if (error) return apiError(res, 500, "DB_ERROR", error.message);
-
-      return res.json({ cleared: true });
-    } catch (err) {
-      console.error("POST /seats/clear-all:", err);
-      return apiError(res, 500, "INTERNAL_ERROR", "Clear failed", String(err));
-    }
+  async (_req, res) => {
+    return apiError(res, 409, 'AUTO_SEATING_NOT_AVAILABLE', 'Bulk seat clearing is temporarily unavailable while the new manual seating model is being rolled out. Use the dedicated seat assignment endpoints.');
   }
 );
 

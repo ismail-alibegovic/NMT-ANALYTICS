@@ -251,7 +251,7 @@ router.patch('/departure-passengers/:id', authenticateToken, requireOrgContext, 
 });
 
 
-/** PATCH /departure-passengers/:id/seat — manual seat assign/unassign */
+/** PATCH /departure-passengers/:id/seat — atomic manual seat assign/unassign via RPC */
 router.patch('/departure-passengers/:id/seat', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
   try {
     const { id } = req.params;
@@ -263,108 +263,39 @@ router.patch('/departure-passengers/:id/seat', authenticateToken, requireOrgCont
     const orgId = req.orgId!;
     const { seatNumber } = parsed.data;
 
-    const { data: passenger, error: passengerErr } = await supabaseAdmin
-      .from('departure_passengers')
-      .select('id, departure_id, seat_number, seat_locked')
-      .eq('id', id)
-      .eq('org_id', orgId)
-      .single();
+    const { data: updated, error: rpcErr } = await supabaseAdmin
+      .rpc('manual_seat_assign', {
+        p_org_id: orgId,
+        p_passenger_id: id,
+        p_seat_number: seatNumber,
+      });
 
-    if (passengerErr || !passenger) {
-      return apiError(res, 404, 'NOT_FOUND', 'Passenger not found');
-    }
-
-    const { data: departure, error: depErr } = await supabaseAdmin
-      .from('departures')
-      .select('id, transport_type, org_id')
-      .eq('id', passenger.departure_id)
-      .eq('org_id', orgId)
-      .single();
-
-    if (depErr || !departure) {
-      return apiError(res, 404, 'DEPARTURE_NOT_FOUND', 'Departure not found');
-    }
-
-    if (departure.transport_type !== 'bus') {
-      return apiError(res, 400, 'NOT_BUS_DEPARTURE', 'Manual seat assignment is only supported for bus departures');
-    }
-
-    const { data: vehicle, error: vehicleErr } = await supabaseAdmin
-      .from('departure_vehicle_assignments')
-      .select('id')
-      .eq('departure_id', passenger.departure_id)
-      .eq('org_id', orgId)
-      .maybeSingle();
-
-    if (vehicleErr) {
-      return handleSupabaseError(res, vehicleErr, 'Failed to load vehicle');
-    }
-    if (!vehicle) {
-      return apiError(res, 400, 'NO_VEHICLE', 'No vehicle configured for this departure');
-    }
-
-    if (seatNumber === null) {
-      // Unassign
-      if (passenger.seat_locked) {
+    if (rpcErr) {
+      const msg = (rpcErr as { message?: string }).message || '';
+      if (msg.includes('PASSENGER_NOT_FOUND') || msg.includes('DEPARTURE_NOT_FOUND')
+          || msg.includes('SEAT_NOT_FOUND') || msg.includes('VEHICLE_NOT_FOUND')) {
+        return apiError(res, 404, 'NOT_FOUND', (rpcErr as { message?: string }).message || 'Resource not found');
+      }
+      if (msg.includes('NOT_BUS_DEPARTURE')) {
+        return apiError(res, 400, 'NOT_BUS_DEPARTURE', 'Manual seat assignment is only supported for bus departures');
+      }
+      if (msg.includes('SEAT_LOCKED')) {
         return apiError(res, 409, 'SEAT_LOCKED', 'Unlock the seat before changing it.');
       }
-      const { data: updated, error: updateErr } = await supabaseAdmin
-        .from('departure_passengers')
-        .update({ seat_number: null, seat_is_manual: false, seat_locked: false })
-        .eq('id', id)
-        .eq('org_id', orgId)
-        .select()
-        .single();
-
-      if (updateErr) {
-        if (isSeatConflict(updateErr)) {
-          return apiError(res, 409, 'SEAT_CONFLICT', 'That seat is already assigned to another passenger on this departure.');
-        }
-        return handleSupabaseError(res, updateErr, 'Failed to unassign seat');
-      }
-      return res.json(updated);
-    }
-
-    // Assign
-    if (passenger.seat_locked) {
-      return apiError(res, 409, 'SEAT_LOCKED', 'Unlock the seat before changing it.');
-    }
-
-    const { data: targetSeat, error: seatErr } = await supabaseAdmin
-      .from('departure_vehicle_seats')
-      .select('id')
-      .eq('departure_vehicle_assignment_id', vehicle.id)
-      .eq('seat_number', seatNumber)
-      .eq('is_active', true)
-      .single();
-
-    if (seatErr || !targetSeat) {
-      return apiError(res, 400, 'SEAT_NOT_FOUND', 'The requested seat does not exist or is not available');
-    }
-
-    const { data: updated, error: updateErr } = await supabaseAdmin
-      .from('departure_passengers')
-      .update({ seat_number: seatNumber, seat_is_manual: true })
-      .eq('id', id)
-      .eq('org_id', orgId)
-      .select()
-      .single();
-
-    if (updateErr) {
-      if (isSeatConflict(updateErr)) {
+      if (msg.includes('SEAT_CONFLICT') || msg.includes('seat_number')) {
         return apiError(res, 409, 'SEAT_CONFLICT', 'That seat is already assigned to another passenger on this departure.');
       }
-      return handleSupabaseError(res, updateErr, 'Failed to assign seat');
+      return handleSupabaseError(res, rpcErr, 'Failed to update seat');
     }
 
-    return res.json(updated);
+    return res.json(Array.isArray(updated) ? updated[0] : updated);
   } catch (err) {
     console.error('PATCH /departure-passengers/:id/seat:', err);
     apiError(res, 500, 'INTERNAL_ERROR', 'Failed to update seat');
   }
 });
 
-/** PATCH /departure-passengers/:id/seat-lock — lock/unlock seat assignment */
+/** PATCH /departure-passengers/:id/seat-lock — atomic lock/unlock seat assignment via RPC */
 router.patch('/departure-passengers/:id/seat-lock', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
   try {
     const { id } = req.params;
@@ -376,34 +307,28 @@ router.patch('/departure-passengers/:id/seat-lock', authenticateToken, requireOr
     const orgId = req.orgId!;
     const { locked } = parsed.data;
 
-    const { data: passenger, error: passengerErr } = await supabaseAdmin
-      .from('departure_passengers')
-      .select('id, seat_number')
-      .eq('id', id)
-      .eq('org_id', orgId)
-      .single();
+    const { data: updated, error: rpcErr } = await supabaseAdmin
+      .rpc('manual_seat_lock', {
+        p_org_id: orgId,
+        p_passenger_id: id,
+        p_locked: locked,
+      });
 
-    if (passengerErr || !passenger) {
-      return apiError(res, 404, 'NOT_FOUND', 'Passenger not found');
+    if (rpcErr) {
+      const msg = (rpcErr as { message?: string }).message || '';
+      if (msg.includes('PASSENGER_NOT_FOUND')) {
+        return apiError(res, 404, 'NOT_FOUND', (rpcErr as { message?: string }).message || 'Passenger not found');
+      }
+      if (msg.includes('NOT_BUS_DEPARTURE')) {
+        return apiError(res, 400, 'NOT_BUS_DEPARTURE', 'Seat locking is only supported for bus departures');
+      }
+      if (msg.includes('SEAT_NOT_ASSIGNED')) {
+        return apiError(res, 400, 'SEAT_NOT_ASSIGNED', 'Passenger does not have an assigned seat');
+      }
+      return handleSupabaseError(res, rpcErr, 'Failed to update seat lock');
     }
 
-    if (!passenger.seat_number || passenger.seat_number <= 0) {
-      return apiError(res, 400, 'SEAT_NOT_ASSIGNED', 'Passenger does not have an assigned seat');
-    }
-
-    const { data: updated, error: updateErr } = await supabaseAdmin
-      .from('departure_passengers')
-      .update({ seat_locked: locked })
-      .eq('id', id)
-      .eq('org_id', orgId)
-      .select()
-      .single();
-
-    if (updateErr) {
-      return handleSupabaseError(res, updateErr, 'Failed to update seat lock');
-    }
-
-    return res.json(updated);
+    return res.json(Array.isArray(updated) ? updated[0] : updated);
   } catch (err) {
     console.error('PATCH /departure-passengers/:id/seat-lock:', err);
     apiError(res, 500, 'INTERNAL_ERROR', 'Failed to update seat lock');

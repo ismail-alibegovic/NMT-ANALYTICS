@@ -2,12 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import express, { type NextFunction, type Request, type Response } from 'express'
 import request from 'supertest'
 
-// M11.1 regression coverage for the manual BUS seat foundation:
-//   PATCH /departure-passengers/:id/seat
-//   PATCH /departure-passengers/:id/seat-lock
-//   PUT  /departures/:departureId/vehicle
-//   legacy auto-seating gating (AUTO_SEATING_NOT_AVAILABLE)
-//   generic passenger PATCH must not bypass seat rules.
+// M11.1 regression coverage — atomic RPC-backed manual bus seat foundation.
+// Routes call update_vehicle_atomic, manual_seat_assign, manual_seat_lock.
+// Legacy auto-seating is gated (AUTO_SEATING_NOT_AVAILABLE).
+// Clear-all is also gated.
+// Generic passenger PATCH must not bypass seat rules.
 
 const TEST_ORG = '00000000-0000-0000-0000-000000000001'
 const OTHER_ORG = '00000000-0000-0000-0000-000000000002'
@@ -60,8 +59,11 @@ let departures: DepartureRow[] = []
 let passengers: PassengerRow[] = []
 let vehicles: VehicleRow[] = []
 let seats: SeatRow[] = []
+// Track the "locked" vehicle rows for simulation
+let vehicleLocks: Map<string, VehicleRow> = new Map()
 
 function resetStores() {
+  vehicleLocks = new Map()
   departures = [
     { id: BUS_DEPARTURE, org_id: TEST_ORG, transport_type: 'bus', capacity: 4 },
     { id: FLIGHT_DEPARTURE, org_id: TEST_ORG, transport_type: 'flight', capacity: 6 },
@@ -95,6 +97,170 @@ function resetStores() {
     { id: '60000000-0000-4000-8000-000000000004', org_id: TEST_ORG, departure_vehicle_assignment_id: VEHICLE_ID, departure_id: BUS_DEPARTURE, seat_number: 4, seat_label: 'Seat 4', row_number: 1, column_index: 3, side: 'right', is_active: true },
   ]
 }
+
+// ---- In-memory RPC simulations matching the DB functions ---------------------
+
+function rpcUpdateVehicleAtomic(args: any): { data: any; error: any } {
+  const orgId = args.p_org_id
+  const departureId = args.p_departure_id
+  const newCapacity = args.p_capacity as number | null
+
+  const dep = departures.find(d => d.id === departureId && d.org_id === orgId)
+  if (!dep) return { data: null, error: { message: 'DEPARTURE_NOT_FOUND' } }
+  if (dep.transport_type !== 'bus') return { data: null, error: { message: 'NOT_BUS_DEPARTURE' } }
+
+  let veh = vehicles.find(v => v.departure_id === departureId && v.org_id === orgId)
+  const effectiveCapacity = newCapacity ?? veh?.capacity ?? dep.capacity
+
+  if (effectiveCapacity < dep.capacity) return { data: null, error: { message: 'CAPACITY_TOO_LOW' } }
+
+  if (veh && newCapacity !== null && newCapacity < veh.capacity) {
+    const occupiedAbove = passengers.filter(
+      p => p.departure_id === departureId && p.org_id === orgId
+        && p.seat_number !== null && p.seat_number > newCapacity
+    ).length
+    if (occupiedAbove > 0) {
+      return { data: null, error: { message: `VEHICLE_CHANGE_CONFLICT: ${occupiedAbove} occupied seats above new capacity` } }
+    }
+  }
+
+  if (veh) {
+    veh.vehicle_label = args.p_vehicle_label ?? veh.vehicle_label
+    veh.registration_number = args.p_registration_number !== undefined ? args.p_registration_number : veh.registration_number
+    veh.capacity = effectiveCapacity
+    veh.layout_type = args.p_layout_type ?? veh.layout_type
+  } else {
+    veh = {
+      id: VEHICLE_ID + '_' + departureId.substring(0, 8),
+      org_id: orgId,
+      departure_id: departureId,
+      vehicle_label: args.p_vehicle_label ?? 'Bus ' + departureId.substring(0, 8),
+      registration_number: args.p_registration_number ?? null,
+      capacity: effectiveCapacity,
+      layout_type: args.p_layout_type ?? 'standard_2_plus_2',
+    }
+    vehicles.push(veh)
+  }
+
+  // Deactivate seats above new capacity
+  seats.forEach(s => {
+    if (s.departure_vehicle_assignment_id === veh!.id && s.seat_number > effectiveCapacity) {
+      s.is_active = false
+    }
+  })
+
+  // Create / reactivate seats 1..N
+  for (let n = 1; n <= effectiveCapacity; n++) {
+    const existing = seats.find(s => s.departure_vehicle_assignment_id === veh!.id && s.seat_number === n)
+    if (existing) {
+      existing.is_active = true
+    } else {
+      seats.push({
+        id: `6${String(n).padStart(6, '0')}-0000-4000-8000-000000000002`,
+        org_id: orgId,
+        departure_vehicle_assignment_id: veh!.id,
+        departure_id: departureId,
+        seat_number: n,
+        seat_label: 'Seat ' + n,
+        row_number: Math.floor((n - 1) / 4) + 1,
+        column_index: (n - 1) % 4,
+        side: ((n - 1) % 4) < 2 ? 'left' : 'right',
+        is_active: true,
+      })
+    }
+  }
+
+  const activeSeats = seats
+    .filter(s => s.departure_vehicle_assignment_id === veh!.id && s.is_active)
+    .sort((a, b) => a.seat_number - b.seat_number)
+    .map(s => ({
+      id: s.id, seat_number: s.seat_number, seat_label: s.seat_label,
+      row_number: s.row_number, column_index: s.column_index,
+      side: s.side, is_active: s.is_active,
+    }))
+
+  return {
+    data: {
+      vehicle: {
+        id: veh!.id, vehicle_label: veh!.vehicle_label,
+        registration_number: veh!.registration_number,
+        capacity: veh!.capacity, layout_type: veh!.layout_type,
+      },
+      seats: activeSeats,
+    },
+    error: null,
+  }
+}
+
+function rpcManualSeatAssign(args: any): { data: any; error: any } {
+  const orgId = args.p_org_id
+  const passengerId = args.p_passenger_id
+  const seatNumber = args.p_seat_number as number | null
+
+  const pax = passengers.find(p => p.id === passengerId && p.org_id === orgId)
+  if (!pax) return { data: null, error: { message: 'PASSENGER_NOT_FOUND' } }
+
+  const dep = departures.find(d => d.id === pax.departure_id && d.org_id === orgId)
+  if (!dep) return { data: null, error: { message: 'DEPARTURE_NOT_FOUND' } }
+  if (dep.transport_type !== 'bus') return { data: null, error: { message: 'NOT_BUS_DEPARTURE' } }
+
+  const veh = vehicles.find(v => v.departure_id === dep.id && v.org_id === orgId)
+  if (!veh) return { data: null, error: { message: 'VEHICLE_NOT_FOUND' } }
+
+  if (seatNumber === null) {
+    if (pax.seat_locked) return { data: null, error: { message: 'SEAT_LOCKED' } }
+    pax.seat_number = null
+    pax.seat_is_manual = false
+    pax.seat_locked = false
+    return { data: { ...pax }, error: null }
+  }
+
+  if (pax.seat_locked) return { data: null, error: { message: 'SEAT_LOCKED' } }
+
+  const target = seats.find(s =>
+    s.departure_vehicle_assignment_id === veh.id &&
+    s.seat_number === seatNumber &&
+    s.is_active
+  )
+  if (!target) return { data: null, error: { message: 'SEAT_NOT_FOUND' } }
+
+  // Duplicate seat check
+  const dup = passengers.find(p =>
+    p.departure_id === pax.departure_id &&
+    p.org_id === orgId &&
+    p.seat_number === seatNumber &&
+    p.id !== passengerId
+  )
+  if (dup) return { data: null, error: { message: 'SEAT_CONFLICT' } }
+
+  pax.seat_number = seatNumber
+  pax.seat_is_manual = true
+  return { data: { ...pax }, error: null }
+}
+
+function rpcManualSeatLock(args: any): { data: any; error: any } {
+  const orgId = args.p_org_id
+  const passengerId = args.p_passenger_id
+  const locked = args.p_locked as boolean
+
+  const pax = passengers.find(p => p.id === passengerId && p.org_id === orgId)
+  if (!pax) return { data: null, error: { message: 'PASSENGER_NOT_FOUND' } }
+
+  if (pax.seat_number === null || (pax.seat_number ?? 0) <= 0) {
+    return { data: null, error: { message: 'SEAT_NOT_ASSIGNED' } }
+  }
+
+  const dep = departures.find(d => d.id === pax.departure_id && d.org_id === orgId)
+  if (!dep) return { data: null, error: { message: 'DEPARTURE_NOT_FOUND' } }
+  if (dep.transport_type !== 'bus') {
+    return { data: null, error: { message: 'NOT_BUS_DEPARTURE' } }
+  }
+
+  pax.seat_locked = locked
+  return { data: { ...pax }, error: null }
+}
+
+// ---- Mock setup ---------------------------------------------------------------
 
 function filterRows(rows: any[], filters: Record<string, unknown>, inFilters: Record<string, Set<unknown>>) {
   return rows.filter((row: any) => {
@@ -190,6 +356,10 @@ function buildQuery(table: string) {
             const idx = vehicles.findIndex((v) => v.id === row.id)
             vehicles[idx] = { ...vehicles[idx], ...(payload as any) }
             return { data: vehicles[idx], error: null }
+          } else if (table === 'departure_vehicle_seats') {
+            const idx = seats.findIndex((s) => s.id === row.id)
+            seats[idx] = { ...seats[idx], ...(payload as any) }
+            return { data: seats[idx], error: null }
           }
           return { data: null, error: null }
         },
@@ -240,7 +410,13 @@ vi.mock('../middleware/auditLogger', () => ({
 vi.mock('../lib/supabase', () => ({
   supabaseAdmin: {
     from: vi.fn((table: string) => buildQuery(table)),
-    rpc: vi.fn(async () => ({ data: null, error: null })),
+    rpc: vi.fn(async (fn: string, args: any) => {
+      if (fn === 'update_vehicle_atomic') return rpcUpdateVehicleAtomic(args)
+      if (fn === 'manual_seat_assign') return rpcManualSeatAssign(args)
+      if (fn === 'manual_seat_lock') return rpcManualSeatLock(args)
+      if (fn === 'sync_departure_room_slots_atomic') return { data: { success: true }, error: null }
+      return { data: null, error: null }
+    }),
   },
   supabase: {},
   handleSupabaseError: (res: Response, err: { code?: string; message?: string }, message: string) =>
@@ -263,6 +439,8 @@ describe('M11.1 manual bus seat foundation', () => {
     resetStores()
   })
 
+  // ---- Existing M11.1 tests (now RPC-backed) -----------------------------------
+
   it('assigns a manual seat on a bus departure', async () => {
     const res = await request(createApp(passengerRouter))
       .patch(`/api/departure-passengers/${PASSENGER_ID}/seat`)
@@ -281,8 +459,8 @@ describe('M11.1 manual bus seat foundation', () => {
       .set('x-test-org', TEST_ORG)
       .send({ seatNumber: 99 })
 
-    expect(res.status).toBe(400)
-    expect(res.body.code).toBe('SEAT_NOT_FOUND')
+    expect(res.status).toBe(404)
+    expect(res.body.code).toBe('NOT_FOUND')
   })
 
   it('rejects manual seat assignment on a flight departure', async () => {
@@ -357,6 +535,8 @@ describe('M11.1 manual bus seat foundation', () => {
       .send({ seat_number: 3 })
 
     expect(res.status).toBe(200)
+    // The updateSchema validation omits seat fields; even if passed, the route
+    // ignores them. The passenger in the mock DB remains untouched.
     expect(passengers[0].seat_number).toBeNull()
   })
 
@@ -405,5 +585,107 @@ describe('M11.1 manual bus seat foundation', () => {
 
     expect(res.status).toBe(400)
     expect(res.body.code).toBe('NOT_BUS_DEPARTURE')
+  })
+
+  // ---- NEW: Fix-specific regression tests --------------------------------------
+
+  it('vehicle create generates seats 1..capacity', async () => {
+    // Remove existing vehicle so RPC creates one.
+    vehicles = []
+    seats = []
+
+    const res = await request(createApp(departuresRouter))
+      .put(`/api/departures/${BUS_DEPARTURE}/vehicle`)
+      .set('x-test-org', TEST_ORG)
+      .send({ capacity: 6, vehicleLabel: 'Big Bus' })
+
+    expect(res.status).toBe(200)
+    expect(res.body.vehicle.capacity).toBe(6)
+    expect(res.body.seats).toHaveLength(6)
+    expect(res.body.seats.map((s: any) => s.seat_number)).toEqual([1, 2, 3, 4, 5, 6])
+  })
+
+  it('vehicle capacity increase generates new seats', async () => {
+    // Existing vehicle has capacity 4, seats 1..4. Increase to 6.
+    const res = await request(createApp(departuresRouter))
+      .put(`/api/departures/${BUS_DEPARTURE}/vehicle`)
+      .set('x-test-org', TEST_ORG)
+      .send({ capacity: 6 })
+
+    expect(res.status).toBe(200)
+    expect(res.body.seats).toHaveLength(6)
+    expect(res.body.seats.map((s: any) => s.seat_number)).toEqual([1, 2, 3, 4, 5, 6])
+  })
+
+
+  it('vehicle capacity decrease from 6 to 4 removes extra unoccupied seats', async () => {
+    // First increase to 6.
+    await request(createApp(departuresRouter))
+      .put(`/api/departures/${BUS_DEPARTURE}/vehicle`)
+      .set('x-test-org', TEST_ORG)
+      .send({ capacity: 6 })
+
+    // Then decrease back to 4 (which is >= departure capacity).
+    const res = await request(createApp(departuresRouter))
+      .put(`/api/departures/${BUS_DEPARTURE}/vehicle`)
+      .set('x-test-org', TEST_ORG)
+      .send({ capacity: 4 })
+
+    expect(res.status).toBe(200)
+    expect(res.body.seats).toHaveLength(4)
+  })
+
+  it('vehicle capacity decrease with occupied extra seat returns 409', async () => {
+    // Increase to 6, then assign seat 5 to a passenger.
+    await request(createApp(departuresRouter))
+      .put(`/api/departures/${BUS_DEPARTURE}/vehicle`)
+      .set('x-test-org', TEST_ORG)
+      .send({ capacity: 6 })
+
+    passengers[0].seat_number = 5
+
+    const res = await request(createApp(departuresRouter))
+      .put(`/api/departures/${BUS_DEPARTURE}/vehicle`)
+      .set('x-test-org', TEST_ORG)
+      .send({ capacity: 4 })
+
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('VEHICLE_CHANGE_CONFLICT')
+  })
+
+  it('seat-lock rejected for flight departure', async () => {
+    // Put passenger on flight departure with seat assigned.
+    passengers[0].departure_id = FLIGHT_DEPARTURE
+    passengers[0].seat_number = 3
+
+    const res = await request(createApp(passengerRouter))
+      .patch(`/api/departure-passengers/${PASSENGER_ID}/seat-lock`)
+      .set('x-test-org', TEST_ORG)
+      .send({ locked: true })
+
+    expect(res.status).toBe(400)
+    expect(res.body.code).toBe('NOT_BUS_DEPARTURE')
+  })
+
+  it('clear-all cannot mutate manual seats — returns 409 gated', async () => {
+    const res = await request(createApp(seatRouter))
+      .post('/api/seats/clear-all')
+      .set('x-test-org', TEST_ORG)
+      .send({ departureId: BUS_DEPARTURE })
+
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('AUTO_SEATING_NOT_AVAILABLE')
+  })
+
+  it('vehicle PUT uses RPC and returns vehicle+seats shape', async () => {
+    const res = await request(createApp(departuresRouter))
+      .put(`/api/departures/${BUS_DEPARTURE}/vehicle`)
+      .set('x-test-org', TEST_ORG)
+      .send({ vehicleLabel: 'Bus XYZ', capacity: 5 })
+
+    expect(res.status).toBe(200)
+    expect(res.body.vehicle).toBeDefined()
+    expect(res.body.vehicle.vehicle_label).toBe('Bus XYZ')
+    expect(res.body.seats).toBeInstanceOf(Array)
   })
 })
