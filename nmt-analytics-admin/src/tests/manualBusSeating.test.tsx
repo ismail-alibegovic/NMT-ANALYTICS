@@ -353,4 +353,26 @@ describe("ManualBusSeating", () => {
     expect(screen.queryByText(/Group Auto Assign/i)).toBeNull();
     expect(screen.queryByText(/Clear All/i)).toBeNull();
   });
+  it("marks a manually assigned seat with a visible manual indicator", async () => {
+    (getDepartureVehicle as ReturnType<typeof vi.fn>).mockResolvedValue(defaultVehicle);
+    (assignPassengerSeat as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    (lockPassengerSeat as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+    const manual = basePassenger({ seat_number: 1, seat_is_manual: true, seat_locked: false });
+    const auto = basePassenger({ id: "p-2", passengerId: "p-2", fullName: "Ema Gusić", seat_number: 2, seat_is_manual: false, seat_locked: false });
+    render(<ManualBusSeating {...baseProps} passengers={[manual, auto]} />);
+
+    await waitFor(() => screen.getByText("1A"));
+
+    const manualSeat = screen.getByText("1A").closest("button") as HTMLButtonElement;
+    const autoSeat = screen.getByText("2B").closest("button") as HTMLButtonElement;
+
+    expect(manualSeat.className).toContain("border-dashed");
+    expect(autoSeat.className).not.toContain("border-dashed");
+
+    const legend = screen.getByText("Manual assignment");
+    expect(legend).toBeInTheDocument();
+    const legendSwatch = legend.firstElementChild as HTMLElement;
+    expect(legendSwatch.className).toContain("border-dashed");
+  });
 });

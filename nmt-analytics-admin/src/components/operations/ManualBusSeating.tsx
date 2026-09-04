@@ -426,6 +426,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
                 const isSelected = selectedSeat === seat.seat_number || (!!occupant && selectedPassengerId === occupant.id);
                 const isActive = seat.is_active;
                 const isLocked = occupant?.seat_locked;
+                const isManual = !!occupant?.seat_is_manual && !isLocked;
 
                 if (!isActive) {
                   return (
@@ -449,7 +450,9 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
                           ? "border-brand-500 bg-brand-500/10 text-brand-700 dark:text-brand-300"
                           : isLocked
                             ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200"
-                            : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                            : isManual
+                              ? "border-dashed border-gray-400 bg-gray-50 text-gray-700 hover:bg-gray-100 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                       }`}
                       title={`${occupant.full_name}${isLocked ? ` (${bs.lockedBadge || "Locked"})` : occupant.seat_is_manual ? ` (${bs.manualBadge || "Manual"})` : ""}`}
                     >
@@ -495,6 +498,9 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="size-3 rounded border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800" /> {bs.legend?.occupied || "Occupied"}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-3 rounded border border-dashed border-gray-400 bg-gray-50 dark:border-gray-500 dark:bg-gray-800" /> {bs.legend?.manual || "Manual"}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="size-3 rounded border border-brand-500 bg-brand-500/10" /> {bs.legend?.selected || "Selected"}
