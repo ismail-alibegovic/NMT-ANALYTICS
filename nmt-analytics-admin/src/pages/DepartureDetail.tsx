@@ -6,7 +6,7 @@ import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
 import EmptyState from "../components/ui/EmptyState";
 import { DataTable, Column } from "../components/ui/DataTable";
-import SeatMap from "../components/operations/SeatMap";
+import ManualBusSeating from "../components/operations/ManualBusSeating";
 import DepartureAccommodationPanel from "../components/departures/DepartureAccommodationPanel";
 import DrustvaTab from "../components/operations/DrustvaTab";
 import CommunicationHistoryPanel from "../components/communications/CommunicationHistoryPanel";
@@ -178,7 +178,7 @@ export default function DepartureDetail() {
   // Normalize seat/paid/debt fields to support either shape
   const normPax: DeparturePassenger[] = passengers.map((p: any) => ({
     ...p,
-    id: p.id ?? p.passengerId ?? null,
+    id: p.id ?? p.passengerId ?? '',
     seatNumber: p.seatNumber ?? p.seat ?? null,
     paidAmount: p.paidAmount ?? p.paid ?? 0,
     debtAmount: p.debtAmount ?? p.debt ?? 0,
@@ -1035,20 +1035,11 @@ export default function DepartureDetail() {
         {/* PASSENGERS TAB */}
         {activeTab === "passengers" && (
           <div className="space-y-6">
-            {capabilities?.hasManagedSeatLayout && departure.capacity > 0 && normPax.length > 0 && (
-              <SeatMap
+            {capabilities?.hasManagedSeatLayout && departure.transport_type === "bus" && (
+              <ManualBusSeating
+                departureId={id!}
                 passengers={normPax}
-                capacity={departure.capacity}
-                transportType={departure.transport_type as "bus" | "flight"}
-                editable
-                onSeatChanged={async () => {
-                  try {
-                    const fresh = await getDeparturePassengers(id!);
-                    setManifest(fresh);
-                  } catch {
-                    showError(t.departure.seatUpdateError || "Greška pri ažuriranju putnika");
-                  }
-                }}
+                transportType={departure.transport_type as string}
               />
             )}
             <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl">
