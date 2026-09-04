@@ -26,8 +26,7 @@ interface Props {
   transportType?: string;
 }
 
-const ERROR_CODES = ["SEAT_LOCKED", "SEAT_CONFLICT", "SEAT_NOT_FOUND", "CAPACITY_TOO_LOW", "VEHICLE_CHANGE_CONFLICT"] as const;
-type ServerErrorCode = (typeof ERROR_CODES)[number] | "INTERNAL_ERROR";
+type ServerErrorCode = "SEAT_LOCKED" | "SEAT_CONFLICT" | "SEAT_NOT_FOUND" | "CAPACITY_TOO_LOW" | "VEHICLE_CHANGE_CONFLICT" | "INTERNAL_ERROR";
 
 interface ServerError {
   code: ServerErrorCode;
