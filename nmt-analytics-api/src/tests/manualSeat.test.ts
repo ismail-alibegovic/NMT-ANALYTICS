@@ -460,7 +460,7 @@ describe('M11.1 manual bus seat foundation', () => {
       .send({ seatNumber: 99 })
 
     expect(res.status).toBe(404)
-    expect(res.body.code).toBe('NOT_FOUND')
+    expect(res.body.code).toBe('SEAT_NOT_FOUND')
   })
 
   it('rejects manual seat assignment on a flight departure', async () => {

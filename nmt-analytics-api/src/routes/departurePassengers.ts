@@ -272,9 +272,17 @@ router.patch('/departure-passengers/:id/seat', authenticateToken, requireOrgCont
 
     if (rpcErr) {
       const msg = (rpcErr as { message?: string }).message || '';
-      if (msg.includes('PASSENGER_NOT_FOUND') || msg.includes('DEPARTURE_NOT_FOUND')
-          || msg.includes('SEAT_NOT_FOUND') || msg.includes('VEHICLE_NOT_FOUND')) {
-        return apiError(res, 404, 'NOT_FOUND', (rpcErr as { message?: string }).message || 'Resource not found');
+      if (msg.includes('PASSENGER_NOT_FOUND')) {
+        return apiError(res, 404, 'PASSENGER_NOT_FOUND', (rpcErr as { message?: string }).message || 'Passenger not found');
+      }
+      if (msg.includes('DEPARTURE_NOT_FOUND')) {
+        return apiError(res, 404, 'DEPARTURE_NOT_FOUND', (rpcErr as { message?: string }).message || 'Departure not found');
+      }
+      if (msg.includes('SEAT_NOT_FOUND')) {
+        return apiError(res, 404, 'SEAT_NOT_FOUND', (rpcErr as { message?: string }).message || 'Seat not found');
+      }
+      if (msg.includes('VEHICLE_NOT_FOUND')) {
+        return apiError(res, 404, 'VEHICLE_NOT_FOUND', (rpcErr as { message?: string }).message || 'Vehicle not found');
       }
       if (msg.includes('NOT_BUS_DEPARTURE')) {
         return apiError(res, 400, 'NOT_BUS_DEPARTURE', 'Manual seat assignment is only supported for bus departures');
@@ -282,7 +290,7 @@ router.patch('/departure-passengers/:id/seat', authenticateToken, requireOrgCont
       if (msg.includes('SEAT_LOCKED')) {
         return apiError(res, 409, 'SEAT_LOCKED', 'Unlock the seat before changing it.');
       }
-      if (msg.includes('SEAT_CONFLICT') || msg.includes('seat_number')) {
+      if (msg.includes('unique constraint') || msg.includes('duplicate key')) {
         return apiError(res, 409, 'SEAT_CONFLICT', 'That seat is already assigned to another passenger on this departure.');
       }
       return handleSupabaseError(res, rpcErr, 'Failed to update seat');

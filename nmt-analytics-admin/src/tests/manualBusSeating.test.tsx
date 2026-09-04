@@ -277,7 +277,7 @@ describe("ManualBusSeating", () => {
     await userEvent.click(moveBtn);
 
     await waitFor(() => screen.getByText(/SEAT_LOCKED/));
-    expect(toastMock.error).toHaveBeenCalledWith("This seat is locked");
+    expect(toastMock.error).toHaveBeenCalledWith("This seat is locked. Unlock it first before making changes.");
   });
 
   it("renders vehicle creation form when no vehicle exists", async () => {
@@ -327,7 +327,7 @@ describe("ManualBusSeating", () => {
     await userEvent.click(saveBtn);
 
     await waitFor(() => screen.getByText(/Cannot reduce capacity/));
-    expect(toastMock.error).toHaveBeenCalledWith("Cannot reduce capacity");
+    expect(toastMock.error).toHaveBeenCalledWith("Cannot reduce capacity: seats outside the new capacity are already occupied.");
   });
 
   it("does not render bus seating workspace for non-bus departures", async () => {

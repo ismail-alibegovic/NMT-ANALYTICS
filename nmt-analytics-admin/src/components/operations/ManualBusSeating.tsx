@@ -52,6 +52,17 @@ function extractError(err: any): ServerError {
   return { code: "INTERNAL_ERROR", message: err?.message || String(err) };
 }
 
+function errorCodeToMessage(code: ServerErrorCode, bs: Record<string, string>): string {
+  switch (code) {
+    case "SEAT_LOCKED": return bs.seatLockedError || "This seat is locked.";
+    case "SEAT_CONFLICT": return bs.seatConflictError || "That seat is already assigned.";
+    case "SEAT_NOT_FOUND": return bs.seatNotFoundError || "Seat not found.";
+    case "CAPACITY_TOO_LOW": return bs.capacityTooLow || "Capacity too low.";
+    case "VEHICLE_CHANGE_CONFLICT": return bs.vehicleChangeConflict || "Cannot reduce capacity.";
+    default: return bs.assignError || "Operation failed.";
+  }
+}
+
 export default function ManualBusSeating({ departureId, passengers, transportType }: Props) {
   const { t } = useTranslation();
   const toast = useToast();
@@ -156,9 +167,10 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
       setSelectedSeat(null);
       await Promise.all([loadVehicle(), reloadManifest()]);
     } catch (err) {
-      const { code, message } = extractError(err);
-      setServerError({ code, message });
-      toast.error(message);
+      const { code } = extractError(err);
+      const displayMsg = errorCodeToMessage(code, bs);
+      setServerError({ code, message: displayMsg });
+      toast.error(displayMsg);
     } finally {
       setMutating(false);
     }
@@ -177,9 +189,10 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
       setSelectedSeat(null);
       await Promise.all([loadVehicle(), reloadManifest()]);
     } catch (err) {
-      const { code, message } = extractError(err);
-      setServerError({ code, message });
-      toast.error(message);
+      const { code } = extractError(err);
+      const displayMsg = errorCodeToMessage(code, bs);
+      setServerError({ code, message: displayMsg });
+      toast.error(displayMsg);
     } finally {
       setMutating(false);
     }
@@ -198,9 +211,10 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
       setSelectedSeat(null);
       await Promise.all([loadVehicle(), reloadManifest()]);
     } catch (err) {
-      const { code, message } = extractError(err);
-      setServerError({ code, message });
-      toast.error(message);
+      const { code } = extractError(err);
+      const displayMsg = errorCodeToMessage(code, bs);
+      setServerError({ code, message: displayMsg });
+      toast.error(displayMsg);
     } finally {
       setMutating(false);
     }
@@ -218,9 +232,10 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
       await lockPassengerSeat(selectedPassengerId, newLocked);
       await reloadManifest();
     } catch (err) {
-      const { code, message } = extractError(err);
-      setServerError({ code, message });
-      toast.error(message);
+      const { code } = extractError(err);
+      const displayMsg = errorCodeToMessage(code, bs);
+      setServerError({ code, message: displayMsg });
+      toast.error(displayMsg);
     } finally {
       setMutating(false);
     }
@@ -241,9 +256,10 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
       setSeats(res.seats);
       await reloadManifest();
     } catch (err) {
-      const { code, message } = extractError(err);
-      setServerError({ code, message });
-      toast.error(message);
+      const { code } = extractError(err);
+      const displayMsg = errorCodeToMessage(code, bs);
+      setServerError({ code, message: displayMsg });
+      toast.error(displayMsg);
     } finally {
       setSavingVehicle(false);
     }

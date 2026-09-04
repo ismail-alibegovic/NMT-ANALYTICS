@@ -1722,7 +1722,6 @@ applyProposal: 'Primijeni prijedlog',
       docAttention: 'Pažnja na dokumente',
     },
     backToDepartures: 'Nazad na polaske',
-  },
     busSeating: {
       title: 'Ručno dodjeljivanje sjedišta',
       configureVehicle: 'Konfiguriši vozilo',
@@ -1775,4 +1774,5 @@ applyProposal: 'Primijeni prijedlog',
         selected: 'Izabrano',
       },
     },
+  },
 };

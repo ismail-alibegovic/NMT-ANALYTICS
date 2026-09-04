@@ -1722,7 +1722,6 @@ applyProposal: 'Apply Proposal',
       docAttention: 'Document attention',
     },
     backToDepartures: 'Back to Departures',
-  },
     busSeating: {
       title: 'Bus Seating',
       configureVehicle: 'Configure Vehicle',
@@ -1775,5 +1774,6 @@ applyProposal: 'Apply Proposal',
         selected: 'Selected',
       },
     },
+  },
 };
 export type Translations = typeof en;
