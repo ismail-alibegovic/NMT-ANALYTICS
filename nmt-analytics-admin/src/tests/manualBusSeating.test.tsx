@@ -33,7 +33,7 @@ const t = {
       savingVehicle: "Saving...",
       vehicleSaved: "Vehicle updated",
       vehicleSaveFailed: "Failed to update vehicle",
-      capacityTooLow: "Capacity too low: {count} passengers are already assigned to seats outside the new capacity.",
+      capacityTooLow: "Vehicle capacity cannot be lower than the departure capacity.",
       vehicleChangeConflict: "Cannot reduce capacity: seats outside the new capacity are already occupied.",
       seatLockedError: "This seat is locked. Unlock it first before making changes.",
       seatConflictError: "That seat is already assigned to another passenger.",
@@ -328,6 +328,23 @@ describe("ManualBusSeating", () => {
 
     await waitFor(() => screen.getByText(/Cannot reduce capacity/));
     expect(toastMock.error).toHaveBeenCalledWith("Cannot reduce capacity: seats outside the new capacity are already occupied.");
+  });
+
+  it("shows CAPACITY_TOO_LOW localized message without {count} placeholder", async () => {
+    (getDepartureVehicle as ReturnType<typeof vi.fn>).mockResolvedValue(defaultVehicle);
+    (updateDepartureVehicle as ReturnType<typeof vi.fn>).mockRejectedValue({ code: "CAPACITY_TOO_LOW", message: "Capacity too low" });
+    (assignPassengerSeat as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    (lockPassengerSeat as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+    render(<ManualBusSeating {...baseProps} passengers={[]} />);
+    await waitFor(() => screen.getByText("Sprinter"));
+
+    const saveBtn = screen.getByText("Save");
+    await userEvent.click(saveBtn);
+
+    await waitFor(() => screen.getByText(/Vehicle capacity cannot be lower than the departure capacity/));
+    expect(screen.queryByText(/\{count\}/)).toBeNull();
+    expect(toastMock.error).toHaveBeenCalledWith("Vehicle capacity cannot be lower than the departure capacity.");
   });
 
   it("does not render bus seating workspace for non-bus departures", async () => {
