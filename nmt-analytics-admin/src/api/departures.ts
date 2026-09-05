@@ -315,6 +315,8 @@ export interface DeparturePassenger {
   full_name?: string;
   passport_number?: string | null;
   seat_number?: string | number | null;
+  seat_is_manual?: boolean;
+  seat_locked?: boolean;
 }
 
 export interface DepartureManifest {
@@ -374,6 +376,73 @@ export async function updatePassengerSeat(passengerId: string, seatNumber: numbe
   const { data } = await patch(`/departure-passengers/${passengerId}`, { seat_number: seatNumber });
   return data;
 }
+
+// ── M11 Manual Bus Seating ──────────────────────────────────────────────────────
+
+
+/** Canonical seat metadata from departure_vehicle_seats */
+export interface VehicleSeat {
+  id: string;
+  seat_number: number;
+  seat_label: string;
+  row_number: number;
+  column_index: number;
+  side: 'left' | 'right' | 'aisle' | string;
+  is_active: boolean;
+}
+
+export interface DepartureVehicleResponse {
+  vehicle: {
+    id: string;
+    departure_id: string;
+    org_id: string;
+    vehicle_label: string;
+    registration_number: string | null;
+    capacity: number;
+    layout_type: string;
+    created_at: string;
+    updated_at: string;
+  } | null;
+  seats: VehicleSeat[];
+}
+
+export async function getDepartureVehicle(departureId: string): Promise<DepartureVehicleResponse> {
+  const { data } = await get<DepartureVehicleResponse>(`/departures/${departureId}/vehicle`);
+  return data;
+}
+
+export interface UpdateDepartureVehicleData {
+  vehicleLabel?: string;
+  registrationNumber?: string | null;
+  capacity?: number;
+  layoutType?: 'standard_2_plus_2';
+}
+
+export async function updateDepartureVehicle(
+  departureId: string,
+  payload: UpdateDepartureVehicleData,
+): Promise<DepartureVehicleResponse> {
+  const { data } = await put<DepartureVehicleResponse>(`/departures/${departureId}/vehicle`, payload);
+  return data;
+}
+
+/**
+ * Canonical M11 manual seat assign / unassign.
+ * Never uses the generic updatePassengerSeat (which patches seat_number via old endpoint).
+ */
+export async function assignPassengerSeat(passengerId: string, seatNumber: number | null): Promise<any> {
+  const { data } = await patch(`/departure-passengers/${passengerId}/seat`, { seatNumber });
+  return data;
+}
+
+/**
+ * Canonical M11 seat lock / unlock.
+ */
+export async function lockPassengerSeat(passengerId: string, locked: boolean): Promise<any> {
+  const { data } = await patch(`/departure-passengers/${passengerId}/seat-lock`, { locked });
+  return data;
+}
+
 
 export async function getDepartureGroups(id: string): Promise<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] }> {
   const { data } = await get<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] }>(`/departures/${id}/groups`);
