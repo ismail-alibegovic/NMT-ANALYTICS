@@ -76,15 +76,19 @@ export async function loadSeatingState(
     return { state: null, error: { status: 500, code: 'INTERNAL_ERROR', message: 'Failed to load passenger groups' } };
   }
 
-  // 5. group members (org-scoped)
-  const { data: groupMembers, error: membersErr } = await supabaseAdmin
-    .from('trip_passenger_group_members')
-    .select('trip_passenger_group_id, passenger_id')
-    .eq('org_id', orgId)
-    .in('trip_passenger_group_id', (groups || []).map((g: any) => g.id));
+  // 5. group members — tenant isolation via org-scoped group IDs.
+  // If there are zero groups, skip the members query entirely (avoid invalid empty .in()).
+  let groupMembers: any[] = [];
+  if (groups && groups.length > 0) {
+    const { data: membersData, error: membersErr } = await supabaseAdmin
+      .from('trip_passenger_group_members')
+      .select('group_id, passenger_id')
+      .in('group_id', groups.map((g: any) => g.id));
 
-  if (membersErr) {
-    return { state: null, error: { status: 500, code: 'INTERNAL_ERROR', message: 'Failed to load group members' } };
+    if (membersErr) {
+      return { state: null, error: { status: 500, code: 'INTERNAL_ERROR', message: 'Failed to load group members' } };
+    }
+    groupMembers = membersData || [];
   }
 
   const input: SeatingProposalInput = {
@@ -115,7 +119,7 @@ export async function loadSeatingState(
       id: g.id,
       name: g.name ?? null,
       seatingPreference: (g.seating_preference ?? 'prefer_together') as SeatingProposalInput['groups'][number]['seatingPreference'],
-      passengerIds: (groupMembers || []).filter((m: any) => m.trip_passenger_group_id === g.id).map((m: any) => m.passenger_id),
+      passengerIds: groupMembers.filter((m: any) => m.group_id === g.id).map((m: any) => m.passenger_id),
     })),
   };
 

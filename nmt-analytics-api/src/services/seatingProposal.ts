@@ -140,6 +140,20 @@ function seatOrder(a: SeatingProposalSeat, b: SeatingProposalSeat): number {
   return a.id.localeCompare(b.id);
 }
 
+// A block is truly adjacent only if same row, same side, contiguous column_index.
+// Seats across the aisle (different side) are NOT adjacent.
+function isTrulyAdjacent(block: SeatingProposalSeat[]): boolean {
+  if (block.length === 0) return true;
+  const row = block[0].rowNumber;
+  const side = block[0].side;
+  for (let i = 0; i < block.length; i++) {
+    if (block[i].rowNumber !== row) return false;
+    if (block[i].side !== side) return false;
+    if (i > 0 && block[i].columnIndex !== block[i - 1].columnIndex + 1) return false;
+  }
+  return true;
+}
+
 export function generateSeatingProposal(input: SeatingProposalInput): SeatingProposalOutput | { error: 'INVALID_SEAT_STATE'; detail: string } {
   const { departureId, vehicle, passengers, groups } = input;
 
@@ -171,8 +185,6 @@ export function generateSeatingProposal(input: SeatingProposalInput): SeatingPro
     if ((p.seatIsManual || p.seatLocked) && p.seatNumber != null) {
       const seat = seatByNumber.get(p.seatNumber);
       if (!seat) {
-        // A manual/locked passenger sits on a seat that is missing or inactive —
-        // report, but do NOT free the seat (never touch manual state).
         unresolved.push({
           passengerId: p.id,
           passengerName: p.fullName,
@@ -220,21 +232,23 @@ export function generateSeatingProposal(input: SeatingProposalInput): SeatingPro
     takenSeatNumbers.add(seat.seatNumber);
   }
 
-  // Same-row contiguous adjacent block for a group of n members.
+  // Same-row, same-side contiguous adjacent block for a group of n members.
+  // Does NOT cross the aisle — seats on different sides are never adjacent.
   function findAdjacentBlock(n: number): SeatingProposalSeat[] | null {
     const free = freeSeats();
-    const byRow = new Map<number, SeatingProposalSeat[]>();
+    const byRowSide = new Map<string, SeatingProposalSeat[]>();
     for (const s of free) {
-      const row = byRow.get(s.rowNumber) ?? [];
-      row.push(s);
-      byRow.set(s.rowNumber, row);
+      const key = `${s.rowNumber}:${s.side}`;
+      const list = byRowSide.get(key) ?? [];
+      list.push(s);
+      byRowSide.set(key, list);
     }
-    const rows = [...byRow.entries()].sort((a, b) => a[0] - b[0]);
-    for (const [, rowSeats] of rows) {
-      const sorted = rowSeats.sort(seatOrder);
+    const keys = [...byRowSide.keys()].sort();
+    for (const key of keys) {
+      const rowSeats = byRowSide.get(key)!.sort(seatOrder);
       let run: SeatingProposalSeat[] = [];
       let prevCol = -99;
-      for (const s of sorted) {
+      for (const s of rowSeats) {
         if (s.columnIndex === prevCol + 1) run.push(s);
         else run = [s];
         prevCol = s.columnIndex;
@@ -305,19 +319,23 @@ export function generateSeatingProposal(input: SeatingProposalInput): SeatingPro
     }
 
     // keep_together / prefer_together: try adjacent block first.
-    let block: SeatingProposalSeat[] | null = findAdjacentBlock(n);
-    if (!block) block = findClosestWindow(n);
+    const block = findAdjacentBlock(n) ?? findClosestWindow(n);
 
     if (block) {
-      // If the block is not truly adjacent (same-row contiguous), record a warning
-      // for keep_together groups — best-effort placement.
-      const isAdjacent =
-        block.every((s) => s.rowNumber === block[0].rowNumber) &&
-        block.every((s, i) => i === 0 || s.columnIndex === block[i - 1].columnIndex + 1);
-      if (!isAdjacent && g.seatingPreference === 'keep_together') {
-        warnings.push(
-          `Group "${g.name ?? g.id}" (${g.seatingPreference}) could not be placed in adjacent seats — placed in closest possible seats`,
-        );
+      const adjacent = isTrulyAdjacent(block);
+      // If the block is not truly adjacent (crosses aisle, different rows, or
+      // non-contiguous), record an explicit split-group warning for both
+      // keep_together and prefer_together — never silently treat closest
+      // fallback as fully together.
+      if (!adjacent) {
+        const seatNumbers = block.map((s) => s.seatNumber);
+        splitGroupWarnings.push({
+          groupId: g.id,
+          groupName: g.name,
+          seatingPreference: g.seatingPreference,
+          message: `Group "${g.name ?? g.id}" (${g.seatingPreference}) could not be placed in adjacent seats — placed in closest possible seats`,
+          seatNumbers,
+        });
       }
       block.forEach((seat, i) => allocate(seat, g.members[i], reason, g.id));
       continue;

@@ -75,7 +75,6 @@ function createApp(router: any) {
   const app = express()
   app.use(express.json())
   app.use('/api', router)
-  // error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     res.status(500).json({ code: 'INTERNAL_ERROR', message: err?.message ?? 'error' })
   })
@@ -106,11 +105,12 @@ beforeEach(async () => {
     { id: '30000000-0000-4000-8000-000000000099', org_id: TEST_ORG, departure_id: BUS_DEPARTURE, full_name: 'Solo', seat_number: null, seat_is_manual: false, seat_locked: false },
   ]
   groups = [
-    { id: 'g1', org_id: TEST_ORG, departure_id: BUS_DEPARTURE, name: 'Family', seating_preference: 'keep_together', members: [{ passenger_id: '30000000-0000-4000-8000-000000000003' }, { passenger_id: '30000000-0000-4000-8000-000000000004' }] },
+    { id: 'g1', org_id: TEST_ORG, departure_id: BUS_DEPARTURE, name: 'Family', seating_preference: 'keep_together' },
   ]
+  // Real schema: group_id, passenger_id (no org_id on this table)
   groupMembers = [
-    { id: 'gm1', org_id: TEST_ORG, trip_passenger_group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000003' },
-    { id: 'gm2', org_id: TEST_ORG, trip_passenger_group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000004' },
+    { group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000003' },
+    { group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000004' },
   ]
 
   vi.resetModules()
@@ -216,16 +216,14 @@ describe('M12.1 read-only automatic bus seating proposal', () => {
     const groupProposed = res.body.proposedAssignments.filter((a: any) =>
       a.passengerId === '30000000-0000-4000-8000-000000000003' || a.passengerId === '30000000-0000-4000-8000-000000000004'
     )
-    // group should get seats 3,4 (the only free seats after manual/locked take 1,2)
     expect(groupProposed.length).toBe(2)
-    // group gets seats before solo — solo should be unresolved
     const soloProposed = res.body.proposedAssignments.find((a: any) => a.passengerId === '30000000-0000-4000-8000-000000000099')
     expect(soloProposed).toBeUndefined()
     const soloUnresolved = res.body.unresolved.find((a: any) => a.passengerId === '30000000-0000-4000-8000-000000000099')
     expect(soloUnresolved).toBeDefined()
   })
 
-  // ---- keep_together tries adjacency ----
+  // ---- keep_together tries adjacency (same row, same side) ----
   it('keep_together tries adjacency', async () => {
     const app = createApp(seatingRouter)
     const res = await request(app)
@@ -237,9 +235,79 @@ describe('M12.1 read-only automatic bus seating proposal', () => {
     const gm2 = res.body.proposedAssignments.find((a: any) => a.passengerId === '30000000-0000-4000-8000-000000000004')
     expect(gm1).toBeDefined()
     expect(gm2).toBeDefined()
-    // After manual(1)/locked(2) preserved, free seats are 3,4 — both row 2, cols 0,1 → adjacent
+    // After manual(1)/locked(2) preserved, free seats are 3,4 — both row 2, left+right
+    // But adjacency requires same side — so they should NOT be placed as adjacent
+    // They are on different sides → splitGroupWarning expected
     const seatNums = [gm1.seatNumber, gm2.seatNumber].sort((a: number, b: number) => a - b)
     expect(seatNums).toEqual([3, 4])
+  })
+
+  // ---- adjacency does NOT cross the aisle ----
+  it('does not treat seats across the aisle as adjacent', async () => {
+    // 2+2 geometry: row 1 has seats 1(left,col0) and 2(right,col1)
+    // These are across the aisle from each other — NOT adjacent
+    seats = [
+      { id: 's1', org_id: TEST_ORG, departure_vehicle_assignment_id: VEHICLE_ID, departure_id: BUS_DEPARTURE, seat_number: 1, seat_label: '1A', row_number: 1, column_index: 0, side: 'left', is_active: true },
+      { id: 's2', org_id: TEST_ORG, departure_vehicle_assignment_id: VEHICLE_ID, departure_id: BUS_DEPARTURE, seat_number: 2, seat_label: '1B', row_number: 1, column_index: 1, side: 'right', is_active: true },
+    ]
+    passengers = [
+      { id: '30000000-0000-4000-8000-000000000003', org_id: TEST_ORG, departure_id: BUS_DEPARTURE, full_name: 'Group Member 1', seat_number: null, seat_is_manual: false, seat_locked: false },
+      { id: '30000000-0000-4000-8000-000000000004', org_id: TEST_ORG, departure_id: BUS_DEPARTURE, full_name: 'Group Member 2', seat_number: null, seat_is_manual: false, seat_locked: false },
+    ]
+    groups = [
+      { id: 'g1', org_id: TEST_ORG, departure_id: BUS_DEPARTURE, name: 'Family', seating_preference: 'keep_together' },
+    ]
+    groupMembers = [
+      { group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000003' },
+      { group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000004' },
+    ]
+    vi.resetModules()
+    const seatsModule = await import('../routes/seats')
+    const router = seatsModule.default
+    const app = createApp(router)
+    const res = await request(app)
+      .post(`/api/departures/${BUS_DEPARTURE}/seating/proposal`)
+      .set('x-test-org', TEST_ORG)
+      .send()
+    expect(res.status).toBe(200)
+    // Seats across the aisle are NOT adjacent → split warning must be present
+    expect(res.body.splitGroupWarnings.length).toBeGreaterThan(0)
+    expect(res.body.splitGroupWarnings[0].groupId).toBe('g1')
+  })
+
+  // ---- genuinely adjacent group does NOT produce split warning ----
+  it('does not produce split warning for genuinely adjacent group', async () => {
+    // 2 seats on the same side, same row, contiguous columns
+    seats = [
+      { id: 's1', org_id: TEST_ORG, departure_vehicle_assignment_id: VEHICLE_ID, departure_id: BUS_DEPARTURE, seat_number: 1, seat_label: '1A', row_number: 1, column_index: 0, side: 'left', is_active: true },
+      { id: 's2', org_id: TEST_ORG, departure_vehicle_assignment_id: VEHICLE_ID, departure_id: BUS_DEPARTURE, seat_number: 2, seat_label: '1B', row_number: 1, column_index: 1, side: 'left', is_active: true },
+    ]
+    passengers = [
+      { id: '30000000-0000-4000-8000-000000000003', org_id: TEST_ORG, departure_id: BUS_DEPARTURE, full_name: 'Group Member 1', seat_number: null, seat_is_manual: false, seat_locked: false },
+      { id: '30000000-0000-4000-8000-000000000004', org_id: TEST_ORG, departure_id: BUS_DEPARTURE, full_name: 'Group Member 2', seat_number: null, seat_is_manual: false, seat_locked: false },
+    ]
+    groups = [
+      { id: 'g1', org_id: TEST_ORG, departure_id: BUS_DEPARTURE, name: 'Family', seating_preference: 'keep_together' },
+    ]
+    groupMembers = [
+      { group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000003' },
+      { group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000004' },
+    ]
+    vi.resetModules()
+    const seatsModule = await import('../routes/seats')
+    const router = seatsModule.default
+    const app = createApp(router)
+    const res = await request(app)
+      .post(`/api/departures/${BUS_DEPARTURE}/seating/proposal`)
+      .set('x-test-org', TEST_ORG)
+      .send()
+    expect(res.status).toBe(200)
+    // Genuinely adjacent → no split warning
+    expect(res.body.splitGroupWarnings.length).toBe(0)
+    const gm1 = res.body.proposedAssignments.find((a: any) => a.passengerId === '30000000-0000-4000-8000-000000000003')
+    const gm2 = res.body.proposedAssignments.find((a: any) => a.passengerId === '30000000-0000-4000-8000-000000000004')
+    expect(gm1).toBeDefined()
+    expect(gm2).toBeDefined()
   })
 
   // ---- closest-possible fallback is deterministic ----
@@ -266,11 +334,11 @@ describe('M12.1 read-only automatic bus seating proposal', () => {
       { id: '30000000-0000-4000-8000-000000000004', org_id: TEST_ORG, departure_id: BUS_DEPARTURE, full_name: 'Group Member 2', seat_number: null, seat_is_manual: false, seat_locked: false },
     ]
     groups = [
-      { id: 'g1', org_id: TEST_ORG, departure_id: BUS_DEPARTURE, name: 'Family', seating_preference: 'keep_together', members: [{ passenger_id: '30000000-0000-4000-8000-000000000003' }, { passenger_id: '30000000-0000-4000-8000-000000000004' }] },
+      { id: 'g1', org_id: TEST_ORG, departure_id: BUS_DEPARTURE, name: 'Family', seating_preference: 'keep_together' },
     ]
     groupMembers = [
-      { id: 'gm1', org_id: TEST_ORG, trip_passenger_group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000003' },
-      { id: 'gm2', org_id: TEST_ORG, trip_passenger_group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000004' },
+      { group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000003' },
+      { group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000004' },
     ]
     vi.resetModules()
     const seatsModule = await import('../routes/seats')
@@ -308,11 +376,11 @@ describe('M12.1 read-only automatic bus seating proposal', () => {
       { id: '30000000-0000-4000-8000-000000000099', org_id: TEST_ORG, departure_id: BUS_DEPARTURE, full_name: 'Solo', seat_number: null, seat_is_manual: false, seat_locked: false },
     ]
     groups = [
-      { id: 'g1', org_id: TEST_ORG, departure_id: BUS_DEPARTURE, name: 'Family', seating_preference: 'keep_together', members: [{ passenger_id: '30000000-0000-4000-8000-000000000003' }, { passenger_id: '30000000-0000-4000-8000-000000000004' }] },
+      { id: 'g1', org_id: TEST_ORG, departure_id: BUS_DEPARTURE, name: 'Family', seating_preference: 'keep_together' },
     ]
     groupMembers = [
-      { id: 'gm1', org_id: TEST_ORG, trip_passenger_group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000003' },
-      { id: 'gm2', org_id: TEST_ORG, trip_passenger_group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000004' },
+      { group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000003' },
+      { group_id: 'g1', passenger_id: '30000000-0000-4000-8000-000000000004' },
     ]
     vi.resetModules()
     const seatsModule = await import('../routes/seats')
