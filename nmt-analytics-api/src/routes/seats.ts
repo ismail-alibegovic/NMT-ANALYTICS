@@ -288,7 +288,7 @@ router.post(
       return res.json({
         applied: true,
         clearedCount: row?.cleared_count ?? 0,
-        appliedCount: row?.applied_count ?? 0,
+        appliedCount: row?.inserted_count ?? 0,
       });
     } catch (err: any) {
       console.error("POST /departures/:departureId/seating/apply:", err);

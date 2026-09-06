@@ -157,7 +157,7 @@ describe('M12.2 atomic seating proposal apply', () => {
       .send({ stateFingerprint, proposedAssignments });
     expect(res.status).toBe(200);
     expect(res.body.applied).toBe(true);
-    expect(res.body.insertedCount).toBe(2);
+    expect(res.body.appliedCount).toBe(2);
   });
 
   it('preserves manual assignment on apply', async () => {
