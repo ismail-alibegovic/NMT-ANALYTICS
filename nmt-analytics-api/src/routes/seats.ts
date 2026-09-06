@@ -60,7 +60,7 @@ function autoAssignSeats(
   const results: Array<{ passengerId: string; seat: number }> = [];
   const assigned = new Set<string>();
   occupied.forEach((_s, k) => { /* track for logic */ });
-  
+
   const taken = new Set(occupied);
   const groupPax = new Map<string, string[]>();
   const ungrouped: string[] = [];
@@ -172,6 +172,127 @@ router.post(
     } catch (err: any) {
       console.error("POST /departures/:departureId/seating/proposal:", err);
       return apiError(res, 500, "INTERNAL_ERROR", "Failed to generate seating proposal");
+    }
+  },
+);
+
+// POST /api/departures/:departureId/seating/apply
+// M12.2 — atomically apply a reviewed M12.1 seating proposal.
+// Stale-safe: regenerates proposal server-side and compares.
+// Never trusts client seat assignments directly.
+router.post(
+  "/departures/:departureId/seating/apply",
+  authenticateToken,
+  requireOrgContext,
+  requireMinimumRole("manager"),
+  async (req, res: Response) => {
+    try {
+      const { departureId } = req.params;
+      const orgId = req.orgId!;
+
+      const { stateFingerprint, proposedAssignments } = req.body ?? {};
+
+      if (typeof stateFingerprint !== "string" || !stateFingerprint) {
+        return res.status(400).json({ error: "stateFingerprint is required" });
+      }
+      if (!Array.isArray(proposedAssignments)) {
+        return res.status(400).json({ error: "proposedAssignments is required" });
+      }
+
+      // 1. Reload canonical seating state using the SAME logic as the proposal endpoint
+      const { state, error } = await loadSeatingState(departureId, orgId);
+      if (error) {
+        return apiError(res, error.status, error.code, error.message);
+      }
+
+      // 2. Regenerate proposal and compare against submitted values
+      const currentProposal = generateSeatingProposal(state!.input);
+
+      if ("error" in currentProposal) {
+        return apiError(res, 400, currentProposal.error, currentProposal.detail);
+      }
+
+      // Stale fingerprint check
+      if (currentProposal.stateFingerprint !== stateFingerprint) {
+        return res.status(409).json({
+          error: "Proposal is stale. Generate a new proposal.",
+          code: "STALE_PROPOSAL",
+        });
+      }
+
+      // Compare submitted proposal with server proposal
+      const submittedSeats = proposedAssignments
+        .map((p: any) => ({ passengerId: p.passengerId, seatId: p.seatId }))
+        .sort((a: any, b: any) => a.passengerId.localeCompare(b.passengerId));
+
+      const serverSeats = currentProposal.proposedAssignments
+        .map((p) => ({ passengerId: p.passengerId, seatId: p.seatId }))
+        .sort((a, b) => a.passengerId.localeCompare(b.passengerId));
+
+      if (JSON.stringify(submittedSeats) !== JSON.stringify(serverSeats)) {
+        return res.status(409).json({
+          error: "Proposal is stale. Generate a new proposal.",
+          code: "STALE_PROPOSAL",
+        });
+      }
+
+      // 3. Build RPC payload from SERVER proposal (never trust client data)
+      const proposedJson = currentProposal.proposedAssignments.map((p) => ({
+        passenger_id: p.passengerId,
+        seat_id: p.seatId,
+      }));
+
+      // 4. Atomic DB apply
+      const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
+        "apply_seating_proposal_atomic",
+        {
+          p_org_id: orgId,
+          p_departure_id: departureId,
+          p_proposed: proposedJson,
+        },
+      );
+
+      if (rpcError) {
+        console.error("seating apply RPC:", rpcError);
+        return res.status(500).json({ error: "Failed to apply seating proposal" });
+      }
+
+      const row = (rpcResult as any)?.[0];
+      const errorDetail = row?.error_detail;
+
+      if (errorDetail) {
+        if (
+          errorDetail.includes("SEAT_ASSIGNMENT_LOCKED") ||
+          errorDetail.includes("SEAT_CONFLICT") ||
+          errorDetail.includes("SEAT_LOCKED")
+        ) {
+          return res.status(409).json({ error: "Proposal is stale. Generate a new proposal.", code: "STALE_PROPOSAL" });
+        }
+        if (errorDetail.includes("DEPARTURE_NOT_FOUND")) {
+          return res.status(404).json({ error: "Departure not found" });
+        }
+        if (errorDetail.includes("VEHICLE_NOT_FOUND")) {
+          return res.status(400).json({ error: "Departure has no vehicle configured" });
+        }
+        if (
+          errorDetail.includes("PASSENGER_NOT_FOUND") ||
+          errorDetail.includes("SEAT_NOT_FOUND") ||
+          errorDetail.includes("DUPLICATE_PASSENGER") ||
+          errorDetail.includes("DUPLICATE_SEAT")
+        ) {
+          return res.status(409).json({ error: "Proposal is stale. Generate a new proposal.", code: "STALE_PROPOSAL" });
+        }
+        return res.status(409).json({ error: errorDetail, code: "APPLY_CONFLICT" });
+      }
+
+      return res.json({
+        applied: true,
+        clearedCount: row?.cleared_count ?? 0,
+        appliedCount: row?.applied_count ?? 0,
+      });
+    } catch (err: any) {
+      console.error("POST /departures/:departureId/seating/apply:", err);
+      return apiError(res, 500, "INTERNAL_ERROR", "Failed to apply seating proposal");
     }
   },
 );
