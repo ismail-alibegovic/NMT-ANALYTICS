@@ -4,6 +4,8 @@ import { requireOrgContext } from "../middleware/requireOrgContext";
 import { requireMinimumRole } from "../middleware/requireRole";
 import { supabaseAdmin, handleSupabaseError } from "../lib/supabase";
 import { apiError } from "../lib/errors";
+import { loadSeatingState } from "../services/seatingStateLoader";
+import { generateSeatingProposal } from "../services/seatingProposal";
 
 const router = Router();
 
@@ -142,6 +144,36 @@ router.post(
   async (_req, res) => {
     return apiError(res, 409, 'AUTO_SEATING_NOT_AVAILABLE', 'Bulk seat clearing is temporarily unavailable while the new manual seating model is being rolled out. Use the dedicated seat assignment endpoints.');
   }
+);
+
+// POST /api/departures/:departureId/seating/proposal
+// M12.1 — read-only, deterministic, group-aware automatic BUS seating proposal.
+router.post(
+  "/departures/:departureId/seating/proposal",
+  authenticateToken,
+  requireOrgContext,
+  requireMinimumRole("manager"),
+  async (req, res: Response) => {
+    try {
+      const { departureId } = req.params;
+      const orgId = req.orgId!;
+
+      const { state, error } = await loadSeatingState(departureId, orgId);
+      if (error) {
+        return apiError(res, error.status, error.code, error.message);
+      }
+
+      const result = generateSeatingProposal(state!.input);
+      if ("error" in result) {
+        return apiError(res, 400, result.error, result.detail);
+      }
+
+      return res.json(result);
+    } catch (err: any) {
+      console.error("POST /departures/:departureId/seating/proposal:", err);
+      return apiError(res, 500, "INTERNAL_ERROR", "Failed to generate seating proposal");
+    }
+  },
 );
 
 export default router;
