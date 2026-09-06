@@ -9,7 +9,7 @@ const FLIGHT_DEPARTURE = '22222222-2222-4222-8222-222222222223';
 const VEHICLE_ID = '33333333-3333-4333-8333-333333333333';
 
 const defaultRpcResult = {
-  data: [{ cleared_count: 0, inserted_count: 2, error_detail: null as string | null }],
+  data: [{ cleared_count: 0, applied_count: 2, error_detail: null as string | null }],
   error: null as string | null,
 };
 
@@ -221,7 +221,7 @@ describe('M12.2 atomic seating proposal apply', () => {
     const proposalRes = await getProposal();
     const { stateFingerprint, proposedAssignments } = proposalRes.body;
     rpcMock.mockResolvedValue({
-      data: [{ cleared_count: 0, inserted_count: 0, error_detail: 'SEAT_CONFLICT: Seat 3 is already occupied' }],
+      data: [{ cleared_count: 0, applied_count: 0, error_detail: 'SEAT_CONFLICT: Seat 3 is already occupied' }],
       error: null,
     });
     const app = createApp(seatingRouter);
@@ -237,7 +237,7 @@ describe('M12.2 atomic seating proposal apply', () => {
     const proposalRes = await getProposal();
     const { stateFingerprint, proposedAssignments } = proposalRes.body;
     rpcMock.mockResolvedValue({
-      data: [{ cleared_count: 0, inserted_count: 0, error_detail: 'SEAT_NOT_FOUND: Seat no longer exists' }],
+      data: [{ cleared_count: 0, applied_count: 0, error_detail: 'SEAT_NOT_FOUND: Seat no longer exists' }],
       error: null,
     });
     const app = createApp(seatingRouter);
@@ -253,7 +253,23 @@ describe('M12.2 atomic seating proposal apply', () => {
     const proposalRes = await getProposal();
     const { stateFingerprint, proposedAssignments } = proposalRes.body;
     rpcMock.mockResolvedValue({
-      data: [{ cleared_count: 0, inserted_count: 0, error_detail: 'DUPLICATE_SEAT: Seat 3 assigned to multiple passengers' }],
+      data: [{ cleared_count: 0, applied_count: 0, error_detail: 'DUPLICATE_SEAT: Seat 3 assigned to multiple passengers' }],
+      error: null,
+    });
+    const app = createApp(seatingRouter);
+    const res = await request(app)
+      .post(`/api/departures/${BUS_DEPARTURE}/seating/apply`)
+      .set('x-test-org', TEST_ORG)
+      .send({ stateFingerprint, proposedAssignments });
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('STALE_PROPOSAL');
+  });
+
+  it('rejects duplicate passenger in proposal', async () => {
+    const proposalRes = await getProposal();
+    const { stateFingerprint, proposedAssignments } = proposalRes.body;
+    rpcMock.mockResolvedValue({
+      data: [{ cleared_count: 0, applied_count: 0, error_detail: 'DUPLICATE_PASSENGER: Passenger appears multiple times' }],
       error: null,
     });
     const app = createApp(seatingRouter);
@@ -279,7 +295,7 @@ describe('M12.2 atomic seating proposal apply', () => {
     const proposalRes = await getProposal();
     const { stateFingerprint, proposedAssignments } = proposalRes.body;
     rpcMock.mockResolvedValue({
-      data: [{ cleared_count: 0, inserted_count: 0, error_detail: 'PASSENGER_NOT_FOUND: Passenger does not belong to this departure' }],
+      data: [{ cleared_count: 0, applied_count: 0, error_detail: 'PASSENGER_NOT_FOUND: Passenger does not belong to this departure' }],
       error: null,
     });
     const app = createApp(seatingRouter);
@@ -295,7 +311,7 @@ describe('M12.2 atomic seating proposal apply', () => {
     const proposalRes = await getProposal();
     const { stateFingerprint, proposedAssignments } = proposalRes.body;
     rpcMock.mockResolvedValue({
-      data: [{ cleared_count: 0, inserted_count: 0, error_detail: 'SEAT_CONFLICT: Atomic apply failed' }],
+      data: [{ cleared_count: 0, applied_count: 0, error_detail: 'SEAT_CONFLICT: Atomic apply failed' }],
       error: null,
     });
     const app = createApp(seatingRouter);
@@ -321,5 +337,25 @@ describe('M12.2 atomic seating proposal apply', () => {
       .send({ stateFingerprint, proposedAssignments });
     expect(res.status).toBe(200);
     expect(res.body.applied).toBe(true);
+  });
+
+  it('clears old automatic seat on unresolved passenger', async () => {
+    // Simulate a scenario where a passenger had an old auto seat that is NOT in the proposal
+    // The RPC should clear it (cleared_count > 0) and not conflict
+    const proposalRes = await getProposal();
+    const { stateFingerprint, proposedAssignments } = proposalRes.body;
+    rpcMock.mockResolvedValue({
+      data: [{ cleared_count: 1, applied_count: 2, error_detail: null }],
+      error: null,
+    });
+    const app = createApp(seatingRouter);
+    const res = await request(app)
+      .post(`/api/departures/${BUS_DEPARTURE}/seating/apply`)
+      .set('x-test-org', TEST_ORG)
+      .send({ stateFingerprint, proposedAssignments });
+    expect(res.status).toBe(200);
+    expect(res.body.applied).toBe(true);
+    expect(res.body.clearedCount).toBe(1);
+    expect(res.body.appliedCount).toBe(2);
   });
 });

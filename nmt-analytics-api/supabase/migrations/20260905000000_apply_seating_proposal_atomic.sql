@@ -1,8 +1,8 @@
 -- M12.2: Atomic seating proposal apply RPC.
 -- Applies a reviewed M12.1 seating proposal atomically.
 -- Preserves manual/locked assignments, never modifies them.
--- Enforces org/departure ownership, BUS-only, vehicle existence,
--- physical seat validity, no duplicates, no collisions.
+-- Clears ALL old automatic assignments for replaceable passengers on the departure,
+-- then applies the canonical server proposal.
 
 CREATE OR REPLACE FUNCTION public.apply_seating_proposal_atomic(
   p_org_id UUID,
@@ -24,6 +24,8 @@ DECLARE
   v_cleared INTEGER := 0;
   v_applied INTEGER := 0;
   v_passenger_ids UUID[] := '{}';
+  v_seat_ids UUID[] := '{}';
+  v_seat_nums INTEGER[] := '{}';
 BEGIN
   -- 1. Validate departure belongs to org and is BUS
   SELECT d.id, d.transport_type
@@ -51,9 +53,26 @@ BEGIN
     RAISE EXCEPTION 'VEHICLE_NOT_FOUND';
   END IF;
 
-  -- 3. Clear old automatic assignments (non-manual, non-locked) for passengers
-  --    who are in the new proposal. This makes the apply idempotent and
-  --    replaces old automatic assignments with the new canonical ones.
+  -- 3. Pre-validate p_proposed for duplicates BEFORE any mutation
+  IF p_proposed IS NOT NULL AND jsonb_array_length(p_proposed) > 0 THEN
+    -- Check duplicate passenger_id
+    IF (
+      SELECT COUNT(DISTINCT p->>'passenger_id') FROM jsonb_array_elements(p_proposed) p
+    ) != jsonb_array_length(p_proposed) THEN
+      RAISE EXCEPTION 'DUPLICATE_PASSENGER';
+    END IF;
+
+    -- Check duplicate seat_id
+    IF (
+      SELECT COUNT(DISTINCT p->>'seat_id') FROM jsonb_array_elements(p_proposed) p
+    ) != jsonb_array_length(p_proposed) THEN
+      RAISE EXCEPTION 'DUPLICATE_SEAT';
+    END IF;
+  END IF;
+
+  -- 4. Clear ALL old automatic assignments for replaceable passengers on this departure.
+  --    Manual/locked rows are never touched. This makes DB state match the canonical
+  --    server proposal, including for unresolved passengers who lose their old seat.
   WITH cleared AS (
     UPDATE public.departure_passengers dp
        SET seat_number = NULL,
@@ -63,15 +82,12 @@ BEGIN
        AND dp.org_id = p_org_id
        AND dp.seat_is_manual = false
        AND dp.seat_locked = false
-       AND dp.id = ANY(
-             SELECT (p->>'passenger_id')::UUID
-               FROM jsonb_array_elements(p_proposed) p
-           )
+       AND dp.seat_number IS NOT NULL
     RETURNING dp.id
   )
   SELECT COUNT(*) INTO v_cleared FROM cleared;
 
-  -- 4. Process each proposed assignment
+  -- 5. Process each proposed assignment
   FOR v_proposed_item IN SELECT * FROM jsonb_array_elements(p_proposed) LOOP
     -- Lock the passenger row
     SELECT dp.id, dp.departure_id, dp.seat_number, dp.seat_is_manual, dp.seat_locked
@@ -86,7 +102,7 @@ BEGIN
       RAISE EXCEPTION 'PASSENGER_NOT_FOUND (%)', v_proposed_item->>'passenger_id';
     END IF;
 
-    -- Never modify manual/locked assignments
+    -- Never modify manual/locked passengers
     IF v_passenger.seat_is_manual OR v_passenger.seat_locked THEN
       RAISE EXCEPTION 'SEAT_LOCKED (%)', v_proposed_item->>'passenger_id';
     END IF;
