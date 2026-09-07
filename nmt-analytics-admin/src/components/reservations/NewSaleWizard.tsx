@@ -8,6 +8,7 @@ import { getPackages, Package } from "../../api/packages";
 import { getDepartures, getDepartureAccommodationOptions, Departure, DepartureCapabilities, type DepartureAccommodationOption } from "../../api/departures";
 import { getCustomers, Customer } from "../../api/customers";
 import { createReservation, type CreateReservationPassengerInput } from "../../api/reservations";
+import { createReservationInstallmentSchedule } from "../../api/installments";
 import { getPackageServices, type PackageService } from "../../api/operations";
 import type { TravelerRequirements } from "../../api/packages";
 
@@ -743,7 +744,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         })),
       };
 
-      await createReservation({
+      const createdReservation = await createReservation({
         customerName,
         customerPhone,
         customerEmail: customerEmail || undefined,
@@ -765,6 +766,9 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         create_passenger_group: createGroup && filledPassengers.length > 1,
         group_name: groupName || undefined,
       });
+      if (paymentPlan === "installments") {
+        await createReservationInstallmentSchedule(createdReservation.id, installmentCount);
+      }
       success("Rezervacija kreirana");
       onCreated?.();
       onClose();
