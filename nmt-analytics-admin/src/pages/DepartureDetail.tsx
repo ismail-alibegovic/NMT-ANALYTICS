@@ -7,6 +7,7 @@ import Button from "../components/ui/button/Button";
 import EmptyState from "../components/ui/EmptyState";
 import { DataTable, Column } from "../components/ui/DataTable";
 import ManualBusSeating from "../components/operations/ManualBusSeating";
+import AutoSeatingPanel from "../components/operations/AutoSeatingPanel";
 import DepartureAccommodationPanel from "../components/departures/DepartureAccommodationPanel";
 import DrustvaTab from "../components/operations/DrustvaTab";
 import CommunicationHistoryPanel from "../components/communications/CommunicationHistoryPanel";
@@ -1036,11 +1037,19 @@ export default function DepartureDetail() {
         {activeTab === "passengers" && (
           <div className="space-y-6">
             {capabilities?.hasManagedSeatLayout && departure.transport_type === "bus" && (
-              <ManualBusSeating
-                departureId={id!}
-                passengers={normPax}
-                transportType={departure.transport_type as string}
-              />
+              <>
+                <AutoSeatingPanel
+                  departureId={id!}
+                  transportType={departure.transport_type as "bus" | "flight" | "none"}
+                  hasVehicle={true}
+                  onApplySuccess={() => loadDeparture()}
+                />
+                <ManualBusSeating
+                  departureId={id!}
+                  passengers={normPax}
+                  transportType={departure.transport_type as string}
+                />
+              </>
             )}
             <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-6 py-3 dark:border-gray-800">

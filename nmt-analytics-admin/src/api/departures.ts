@@ -814,3 +814,62 @@ export async function moveAccommodationAssignment(assignmentId: string, targetRo
   const res = await post(`/accommodation/assignments/${assignmentId}/move`, { targetRoomId, bedLabel: bedLabel || null });
   return res.data;
 }
+
+// ── M12.3: Auto Seating Review/Apply ──
+
+export interface SeatingProposalPassenger {
+  passengerId: string;
+  seatId: string;
+  seatNumber: number;
+  seatLabel: string;
+}
+
+export interface SeatingProposalSplitGroupWarning {
+  groupId: string;
+  groupName: string;
+  seatingPreference: string;
+  proposedSeatNumbers: number[];
+}
+
+export interface SeatingProposalUnresolved {
+  passengerId: string;
+  fullName: string;
+  reason: string;
+}
+
+export interface SeatingProposalOutput {
+  departureId: string;
+  departureIdentifier: string;
+  vehicleId: string;
+  vehicleLabel: string;
+  stateFingerprint: string;
+  preservedAssignments: SeatingProposalPassenger[];
+  proposedAssignments: SeatingProposalPassenger[];
+  unresolved: SeatingProposalUnresolved[];
+  warnings: string[];
+  splitGroupWarnings: SeatingProposalSplitGroupWarning[];
+}
+
+export interface SeatingApplyInput {
+  stateFingerprint: string;
+  proposedAssignments: { passengerId: string; seatId: string }[];
+}
+
+export interface SeatingApplyResult {
+  applied: boolean;
+  clearedCount: number;
+  appliedCount: number;
+}
+
+export async function generateSeatingProposal(departureId: string): Promise<SeatingProposalOutput> {
+  const { data } = await post<SeatingProposalOutput>(`/departures/${departureId}/seating/proposal`, {});
+  return data;
+}
+
+export async function applySeatingProposal(
+  departureId: string,
+  input: SeatingApplyInput,
+): Promise<SeatingApplyResult> {
+  const { data } = await post<SeatingApplyResult>(`/departures/${departureId}/seating/apply`, input);
+  return data;
+}
