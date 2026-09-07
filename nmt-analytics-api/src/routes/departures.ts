@@ -700,11 +700,13 @@ router.get('/departures/readiness-summary', authenticateToken, requireOrgContext
     // Canonical flight configuration: batch-fetch departure_flights for all
     // departures in one org-scoped query, then build the set of departures
     // that have at least one canonical segment.
-    const { data: allFlightSegments } = await supabaseAdmin
+    const { data: allFlightSegments, error: flightSegmentsErr } = await supabaseAdmin
       .from('departure_flights')
       .select('departure_id')
       .eq('org_id', orgId)
       .in('departure_id', departureIds);
+
+    if (flightSegmentsErr) return handleSupabaseError(res, flightSegmentsErr, 'Failed to fetch departure flight segments');
 
     const departuresWithFlightSegments = new Set<string>();
     for (const seg of allFlightSegments || []) {
@@ -715,7 +717,7 @@ router.get('/departures/readiness-summary', authenticateToken, requireOrgContext
       const pkg = departure.packages || null;
 
       const packageHasAccommodation = hasBuildingsByDeparture.has(departure.id);
-      const segsForDeparture: unknown[] | undefined = departuresWithFlightSegments.has(departure.id) ? [true] : undefined;
+      const segsForDeparture: unknown[] = departuresWithFlightSegments.has(departure.id) ? [true] : [];
       const capabilities = resolveDepartureCapabilities(departure, pkg, packageHasAccommodation, segsForDeparture);
 
       let documentIssues = 0;
