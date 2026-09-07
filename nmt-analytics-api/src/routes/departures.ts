@@ -697,11 +697,26 @@ router.get('/departures/readiness-summary', authenticateToken, requireOrgContext
       if (a.passenger_id) assignedPassengerIds.add(a.passenger_id);
     }
 
+    // Canonical flight configuration: batch-fetch departure_flights for all
+    // departures in one org-scoped query, then build the set of departures
+    // that have at least one canonical segment.
+    const { data: allFlightSegments } = await supabaseAdmin
+      .from('departure_flights')
+      .select('departure_id')
+      .eq('org_id', orgId)
+      .in('departure_id', departureIds);
+
+    const departuresWithFlightSegments = new Set<string>();
+    for (const seg of allFlightSegments || []) {
+      departuresWithFlightSegments.add(seg.departure_id);
+    }
+
     const results = departures.map((departure: any) => {
       const pkg = departure.packages || null;
 
       const packageHasAccommodation = hasBuildingsByDeparture.has(departure.id);
-      const capabilities = resolveDepartureCapabilities(departure, pkg, packageHasAccommodation);
+      const segsForDeparture: unknown[] | undefined = departuresWithFlightSegments.has(departure.id) ? [true] : undefined;
+      const capabilities = resolveDepartureCapabilities(departure, pkg, packageHasAccommodation, segsForDeparture);
 
       let documentIssues = 0;
       if (capabilities.needTravelDocuments) {
@@ -867,12 +882,6 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
       ['hotel', 'accommodation', 'apartment', 'hostel'].includes(s.service_type?.toLowerCase?.() || '')
     ) || packageHotels.length > 0;
 
-    const capabilities = resolveDepartureCapabilities(
-      departure as any,
-      pkg as any,
-      hasAccommodation,
-    );
-
     // Resolve linked flight details (legacy single-flight reference)
     let linkedFlight = null;
     if ((departure as any).flight_id) {
@@ -903,6 +912,15 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
         flight: s.flights ?? null,
       }));
     }
+
+    // Resolve capabilities AFTER flightSegments are loaded so flightConfigured
+    // derives from canonical departure_flights (not legacy flight_id).
+    const capabilities = resolveDepartureCapabilities(
+      departure as any,
+      pkg as any,
+      hasAccommodation,
+      flightSegments,
+    );
 
     const base = transformDeparture(departure);
     res.json({

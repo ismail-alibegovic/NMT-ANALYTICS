@@ -829,25 +829,31 @@ export default function DepartureDetail() {
               {capabilities?.hasFlight && (
                 <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
                   <div className={`rounded-xl border p-4 ${
-                    departure.linkedFlight
+                    capabilities.flightConfigured
                       ? "border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-white/[0.02]"
                       : "border-warning-200 bg-warning-50 dark:border-warning-500/30 dark:bg-warning-500/10"
                   }`}>
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{t.departure.flightContext}</p>
-                        {departure.linkedFlight ? (
+                        {capabilities.flightConfigured ? (
                           <>
-                            <h3 className="mt-1 text-sm font-semibold text-gray-950 dark:text-white">
-                              {departure.linkedFlight.airline} {departure.linkedFlight.flight_number}
-                            </h3>
-                            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                              {departure.linkedFlight.departure_airport} → {departure.linkedFlight.arrival_airport}
-                            </p>
-                            <div className="mt-3 grid gap-2 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-2">
-                              <span>{t.departure.departureTime}: {formatDateTime(departure.linkedFlight.departure_time)}</span>
-                              <span>{t.departure.arrivalTime}: {formatDateTime(departure.linkedFlight.arrival_time)}</span>
-                            </div>
+                            {departure.linkedFlight ? (
+                              <>
+                                <h3 className="mt-1 text-sm font-semibold text-gray-950 dark:text-white">
+                                  {departure.linkedFlight.airline} {departure.linkedFlight.flight_number}
+                                </h3>
+                                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                                  {departure.linkedFlight.departure_airport} → {departure.linkedFlight.arrival_airport}
+                                </p>
+                                <div className="mt-3 grid gap-2 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-2">
+                                  <span>{t.departure.departureTime}: {formatDateTime(departure.linkedFlight.departure_time)}</span>
+                                  <span>{t.departure.arrivalTime}: {formatDateTime(departure.linkedFlight.arrival_time)}</span>
+                                </div>
+                              </>
+                            ) : (
+                              <h3 className="mt-1 text-sm font-semibold text-gray-950 dark:text-white">{t.departure.flightReady}</h3>
+                            )}
                           </>
                         ) : (
                           <>
