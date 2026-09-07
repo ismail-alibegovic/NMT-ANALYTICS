@@ -57,13 +57,34 @@ const t = {
         selected: "Selected",
       },
     },
+    autoSeating: {
+      title: "Automatic Seating",
+      generateProposal: "Generate Proposal",
+      generating: "Generating...",
+      applyProposal: "Apply Proposal",
+      applying: "Applying...",
+      review: "Review",
+      summary: "Summary",
+      preserved: "Preserved",
+      proposed: "Proposed",
+      unresolved: "Unresolved",
+      warnings: "Warnings",
+      preservedCount: "Preserved",
+      proposedCount: "Proposed",
+      unresolvedCount: "Unresolved",
+      splitGroupWarning: "Group split",
+      unresolvedReason: "No available seat",
+      staleProposal: "Seating changed since this proposal was generated. Generate a new proposal.",
+      applySuccess: "Seating applied",
+      generateFirst: "Generate a proposal first",
+    },
     passengers: "Passengers",
     noSeat: "No seat",
   },
 };
 
 vi.mock("../lib/i18n/context", () => ({
-  useTranslation: () => ({ t, lang: "en", setLang: vi.fn() }),
+  useTranslation: () => t,
   I18nProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
@@ -77,9 +98,11 @@ vi.mock("../api/departures", () => ({
   updateDepartureVehicle: vi.fn(),
   assignPassengerSeat: vi.fn(),
   lockPassengerSeat: vi.fn(),
+  generateSeatingProposal: vi.fn(),
+  applySeatingProposal: vi.fn(),
 }));
 
-const { getDepartureVehicle, updateDepartureVehicle, assignPassengerSeat, lockPassengerSeat } = await import("../api/departures");
+const { getDepartureVehicle, updateDepartureVehicle, assignPassengerSeat, lockPassengerSeat, generateSeatingProposal } = await import("../api/departures");
 
 const fakeVehicleSeats = [
   { id: "s1", seat_number: 1, seat_label: "1A", row_number: 1, column_index: 0, side: "left", is_active: true },
@@ -391,5 +414,35 @@ describe("ManualBusSeating", () => {
     expect(legend).toBeInTheDocument();
     const legendSwatch = legend.firstElementChild as HTMLElement;
     expect(legendSwatch.className).toContain("border-dashed");
+  });
+});
+
+// ── M12.3 i18n regression: real useTranslation contract ──
+describe("M12.3 i18n regression", () => {
+  it("AutoSeatingPanel renders under the real useTranslation contract (no t.departure crash)", async () => {
+    (generateSeatingProposal as ReturnType<typeof vi.fn>).mockResolvedValue({
+      departureId: "dep-1",
+      vehicleId: "veh-1",
+      preservedAssignments: [],
+      proposedAssignments: [],
+      unresolved: [],
+      warnings: [],
+      splitGroupWarnings: [],
+      stateFingerprint: "abc",
+    });
+
+    const { default: AutoSeatingPanel } = await import("../components/operations/AutoSeatingPanel");
+    render(
+      <AutoSeatingPanel
+        departureId="dep-1"
+        transportType="bus"
+        hasVehicle={true}
+        onApplySuccess={() => {}}
+      />
+    );
+    await waitFor(() => screen.getByText("Automatic Seating"));
+
+    expect(screen.getByText("Automatic Seating")).toBeInTheDocument();
+    expect(screen.getByText("Generate Proposal")).toBeInTheDocument();
   });
 });

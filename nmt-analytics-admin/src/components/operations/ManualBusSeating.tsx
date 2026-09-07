@@ -64,7 +64,7 @@ function errorCodeToMessage(code: ServerErrorCode, bs: Record<string, string>): 
 }
 
 export default function ManualBusSeating({ departureId, passengers, transportType }: Props) {
-  const { t } = useTranslation();
+  const t = useTranslation();
   const toast = useToast();
   const bs = t.departure.busSeating ?? ({} as Record<string, string>);
 

@@ -23,7 +23,7 @@ export default function AutoSeatingPanel({
   hasVehicle,
   onApplySuccess,
 }: AutoSeatingPanelProps) {
-  const { t } = useTranslation();
+  const t = useTranslation();
   const toast = useToast();
   const bs = (t.departure?.autoSeating ?? {}) as Record<string, string>;
 
