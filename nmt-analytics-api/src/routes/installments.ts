@@ -186,25 +186,6 @@ router.put(
         return apiError(res, 404, 'NOT_FOUND', 'Reservation not found');
       }
 
-      const { data: existingInstallments, error: existingError } = await supabaseAdmin
-        .from('payments')
-        .select('id, status, installment_number')
-        .eq('reservation_id', id)
-        .eq('org_id', orgId)
-        .not('installment_number', 'is', null);
-
-      if (existingError) return handleSupabaseError(res, existingError, 'Failed to inspect existing installment schedule');
-
-      const historicalInstallments = (existingInstallments || []).filter((payment: any) => payment.status !== 'pending');
-      if (historicalInstallments.length > 0) {
-        return apiError(
-          res,
-          409,
-          'INSTALLMENT_HISTORY_EXISTS',
-          'Cannot replace installment schedule because historical installment payments already exist',
-        );
-      }
-
       const totalAmount = Number(reservation.total_amount || 0);
       const firstDueDate = parsed.data.firstDueDate || new Date().toISOString().slice(0, 10);
       let rows;
@@ -225,23 +206,30 @@ router.put(
         throw error;
       }
 
-      const { error: deleteError } = await supabaseAdmin
-        .from('payments')
-        .delete()
-        .eq('reservation_id', id)
-        .eq('org_id', orgId)
-        .not('installment_number', 'is', null)
-        .eq('status', 'pending');
+      const rpcRows = rows.map(({ reservation_id, org_id, status, payment_method, payment_date, ...row }) => row);
+      const { data: inserted, error: rpcError } = await supabaseAdmin.rpc(
+        'replace_reservation_installment_schedule_atomic',
+        {
+          p_org_id: orgId,
+          p_reservation_id: id,
+          p_schedule: rpcRows,
+        },
+      );
 
-      if (deleteError) return handleSupabaseError(res, deleteError, 'Failed to replace installment schedule');
-
-      const { data: inserted, error: insertError } = await supabaseAdmin
-        .from('payments')
-        .insert(rows)
-        .select('id, installment_number, amount, currency, status, payment_date, due_date, remaining_after, created_at')
-        .order('installment_number', { ascending: true });
-
-      if (insertError) return handleSupabaseError(res, insertError, 'Failed to create installment schedule');
+      if (rpcError) {
+        if (String(rpcError.message || '').includes('INSTALLMENT_HISTORY_EXISTS')) {
+          return apiError(
+            res,
+            409,
+            'INSTALLMENT_HISTORY_EXISTS',
+            'Cannot replace installment schedule because historical installment payments already exist',
+          );
+        }
+        if (String(rpcError.message || '').includes('RESERVATION_NOT_FOUND')) {
+          return apiError(res, 404, 'NOT_FOUND', 'Reservation not found');
+        }
+        return handleSupabaseError(res, rpcError, 'Failed to replace installment schedule');
+      }
 
       const installments = (inserted || []).map((payment: any) => transformInstallment(payment, reservation.currency || 'BAM'));
 
