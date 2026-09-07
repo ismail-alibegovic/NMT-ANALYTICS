@@ -110,6 +110,7 @@ export function resolveDepartureCapabilities(
   },
   pkg?: { transport_type?: string | null; trip_type?: string | null; destination?: string | null; traveler_requirements?: unknown } | null,
   packageHasAccommodation = false,
+  flightSegments?: unknown[],
 ): DepartureCapabilities {
   const effectiveTransportType =
     (departure.transport_type && departure.transport_type !== 'none'
@@ -137,6 +138,6 @@ export function resolveDepartureCapabilities(
     needTravelDocuments: travelerRequirements.documentType !== 'none',
     travelerRequirements,
     documentReadinessRequired,
-    flightConfigured: isFlight ? departure.flight_id != null : null,
+    flightConfigured: isFlight ? (flightSegments ? flightSegments.length > 0 : departure.flight_id != null) : null,
   };
 }
