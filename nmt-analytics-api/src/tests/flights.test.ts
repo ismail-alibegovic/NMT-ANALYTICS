@@ -290,7 +290,7 @@ describe('DELETE /api/flights/:id — safe delete', () => {
 })
 
 describe('Departure flight segments', () => {
-  it('lists ordered segments with flight details', async () => {
+  it('lists ordered segments with object-shaped PostgREST flight details', async () => {
     const segment = (id: string, direction: string, order: number, flight: any) => ({
       id,
       org_id: ORG,
@@ -298,13 +298,28 @@ describe('Departure flight segments', () => {
       flight_id: flight.id,
       direction,
       segment_order: order,
-      flight,
+      flights: flight,
     })
     chainFor('departures').__queue.push({ data: { id: DEPARTURE, org_id: ORG }, error: null })
     chainFor('departure_flights').__queue.push({
       data: [
-        segment(SEGMENT_1, 'outbound', 1, makeFlight()),
-        segment(SEGMENT_2, 'return', 1, makeFlight({ id: FLIGHT_B, flight_number: 'TK102' })),
+        segment(SEGMENT_1, 'outbound', 1, makeFlight({
+          airline: 'Travline Demo',
+          flight_number: 'TRV101',
+          departure_airport: 'SJJ',
+          arrival_airport: 'DXB',
+          departure_time: '2027-03-01T08:00:00Z',
+          arrival_time: '2027-03-01T13:00:00Z',
+        })),
+        segment(SEGMENT_2, 'return', 1, makeFlight({
+          id: FLIGHT_B,
+          airline: 'Travline Demo',
+          flight_number: 'TRV102',
+          departure_airport: 'DXB',
+          arrival_airport: 'SJJ',
+          departure_time: '2027-03-08T16:00:00Z',
+          arrival_time: '2027-03-08T20:00:00Z',
+        })),
       ],
       error: null,
     })
@@ -313,6 +328,71 @@ describe('Departure flight segments', () => {
     expect(res.body.data).toHaveLength(2)
     expect(res.body.data[0].direction).toBe('outbound')
     expect(res.body.data[0].segmentOrder).toBe(1)
+    expect(res.body.data[0].flight).toMatchObject({
+      airline: 'Travline Demo',
+      flightNumber: 'TRV101',
+      departureAirport: 'SJJ',
+      arrivalAirport: 'DXB',
+      departureTime: '2027-03-01T08:00:00Z',
+      arrivalTime: '2027-03-01T13:00:00Z',
+    })
+    expect(res.body.data[1].flight).toMatchObject({
+      airline: 'Travline Demo',
+      flightNumber: 'TRV102',
+      departureAirport: 'DXB',
+      arrivalAirport: 'SJJ',
+      departureTime: '2027-03-08T16:00:00Z',
+      arrivalTime: '2027-03-08T20:00:00Z',
+    })
+  })
+
+  it('keeps array-shaped flight relations safely supported', async () => {
+    chainFor('departures').__queue.push({ data: { id: DEPARTURE, org_id: ORG }, error: null })
+    chainFor('departure_flights').__queue.push({
+      data: [{
+        id: SEGMENT_1,
+        org_id: ORG,
+        departure_id: DEPARTURE,
+        flight_id: FLIGHT_A,
+        direction: 'outbound',
+        segment_order: 1,
+        flights: [makeFlight({ flight_number: 'TRV201' })],
+      }],
+      error: null,
+    })
+    const res = await request(app).get(`/api/departures/${DEPARTURE}/flights`)
+    expect(res.status).toBe(200)
+    expect(res.body.data[0].flight.flightNumber).toBe('TRV201')
+  })
+
+  it('returns null nested flight when relation is null or missing', async () => {
+    chainFor('departures').__queue.push({ data: { id: DEPARTURE, org_id: ORG }, error: null })
+    chainFor('departure_flights').__queue.push({
+      data: [
+        {
+          id: SEGMENT_1,
+          org_id: ORG,
+          departure_id: DEPARTURE,
+          flight_id: FLIGHT_A,
+          direction: 'outbound',
+          segment_order: 1,
+          flights: null,
+        },
+        {
+          id: SEGMENT_2,
+          org_id: ORG,
+          departure_id: DEPARTURE,
+          flight_id: FLIGHT_B,
+          direction: 'return',
+          segment_order: 1,
+        },
+      ],
+      error: null,
+    })
+    const res = await request(app).get(`/api/departures/${DEPARTURE}/flights`)
+    expect(res.status).toBe(200)
+    expect(res.body.data[0].flight).toBeNull()
+    expect(res.body.data[1].flight).toBeNull()
   })
 
   it('attaches outbound and return segments to the same departure', async () => {

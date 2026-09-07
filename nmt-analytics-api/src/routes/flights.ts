@@ -94,6 +94,8 @@ function transformFlight(f: any) {
 }
 
 function transformSegment(s: any) {
+  const rawFlight = s.flight ?? (Array.isArray(s.flights) ? s.flights[0] ?? null : s.flights ?? null);
+
   return {
     id: s.id,
     departureId: s.departure_id,
@@ -101,7 +103,7 @@ function transformSegment(s: any) {
     direction: s.direction,
     segmentOrder: s.segment_order,
     createdAt: s.created_at,
-    flight: s.flight ?? (s.flights ? s.flights[0] ?? null : null),
+    flight: rawFlight ? transformFlight(rawFlight) : null,
   };
 }
 
