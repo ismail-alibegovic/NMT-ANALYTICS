@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type ComponentType, type SVGProps } from "react";
+import { useState, useEffect, useMemo, type ComponentType, type SVGProps, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "../lib/i18n/context";
 import PageMeta from "../components/common/PageMeta";
@@ -151,24 +151,27 @@ export default function DepartureDetail() {
 
   useEffect(() => {
     if (!id) return;
-    (async () => {
-      setLoading(true);
-      try {
-        const [dep, mani, grps] = await Promise.all([
-          getDeparture(id),
-          getDeparturePassengers(id),
-          getDepartureGroups(id).catch(() => ({ byHotel: [], byAgent: [] })),
-        ]);
-        setDeparture(dep);
-        setManifest(mani);
-        setGroups(grps);
-      } catch (err: any) {
-        console.error("Failed to load departure:", err);
-        showError(err?.message || "Failed to load departure details");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    loadDeparture();
+  }, [id, showError]);
+
+  const loadDeparture = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const [dep, mani, grps] = await Promise.all([
+        getDeparture(id),
+        getDeparturePassengers(id),
+        getDepartureGroups(id).catch(() => ({ byHotel: [], byAgent: [] })),
+      ]);
+      setDeparture(dep);
+      setManifest(mani);
+      setGroups(grps);
+    } catch (err: any) {
+      console.error("Failed to load departure:", err);
+      showError(err?.message || "Failed to load departure details");
+    } finally {
+      setLoading(false);
+    }
   }, [id, showError]);
 
   const passengers: DeparturePassenger[] = Array.isArray((manifest as any)?.manifest)
