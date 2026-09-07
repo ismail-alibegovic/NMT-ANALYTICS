@@ -1,4 +1,4 @@
-import { get, post, patch, del } from './client';
+import { get, post, patch, put, del } from './client';
 
 export interface Flight {
   id: string;
@@ -95,5 +95,5 @@ export async function unlinkFlightFromDeparture(departureId: string, segmentId: 
 }
 
 export async function reorderFlightSegments(departureId: string, segments: Array<{ id: string; direction: string; segmentOrder: number }>): Promise<void> {
-  await patch(`/departures/${departureId}/flights/reorder`, { segments });
+  await put(`/departures/${departureId}/flights/reorder`, { segments });
 }
