@@ -5,7 +5,7 @@ import {
   generateSeatingProposal,
   applySeatingProposal,
   type SeatingProposalOutput,
-  type SeatingProposalPassenger,
+  type SeatingProposalProposed,
   type SeatingProposalSplitGroupWarning,
   type SeatingProposalUnresolved,
 } from "../../api/departures";
@@ -15,6 +15,7 @@ interface AutoSeatingPanelProps {
   transportType: "bus" | "flight" | "none";
   hasVehicle: boolean;
   onApplySuccess: () => void;
+  onProposalChange?: (assignments: SeatingProposalProposed[] | null) => void;
 }
 
 export default function AutoSeatingPanel({
@@ -22,6 +23,7 @@ export default function AutoSeatingPanel({
   transportType,
   hasVehicle,
   onApplySuccess,
+  onProposalChange,
 }: AutoSeatingPanelProps) {
   const t = useTranslation();
   const toast = useToast();
@@ -42,6 +44,7 @@ export default function AutoSeatingPanel({
     try {
       const result = await generateSeatingProposal(departureId);
       setProposal(result);
+      onProposalChange?.(result.proposedAssignments);
     } catch (e: any) {
       const msg = e?.message || bs.applyFailed || "Failed to generate proposal";
       setError(msg);
@@ -58,12 +61,13 @@ export default function AutoSeatingPanel({
     try {
       await applySeatingProposal(departureId, {
         stateFingerprint: proposal.stateFingerprint,
-        proposedAssignments: proposal.proposedAssignments.map((p: SeatingProposalPassenger) => ({
+        proposedAssignments: proposal.proposedAssignments.map((p: SeatingProposalProposed) => ({
           passengerId: p.passengerId,
           seatId: p.seatId,
         })),
       });
       setProposal(null);
+      onProposalChange?.(null);
       toast.success(bs.applySuccess || "Seating proposal applied");
       onApplySuccess();
     } catch (e: any) {
@@ -74,6 +78,7 @@ export default function AutoSeatingPanel({
           : e?.message || bs.applyFailed || "Failed to apply proposal";
       if (code === "STALE_PROPOSAL") {
         setProposal(null);
+        onProposalChange?.(null);
       }
       setError(msg);
       toast.error(msg);
@@ -84,8 +89,9 @@ export default function AutoSeatingPanel({
 
   const handleDiscard = useCallback(() => {
     setProposal(null);
+    onProposalChange?.(null);
     setError(null);
-  }, []);
+  }, [onProposalChange]);
 
   const summary = useMemo(() => {
     if (!proposal) return null;
@@ -180,7 +186,7 @@ export default function AutoSeatingPanel({
                   <span className="mx-1">·</span>
                   <span>{w.seatingPreference}</span>
                   <span className="mx-1">→</span>
-                  <span>seats {w.proposedSeatNumbers.join(", ")}</span>
+                  <span>{(w.seatNumbers || []).length > 0 ? `#${w.seatNumbers.join(", #")}` : w.message}</span>
                 </div>
               ))}
             </div>
@@ -212,7 +218,11 @@ export default function AutoSeatingPanel({
                   className="flex items-center justify-between text-xs py-1 px-2 rounded bg-blue-50/50 dark:bg-blue-900/20"
                 >
                   <span className="text-gray-700 dark:text-gray-300 truncate">
-                    {p.seatLabel || `Seat ${p.seatNumber}`}
+                    {p.passengerName}
+                  </span>
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 ml-2 text-right">
+                    {p.seatLabel || `#${p.seatNumber}`}
+                    {p.groupId ? ` · ${bs.groupTag || "Group"}` : ""}
                   </span>
                 </div>
               ))}
@@ -232,10 +242,10 @@ export default function AutoSeatingPanel({
                     className="flex items-center justify-between text-xs py-1 px-2 rounded bg-amber-50/50 dark:bg-amber-900/20"
                   >
                     <span className="text-gray-700 dark:text-gray-300 truncate">
-                      {u.fullName}
+                      {u.passengerName}
                     </span>
-                    <span className="text-[10px] text-amber-600 dark:text-amber-400 ml-2">
-                      {u.reason || bs.unresolvedReason || "No available seat"}
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 ml-2 text-right">
+                      {u.message || u.reason}
                     </span>
                   </div>
                 ))}

@@ -817,34 +817,58 @@ export async function moveAccommodationAssignment(assignmentId: string, targetRo
 
 // ── M12.3: Auto Seating Review/Apply ──
 
-export interface SeatingProposalPassenger {
+export interface SeatingProposalPreserved {
   passengerId: string;
+  passengerName: string;
+  seatNumber: number;
+  seatLabel: string;
+  reason: 'manual_locked';
+}
+
+export interface SeatingProposalProposed {
+  passengerId: string;
+  passengerName: string;
   seatId: string;
   seatNumber: number;
   seatLabel: string;
-}
-
-export interface SeatingProposalSplitGroupWarning {
-  groupId: string;
-  groupName: string;
-  seatingPreference: string;
-  proposedSeatNumbers: number[];
+  reason: 'group_keep_together' | 'group_prefer_together' | 'group_no_preference' | 'individual_fill';
+  groupId?: string;
 }
 
 export interface SeatingProposalUnresolved {
   passengerId: string;
-  fullName: string;
-  reason: string;
+  passengerName: string;
+  reason: 'NO_AVAILABLE_SEAT' | 'INVALID_EXISTING_SEAT';
+  message: string;
+}
+
+export interface SeatingProposalSplitGroupWarning {
+  groupId: string;
+  groupName: string | null;
+  seatingPreference: string;
+  message: string;
+  seatNumbers: number[];
 }
 
 export interface SeatingProposalOutput {
   departureId: string;
-  departureIdentifier: string;
-  vehicleId: string;
-  vehicleLabel: string;
+  vehicle: {
+    id: string;
+    vehicleLabel: string;
+    registrationNumber: string | null;
+    capacity: number;
+    layoutType: string;
+  };
   stateFingerprint: string;
-  preservedAssignments: SeatingProposalPassenger[];
-  proposedAssignments: SeatingProposalPassenger[];
+  summary: {
+    totalPassengers: number;
+    preserved: number;
+    proposed: number;
+    unresolved: number;
+    activeSeats: number;
+  };
+  preservedAssignments: SeatingProposalPreserved[];
+  proposedAssignments: SeatingProposalProposed[];
   unresolved: SeatingProposalUnresolved[];
   warnings: string[];
   splitGroupWarnings: SeatingProposalSplitGroupWarning[];

@@ -24,6 +24,7 @@ interface Props {
   departureId: string;
   passengers: any[];
   transportType?: string;
+  previewAssignments?: { passengerId: string; seatNumber: number }[];
 }
 
 type ServerErrorCode = "SEAT_LOCKED" | "SEAT_CONFLICT" | "SEAT_NOT_FOUND" | "CAPACITY_TOO_LOW" | "VEHICLE_CHANGE_CONFLICT" | "INTERNAL_ERROR";
@@ -63,7 +64,7 @@ function errorCodeToMessage(code: ServerErrorCode, bs: Record<string, string>): 
   }
 }
 
-export default function ManualBusSeating({ departureId, passengers, transportType }: Props) {
+export default function ManualBusSeating({ departureId, passengers, transportType, previewAssignments }: Props) {
   const t = useTranslation();
   const toast = useToast();
   const bs = t.departure.busSeating ?? ({} as Record<string, string>);
@@ -154,6 +155,12 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
 
   const isSeatTaken = (seatNumber: number) => seatToPassenger.has(seatNumber);
   const getOccupant = (seatNumber: number) => seatToPassenger.get(seatNumber) || null;
+
+  const previewSeatNumbers = useMemo(
+    () => new Set((previewAssignments ?? []).map((a) => a.seatNumber)),
+    [previewAssignments],
+  );
+  const isPreviewSeat = (seatNumber: number) => previewSeatNumbers.has(seatNumber);
 
   // ── ASSIGN: unassigned passenger + free seat ──
   async function handleAssign() {
@@ -461,6 +468,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
                   );
                 }
 
+                const previewForSeat = isPreviewSeat(seat.seat_number);
                 return (
                   <button
                     key={seat.id}
@@ -468,9 +476,11 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
                     className={`size-10 rounded-lg border text-xs font-medium transition-colors ${
                       isSelected
                         ? "border-brand-500 bg-brand-500/10 text-brand-700 dark:text-brand-300"
-                        : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
+                        : previewForSeat
+                          ? "border-dashed border-brand-400 bg-brand-50/60 text-brand-600 dark:border-brand-500 dark:bg-brand-950/40 dark:text-brand-300"
+                          : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
                     }`}
-                    title={bs.free || "Free"}
+                    title={previewForSeat ? (bs.previewBadge || "Proposed (preview)") : (bs.free || "Free")}
                   >
                     {seat.seat_label}
                   </button>
@@ -508,6 +518,11 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
             <span className="inline-flex items-center gap-1.5">
               <span className="size-3 rounded border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30" /> {bs.legend?.locked || "Locked"}
             </span>
+            {(previewAssignments ?? []).length > 0 && (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-3 rounded border border-dashed border-brand-400 bg-brand-50/60 dark:border-brand-500 dark:bg-brand-950/40" /> {bs.previewBadge || "Proposed (preview)"}
+              </span>
+            )}
             <span className="inline-flex items-center gap-1.5">
               <span className="size-3 rounded border border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-gray-800/40" /> {bs.inactive || "Inactive"}
             </span>

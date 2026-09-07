@@ -93,6 +93,7 @@ export default function DepartureDetail() {
   const [manifest, setManifest] = useState<DepartureManifest | null>(null);
   const [groups, setGroups] = useState<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] } | null>(null);
   const [passengerGroups, setPassengerGroups] = useState<PassengerGroup[]>([]);
+  const [seatPreview, setSeatPreview] = useState<{ passengerId: string; seatNumber: number }[]>([]);
   const [_groupsLoading, _setGroupsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -1045,12 +1046,18 @@ export default function DepartureDetail() {
                   departureId={id!}
                   transportType={departure.transport_type as "bus" | "flight" | "none"}
                   hasVehicle={true}
+                  onProposalChange={(assignments) => {
+                    setSeatPreview(
+                      (assignments ?? []).map((p) => ({ passengerId: p.passengerId, seatNumber: p.seatNumber })),
+                    );
+                  }}
                   onApplySuccess={() => loadDeparture()}
                 />
                 <ManualBusSeating
                   departureId={id!}
                   passengers={normPax}
                   transportType={departure.transport_type as string}
+                  previewAssignments={seatPreview}
                 />
               </>
             )}
