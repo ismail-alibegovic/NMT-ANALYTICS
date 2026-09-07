@@ -337,10 +337,17 @@ export default function DepartureDetail() {
     setSegmentsBusy(true);
     setFlightError(null);
     try {
-      await reorderFlightSegments(id, [
-        { id: s.id, direction: s.direction, segmentOrder: target.segmentOrder },
-        { id: target.id, direction: target.direction, segmentOrder: s.segmentOrder },
-      ]);
+      // Backend atomic reorder requires the COMPLETE current segment set.
+      // Swap only the two intended segmentOrder values; every other segment
+      // (including other directions) is included unchanged.
+      await reorderFlightSegments(
+        id,
+        flightSegments.map((seg) => {
+          if (seg.id === s.id) return { id: seg.id, direction: seg.direction, segmentOrder: target.segmentOrder };
+          if (seg.id === target.id) return { id: seg.id, direction: seg.direction, segmentOrder: s.segmentOrder };
+          return { id: seg.id, direction: seg.direction, segmentOrder: seg.segmentOrder };
+        }),
+      );
       await loadFlightSegments();
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || t.operations.flights.reorderError;
@@ -878,6 +885,11 @@ export default function DepartureDetail() {
                       {t.operations.flights.attachFlight}
                     </Button>
                   </div>
+                  {flightError && (
+                    <div role="alert" className="mt-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-500/10 dark:text-error-400">
+                      {flightError}
+                    </div>
+                  )}
 
                   {segmentsLoading ? (
                     <div className="mt-4 space-y-3">
