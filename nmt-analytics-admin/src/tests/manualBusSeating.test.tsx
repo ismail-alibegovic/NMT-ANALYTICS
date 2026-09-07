@@ -57,13 +57,34 @@ const t = {
         selected: "Selected",
       },
     },
+    autoSeating: {
+      title: "Automatic Seating",
+      generateProposal: "Generate Proposal",
+      generating: "Generating...",
+      applyProposal: "Apply Proposal",
+      applying: "Applying...",
+      review: "Review",
+      summary: "Summary",
+      preserved: "Preserved",
+      proposed: "Proposed",
+      unresolved: "Unresolved",
+      warnings: "Warnings",
+      preservedCount: "Preserved",
+      proposedCount: "Proposed",
+      unresolvedCount: "Unresolved",
+      splitGroupWarning: "Group split",
+      unresolvedReason: "No available seat",
+      staleProposal: "Seating changed since this proposal was generated. Generate a new proposal.",
+      applySuccess: "Seating applied",
+      generateFirst: "Generate a proposal first",
+    },
     passengers: "Passengers",
     noSeat: "No seat",
   },
 };
 
 vi.mock("../lib/i18n/context", () => ({
-  useTranslation: () => ({ t, lang: "en", setLang: vi.fn() }),
+  useTranslation: () => t,
   I18nProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
@@ -77,9 +98,11 @@ vi.mock("../api/departures", () => ({
   updateDepartureVehicle: vi.fn(),
   assignPassengerSeat: vi.fn(),
   lockPassengerSeat: vi.fn(),
+  generateSeatingProposal: vi.fn(),
+  applySeatingProposal: vi.fn(),
 }));
 
-const { getDepartureVehicle, updateDepartureVehicle, assignPassengerSeat, lockPassengerSeat } = await import("../api/departures");
+const { getDepartureVehicle, updateDepartureVehicle, assignPassengerSeat, lockPassengerSeat, generateSeatingProposal } = await import("../api/departures");
 
 const fakeVehicleSeats = [
   { id: "s1", seat_number: 1, seat_label: "1A", row_number: 1, column_index: 0, side: "left", is_active: true },
@@ -391,5 +414,259 @@ describe("ManualBusSeating", () => {
     expect(legend).toBeInTheDocument();
     const legendSwatch = legend.firstElementChild as HTMLElement;
     expect(legendSwatch.className).toContain("border-dashed");
+  });
+});
+
+// ── M12.3 i18n regression: real useTranslation contract ──
+describe("M12.3 i18n regression", () => {
+  it("AutoSeatingPanel renders under the real useTranslation contract (no t.departure crash)", async () => {
+    (generateSeatingProposal as ReturnType<typeof vi.fn>).mockResolvedValue({
+      departureId: "dep-1",
+      vehicleId: "veh-1",
+      preservedAssignments: [],
+      proposedAssignments: [],
+      unresolved: [],
+      warnings: [],
+      splitGroupWarnings: [],
+      stateFingerprint: "abc",
+    });
+
+    const { default: AutoSeatingPanel } = await import("../components/operations/AutoSeatingPanel");
+    render(
+      <AutoSeatingPanel
+        departureId="dep-1"
+        transportType="bus"
+        hasVehicle={true}
+        onApplySuccess={() => {}}
+      />
+    );
+    await waitFor(() => screen.getByText("Automatic Seating"));
+
+    expect(screen.getByText("Automatic Seating")).toBeInTheDocument();
+    expect(screen.getByText("Generate Proposal")).toBeInTheDocument();
+  });
+});
+
+// ── M12.3 focused workflow tests (REAL M12.1 backend contract) ──
+
+const realProposal = {
+  departureId: "dep-1",
+  vehicle: {
+    id: "veh-1",
+    vehicleLabel: "Sprinter",
+    registrationNumber: "T1234AB",
+    capacity: 5,
+    layoutType: "2+2",
+  },
+  stateFingerprint: "fp-123",
+  summary: {
+    totalPassengers: 4,
+    preserved: 1,
+    proposed: 2,
+    unresolved: 1,
+    activeSeats: 4,
+  },
+  preservedAssignments: [
+    { passengerId: "p-1", passengerName: "Ahmed Hodžić", seatNumber: 1, seatLabel: "1A", reason: "manual_locked" },
+  ],
+  proposedAssignments: [
+    { passengerId: "p-2", passengerName: "Fatima Softić", seatId: "s2", seatNumber: 2, seatLabel: "1B", reason: "individual_fill" },
+    { passengerId: "p-3", passengerName: "Ibrahim Delić", seatId: "s4", seatNumber: 4, seatLabel: "2B", reason: "group_keep_together", groupId: "g1" },
+  ],
+  unresolved: [
+    { passengerId: "p-9", passengerName: "Osman Karić", reason: "NO_AVAILABLE_SEAT", message: "No available seat" },
+  ],
+  warnings: ["Some passengers could not be seated."],
+  splitGroupWarnings: [
+    {
+      groupId: "g1",
+      groupName: "Poruka Ibrahim",
+      seatingPreference: "keep_together",
+      message: "Group could not be seated together",
+      seatNumbers: [3, 4],
+    },
+  ],
+};
+
+describe("M12.3 auto seating workflow", () => {
+  it("Generate Proposal calls the canonical proposal endpoint and does NOT apply/mutate seats", async () => {
+    const { default: AutoSeatingPanel } = await import("../components/operations/AutoSeatingPanel");
+    const { applySeatingProposal } = await import("../api/departures");
+    (generateSeatingProposal as ReturnType<typeof vi.fn>).mockResolvedValue(realProposal);
+
+    render(
+      <AutoSeatingPanel departureId="dep-1" transportType="bus" hasVehicle={true} onApplySuccess={() => {}} />
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "Generate Proposal" }));
+
+    await waitFor(() => expect(generateSeatingProposal).toHaveBeenCalledWith("dep-1"));
+    expect(applySeatingProposal).not.toHaveBeenCalled();
+
+    // review summary renders from real summary block: preserved=1, proposed=2, unresolved=1
+    const summaryTiles = await screen.findByText("Preserved");
+    expect(summaryTiles).toBeInTheDocument();
+    expect(screen.getByText("Fatima Softić")).toBeInTheDocument();
+  });
+
+  it("renders proposed passengerName + seat and group info without crashing", async () => {
+    const { default: AutoSeatingPanel } = await import("../components/operations/AutoSeatingPanel");
+    (generateSeatingProposal as ReturnType<typeof vi.fn>).mockResolvedValue(realProposal);
+
+    render(
+      <AutoSeatingPanel departureId="dep-1" transportType="bus" hasVehicle={true} onApplySuccess={() => {}} />
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "Generate Proposal" }));
+
+    expect(await screen.findByText("Fatima Softić")).toBeInTheDocument();
+    expect(screen.getByText(/1B/)).toBeInTheDocument();
+    expect(screen.getByText("Ibrahim Delić")).toBeInTheDocument();
+    expect(screen.getByText(/2B/)).toBeInTheDocument();
+  });
+
+  it("renders splitGroupWarning using seatNumbers without crash", async () => {
+    const { default: AutoSeatingPanel } = await import("../components/operations/AutoSeatingPanel");
+    (generateSeatingProposal as ReturnType<typeof vi.fn>).mockResolvedValue(realProposal);
+
+    render(
+      <AutoSeatingPanel departureId="dep-1" transportType="bus" hasVehicle={true} onApplySuccess={() => {}} />
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "Generate Proposal" }));
+
+    expect(await screen.findByText("Poruka Ibrahim")).toBeInTheDocument();
+    expect(screen.getByText(/#3, #4/)).toBeInTheDocument();
+  });
+
+  it("renders unresolved passengerName + message/reason", async () => {
+    const { default: AutoSeatingPanel } = await import("../components/operations/AutoSeatingPanel");
+    (generateSeatingProposal as ReturnType<typeof vi.fn>).mockResolvedValue(realProposal);
+
+    render(
+      <AutoSeatingPanel departureId="dep-1" transportType="bus" hasVehicle={true} onApplySuccess={() => {}} />
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "Generate Proposal" }));
+
+    expect(await screen.findByText("Osman Karić")).toBeInTheDocument();
+    expect(screen.getByText("No available seat")).toBeInTheDocument();
+  });
+
+  it("Apply sends stateFingerprint + passengerId/seatId, clears preview, triggers reload", async () => {
+    const { default: AutoSeatingPanel } = await import("../components/operations/AutoSeatingPanel");
+    const { applySeatingProposal } = await import("../api/departures");
+    (generateSeatingProposal as ReturnType<typeof vi.fn>).mockResolvedValue(realProposal);
+    (applySeatingProposal as ReturnType<typeof vi.fn>).mockResolvedValue({ applied: true, clearedCount: 0, appliedCount: 2 });
+    const onApplySuccess = vi.fn();
+    let previewCleared = false;
+    const onProposalChange = (a: { passengerId: string }[] | null) => {
+      if (a === null) previewCleared = true;
+    };
+
+    render(
+      <AutoSeatingPanel
+        departureId="dep-1"
+        transportType="bus"
+        hasVehicle={true}
+        onApplySuccess={onApplySuccess}
+        onProposalChange={onProposalChange}
+      />
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "Generate Proposal" }));
+    await screen.findByText("Fatima Softić");
+    const applyBtn = await screen.findByRole("button", { name: "Apply Proposal" });
+    await userEvent.click(applyBtn);
+
+    await waitFor(() =>
+      expect(applySeatingProposal).toHaveBeenCalledWith("dep-1", {
+        stateFingerprint: "fp-123",
+        proposedAssignments: [
+          { passengerId: "p-2", seatId: "s2" },
+          { passengerId: "p-3", seatId: "s4" },
+        ],
+      }),
+    );
+    expect(previewCleared).toBe(true);
+    expect(onApplySuccess).toHaveBeenCalled();
+    expect(screen.queryByText("Fatima Softić")).not.toBeInTheDocument();
+  });
+
+  it("STALE_PROPOSAL shows localized message and clears preview + review", async () => {
+    const { default: AutoSeatingPanel } = await import("../components/operations/AutoSeatingPanel");
+    const { applySeatingProposal } = await import("../api/departures");
+    (generateSeatingProposal as ReturnType<typeof vi.fn>).mockResolvedValue(realProposal);
+    (applySeatingProposal as ReturnType<typeof vi.fn>).mockRejectedValue({
+      code: "STALE_PROPOSAL",
+      message: "stale",
+    });
+    let previewCleared = false;
+    const onProposalChange = (a: { passengerId: string }[] | null) => {
+      if (a === null) previewCleared = true;
+    };
+
+    render(
+      <AutoSeatingPanel
+        departureId="dep-1"
+        transportType="bus"
+        hasVehicle={true}
+        onApplySuccess={() => {}}
+        onProposalChange={onProposalChange}
+      />
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "Generate Proposal" }));
+    await screen.findByText("Fatima Softić");
+    await userEvent.click(await screen.findByRole("button", { name: "Apply Proposal" }));
+
+    expect(
+      await screen.findByText("Seating changed since this proposal was generated. Generate a new proposal."),
+    ).toBeInTheDocument();
+    expect(previewCleared).toBe(true);
+    expect(screen.queryByText("Fatima Softić")).not.toBeInTheDocument();
+  });
+
+  it("seat-map proposal preview renders a distinct preview state and manual/locked keep priority", async () => {
+    (getDepartureVehicle as ReturnType<typeof vi.fn>).mockResolvedValue(defaultVehicle);
+    const preview = [{ passengerId: "p-2", seatNumber: 2 }];
+
+    const { rerender } = render(<ManualBusSeating {...baseProps} passengers={[basePassenger()]} />);
+    await waitFor(() => screen.getByText("1A"));
+
+    // free seat 1B before preview: plain free style
+    const seat1b = screen.getByText("1B");
+    expect(seat1b.className).toContain("bg-white");
+
+    rerender(<ManualBusSeating {...baseProps} passengers={[basePassenger()]} previewAssignments={preview} />);
+    const previewSeat = screen.getByText("1B");
+    expect(previewSeat.className).toContain("border-dashed");
+    expect(previewSeat.className).toContain("border-brand-400");
+
+    // manual seat visual priority over preview: seat 1A has a manual occupant
+    rerender(
+      <ManualBusSeating
+        {...baseProps}
+        passengers={[basePassenger({ seat_number: 1, seat_is_manual: true }), basePassenger({ id: "p-2", passengerId: "p-2", seat_number: null })]}
+        previewAssignments={[{ passengerId: "p-2", seatNumber: 1 }]}
+      />,
+    );
+    await waitFor(() => screen.getByText("1A"));
+    const manualSeat = screen.getByText("1A");
+    expect(manualSeat.className).toContain("border-dashed");
+    expect(manualSeat.className).toContain("border-gray-400"); // manual style, NOT brand preview style
+
+    // locked seat visual priority over preview
+    rerender(
+      <ManualBusSeating
+        {...baseProps}
+        passengers={[basePassenger({ seat_number: 1, seat_locked: true }), basePassenger({ id: "p-2", passengerId: "p-2", seat_number: null })]}
+        previewAssignments={[{ passengerId: "p-2", seatNumber: 1 }]}
+      />,
+    );
+    await waitFor(() => screen.getByText("1A"));
+    const lockedSeat = screen.getByText("1A");
+    expect(lockedSeat.className).toContain("border-amber-300");
+    expect(lockedSeat.className).not.toContain("border-brand-400");
   });
 });

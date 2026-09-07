@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type ComponentType, type SVGProps } from "react";
+import { useState, useEffect, useMemo, type ComponentType, type SVGProps, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "../lib/i18n/context";
 import PageMeta from "../components/common/PageMeta";
@@ -7,6 +7,7 @@ import Button from "../components/ui/button/Button";
 import EmptyState from "../components/ui/EmptyState";
 import { DataTable, Column } from "../components/ui/DataTable";
 import ManualBusSeating from "../components/operations/ManualBusSeating";
+import AutoSeatingPanel from "../components/operations/AutoSeatingPanel";
 import DepartureAccommodationPanel from "../components/departures/DepartureAccommodationPanel";
 import DrustvaTab from "../components/operations/DrustvaTab";
 import CommunicationHistoryPanel from "../components/communications/CommunicationHistoryPanel";
@@ -92,6 +93,7 @@ export default function DepartureDetail() {
   const [manifest, setManifest] = useState<DepartureManifest | null>(null);
   const [groups, setGroups] = useState<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] } | null>(null);
   const [passengerGroups, setPassengerGroups] = useState<PassengerGroup[]>([]);
+  const [seatPreview, setSeatPreview] = useState<{ passengerId: string; seatNumber: number }[]>([]);
   const [_groupsLoading, _setGroupsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -150,24 +152,27 @@ export default function DepartureDetail() {
 
   useEffect(() => {
     if (!id) return;
-    (async () => {
-      setLoading(true);
-      try {
-        const [dep, mani, grps] = await Promise.all([
-          getDeparture(id),
-          getDeparturePassengers(id),
-          getDepartureGroups(id).catch(() => ({ byHotel: [], byAgent: [] })),
-        ]);
-        setDeparture(dep);
-        setManifest(mani);
-        setGroups(grps);
-      } catch (err: any) {
-        console.error("Failed to load departure:", err);
-        showError(err?.message || "Failed to load departure details");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    loadDeparture();
+  }, [id, showError]);
+
+  const loadDeparture = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const [dep, mani, grps] = await Promise.all([
+        getDeparture(id),
+        getDeparturePassengers(id),
+        getDepartureGroups(id).catch(() => ({ byHotel: [], byAgent: [] })),
+      ]);
+      setDeparture(dep);
+      setManifest(mani);
+      setGroups(grps);
+    } catch (err: any) {
+      console.error("Failed to load departure:", err);
+      showError(err?.message || "Failed to load departure details");
+    } finally {
+      setLoading(false);
+    }
   }, [id, showError]);
 
   const passengers: DeparturePassenger[] = Array.isArray((manifest as any)?.manifest)
@@ -1036,11 +1041,25 @@ export default function DepartureDetail() {
         {activeTab === "passengers" && (
           <div className="space-y-6">
             {capabilities?.hasManagedSeatLayout && departure.transport_type === "bus" && (
-              <ManualBusSeating
-                departureId={id!}
-                passengers={normPax}
-                transportType={departure.transport_type as string}
-              />
+              <>
+                <AutoSeatingPanel
+                  departureId={id!}
+                  transportType={departure.transport_type as "bus" | "flight" | "none"}
+                  hasVehicle={true}
+                  onProposalChange={(assignments) => {
+                    setSeatPreview(
+                      (assignments ?? []).map((p) => ({ passengerId: p.passengerId, seatNumber: p.seatNumber })),
+                    );
+                  }}
+                  onApplySuccess={() => loadDeparture()}
+                />
+                <ManualBusSeating
+                  departureId={id!}
+                  passengers={normPax}
+                  transportType={departure.transport_type as string}
+                  previewAssignments={seatPreview}
+                />
+              </>
             )}
             <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-6 py-3 dark:border-gray-800">
