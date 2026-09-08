@@ -33,6 +33,17 @@ export function calculateRemainingAmount(total: any, paid: any): number {
     return calculateOutstandingAmount(total, paid);
 }
 
+export function calculateRemainingFromSuccessfulPayments(
+    total: any,
+    payments: Array<{ amount: any; status: string }>
+): number {
+    const paid = payments
+        .filter((payment) => payment.status === 'succeeded')
+        .reduce((sum, payment) => sum + normalizeMoney(payment.amount), 0);
+
+    return calculateRemainingAmount(total, paid);
+}
+
 /**
  * Determines the occupancy status of a departure based on booked vs capacity.
  */

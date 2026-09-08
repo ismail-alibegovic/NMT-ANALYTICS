@@ -707,7 +707,6 @@ export default function Reservations() {
           }}
           reservationId={selectedReservation.id}
           reservationTotal={selectedReservation.totalAmount}
-          reservationPaid={selectedReservation.paidAmount}
           reservationCurrency={selectedReservation.currency}
           onPaymentCreated={handlePaymentCreated}
         />
