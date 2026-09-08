@@ -331,6 +331,20 @@ describe('NewSaleWizard — M05.1 optional add-ons', () => {
     expect(await screen.findByText('Ukupan iznos (BAM)')).toBeInTheDocument();
   });
 
+  it('treats zero package services as resolved and reaches Payment without an add-ons error', async () => {
+    getPackageServices.mockResolvedValue([]);
+    renderWizard();
+
+    await fillTraveler();
+
+    expect(screen.queryByText('Nije moguće učitati dodatne usluge za ovaj paket.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
+
+    expect(await screen.findByText('Ukupan iznos (BAM)')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Add-ons' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Nije moguće učitati dodatne usluge za ovaj paket.')).not.toBeInTheDocument();
+  });
+
   it('selects and unselects an optional add-on', async () => {
     renderWizard();
     await goToAddons();

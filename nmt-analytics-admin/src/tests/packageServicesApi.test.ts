@@ -21,11 +21,33 @@ describe('package services admin API contract', () => {
     apiGet.mockResolvedValue({ data: { data: [] } });
 
     const { getPackageServices } = await import('../api/operations');
-    await getPackageServices('package-1');
+    const result = await getPackageServices('package-1');
 
     expect(apiGet).toHaveBeenCalledWith('/package-services', {
       params: { packageId: 'package-1', limit: 200 },
     });
+    expect(result).toEqual([]);
+  });
+
+  it('resolves an empty package-services response as an empty list', async () => {
+    apiGet.mockResolvedValue({
+      data: {
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 200,
+      },
+    });
+
+    const { getPackageServices } = await import('../api/operations');
+    await expect(getPackageServices('package-empty')).resolves.toEqual([]);
+  });
+
+  it('keeps real package-services API failures rejected', async () => {
+    apiGet.mockRejectedValue(new Error('network'));
+
+    const { getPackageServices } = await import('../api/operations');
+    await expect(getPackageServices('package-1')).rejects.toThrow('network');
   });
 
   it('creates package services through the canonical body contract', async () => {
