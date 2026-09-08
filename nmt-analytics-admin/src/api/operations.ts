@@ -286,10 +286,11 @@ export interface PackageService {
 }
 
 export async function getPackageServices(packageId: string): Promise<PackageService[]> {
-  const { data } = await get<{ data: PackageService[] }>('/package-services', {
+  const { data } = await get<{ data: PackageService[] } | PackageService[]>('/package-services', {
     params: { packageId, limit: 200 },
   });
-  return data.data || [];
+  if (Array.isArray(data)) return data;
+  return Array.isArray(data.data) ? data.data : [];
 }
 
 export async function createPackageService(packageId: string, payload: {
