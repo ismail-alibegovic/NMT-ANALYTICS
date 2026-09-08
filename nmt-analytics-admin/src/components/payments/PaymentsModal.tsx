@@ -14,7 +14,7 @@ import {
     CreatePaymentInput
 } from '../../api/payments';
 import { useToast } from '../../context/ToastContext';
-import { formatCurrency, formatDate } from '../../utils/business';
+import { calculateRemainingFromSuccessfulPayments, formatCurrency, formatDate } from '../../utils/business';
 import Badge from '../ui/badge/Badge';
 import EditPaymentModal from './EditPaymentModal';
 
@@ -23,9 +23,12 @@ interface PaymentsModalProps {
     onClose: () => void;
     reservationId: string;
     reservationTotal: number;
-    reservationPaid: number;
     reservationCurrency?: string; // Currency from reservation (source of truth)
     onPaymentCreated?: () => void;
+}
+
+export function calculatePaymentsRemaining(reservationTotal: number, payments: Payment[]): number {
+    return calculateRemainingFromSuccessfulPayments(reservationTotal, payments);
 }
 
 export default function PaymentsModal({
@@ -33,7 +36,6 @@ export default function PaymentsModal({
     onClose,
     reservationId,
     reservationTotal,
-    reservationPaid,
     reservationCurrency = 'BAM', // Default to BAM if not provided
     onPaymentCreated,
 }: PaymentsModalProps) {
@@ -154,7 +156,7 @@ export default function PaymentsModal({
         return option?.label || status;
     };
 
-    const remainingAmount = Math.max(reservationTotal - reservationPaid, 0);
+    const remainingAmount = calculatePaymentsRemaining(reservationTotal, payments);
 
     const totalSucceeded = payments
         .filter(p => p.status === 'succeeded')
