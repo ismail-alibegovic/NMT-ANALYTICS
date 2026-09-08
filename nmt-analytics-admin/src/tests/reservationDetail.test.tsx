@@ -25,6 +25,14 @@ vi.mock("../api/contracts", () => ({
   getContracts: vi.fn().mockResolvedValue({ data: [] }),
 }));
 
+vi.mock("../api/installments", () => ({
+  getReservationInstallmentSchedule: vi.fn(),
+}));
+
+vi.mock("../api/payments", () => ({
+  createPayment: vi.fn(),
+}));
+
 vi.mock("../api/manualMessaging", () => ({
   sendReservationManualMessage: vi.fn(),
 }));
@@ -62,11 +70,15 @@ vi.mock("../icons", async () => {
 
 import { getReservation, getReservationAccommodation } from "../api/reservations";
 import { getDeparturePassengers } from "../api/departures";
+import { getReservationInstallmentSchedule } from "../api/installments";
+import { createPayment } from "../api/payments";
 import ReservationDetail from "../pages/ReservationDetail";
 
 const mockGetReservation = getReservation as ReturnType<typeof vi.fn>;
 const mockGetDeparturePassengers = getDeparturePassengers as ReturnType<typeof vi.fn>;
 const mockGetAccommodation = getReservationAccommodation as ReturnType<typeof vi.fn>;
+const mockGetInstallments = getReservationInstallmentSchedule as ReturnType<typeof vi.fn>;
+const mockCreatePayment = createPayment as ReturnType<typeof vi.fn>;
 
 const BASE_RESERVATION = {
   id: "res-abc12345",
@@ -110,6 +122,37 @@ describe("ReservationDetail", () => {
     mockGetReservation.mockResolvedValue(BASE_RESERVATION);
     mockGetAccommodation.mockResolvedValue([]);
     mockGetDeparturePassengers.mockResolvedValue({ manifest: [] });
+    mockGetInstallments.mockResolvedValue({
+      reservationId: BASE_RESERVATION.id,
+      totalAmount: BASE_RESERVATION.totalAmount,
+      paidAmount: BASE_RESERVATION.paidAmount,
+      balanceDue: BASE_RESERVATION.balanceDue,
+      paymentStatus: BASE_RESERVATION.paymentStatus,
+      currency: BASE_RESERVATION.currency,
+      installments: [],
+      summary: { totalScheduled: 0, paidScheduled: 0, outstandingScheduled: 0, overdueCount: 0 },
+    });
+    mockCreatePayment.mockResolvedValue({
+      payment: {
+        id: "payment-1",
+        reservationId: BASE_RESERVATION.id,
+        installmentId: null,
+        installmentNumber: null,
+        amount: 600,
+        currency: "BAM",
+        status: "succeeded",
+        paymentMethod: "cash",
+        paymentDate: "2026-09-08",
+        createdAt: "2026-09-08T00:00:00.000Z",
+      },
+      reservation: {
+        id: BASE_RESERVATION.id,
+        totalAmount: 1100,
+        paidAmount: 1100,
+        remainingAmount: 0,
+        status: "completed",
+      },
+    });
   });
 
   it("renders package and departure links when IDs are present", async () => {
@@ -294,6 +337,111 @@ describe("ReservationDetail", () => {
     expect(mockGetAccommodation).toHaveBeenCalledTimes(2);
   });
 
+  it("shows canonical finance, installment state, and records a selected pending installment payment", async () => {
+    let reservationCall = 0;
+    mockGetReservation.mockImplementation(() => {
+      reservationCall += 1;
+      return Promise.resolve({
+        ...BASE_RESERVATION,
+        paidAmount: reservationCall === 1 ? 0 : 300,
+        balanceDue: reservationCall === 1 ? 1100 : 800,
+        remainingAmount: reservationCall === 1 ? 1100 : 800,
+        paymentStatus: reservationCall === 1 ? "unpaid" : "partially_paid",
+      });
+    });
+    mockGetInstallments
+      .mockResolvedValueOnce({
+        reservationId: BASE_RESERVATION.id,
+        totalAmount: 1100,
+        paidAmount: 0,
+        balanceDue: 1100,
+        paymentStatus: "unpaid",
+        currency: "BAM",
+        installments: [
+          {
+            id: "inst-1",
+            installmentNumber: 1,
+            amount: 300,
+            currency: "BAM",
+            status: "pending",
+            paymentDate: null,
+            dueDate: "2026-09-15",
+            remainingAfter: 800,
+            overdue: false,
+          },
+          {
+            id: "inst-2",
+            installmentNumber: 2,
+            amount: 800,
+            currency: "BAM",
+            status: "pending",
+            paymentDate: null,
+            dueDate: "2026-10-15",
+            remainingAfter: 0,
+            overdue: false,
+          },
+        ],
+        summary: { totalScheduled: 1100, paidScheduled: 0, outstandingScheduled: 1100, overdueCount: 0 },
+      })
+      .mockResolvedValueOnce({
+        reservationId: BASE_RESERVATION.id,
+        totalAmount: 1100,
+        paidAmount: 300,
+        balanceDue: 800,
+        paymentStatus: "partially_paid",
+        currency: "BAM",
+        installments: [
+          {
+            id: "inst-1",
+            installmentNumber: 1,
+            amount: 300,
+            currency: "BAM",
+            status: "succeeded",
+            paymentDate: "2026-09-08",
+            dueDate: "2026-09-15",
+            remainingAfter: 800,
+            overdue: false,
+          },
+          {
+            id: "inst-2",
+            installmentNumber: 2,
+            amount: 800,
+            currency: "BAM",
+            status: "pending",
+            paymentDate: null,
+            dueDate: "2026-10-15",
+            remainingAfter: 0,
+            overdue: false,
+          },
+        ],
+        summary: { totalScheduled: 1100, paidScheduled: 300, outstandingScheduled: 800, overdueCount: 0 },
+      });
+
+    renderPage("res-abc12345");
+    await waitFor(() => expect(screen.getByText("Ahmed Hodžić")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("Uplate"));
+    expect(await screen.findByText("Finansije rezervacije")).toBeInTheDocument();
+    expect(screen.getByText("Rata 1 · 300 BAM")).toBeInTheDocument();
+    expect(screen.getByText("Rata 2 · 800 BAM")).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Evidentiraj" })[0]);
+    await waitFor(() => expect(screen.getAllByText("Dodaj plaćanje").length).toBeGreaterThan(0));
+    expect(screen.getByDisplayValue("300")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Dodaj plaćanje" }));
+
+    await waitFor(() => expect(mockCreatePayment).toHaveBeenCalledWith(expect.objectContaining({
+      reservation_id: BASE_RESERVATION.id,
+      installment_id: "inst-1",
+      amount: 300,
+      currency: "BAM",
+      status: "succeeded",
+    })));
+    await waitFor(() => expect(screen.getByText("Rata 1 · 300 BAM")).toBeInTheDocument());
+    expect(reservationCall).toBeGreaterThanOrEqual(2);
+  });
+
   it("is safe when current accommodation is empty", async () => {
     mockGetReservation.mockResolvedValue({
       ...BASE_RESERVATION,
@@ -319,6 +467,17 @@ describe("ReservationDetail", () => {
     beforeEach(() => {
       vi.resetAllMocks();
       mockGetReservation.mockResolvedValue(BASE_RESERVATION);
+      mockGetAccommodation.mockResolvedValue([]);
+      mockGetInstallments.mockResolvedValue({
+        reservationId: BASE_RESERVATION.id,
+        totalAmount: BASE_RESERVATION.totalAmount,
+        paidAmount: BASE_RESERVATION.paidAmount,
+        balanceDue: BASE_RESERVATION.balanceDue,
+        paymentStatus: BASE_RESERVATION.paymentStatus,
+        currency: BASE_RESERVATION.currency,
+        installments: [],
+        summary: { totalScheduled: 0, paidScheduled: 0, outstandingScheduled: 0, overdueCount: 0 },
+      });
     });
 
     function paxFixture(overrides: Record<string, any>) {

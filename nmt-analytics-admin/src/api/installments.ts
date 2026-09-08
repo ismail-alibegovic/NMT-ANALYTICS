@@ -35,3 +35,11 @@ export async function createReservationInstallmentSchedule(
   });
   return data;
 }
+
+export async function getReservationInstallmentSchedule(
+  reservationId: string,
+): Promise<ReservationInstallmentSchedule> {
+  const { get } = await import('./client');
+  const { data } = await get<ReservationInstallmentSchedule>(`/reservations/${reservationId}/installments`);
+  return data;
+}

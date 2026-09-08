@@ -36,7 +36,8 @@ const getPaymentsQuerySchema = z.object({
 
 const createPaymentSchema = z.object({
     reservation_id: z.string().uuid('Invalid reservation_id UUID'),
-    amount: z.number().nonnegative('Amount must be >= 0'),
+    installment_id: z.string().uuid('Invalid installment_id UUID').optional(),
+    amount: z.number().positive('Amount must be > 0'),
     currency: z.string().optional(), // Optional: defaults to reservation.currency
     status: z.enum(['pending', 'succeeded', 'failed', 'refunded', 'cancelled']).optional().default('succeeded'),
     payment_date: z.string().optional(), // YYYY-MM-DD
@@ -44,6 +45,56 @@ const createPaymentSchema = z.object({
 });
 
 type CreatePaymentInput = z.infer<typeof createPaymentSchema>;
+
+function toCents(amount: unknown): number {
+    return Math.round(Number(amount || 0) * 100);
+}
+
+function fromCents(cents: number): number {
+    return cents / 100;
+}
+
+function deriveReservationFinance(totalAmount: unknown, paidAmount: unknown) {
+    const totalCents = toCents(totalAmount);
+    const paidCents = toCents(paidAmount);
+    const remainingCents = Math.max(totalCents - paidCents, 0);
+    const paymentStatus =
+        paidCents <= 0 ? 'unpaid' : paidCents < totalCents ? 'partially_paid' : 'paid';
+
+    return {
+        totalAmount: fromCents(totalCents),
+        paidAmount: fromCents(paidCents),
+        remainingAmount: fromCents(remainingCents),
+        balanceDue: fromCents(remainingCents),
+        paymentStatus,
+    };
+}
+
+function transformPayment(payment: any) {
+    return {
+        id: payment.id,
+        reservationId: payment.reservation_id,
+        installmentId: payment.installment_number !== null && payment.installment_number !== undefined ? payment.id : null,
+        installmentNumber: payment.installment_number ?? null,
+        amount: Number(payment.amount),
+        currency: payment.currency,
+        status: payment.status,
+        paymentMethod: payment.payment_method,
+        paymentDate: payment.payment_date,
+        dueDate: payment.due_date ?? null,
+        remainingAfter: payment.remaining_after !== null && payment.remaining_after !== undefined ? Number(payment.remaining_after) : null,
+        createdAt: payment.created_at,
+    };
+}
+
+function transformReservationFinance(reservation: any) {
+    const finance = deriveReservationFinance(reservation.total_amount, reservation.paid_amount);
+    return {
+        id: reservation.id,
+        ...finance,
+        status: reservation.status,
+    };
+}
 
 // ============================================================================
 // GET /api/payments
@@ -98,6 +149,9 @@ router.get('/payments', async (req: Request, res: Response) => {
                 status,
                 payment_method,
                 payment_date,
+                installment_number,
+                due_date,
+                remaining_after,
                 created_at
             `, { count: 'exact' })
             .eq('org_id', orgId);
@@ -146,18 +200,7 @@ router.get('/payments', async (req: Request, res: Response) => {
         }
 
         // 7. Transform and return data
-        const transformedPayments = (payments || []).map((payment: any) => {
-            return {
-                id: payment.id,
-                reservationId: payment.reservation_id,
-                amount: Number(payment.amount),
-                currency: payment.currency,
-                status: payment.status,
-                paymentMethod: payment.payment_method,
-                paymentDate: payment.payment_date,
-                createdAt: payment.created_at,
-            };
-        });
+        const transformedPayments = (payments || []).map((payment: any) => transformPayment(payment));
 
         console.log(`[GET /api/payments] [Req:${requestId}] Returning ${transformedPayments.length} results (Total: ${count})`);
 
@@ -213,7 +256,7 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
             return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid request body', validationResult.error.issues);
         }
 
-        const { reservation_id, amount, currency, status, payment_method, payment_date } = validationResult.data;
+        const { reservation_id, installment_id, amount, currency, status, payment_method, payment_date } = validationResult.data;
         const orgId = req.orgId!;
 
         // Verify reservation exists and belongs to this org
@@ -229,47 +272,117 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
             return apiError(res, 404, 'RESERVATION_NOT_FOUND', 'Reservation not found or does not belong to your organization');
         }
 
-        // CURRENCY RULE: reservation.currency is the source of truth
-        // If payment currency not provided, inherit from reservation
-        const effectiveCurrency = currency || reservation.currency || 'BAM';
-
-        // Set payment_date to today (UTC) if not provided
-        const effectivePaymentDate = payment_date || new Date().toISOString().split('T')[0];
-
-        // Insert payment
-        const { data: payment, error: insertError } = await supabaseAdmin
-            .from('payments')
-            .insert({
-                reservation_id,
-                org_id: orgId,
-                amount,
-                currency: effectiveCurrency,
-                status,
-                payment_method: payment_method || null,
-                payment_date: effectivePaymentDate,
-            })
-            .select(`
-        id,
-        reservation_id,
-        amount,
-        currency,
-        status,
-        payment_method,
-        payment_date,
-        created_at
-      `)
-            .single();
-
-        if (insertError) {
-            return handleSupabaseError(res, insertError, 'Failed to create payment');
+        if (currency && currency !== (reservation.currency || 'BAM')) {
+            return apiError(res, 400, 'CURRENCY_MISMATCH', 'Payment currency must match reservation currency');
         }
 
-        // Fetch updated reservation to get the new paid_amount (updated by trigger)
+        const effectiveCurrency = currency || reservation.currency || 'BAM';
+        const effectivePaymentDate = payment_date || new Date().toISOString().split('T')[0];
+
+        let payment: any;
+
+        if (installment_id) {
+            const { data: installment, error: installmentError } = await supabaseAdmin
+                .from('payments')
+                .select('id, reservation_id, org_id, amount, currency, status, installment_number, due_date, remaining_after')
+                .eq('id', installment_id)
+                .eq('org_id', orgId)
+                .single();
+
+            if (installmentError || !installment) {
+                return apiError(res, 404, 'INSTALLMENT_NOT_FOUND', 'Installment not found');
+            }
+
+            if (installment.reservation_id !== reservation_id) {
+                return apiError(res, 400, 'INSTALLMENT_RESERVATION_MISMATCH', 'Installment does not belong to this reservation');
+            }
+
+            if (installment.installment_number === null || installment.installment_number === undefined) {
+                return apiError(res, 400, 'NOT_AN_INSTALLMENT', 'Payment row is not an installment');
+            }
+
+            if (installment.status !== 'pending') {
+                return apiError(res, 409, 'INSTALLMENT_ALREADY_RECORDED', 'Installment is not pending');
+            }
+
+            if ((installment.currency || effectiveCurrency) !== effectiveCurrency) {
+                return apiError(res, 400, 'CURRENCY_MISMATCH', 'Payment currency must match installment currency');
+            }
+
+            if (toCents(installment.amount) !== toCents(amount)) {
+                return apiError(res, 400, 'INSTALLMENT_AMOUNT_MISMATCH', 'Payment amount must match the installment amount');
+            }
+
+            const { data: updatedPayment, error: updateError } = await supabaseAdmin
+                .from('payments')
+                .update({
+                    amount,
+                    currency: effectiveCurrency,
+                    status,
+                    payment_method: payment_method || null,
+                    payment_date: effectivePaymentDate,
+                })
+                .eq('id', installment_id)
+                .eq('org_id', orgId)
+                .select(`
+                    id,
+                    reservation_id,
+                    amount,
+                    currency,
+                    status,
+                    payment_method,
+                    payment_date,
+                    installment_number,
+                    due_date,
+                    remaining_after,
+                    created_at
+                `)
+                .single();
+
+            if (updateError) {
+                return handleSupabaseError(res, updateError, 'Failed to record installment payment');
+            }
+
+            payment = updatedPayment;
+        } else {
+            const { data: insertedPayment, error: insertError } = await supabaseAdmin
+                .from('payments')
+                .insert({
+                    reservation_id,
+                    org_id: orgId,
+                    amount,
+                    currency: effectiveCurrency,
+                    status,
+                    payment_method: payment_method || null,
+                    payment_date: effectivePaymentDate,
+                })
+                .select(`
+                    id,
+                    reservation_id,
+                    amount,
+                    currency,
+                    status,
+                    payment_method,
+                    payment_date,
+                    installment_number,
+                    due_date,
+                    remaining_after,
+                    created_at
+                `)
+                .single();
+
+            if (insertError) {
+                return handleSupabaseError(res, insertError, 'Failed to create payment');
+            }
+
+            payment = insertedPayment;
+        }
+
         const { data: updatedReservation, error: fetchError } = await supabaseAdmin
             .from('reservations')
-            .select('id, total_amount, paid_amount, status')
+            .select('id, total_amount, paid_amount, balance_due, payment_status, status')
             .eq('id', reservation_id)
-            .eq('org_id', orgId) // Ensure org_id scoping
+            .eq('org_id', orgId)
             .single();
 
         if (fetchError) {
@@ -309,26 +422,8 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
 
         // Return created payment with updated reservation info
         return res.status(201).json({
-            payment: {
-                id: payment.id,
-                reservationId: payment.reservation_id,
-                amount: Number(payment.amount),
-                currency: payment.currency,
-                status: payment.status,
-                paymentMethod: payment.payment_method,
-                paymentDate: payment.payment_date,
-                createdAt: payment.created_at,
-            },
-            reservation: updatedReservation ? {
-                id: updatedReservation.id,
-                totalAmount: Number(updatedReservation.total_amount),
-                paidAmount: Number(updatedReservation.paid_amount || 0),
-                remainingAmount: Math.max(
-                    Number(updatedReservation.total_amount) - Number(updatedReservation.paid_amount || 0),
-                    0
-                ),
-                status: updatedReservation.status,
-            } : null,
+            payment: transformPayment(payment),
+            reservation: updatedReservation ? transformReservationFinance(updatedReservation) : null,
         });
 
     } catch (error) {
