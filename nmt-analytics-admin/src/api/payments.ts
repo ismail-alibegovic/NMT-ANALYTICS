@@ -7,11 +7,15 @@ import { get, post, patch } from './client';
 export interface Payment {
     id: string;
     reservationId: string;
+    installmentId?: string | null;
+    installmentNumber?: number | null;
     amount: number;
     currency: string;
     status: 'pending' | 'succeeded' | 'failed' | 'refunded' | 'cancelled';
     paymentMethod?: string | null;
     paymentDate: string | null;
+    dueDate?: string | null;
+    remainingAfter?: number | null;
     createdAt: string;
     reservation?: {
         id: string;
@@ -43,6 +47,7 @@ export interface PaymentListResponse {
 
 export interface CreatePaymentInput {
     reservation_id: string;
+    installment_id?: string;
     amount: number;
     currency?: string;
     status?: 'pending' | 'succeeded' | 'failed' | 'refunded' | 'cancelled';
@@ -57,11 +62,15 @@ export interface CreatePaymentResponse {
     payment: {
         id: string;
         reservationId: string;
+        installmentId?: string | null;
+        installmentNumber?: number | null;
         amount: number;
         currency: string;
         status: 'pending' | 'succeeded' | 'failed' | 'refunded' | 'cancelled';
         paymentMethod?: string | null;
         paymentDate: string | null;
+        dueDate?: string | null;
+        remainingAfter?: number | null;
         createdAt: string;
     };
     reservation: {
@@ -69,6 +78,8 @@ export interface CreatePaymentResponse {
         totalAmount: number;
         paidAmount: number;
         remainingAmount: number;
+        balanceDue?: number;
+        paymentStatus?: string;
         status: string;
     } | null;
 }
@@ -225,4 +236,3 @@ export async function getPaymentDashboard(): Promise<PaymentDashboardResponse> {
     const { data } = await get<PaymentDashboardResponse>('/payments/dashboard');
     return data;
 }
-

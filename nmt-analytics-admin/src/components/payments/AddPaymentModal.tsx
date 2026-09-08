@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal } from '../ui/modal';
 import Button from '../ui/button/Button';
 import Input from '../form/input/InputField';
@@ -12,6 +12,8 @@ interface AddPaymentModalProps {
     onClose: () => void;
     reservationId: string;
     reservationCurrency?: string; // Currency from reservation (source of truth)
+    installmentId?: string | null;
+    defaultAmount?: number | null;
     onPaymentCreated?: (updatedReservation?: { paidAmount: number; totalAmount: number }) => void;
 }
 
@@ -20,13 +22,15 @@ export default function AddPaymentModal({
     onClose,
     reservationId,
     reservationCurrency = 'BAM', // Default to BAM if not provided
+    installmentId = null,
+    defaultAmount = null,
     onPaymentCreated,
 }: AddPaymentModalProps) {
     const { error: showError, success: showSuccess } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Form state
-    const [amount, setAmount] = useState<string>('');
+    const [amount, setAmount] = useState<string>(defaultAmount ? String(defaultAmount) : '');
     // Currency is set from reservation and is read-only
     const currency = reservationCurrency;
     const [status, setStatus] = useState<string>('succeeded');
@@ -49,6 +53,10 @@ export default function AddPaymentModal({
         { value: 'cancelled', label: 'Otkazano' },
     ];
 
+    useEffect(() => {
+        if (isOpen) setAmount(defaultAmount ? String(defaultAmount) : '');
+    }, [defaultAmount, isOpen]);
+
     const handleSubmit = async () => {
         const amountNum = parseFloat(amount);
 
@@ -61,6 +69,7 @@ export default function AddPaymentModal({
         try {
             const paymentData: CreatePaymentInput = {
                 reservation_id: reservationId,
+                installment_id: installmentId || undefined,
                 amount: amountNum,
                 currency,
                 status: status as any,

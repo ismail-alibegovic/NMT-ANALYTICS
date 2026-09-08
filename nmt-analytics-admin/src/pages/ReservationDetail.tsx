@@ -33,8 +33,13 @@ import {
   getContracts,
   Contract,
 } from "../api/contracts";
+import {
+  getReservationInstallmentSchedule,
+  ReservationInstallmentSchedule,
+} from "../api/installments";
 import { sendReservationManualMessage } from "../api/manualMessaging";
 import EditReservationModal from "../components/reservations/EditReservationModal";
+import AddPaymentModal from "../components/payments/AddPaymentModal";
 
 type Tab = "overview" | "passengers" | "payments" | "services" | "documents";
 
@@ -60,8 +65,11 @@ export default function ReservationDetail() {
   const [passengers, setPassengers] = useState<ReservationPassenger[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentAccommodation, setCurrentAccommodation] = useState<ReservationAccommodationRequirement[]>([]);
+  const [installmentSchedule, setInstallmentSchedule] = useState<ReservationInstallmentSchedule | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+  const [addPaymentOpen, setAddPaymentOpen] = useState(false);
+  const [selectedInstallmentId, setSelectedInstallmentId] = useState<string | null>(null);
 
   // Contract generation state
   const [contractModalOpen, setContractModalOpen] = useState(false);
@@ -99,6 +107,13 @@ export default function ReservationDetail() {
           setCurrentAccommodation(acc);
         } catch {
           setCurrentAccommodation([]);
+        }
+
+        try {
+          const schedule = await getReservationInstallmentSchedule(id);
+          setInstallmentSchedule(schedule);
+        } catch {
+          setInstallmentSchedule(null);
         }
 
         // Check for existing contracts
@@ -141,6 +156,13 @@ export default function ReservationDetail() {
       setCurrentAccommodation(acc);
     } catch {
       setCurrentAccommodation([]);
+    }
+
+    try {
+      const schedule = await getReservationInstallmentSchedule(id);
+      setInstallmentSchedule(schedule);
+    } catch {
+      setInstallmentSchedule(null);
     }
   };
 
@@ -214,6 +236,12 @@ export default function ReservationDetail() {
   const total = Number(reservation.totalAmount ?? 0);
   const remaining = Math.max(0, total - paid);
   const paidPct = total > 0 ? Math.round((paid / total) * 100) : 0;
+  const installments = installmentSchedule?.installments || [];
+  const pendingInstallments = installments.filter((row) => row.status === "pending");
+  const selectedInstallment =
+    installments.find((row) => row.id === selectedInstallmentId) ||
+    pendingInstallments[0] ||
+    null;
   const reservationShortId = reservation.id ? reservation.id.slice(0, 8) : "—";
   const reservationEmail = (reservation as any).customer?.email || (reservation as any).customers?.email || "";
   const reservationPhone = reservation.customerPhone || (reservation as any).customer?.phone || "";
@@ -418,10 +446,87 @@ export default function ReservationDetail() {
 
         {/* Payments Tab */}
         {activeTab === "payments" && (
-          <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
-            <p className="text-sm text-gray-500">
-              Plaćanje se vodi kroz modul Uplate. Otvorite uplate za ovu rezervaciju da vidite detalje.
-            </p>
+          <div className="space-y-4">
+            <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-200">Finansije rezervacije</h3>
+                  <p className="mt-1 text-sm text-gray-500">Kanonski iznosi se računaju iz uspješno primljenih uplata.</p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setSelectedInstallmentId(pendingInstallments[0]?.id || null);
+                    setAddPaymentOpen(true);
+                  }}
+                >
+                  Evidentiraj uplatu
+                </Button>
+              </div>
+
+              <dl className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-4">
+                <div className="rounded-lg border border-gray-100 p-3 dark:border-gray-800">
+                  <dt className="text-xs text-gray-500">Ukupno</dt>
+                  <dd className="mt-1 text-base font-semibold text-gray-900 dark:text-white">{formatReservationCurrency(total, reservation.currency)}</dd>
+                </div>
+                <div className="rounded-lg border border-gray-100 p-3 dark:border-gray-800">
+                  <dt className="text-xs text-gray-500">Plaćeno</dt>
+                  <dd className="mt-1 text-base font-semibold text-green-600 dark:text-green-400">{formatReservationCurrency(paid, reservation.currency)}</dd>
+                </div>
+                <div className="rounded-lg border border-gray-100 p-3 dark:border-gray-800">
+                  <dt className="text-xs text-gray-500">Preostalo</dt>
+                  <dd className="mt-1 text-base font-semibold text-gray-900 dark:text-white">{formatReservationCurrency(remaining, reservation.currency)}</dd>
+                </div>
+                <div className="rounded-lg border border-gray-100 p-3 dark:border-gray-800">
+                  <dt className="text-xs text-gray-500">Status</dt>
+                  <dd className="mt-1 text-base font-semibold text-gray-900 dark:text-white">{reservationPaymentStatusBadge(reservation)}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-200">Raspored uplata</h3>
+              {installments.length === 0 ? (
+                <p className="mt-3 text-sm text-gray-500">Nema definisanog rasporeda rata za ovu rezervaciju.</p>
+              ) : (
+                <div className="mt-4 divide-y divide-gray-100 dark:divide-gray-800">
+                  {installments.map((installment) => {
+                    const isPaid = installment.status === "succeeded";
+                    const isPending = installment.status === "pending";
+                    return (
+                      <div key={installment.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            Rata {installment.installmentNumber} · {formatReservationCurrency(installment.amount, installment.currency)}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Dospijeće: {installment.dueDate || "—"}
+                            {installment.paymentDate ? ` · Primljeno: ${installment.paymentDate}` : ""}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge color={isPaid ? "success" : isPending ? "warning" : "error"} size="sm">
+                            {isPaid ? "Plaćeno" : isPending ? "Na čekanju" : installment.status}
+                          </Badge>
+                          {isPending && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedInstallmentId(installment.id);
+                                setAddPaymentOpen(true);
+                              }}
+                            >
+                              Evidentiraj
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -547,6 +652,22 @@ export default function ReservationDetail() {
           }
         }}
         reservationId={id || null}
+      />
+
+      <AddPaymentModal
+        isOpen={addPaymentOpen}
+        onClose={() => setAddPaymentOpen(false)}
+        reservationId={reservation.id}
+        reservationCurrency={reservation.currency}
+        installmentId={selectedInstallment?.id || null}
+        defaultAmount={selectedInstallment?.amount || null}
+        onPaymentCreated={async () => {
+          try {
+            await reloadReservation();
+          } catch (err: any) {
+            showError(err?.message || "Failed to reload reservation");
+          }
+        }}
       />
 
       {/* Contract Generation Modal */}
