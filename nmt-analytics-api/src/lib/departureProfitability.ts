@@ -1,7 +1,6 @@
 import { fromCents, multiplyMoneyToCents, toCents } from './money';
 
 const SUCCESSFUL_PAYMENT_STATUS = 'succeeded';
-const ELIGIBLE_RESERVATION_STATUSES = new Set(['confirmed', 'pending']);
 
 export const departureCostCategories = [
   'hotel',
@@ -17,7 +16,7 @@ export const departureCostCategories = [
 export type DepartureCostCategory = typeof departureCostCategories[number];
 
 export function isEligibleReservationStatus(status: unknown): boolean {
-  return typeof status === 'string' && ELIGIBLE_RESERVATION_STATUSES.has(status);
+  return status !== 'cancelled';
 }
 
 export function isSuccessfulPaymentStatus(status: unknown): boolean {

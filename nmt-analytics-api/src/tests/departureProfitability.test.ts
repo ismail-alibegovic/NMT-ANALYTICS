@@ -57,6 +57,26 @@ describe('departure profitability derivation', () => {
     expect(result.outstanding).toBe(300);
   });
 
+  it('includes non-cancelled reservations instead of hard-coding active statuses', () => {
+    const result = deriveDepartureFinance({
+      currency,
+      reservations: [
+        { id: 'completed', total_amount: 250, currency, status: 'completed' },
+        { id: 'cancelled', total_amount: 250, currency, status: 'cancelled' },
+      ],
+      payments: [
+        { reservation_id: 'completed', amount: 250, currency, status: 'succeeded' },
+        { reservation_id: 'cancelled', amount: 250, currency, status: 'succeeded' },
+      ],
+      costItems: [],
+    });
+
+    expect(result.reservationCount).toBe(1);
+    expect(result.revenue).toBe(250);
+    expect(result.collected).toBe(250);
+    expect(result.outstanding).toBe(0);
+  });
+
   it('uses cent-safe rounding and returns null margin for zero revenue', () => {
     const result = deriveDepartureFinance({
       currency,
