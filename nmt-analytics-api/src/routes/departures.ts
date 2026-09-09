@@ -1145,6 +1145,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
 
     // Compose manifest: one row per passenger if departure_passengers exist, else one row per reservation (party_size)
     const manifest: any[] = [];
+    const reservationFinanceById = new Map<string, { paid: number; debt: number }>();
     const passByRes = (passengers || []).reduce<Record<string, any[]>>((acc, p) => {
       (acc[p.reservation_id] ||= []).push(p);
       return acc;
@@ -1164,6 +1165,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
       const succeededPaymentsForRes = paymentsForRes.filter((p: any) => p.status === 'succeeded');
       const totalPaid = fromCents(succeededPaymentsForRes.reduce((s: number, p: any) => s + toCents(p.amount), 0));
       const totalDebt = fromCents(Math.max(toCents(r.total_amount) - toCents(totalPaid), 0));
+      reservationFinanceById.set(r.id, { paid: totalPaid, debt: totalDebt });
       const reservationRequirements = accommodationRequirementsByReservation[r.id] || [];
       const fallbackRequirement = reservationRequirements.length === 1 ? reservationRequirements[0] : null;
 
@@ -1267,8 +1269,12 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
     const confirmedGuests = manifest
       .filter(m => m.reservationStatus === 'confirmed')
       .reduce((s, m) => s + (m.passengerId ? 1 : (m.partySize || 1)), 0);
-    const totalPaidAmount = manifest.reduce((s, m) => s + m.paid, 0);
-    const totalDebtAmount = manifest.reduce((s, m) => s + m.debt, 0);
+    const totalPaidAmount = fromCents(
+      Array.from(reservationFinanceById.values()).reduce((sum, finance) => sum + toCents(finance.paid), 0),
+    );
+    const totalDebtAmount = fromCents(
+      Array.from(reservationFinanceById.values()).reduce((sum, finance) => sum + toCents(finance.debt), 0),
+    );
     const guides = Array.from(new Set(manifest.map(m => m.tourGuide).filter(Boolean)));
     const hotelsOnTrip = Array.from(new Set(manifest.map(m => m.hotelName).filter(Boolean)));
 

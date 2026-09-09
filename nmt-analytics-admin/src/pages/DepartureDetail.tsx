@@ -13,6 +13,7 @@ import DrustvaTab from "../components/operations/DrustvaTab";
 import CommunicationHistoryPanel from "../components/communications/CommunicationHistoryPanel";
 import ManualMessageComposer from "../components/communications/ManualMessageComposer";
 import { useToast } from "../context/ToastContext";
+import { useApp } from "../context/AppContext";
 import { Modal } from "../components/ui/modal";
 import Input from "../components/form/input/InputField";
 import Label from "../components/form/Label";
@@ -59,6 +60,7 @@ import {
 import { getFlights, getDepartureFlightSegments, linkFlightToDeparture, unlinkFlightFromDeparture, reorderFlightSegments, type Flight, type FlightSegment } from "../api/flights";
 import { getReservations } from "../api/reservations";
 import { sendDepartureManualMessage } from "../api/manualMessaging";
+import { canAccessFinances } from "../types/roles";
 
 const formatCurrency = (amount: number, currency = "BAM") =>
   new Intl.NumberFormat("bs-BA", { style: "currency", currency }).format(amount || 0);
@@ -99,6 +101,8 @@ export default function DepartureDetail() {
   const navigate = useNavigate();
   const t = useTranslation();
   const { error: showError } = useToast();
+  const { userContext } = useApp();
+  const canViewFinance = canAccessFinances(userContext?.role);
   const [departure, setDeparture] = useState<Departure | null>(null);
   const [manifest, setManifest] = useState<DepartureManifest | null>(null);
   const [groups, setGroups] = useState<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] } | null>(null);
@@ -110,11 +114,15 @@ export default function DepartureDetail() {
   const [searchParams] = useSearchParams();
   // Deep-link support: /departures/:id?tab=passengers opens straight to the seat map.
   useEffect(() => {
-    const t = searchParams.get("tab");
-    if (t === "passengers" || t === "razvrstavanje" || t === "drustva" || t === "hotels" || t === "finance" || t === "overview") {
-      setActiveTab(t as Tab);
+    const tab = searchParams.get("tab");
+    if (tab === "finance" && !canViewFinance) {
+      setActiveTab("overview");
+      return;
     }
-  }, [searchParams]);
+    if (tab === "passengers" || tab === "razvrstavanje" || tab === "drustva" || tab === "hotels" || tab === "finance" || tab === "overview") {
+      setActiveTab(tab as Tab);
+    }
+  }, [searchParams, canViewFinance]);
 
   useEffect(() => {
     if (!id || activeTab !== "drustva") return;
@@ -177,8 +185,8 @@ export default function DepartureDetail() {
   }, [id, t.departure.finance.loadError]);
 
   useEffect(() => {
-    if (activeTab === "finance") void loadProfitability();
-  }, [activeTab, loadProfitability]);
+    if (activeTab === "finance" && canViewFinance) void loadProfitability();
+  }, [activeTab, canViewFinance, loadProfitability]);
 
   // Fetch reservations for this departure when add modal opens
   useEffect(() => {
@@ -827,7 +835,7 @@ export default function DepartureDetail() {
     { key: "passengers", label: t.departure.passengers, count: totalGuests },
     { key: "razvrstavanje", label: t.departure.razvrstavanje, count: (groupBy === "hotel" ? groups?.byHotel : groups?.byAgent)?.length },
     { key: "drustva", label: t.departure.drustva.label },
-    { key: "finance", label: t.departure.finance.title },
+    ...(canViewFinance ? [{ key: "finance" as Tab, label: t.departure.finance.title }] : []),
     ...(capabilities?.hasAccommodation ? [{ key: "hotels" as Tab, label: t.departure.accommodation, count: allocationHotelCount || relatedHotels.length || undefined }] : []),
   ];
 
@@ -1284,7 +1292,7 @@ export default function DepartureDetail() {
             }}
           />
         )}
-        {activeTab === "finance" && (
+        {activeTab === "finance" && canViewFinance && (
           <div className="space-y-5">
             {profitLoading && (
               <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">

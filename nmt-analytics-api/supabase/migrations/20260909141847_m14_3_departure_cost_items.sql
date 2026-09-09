@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS public.departure_cost_items (
   CONSTRAINT departure_cost_items_departure_org_fk
     FOREIGN KEY (departure_id, org_id) REFERENCES public.departures(id, org_id) ON DELETE CASCADE,
   CONSTRAINT departure_cost_items_supplier_org_fk
-    FOREIGN KEY (supplier_id, org_id) REFERENCES public.suppliers(id, org_id) ON DELETE SET NULL
+    FOREIGN KEY (supplier_id, org_id) REFERENCES public.suppliers(id, org_id) ON DELETE SET NULL (supplier_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_departure_cost_items_org_departure

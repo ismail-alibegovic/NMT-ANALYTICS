@@ -8,10 +8,12 @@ const {
   mockGetDeparture,
   mockGetSegments,
   mockGetProfitability,
+  appState,
 } = vi.hoisted(() => ({
   mockGetDeparture: vi.fn(),
   mockGetSegments: vi.fn(),
   mockGetProfitability: vi.fn(),
+  appState: { role: "manager" as string },
 }));
 
 vi.mock("../lib/i18n/context", () => ({
@@ -46,6 +48,10 @@ vi.mock("../context/ToastContext", () => ({
   useToast: () => ({ error: vi.fn(), success: vi.fn() }),
 }));
 
+vi.mock("../context/AppContext", () => ({
+  useApp: () => ({ userContext: { role: appState.role }, user: { id: "user-1" }, loading: false }),
+}));
+
 vi.mock("../api/reservations", () => ({
   getReservations: vi.fn(async () => ({ data: [], total: 0, pagination: { page: 1, limit: 200, total: 0, totalPages: 0 } })),
 }));
@@ -76,9 +82,9 @@ vi.mock("../icons", async () => {
   return out;
 });
 
-function renderDetail() {
+function renderDetail(path = "/departures/d1") {
   return render(
-    <MemoryRouter initialEntries={["/departures/d1"]}>
+    <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/departures/:id" element={<DepartureDetail />} />
       </Routes>
@@ -89,6 +95,7 @@ function renderDetail() {
 describe("M13.2 — DepartureDetail canonical flight configuration UI", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    appState.role = "manager";
     mockGetProfitability.mockResolvedValue({
       departureId: "d1",
       currency: "BAM",
@@ -189,5 +196,85 @@ describe("M13.2 — DepartureDetail canonical flight configuration UI", () => {
     expect(text).toContain("300,00");
     expect(text).toContain("700,00");
     expect(screen.getByText(en.departure.finance.emptyCostsTitle)).toBeInTheDocument();
+  });
+
+  it.each(["manager", "director"])("shows Finance tab for %s users", async (role) => {
+    appState.role = role;
+    mockGetDeparture.mockResolvedValue({
+      id: "d1",
+      transport_type: "bus",
+      destination: "Test",
+      packageName: "Antalya",
+      packages: { currency: "BAM" },
+      capacity: 50,
+      status: "active",
+      capabilities: { hasBusTransport: true },
+    });
+    mockGetSegments.mockResolvedValue([]);
+
+    renderDetail();
+
+    expect(await screen.findByRole("button", { name: en.departure.finance.title })).toBeInTheDocument();
+  });
+
+  it.each(["agent", "viewer"])("hides Finance tab for %s users", async (role) => {
+    appState.role = role;
+    mockGetDeparture.mockResolvedValue({
+      id: "d1",
+      transport_type: "bus",
+      destination: "Test",
+      packageName: "Antalya",
+      packages: { currency: "BAM" },
+      capacity: 50,
+      status: "active",
+      capabilities: { hasBusTransport: true },
+    });
+    mockGetSegments.mockResolvedValue([]);
+
+    renderDetail();
+
+    await screen.findByText("Antalya");
+    expect(screen.queryByRole("button", { name: en.departure.finance.title })).not.toBeInTheDocument();
+  });
+
+  it("does not activate Finance or call profitability for unauthorized finance deep-link", async () => {
+    appState.role = "agent";
+    mockGetDeparture.mockResolvedValue({
+      id: "d1",
+      transport_type: "bus",
+      destination: "Test",
+      packageName: "Antalya",
+      packages: { currency: "BAM" },
+      capacity: 50,
+      status: "active",
+      capabilities: { hasBusTransport: true },
+    });
+    mockGetSegments.mockResolvedValue([]);
+
+    renderDetail("/departures/d1?tab=finance");
+
+    await screen.findByText("Antalya");
+    await waitFor(() => expect(mockGetProfitability).not.toHaveBeenCalled());
+    expect(screen.queryByText(en.departure.finance.grossProfit)).not.toBeInTheDocument();
+  });
+
+  it("activates Finance and calls profitability for authorized manager deep-link", async () => {
+    appState.role = "manager";
+    mockGetDeparture.mockResolvedValue({
+      id: "d1",
+      transport_type: "bus",
+      destination: "Test",
+      packageName: "Antalya",
+      packages: { currency: "BAM" },
+      capacity: 50,
+      status: "active",
+      capabilities: { hasBusTransport: true },
+    });
+    mockGetSegments.mockResolvedValue([]);
+
+    renderDetail("/departures/d1?tab=finance");
+
+    expect(await screen.findByText(en.departure.finance.grossProfit)).toBeInTheDocument();
+    expect(mockGetProfitability).toHaveBeenCalledWith("d1");
   });
 });

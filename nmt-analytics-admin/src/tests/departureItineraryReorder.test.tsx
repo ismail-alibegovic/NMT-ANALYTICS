@@ -68,6 +68,10 @@ vi.mock("../context/ToastContext", () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
 }));
 
+vi.mock("../context/AppContext", () => ({
+  useApp: () => ({ userContext: { role: "manager" }, user: { id: "user-1" }, loading: false }),
+}));
+
 vi.mock("../icons", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../icons");
   const stub = () => <svg />;
