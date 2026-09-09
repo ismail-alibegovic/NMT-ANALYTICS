@@ -10,6 +10,7 @@ const OTHER_SUPPLIER = '20000000-0000-4000-8000-0000000000ff';
 
 let rows: Record<string, any[]> = {};
 let app: express.Express;
+let selectClauses: string[] = [];
 
 vi.mock('../middleware/authenticateToken', () => ({
   authenticateToken: (req: Request, _res: Response, next: NextFunction) => {
@@ -49,7 +50,10 @@ function query(table: string) {
   };
 
   const api: any = {
-    select: vi.fn(() => api),
+    select: vi.fn((clause?: string) => {
+      if (clause) selectClauses.push(clause);
+      return api;
+    }),
     eq: vi.fn((column: string, value: unknown) => {
       state.filters.push((row) => row[column] === value);
       return api;
@@ -94,6 +98,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  selectClauses = [];
   rows = {
     departures: [
       { id: DEPARTURE, org_id: ORG, package_id: 'pkg-1', packages: { id: 'pkg-1', name: 'Antalya', destination: 'Antalya', currency: 'BAM' } },
@@ -138,6 +143,9 @@ describe('departure profitability route', () => {
       reservationCount: 2,
       warnings: [],
     });
+    expect(selectClauses).toContain(
+      'id, departure_id, category, label, supplier_id, quantity, unit_cost, currency, notes, created_at, updated_at, suppliers!departure_cost_items_supplier_org_fk(id, name)',
+    );
   });
 
   it('rejects cross-org departures and cross-org suppliers', async () => {
