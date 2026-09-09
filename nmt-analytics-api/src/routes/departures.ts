@@ -22,6 +22,7 @@ import {
   snakeToCamelTravelerRequirements,
   travelerRequirementsWriteSchema,
 } from '../lib/travelerRequirements';
+import { toCents, fromCents } from '../lib/money';
 
 const router = Router();
 
@@ -1160,7 +1161,9 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
       const agent = agentRow(r);
       const rows = passByRes[r.id] || [];
       const paymentsForRes = (payments || []).filter((p: any) => p.reservation_id === r.id);
-      const totalPaid = paymentsForRes.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+      const succeededPaymentsForRes = paymentsForRes.filter((p: any) => p.status === 'succeeded');
+      const totalPaid = fromCents(succeededPaymentsForRes.reduce((s: number, p: any) => s + toCents(p.amount), 0));
+      const totalDebt = fromCents(Math.max(toCents(r.total_amount) - toCents(totalPaid), 0));
       const reservationRequirements = accommodationRequirementsByReservation[r.id] || [];
       const fallbackRequirement = reservationRequirements.length === 1 ? reservationRequirements[0] : null;
 
@@ -1176,8 +1179,8 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
             phone: p.phone || r.customer_phone || cust?.phone,
             email: p.email || cust?.email || null,
             seat: p.seat_number,
-            paid: Number(p.paid_amount || 0),
-            debt: Number(p.debt_amount || 0),
+            paid: totalPaid,
+            debt: totalDebt,
             customerLinked: !!cust,
             customerId: cust?.id,
             hotelName: requirement?.hotels?.name || r.hotel_name,
@@ -1212,7 +1215,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
           email: cust?.email,
           seat: null,
           paid: totalPaid,
-          debt: Number(r.total_amount || 0) - totalPaid,
+          debt: totalDebt,
           customerLinked: !!cust,
           customerId: cust?.id,
           hotelName: requirement?.hotels?.name || r.hotel_name,

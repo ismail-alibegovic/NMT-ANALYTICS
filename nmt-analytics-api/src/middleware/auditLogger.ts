@@ -58,6 +58,7 @@ export type AuditEntity =
   | 'itinerary'
   | 'itinerary_version'
   | 'itinerary_item'
+  | 'departure_cost_item'
   | 'departure_passenger';
 
 // Audit log entry

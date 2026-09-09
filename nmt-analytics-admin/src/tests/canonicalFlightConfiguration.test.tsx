@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router";
 import DepartureDetail from "../pages/DepartureDetail";
 import { en } from "../lib/i18n/en";
@@ -7,9 +7,11 @@ import { en } from "../lib/i18n/en";
 const {
   mockGetDeparture,
   mockGetSegments,
+  mockGetProfitability,
 } = vi.hoisted(() => ({
   mockGetDeparture: vi.fn(),
   mockGetSegments: vi.fn(),
+  mockGetProfitability: vi.fn(),
 }));
 
 vi.mock("../lib/i18n/context", () => ({
@@ -24,6 +26,10 @@ vi.mock("../api/departures", () => ({
   deleteDeparturePassenger: vi.fn(),
   getDepartureGroups: vi.fn(async () => ({ byHotel: [], byAgent: [] })),
   getPassengerGroups: vi.fn(async () => []),
+  getDepartureProfitability: (...args: any[]) => mockGetProfitability(...args),
+  createDepartureCostItem: vi.fn(),
+  updateDepartureCostItem: vi.fn(),
+  deleteDepartureCostItem: vi.fn(),
   updateDeparture: vi.fn(),
   updateDeparturePassenger: vi.fn(),
 }));
@@ -53,7 +59,7 @@ vi.mock("../components/operations/AutoSeatingPanel", () => ({ default: () => nul
 vi.mock("../components/operations/DrustvaTab", () => ({ default: () => null }));
 vi.mock("../components/communications/CommunicationHistoryPanel", () => ({ default: () => null }));
 
-vi.mock("../components/ui/EmptyState", () => ({ default: () => null }));
+vi.mock("../components/ui/EmptyState", () => ({ default: ({ title, description }: any) => <div><span>{title}</span><span>{description}</span></div> }));
 vi.mock("../components/ui/modal", () => ({
   Modal: ({ children }: { children: React.ReactNode }) => children,
   FormModal: ({ children }: { children: React.ReactNode }) => children,
@@ -83,6 +89,20 @@ function renderDetail() {
 describe("M13.2 — DepartureDetail canonical flight configuration UI", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetProfitability.mockResolvedValue({
+      departureId: "d1",
+      currency: "BAM",
+      revenue: 1000,
+      collected: 300,
+      outstanding: 700,
+      supplierCosts: 250,
+      estimatedGrossProfit: 750,
+      marginPct: 75,
+      reservationCount: 1,
+      costItems: [],
+      costBreakdown: [],
+      warnings: [],
+    });
   });
 
   it('does NOT show "Flight not configured" when canonical flightSegments exist (flightConfigured = true)', async () => {
@@ -144,5 +164,30 @@ describe("M13.2 — DepartureDetail canonical flight configuration UI", () => {
     await waitFor(() => {
       expect(screen.getByText(en.departure.flightReady)).toBeInTheDocument();
     });
+  });
+
+  it("renders the Finance tab with canonical profitability KPIs and empty cost state", async () => {
+    mockGetDeparture.mockResolvedValue({
+      id: "d1",
+      transport_type: "bus",
+      destination: "Test",
+      packageName: "Antalya",
+      packages: { currency: "BAM" },
+      capacity: 50,
+      status: "active",
+      capabilities: { hasBusTransport: true },
+    });
+    mockGetSegments.mockResolvedValue([]);
+
+    renderDetail();
+    const financeTab = await screen.findByRole("button", { name: en.departure.finance.title });
+    fireEvent.click(financeTab);
+
+    expect(await screen.findByText(en.departure.finance.grossProfit)).toBeInTheDocument();
+    const text = document.body.textContent || "";
+    expect(text).toContain("1.000,00");
+    expect(text).toContain("300,00");
+    expect(text).toContain("700,00");
+    expect(screen.getByText(en.departure.finance.emptyCostsTitle)).toBeInTheDocument();
   });
 });
