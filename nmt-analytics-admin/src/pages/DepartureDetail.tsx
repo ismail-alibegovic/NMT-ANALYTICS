@@ -13,6 +13,7 @@ import DrustvaTab from "../components/operations/DrustvaTab";
 import CommunicationHistoryPanel from "../components/communications/CommunicationHistoryPanel";
 import ManualMessageComposer from "../components/communications/ManualMessageComposer";
 import { useToast } from "../context/ToastContext";
+import { useApp } from "../context/AppContext";
 import { Modal } from "../components/ui/modal";
 import Input from "../components/form/input/InputField";
 import Label from "../components/form/Label";
@@ -40,7 +41,14 @@ import {
   deleteDeparturePassenger,
   getDepartureGroups,
   getPassengerGroups,
+  getDepartureProfitability,
+  createDepartureCostItem,
+  updateDepartureCostItem,
+  deleteDepartureCostItem,
   PassengerGroup,
+  DepartureProfitability,
+  DepartureCostItem,
+  DepartureCostCategory,
   updateDeparture,
   Departure,
   DepartureCapabilities,
@@ -52,6 +60,7 @@ import {
 import { getFlights, getDepartureFlightSegments, linkFlightToDeparture, unlinkFlightFromDeparture, reorderFlightSegments, type Flight, type FlightSegment } from "../api/flights";
 import { getReservations } from "../api/reservations";
 import { sendDepartureManualMessage } from "../api/manualMessaging";
+import { canAccessFinances } from "../types/roles";
 
 const formatCurrency = (amount: number, currency = "BAM") =>
   new Intl.NumberFormat("bs-BA", { style: "currency", currency }).format(amount || 0);
@@ -83,12 +92,17 @@ const statusBadge = (status?: string | null) => {
   return <Badge color={colors[normalizedStatus] || "light"} size="sm">{normalizedStatus.toUpperCase()}</Badge>;
 };
 
-type Tab = "overview" | "passengers" | "razvrstavanje" | "drustva" | "hotels";
+type Tab = "overview" | "passengers" | "razvrstavanje" | "drustva" | "hotels" | "finance";
+
+const costCategories: DepartureCostCategory[] = ["hotel", "transport", "flight", "tour", "insurance", "supplier", "extra_service", "other"];
 
 export default function DepartureDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const t = useTranslation();
   const { error: showError } = useToast();
+  const { userContext } = useApp();
+  const canViewFinance = canAccessFinances(userContext?.role);
   const [departure, setDeparture] = useState<Departure | null>(null);
   const [manifest, setManifest] = useState<DepartureManifest | null>(null);
   const [groups, setGroups] = useState<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] } | null>(null);
@@ -100,11 +114,15 @@ export default function DepartureDetail() {
   const [searchParams] = useSearchParams();
   // Deep-link support: /departures/:id?tab=passengers opens straight to the seat map.
   useEffect(() => {
-    const t = searchParams.get("tab");
-    if (t === "passengers" || t === "razvrstavanje" || t === "drustva" || t === "hotels" || t === "overview") {
-      setActiveTab(t as Tab);
+    const tab = searchParams.get("tab");
+    if (tab === "finance" && !canViewFinance) {
+      setActiveTab("overview");
+      return;
     }
-  }, [searchParams]);
+    if (tab === "passengers" || tab === "razvrstavanje" || tab === "drustva" || tab === "hotels" || tab === "finance" || tab === "overview") {
+      setActiveTab(tab as Tab);
+    }
+  }, [searchParams, canViewFinance]);
 
   useEffect(() => {
     if (!id || activeTab !== "drustva") return;
@@ -139,6 +157,36 @@ export default function DepartureDetail() {
   const [reservations, setReservations] = useState<{ id: string; customer_name: string }[]>([]);
   const [resLoading, setResLoading] = useState(false);
   const [quickFilter, setQuickFilter] = useState<"all" | "unseated" | "noRoom" | "docAttention">("all");
+  const [profitability, setProfitability] = useState<DepartureProfitability | null>(null);
+  const [profitLoading, setProfitLoading] = useState(false);
+  const [profitError, setProfitError] = useState<string | null>(null);
+  const [showCostModal, setShowCostModal] = useState(false);
+  const [editingCostItem, setEditingCostItem] = useState<DepartureCostItem | null>(null);
+  const [costSaving, setCostSaving] = useState(false);
+  const [costForm, setCostForm] = useState({
+    category: "other" as DepartureCostCategory,
+    label: "",
+    quantity: "1",
+    unitCost: "",
+    notes: "",
+  });
+
+  const loadProfitability = useCallback(async () => {
+    if (!id) return;
+    setProfitLoading(true);
+    setProfitError(null);
+    try {
+      setProfitability(await getDepartureProfitability(id));
+    } catch (err: any) {
+      setProfitError(err?.response?.data?.message || err?.message || t.departure.finance.loadError);
+    } finally {
+      setProfitLoading(false);
+    }
+  }, [id, t.departure.finance.loadError]);
+
+  useEffect(() => {
+    if (activeTab === "finance" && canViewFinance) void loadProfitability();
+  }, [activeTab, canViewFinance, loadProfitability]);
 
   // Fetch reservations for this departure when add modal opens
   useEffect(() => {
@@ -414,7 +462,6 @@ export default function DepartureDetail() {
   }, [departure?.hotelAllocations, departure?.packageHotels]);
   const capabilities: DepartureCapabilities | undefined = (departure as any)?.capabilities;
   const transportConfigured = capabilities?.hasBusTransport || capabilities?.hasFlight || false;
-  const t = useTranslation();
   const readinessItems = departure ? [
     {
       label: t.departure.capacityAndManifest,
@@ -607,6 +654,65 @@ export default function DepartureDetail() {
     setShowAddModal(true);
   };
 
+  const openCostModal = (item?: DepartureCostItem) => {
+    setEditingCostItem(item || null);
+    setCostForm({
+      category: item?.category || "other",
+      label: item?.label || "",
+      quantity: item ? String(item.quantity) : "1",
+      unitCost: item ? String(item.unitCost) : "",
+      notes: item?.notes || "",
+    });
+    setShowCostModal(true);
+  };
+
+  const handleSaveCostItem = async () => {
+    if (!id || !profitability) return;
+    if (!costForm.label.trim()) {
+      setProfitError(t.departure.finance.labelRequired);
+      return;
+    }
+
+    const quantity = Number(costForm.quantity);
+    const unitCost = Number(costForm.unitCost);
+    if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitCost) || unitCost < 0) {
+      setProfitError(t.departure.finance.invalidAmount);
+      return;
+    }
+
+    setCostSaving(true);
+    setProfitError(null);
+    try {
+      const payload = {
+        category: costForm.category,
+        label: costForm.label.trim(),
+        quantity,
+        unitCost,
+        currency: profitability.currency,
+        notes: costForm.notes.trim() || undefined,
+      };
+      if (editingCostItem) await updateDepartureCostItem(id, editingCostItem.id, payload);
+      else await createDepartureCostItem(id, payload);
+      setShowCostModal(false);
+      await loadProfitability();
+    } catch (err: any) {
+      setProfitError(err?.response?.data?.message || err?.message || t.departure.finance.saveError);
+    } finally {
+      setCostSaving(false);
+    }
+  };
+
+  const handleDeleteCostItem = async (item: DepartureCostItem) => {
+    if (!id) return;
+    setProfitError(null);
+    try {
+      await deleteDepartureCostItem(id, item.id);
+      await loadProfitability();
+    } catch (err: any) {
+      setProfitError(err?.response?.data?.message || err?.message || t.departure.finance.deleteError);
+    }
+  };
+
   const handleAddPassenger = async () => {
     if (!id) return;
     const rid = paxForm.reservation_id;
@@ -729,6 +835,7 @@ export default function DepartureDetail() {
     { key: "passengers", label: t.departure.passengers, count: totalGuests },
     { key: "razvrstavanje", label: t.departure.razvrstavanje, count: (groupBy === "hotel" ? groups?.byHotel : groups?.byAgent)?.length },
     { key: "drustva", label: t.departure.drustva.label },
+    ...(canViewFinance ? [{ key: "finance" as Tab, label: t.departure.finance.title }] : []),
     ...(capabilities?.hasAccommodation ? [{ key: "hotels" as Tab, label: t.departure.accommodation, count: allocationHotelCount || relatedHotels.length || undefined }] : []),
   ];
 
@@ -1185,6 +1292,85 @@ export default function DepartureDetail() {
             }}
           />
         )}
+        {activeTab === "finance" && canViewFinance && (
+          <div className="space-y-5">
+            {profitLoading && (
+              <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
+                {t.departure.finance.loading}
+              </div>
+            )}
+            {profitError && (
+              <div className="rounded-2xl border border-error-200 bg-error-50 p-4 text-sm text-error-700 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-300">
+                <div className="flex items-center justify-between gap-3">
+                  <span>{profitError}</span>
+                  <Button size="sm" variant="outline" onClick={loadProfitability}>{t.departure.finance.retry}</Button>
+                </div>
+              </div>
+            )}
+            {profitability && (
+              <>
+                {profitability.warnings.length > 0 && (
+                  <div className="rounded-2xl border border-warning-200 bg-warning-50 p-4 text-sm text-warning-700 dark:border-warning-500/20 dark:bg-warning-500/10 dark:text-warning-300">
+                    {t.departure.finance.currencyWarning}
+                  </div>
+                )}
+                <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <FinanceCard label={t.departure.finance.revenue} value={formatCurrency(profitability.revenue, profitability.currency)} />
+                  <FinanceCard label={t.departure.finance.collected} value={formatCurrency(profitability.collected, profitability.currency)} />
+                  <FinanceCard label={t.departure.finance.outstanding} value={formatCurrency(profitability.outstanding, profitability.currency)} attention={profitability.outstanding > 0} />
+                  <FinanceCard label={t.departure.finance.supplierCosts} value={formatCurrency(profitability.supplierCosts, profitability.currency)} />
+                  <FinanceCard label={t.departure.finance.grossProfit} value={formatCurrency(profitability.estimatedGrossProfit, profitability.currency)} />
+                  <FinanceCard label={t.departure.finance.margin} value={profitability.marginPct === null ? "—" : `${profitability.marginPct.toFixed(2)}%`} />
+                </section>
+                <section className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                  <div className="flex flex-col gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="font-semibold text-gray-950 dark:text-white">{t.departure.finance.costItems}</h2>
+                      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t.departure.finance.costItemsDescription}</p>
+                    </div>
+                    <Button size="sm" onClick={() => openCostModal()} className="gap-2">
+                      <PlusIcon className="size-4" /> {t.departure.finance.addCost}
+                    </Button>
+                  </div>
+                  {profitability.costItems.length === 0 ? (
+                    <div className="p-6">
+                      <EmptyState title={t.departure.finance.emptyCostsTitle} description={t.departure.finance.emptyCostsDescription} />
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {profitability.costItems.map((item) => (
+                        <div key={item.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge color="light" size="sm">{(t.departure.finance.categories as Record<string, string>)[item.category] || item.category}</Badge>
+                              <span className="font-medium text-gray-950 dark:text-white">{item.label}</span>
+                            </div>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                              {item.quantity} × {formatCurrency(item.unitCost, item.currency)}
+                              {item.notes ? ` · ${item.notes}` : ""}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 sm:justify-end">
+                            <span className="font-semibold text-gray-950 dark:text-white">{formatCurrency(item.totalCost, item.currency)}</span>
+                            <Button variant="outline" size="sm" onClick={() => openCostModal(item)}>{t.departure.finance.edit}</Button>
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteCostItem(item)}
+                              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                              aria-label={t.departure.finance.deleteCost}
+                            >
+                              <TrashBinIcon className="size-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
+          </div>
+        )}
         {activeTab === "hotels" && capabilities?.hasAccommodation && (
           <DepartureAccommodationPanel departureId={departure.id} passengers={normPax} />
         )}
@@ -1368,6 +1554,58 @@ export default function DepartureDetail() {
             </Button>
             <Button onClick={handleEditPassenger} disabled={paxSaving}>
               {paxSaving ? t.common.saving : t.common.save}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showCostModal}
+        onClose={() => setShowCostModal(false)}
+        className="max-w-md"
+      >
+        <div className="p-6">
+          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">
+            {editingCostItem ? t.departure.finance.editCost : t.departure.finance.addCost}
+          </h2>
+          <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">{t.departure.finance.costModalDescription}</p>
+
+          <div className="space-y-4">
+            <div>
+              <Label>{t.departure.finance.category}</Label>
+              <Select
+                value={costForm.category}
+                onChange={(value) => setCostForm((prev) => ({ ...prev, category: value as DepartureCostCategory }))}
+                options={costCategories.map((category) => ({
+                  value: category,
+                  label: (t.departure.finance.categories as Record<string, string>)[category] || category,
+                }))}
+              />
+            </div>
+            <div>
+              <Label>{t.departure.finance.label}</Label>
+              <Input value={costForm.label} onChange={(e) => setCostForm((prev) => ({ ...prev, label: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>{t.departure.finance.quantity}</Label>
+                <Input type="number" min="0.01" step={0.01} value={costForm.quantity} onChange={(e) => setCostForm((prev) => ({ ...prev, quantity: e.target.value }))} />
+              </div>
+              <div>
+                <Label>{t.departure.finance.unitCost}</Label>
+                <Input type="number" min="0" step={0.01} value={costForm.unitCost} onChange={(e) => setCostForm((prev) => ({ ...prev, unitCost: e.target.value }))} />
+              </div>
+            </div>
+            <div>
+              <Label>{t.departure.finance.notes}</Label>
+              <Input value={costForm.notes} onChange={(e) => setCostForm((prev) => ({ ...prev, notes: e.target.value }))} />
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowCostModal(false)} disabled={costSaving}>{t.common.cancel}</Button>
+            <Button onClick={handleSaveCostItem} disabled={costSaving}>
+              {costSaving ? t.common.saving : t.common.save}
             </Button>
           </div>
         </div>
@@ -1620,6 +1858,15 @@ function WorkspaceMetric({ icon: Icon, label, value, detail, attention = false }
         <div className="mt-1 truncate text-lg font-semibold text-gray-950 dark:text-white">{value}</div>
         <div className={`mt-0.5 truncate text-xs ${attention ? "text-warning-600 dark:text-warning-400" : "text-gray-500 dark:text-gray-400"}`}>{detail}</div>
       </div>
+    </div>
+  );
+}
+
+function FinanceCard({ label, value, attention = false }: { label: string; value: string; attention?: boolean }) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">{label}</p>
+      <p className={`mt-3 text-2xl font-semibold ${attention ? "text-warning-600 dark:text-warning-400" : "text-gray-950 dark:text-white"}`}>{value}</p>
     </div>
   );
 }

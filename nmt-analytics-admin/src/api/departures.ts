@@ -1,6 +1,61 @@
 import { get, post, patch, put, del } from './client';
 import type { TravelerRequirements } from './packages';
 
+export type DepartureCostCategory = 'hotel' | 'transport' | 'flight' | 'tour' | 'insurance' | 'supplier' | 'extra_service' | 'other';
+
+export interface DepartureCostItem {
+  id: string;
+  departureId: string;
+  category: DepartureCostCategory;
+  label: string;
+  supplierId: string | null;
+  supplierName: string | null;
+  quantity: number;
+  unitCost: number;
+  totalCost: number;
+  currency: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DepartureProfitability {
+  departureId: string;
+  currency: string;
+  revenue: number;
+  collected: number;
+  outstanding: number;
+  supplierCosts: number;
+  estimatedGrossProfit: number;
+  marginPct: number | null;
+  reservationCount: number;
+  costItems: DepartureCostItem[];
+  costBreakdown: Array<{ category: string; amount: number }>;
+  warnings: Array<{ code: string; message: string; details?: unknown }>;
+}
+
+export type CreateDepartureCostItem = Pick<DepartureCostItem, 'category' | 'label' | 'quantity' | 'unitCost' | 'currency'> &
+  Partial<Pick<DepartureCostItem, 'supplierId' | 'notes'>>;
+
+export async function getDepartureProfitability(id: string): Promise<DepartureProfitability> {
+  const { data } = await get<DepartureProfitability>(`/departures/${id}/profitability`);
+  return data;
+}
+
+export async function createDepartureCostItem(departureId: string, payload: CreateDepartureCostItem): Promise<DepartureCostItem> {
+  const { data } = await post<{ costItem: DepartureCostItem }>(`/departures/${departureId}/cost-items`, payload);
+  return data.costItem;
+}
+
+export async function updateDepartureCostItem(departureId: string, itemId: string, payload: Partial<CreateDepartureCostItem>): Promise<DepartureCostItem> {
+  const { data } = await patch<{ costItem: DepartureCostItem }>(`/departures/${departureId}/cost-items/${itemId}`, payload);
+  return data.costItem;
+}
+
+export async function deleteDepartureCostItem(departureId: string, itemId: string): Promise<void> {
+  await del(`/departures/${departureId}/cost-items/${itemId}`);
+}
+
 export interface DepartureCapabilities {
   transportType: "bus" | "flight" | "none";
   hasBusTransport: boolean;

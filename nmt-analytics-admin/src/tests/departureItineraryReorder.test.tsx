@@ -27,6 +27,23 @@ vi.mock("../api/departures", () => ({
   deleteDeparturePassenger: vi.fn(),
   getDepartureGroups: vi.fn(async () => ({ byHotel: [], byAgent: [] })),
   getPassengerGroups: vi.fn(async () => []),
+  getDepartureProfitability: vi.fn(async () => ({
+    departureId: "d1",
+    currency: "BAM",
+    revenue: 0,
+    collected: 0,
+    outstanding: 0,
+    supplierCosts: 0,
+    estimatedGrossProfit: 0,
+    marginPct: null,
+    reservationCount: 0,
+    costItems: [],
+    costBreakdown: [],
+    warnings: [],
+  })),
+  createDepartureCostItem: vi.fn(),
+  updateDepartureCostItem: vi.fn(),
+  deleteDepartureCostItem: vi.fn(),
   updateDeparture: vi.fn(),
   updateDeparturePassenger: vi.fn(),
 }));
@@ -49,6 +66,10 @@ vi.mock("../api/manualMessaging", () => ({
 
 vi.mock("../context/ToastContext", () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
+}));
+
+vi.mock("../context/AppContext", () => ({
+  useApp: () => ({ userContext: { role: "manager" }, user: { id: "user-1" }, loading: false }),
 }));
 
 vi.mock("../icons", async () => {
