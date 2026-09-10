@@ -15,6 +15,7 @@ import {
   materializeDepartureAccommodationFromPackage,
   updateDepartureAccommodationAllotment,
 } from '../lib/departureAccommodation';
+import { materializeDepartureCostsFromPackage } from '../lib/packageCostSnapshots';
 import { getAccommodationOptions } from '../lib/reservationAccommodation';
 import { getDepartureBookedMap } from '../lib/departureCapacity';
 import {
@@ -331,6 +332,26 @@ router.post('/departures', authenticateToken, requireOrgContext, auditDepartureC
         .eq('org_id', orgId);
       apiError(res, 500, "ACCOMMODATION_MATERIALIZATION_FAILED", "Departure was saved, but accommodation could not be materialized. Existing departure was preserved.");
       return;
+    }
+
+    if (!upsert || !existingUpsertDeparture) {
+      try {
+        await materializeDepartureCostsFromPackage({
+          orgId,
+          departureId: departure.id,
+          packageId,
+          currency: (departure as any).packages?.currency || 'BAM',
+        });
+      } catch (costError) {
+        console.error('Departure cost materialization failed:', costError);
+        await supabaseAdmin
+          .from('departures')
+          .delete()
+          .eq('id', departure.id)
+          .eq('org_id', orgId);
+        apiError(res, 500, "COST_MATERIALIZATION_FAILED", "Departure was not created because package costs could not be materialized");
+        return;
+      }
     }
 
     res.status(upsert ? 200 : 201).json(transformDeparture(departure));
