@@ -147,6 +147,14 @@ export default function PackageDetail() {
   const hotelRows = useMemo(() => pkg?.packageHotels || [], [pkg]);
   const departureRows = useMemo(() => pkg?.departures || [], [pkg]);
   const supplierServices = useMemo(() => suppliers.flatMap((supplier) => supplier.services.filter((service) => service.active).map((service) => ({ ...service, supplierName: supplier.name }))), [suppliers]);
+  const historicalSupplierServiceOption = useMemo(() => {
+    if (!editingCost?.supplierServiceId) return null;
+    if (supplierServices.some((service) => service.id === editingCost.supplierServiceId)) return null;
+    return {
+      id: editingCost.supplierServiceId,
+      label: `${editingCost.supplierName || t.packages.costing.supplierService} — ${editingCost.supplierServiceName || editingCost.supplierServiceId}`,
+    };
+  }, [editingCost, supplierServices, t.packages.costing.supplierService]);
   const selectedSupplierService = useMemo<SupplierService & { supplierName: string } | undefined>(
     () => supplierServices.find((service) => service.id === costForm.supplierServiceId),
     [supplierServices, costForm.supplierServiceId],
@@ -564,6 +572,11 @@ export default function PackageDetail() {
               className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
             >
               <option value="">{t.packages.costing.manualCost}</option>
+              {historicalSupplierServiceOption && (
+                <option value={historicalSupplierServiceOption.id}>
+                  {historicalSupplierServiceOption.label}
+                </option>
+              )}
               {supplierServices.map((service) => (
                 <option key={service.id} value={service.id}>
                   {service.supplierName} — {service.name} ({formatCurrency(service.netPrice, service.currency)})

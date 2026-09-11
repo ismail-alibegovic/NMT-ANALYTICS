@@ -262,4 +262,65 @@ describe('package costing route', () => {
       unitCost: 100,
     });
   });
+
+  it('allows editing an existing historical inactive supplier service without re-snapshotting it', async () => {
+    rows.package_cost_items[0].supplier_service_id = INACTIVE_SERVICE;
+    rows.package_cost_items[0].supplier_services = { id: INACTIVE_SERVICE, name: 'Inactive Coach', suppliers: { id: SUPPLIER, name: 'Bus Co' } };
+    rows.supplier_services.find((service) => service.id === INACTIVE_SERVICE)!.net_price = 120;
+
+    const updated = await request(app)
+      .patch(`/api/packages/${PACKAGE}/cost-items/${COST_ITEM}`)
+      .send({
+        supplierId: SUPPLIER,
+        supplierServiceId: INACTIVE_SERVICE,
+        quantity: 2,
+        unitCost: 100,
+        notes: 'Historical catalogue service retained',
+      });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.costItem).toMatchObject({
+      id: COST_ITEM,
+      supplierId: SUPPLIER,
+      supplierServiceId: INACTIVE_SERVICE,
+      quantity: 2,
+      unitCost: 100,
+      totalCost: 200,
+      notes: 'Historical catalogue service retained',
+    });
+    expect(rows.package_cost_items[0]).toMatchObject({
+      supplier_id: SUPPLIER,
+      supplier_service_id: INACTIVE_SERVICE,
+      quantity: 2,
+      unit_cost: 100,
+      notes: 'Historical catalogue service retained',
+    });
+  });
+
+  it('still rejects switching another cost item onto an inactive supplier service', async () => {
+    const switched = await request(app)
+      .patch(`/api/packages/${PACKAGE}/cost-items/${COST_ITEM}`)
+      .send({ supplierServiceId: INACTIVE_SERVICE });
+
+    expect(switched.status).toBe(400);
+    expect(switched.body.code).toBe('SUPPLIER_SERVICE_INACTIVE');
+    expect(rows.package_cost_items[0]).toMatchObject({
+      supplier_id: SUPPLIER,
+      supplier_service_id: SERVICE,
+      unit_cost: 100,
+    });
+
+    rows.package_cost_items[0].supplier_service_id = null;
+    const manualSwitched = await request(app)
+      .patch(`/api/packages/${PACKAGE}/cost-items/${COST_ITEM}`)
+      .send({ supplierServiceId: INACTIVE_SERVICE });
+
+    expect(manualSwitched.status).toBe(400);
+    expect(manualSwitched.body.code).toBe('SUPPLIER_SERVICE_INACTIVE');
+    expect(rows.package_cost_items[0]).toMatchObject({
+      supplier_id: SUPPLIER,
+      supplier_service_id: null,
+      unit_cost: 100,
+    });
+  });
 });

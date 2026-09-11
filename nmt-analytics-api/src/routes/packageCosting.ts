@@ -121,17 +121,29 @@ async function buildCostItemWrite(
   if (body.supplierServiceId) {
     const { supplierService, error } = await loadSupplierService(orgId, body.supplierServiceId);
     if (error || !supplierService) return { status: 404, body: { code: 'SUPPLIER_SERVICE_NOT_FOUND', message: 'Supplier service not found' } };
-    if (supplierService.active !== true) return { status: 400, body: { code: 'SUPPLIER_SERVICE_INACTIVE', message: 'Supplier service is inactive' } };
+    const keepsExistingSupplierService = body.supplierServiceId === existing?.supplier_service_id;
+    if (!keepsExistingSupplierService && supplierService.active !== true) return { status: 400, body: { code: 'SUPPLIER_SERVICE_INACTIVE', message: 'Supplier service is inactive' } };
     if (supplierService.currency !== packageCurrency) return { status: 400, body: { code: 'CURRENCY_MISMATCH', message: 'Supplier service currency must match package currency' } };
+    if (body.supplierId !== undefined && body.supplierId !== null && body.supplierId !== supplierService.supplier_id) {
+      return {
+        status: 400,
+        body: {
+          code: 'SUPPLIER_SERVICE_SUPPLIER_MISMATCH',
+          message: 'Supplier service belongs to a different supplier',
+        },
+      };
+    }
 
     supplierId = supplierService.supplier_id;
     write.supplier_service_id = supplierService.id;
     write.supplier_id = supplierService.supplier_id;
-    if (!body.category) write.category = serviceCategoryToCostCategory(supplierService.category);
-    if (!body.label) write.label = supplierService.name;
-    if (!body.unit) write.unit = supplierService.unit;
-    if (body.unitCost === undefined) write.unit_cost = supplierService.net_price;
-    if (!body.currency) write.currency = supplierService.currency;
+    if (!keepsExistingSupplierService) {
+      if (!body.category) write.category = serviceCategoryToCostCategory(supplierService.category);
+      if (!body.label) write.label = supplierService.name;
+      if (!body.unit) write.unit = supplierService.unit;
+      if (body.unitCost === undefined) write.unit_cost = supplierService.net_price;
+      if (!body.currency) write.currency = supplierService.currency;
+    }
   } else if (body.supplierServiceId === null) {
     write.supplier_service_id = null;
   }
