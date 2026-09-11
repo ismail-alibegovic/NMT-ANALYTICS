@@ -3,6 +3,16 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM pg_constraint
+    WHERE conname = 'supplier_services_id_supplier_org_key'
+      AND conrelid = 'public.supplier_services'::regclass
+  ) THEN
+    ALTER TABLE public.supplier_services
+      ADD CONSTRAINT supplier_services_id_supplier_org_key UNIQUE (id, supplier_id, org_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
     WHERE conname = 'packages_id_org_key'
       AND conrelid = 'public.packages'::regclass
   ) THEN
@@ -54,8 +64,8 @@ CREATE TABLE IF NOT EXISTS public.package_cost_items (
     REFERENCES public.suppliers(id, org_id)
     ON DELETE SET NULL (supplier_id),
   CONSTRAINT package_cost_items_supplier_service_org_fk
-    FOREIGN KEY (supplier_service_id, org_id)
-    REFERENCES public.supplier_services(id, org_id)
+    FOREIGN KEY (supplier_service_id, supplier_id, org_id)
+    REFERENCES public.supplier_services(id, supplier_id, org_id)
     ON DELETE SET NULL (supplier_service_id),
   CONSTRAINT package_cost_items_supplier_service_requires_supplier
     CHECK (supplier_service_id IS NULL OR supplier_id IS NOT NULL)
@@ -93,7 +103,7 @@ CREATE INDEX IF NOT EXISTS idx_package_cost_items_org_supplier_service
   WHERE supplier_service_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_package_cost_items_supplier_service_org_fk
-  ON public.package_cost_items(supplier_service_id, org_id)
+  ON public.package_cost_items(supplier_service_id, supplier_id, org_id)
   WHERE supplier_service_id IS NOT NULL;
 
 DROP TRIGGER IF EXISTS trg_package_cost_items_updated_at ON public.package_cost_items;

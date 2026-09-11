@@ -86,6 +86,18 @@ async function loadSupplierService(orgId: string, supplierServiceId: string) {
   return { supplierService: data as any, error };
 }
 
+async function loadCostItem(orgId: string, packageId: string, itemId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('package_cost_items')
+    .select('id, package_id, supplier_id, supplier_service_id, currency')
+    .eq('id', itemId)
+    .eq('package_id', packageId)
+    .eq('org_id', orgId)
+    .single();
+
+  return { costItem: data as any, error };
+}
+
 async function validateSupplier(orgId: string, supplierId: string) {
   const { data, error } = await supabaseAdmin
     .from('suppliers')
@@ -96,13 +108,20 @@ async function validateSupplier(orgId: string, supplierId: string) {
   return { supplier: data, error };
 }
 
-async function buildCostItemWrite(orgId: string, packageCurrency: string, body: z.infer<typeof costItemSchema>) {
-  let supplierId = body.supplierId ?? null;
+async function buildCostItemWrite(
+  orgId: string,
+  packageCurrency: string,
+  body: z.infer<typeof costItemSchema>,
+  existing?: { supplier_id?: string | null; supplier_service_id?: string | null; currency?: string | null },
+) {
+  let supplierId = body.supplierId ?? existing?.supplier_id ?? null;
+  const effectiveSupplierServiceId = body.supplierServiceId === undefined ? existing?.supplier_service_id ?? null : body.supplierServiceId;
   const write: Record<string, unknown> = {};
 
   if (body.supplierServiceId) {
     const { supplierService, error } = await loadSupplierService(orgId, body.supplierServiceId);
     if (error || !supplierService) return { status: 404, body: { code: 'SUPPLIER_SERVICE_NOT_FOUND', message: 'Supplier service not found' } };
+    if (supplierService.active !== true) return { status: 400, body: { code: 'SUPPLIER_SERVICE_INACTIVE', message: 'Supplier service is inactive' } };
     if (supplierService.currency !== packageCurrency) return { status: 400, body: { code: 'CURRENCY_MISMATCH', message: 'Supplier service currency must match package currency' } };
 
     supplierId = supplierService.supplier_id;
@@ -115,6 +134,16 @@ async function buildCostItemWrite(orgId: string, packageCurrency: string, body: 
     if (!body.currency) write.currency = supplierService.currency;
   } else if (body.supplierServiceId === null) {
     write.supplier_service_id = null;
+  }
+
+  if (effectiveSupplierServiceId && body.supplierServiceId === undefined && body.supplierId !== undefined && body.supplierId !== existing?.supplier_id) {
+    return {
+      status: 400,
+      body: {
+        code: 'SUPPLIER_SERVICE_SUPPLIER_MISMATCH',
+        message: 'Clear supplier service before changing supplier manually',
+      },
+    };
   }
 
   if (supplierId) {
@@ -133,7 +162,7 @@ async function buildCostItemWrite(orgId: string, packageCurrency: string, body: 
   if (body.currency) write.currency = body.currency;
   if (body.notes !== undefined) write.notes = body.notes || null;
 
-  const finalCurrency = String(write.currency || body.currency || packageCurrency);
+  const finalCurrency = String(write.currency || body.currency || existing?.currency || packageCurrency);
   if (finalCurrency !== packageCurrency) return { status: 400, body: { code: 'CURRENCY_MISMATCH', message: 'Cost item currency must match package currency' } };
 
   return { status: 200, write };
@@ -219,7 +248,10 @@ router.patch('/packages/:packageId/cost-items/:itemId', authenticateToken, requi
   const { packageData, error: packageError } = await loadPackage(orgId, parsedPackageId.data);
   if (packageError || !packageData) return apiError(res, 404, 'NOT_FOUND', 'Package not found');
 
-  const built = await buildCostItemWrite(orgId, packageData.currency || 'BAM', parsedBody.data);
+  const { costItem: existingCostItem, error: costItemError } = await loadCostItem(orgId, parsedPackageId.data, parsedItemId.data);
+  if (costItemError || !existingCostItem) return apiError(res, 404, 'NOT_FOUND', 'Package cost item not found');
+
+  const built = await buildCostItemWrite(orgId, packageData.currency || 'BAM', parsedBody.data, existingCostItem);
   if (built.status !== 200) return res.status(built.status).json(built.body);
 
   const { data, error } = await supabaseAdmin

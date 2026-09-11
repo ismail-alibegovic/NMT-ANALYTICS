@@ -313,6 +313,7 @@ describe('PackageDetail accommodation display', () => {
         defaultCurrency: 'BAM',
         services: [
           { id: 'catalog-1', supplierId: 'supplier-1', name: 'Coach net', category: 'transport', unit: 'per_group', netPrice: 100, currency: 'BAM', taxRate: 0, defaultMarkup: 0, validFrom: null, validTo: null, minQuantity: null, maxQuantity: null, active: true, notes: null, createdAt: '', updatedAt: '' },
+          { id: 'catalog-inactive', supplierId: 'supplier-1', name: 'Inactive coach net', category: 'transport', unit: 'per_group', netPrice: 75, currency: 'BAM', taxRate: 0, defaultMarkup: 0, validFrom: null, validTo: null, minQuantity: null, maxQuantity: null, active: false, notes: null, createdAt: '', updatedAt: '' },
         ],
       },
     ]);
@@ -325,6 +326,8 @@ describe('PackageDetail accommodation display', () => {
     render(<PackageRoute />);
     await waitFor(() => expect(screen.getAllByTestId('table').some((node) => node.textContent === '1')).toBe(true));
     await user.click(screen.getAllByRole('button', { name: 'Add cost' })[0]);
+    expect(screen.getByRole('option', { name: /Coach net/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Inactive coach net/ })).not.toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText('Supplier service'), 'catalog-1');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 

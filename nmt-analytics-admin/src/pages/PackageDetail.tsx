@@ -146,7 +146,7 @@ export default function PackageDetail() {
   const serviceRows = useMemo(() => pkg?.package_services || [], [pkg]);
   const hotelRows = useMemo(() => pkg?.packageHotels || [], [pkg]);
   const departureRows = useMemo(() => pkg?.departures || [], [pkg]);
-  const supplierServices = useMemo(() => suppliers.flatMap((supplier) => supplier.services.map((service) => ({ ...service, supplierName: supplier.name }))), [suppliers]);
+  const supplierServices = useMemo(() => suppliers.flatMap((supplier) => supplier.services.filter((service) => service.active).map((service) => ({ ...service, supplierName: supplier.name }))), [suppliers]);
   const selectedSupplierService = useMemo<SupplierService & { supplierName: string } | undefined>(
     () => supplierServices.find((service) => service.id === costForm.supplierServiceId),
     [supplierServices, costForm.supplierServiceId],

@@ -6,10 +6,13 @@ const ORG = '00000000-0000-4000-8000-000000000001';
 const PACKAGE = '10000000-0000-4000-8000-000000000001';
 const OTHER_PACKAGE = '10000000-0000-4000-8000-0000000000ff';
 const SUPPLIER = '20000000-0000-4000-8000-000000000001';
+const SAME_ORG_SUPPLIER = '20000000-0000-4000-8000-000000000002';
 const OTHER_SUPPLIER = '20000000-0000-4000-8000-0000000000ff';
 const SERVICE = '30000000-0000-4000-8000-000000000001';
+const SERVICE_B = '30000000-0000-4000-8000-000000000002';
 const COST_ITEM = '40000000-0000-4000-8000-000000000001';
 const EUR_SERVICE = '30000000-0000-4000-8000-0000000000ee';
+const INACTIVE_SERVICE = '30000000-0000-4000-8000-0000000000aa';
 const OTHER_SERVICE = '30000000-0000-4000-8000-0000000000ff';
 
 let rows: Record<string, any[]> = {};
@@ -120,11 +123,14 @@ beforeEach(() => {
     ],
     suppliers: [
       { id: SUPPLIER, org_id: ORG, name: 'Bus Co' },
+      { id: SAME_ORG_SUPPLIER, org_id: ORG, name: 'Van Co' },
       { id: OTHER_SUPPLIER, org_id: 'other-org', name: 'Other' },
     ],
     supplier_services: [
       { id: SERVICE, org_id: ORG, supplier_id: SUPPLIER, name: 'Coach', category: 'transport', unit: 'per_group', net_price: 100, currency: 'BAM', active: true, suppliers: { id: SUPPLIER, name: 'Bus Co' } },
+      { id: SERVICE_B, org_id: ORG, supplier_id: SAME_ORG_SUPPLIER, name: 'Van', category: 'transport', unit: 'per_vehicle', net_price: 80, currency: 'BAM', active: true, suppliers: { id: SAME_ORG_SUPPLIER, name: 'Van Co' } },
       { id: EUR_SERVICE, org_id: ORG, supplier_id: SUPPLIER, name: 'EUR Coach', category: 'transport', unit: 'per_group', net_price: 120, currency: 'EUR', active: true, suppliers: { id: SUPPLIER, name: 'Bus Co' } },
+      { id: INACTIVE_SERVICE, org_id: ORG, supplier_id: SUPPLIER, name: 'Inactive Coach', category: 'transport', unit: 'per_group', net_price: 90, currency: 'BAM', active: false, suppliers: { id: SUPPLIER, name: 'Bus Co' } },
       { id: OTHER_SERVICE, org_id: 'other-org', supplier_id: OTHER_SUPPLIER, name: 'Other', category: 'transport', unit: 'fixed', net_price: 1, currency: 'BAM', active: true },
     ],
   };
@@ -196,5 +202,64 @@ describe('package costing route', () => {
 
     rows.supplier_services[0].net_price = 120;
     expect(rows.package_cost_items.find((item) => item.id === created.body.costItem.id).unit_cost).toBe(100);
+  });
+
+  it('rejects patching a different manual supplier while a supplier service remains attached', async () => {
+    const res = await request(app)
+      .patch(`/api/packages/${PACKAGE}/cost-items/${COST_ITEM}`)
+      .send({ supplierId: SAME_ORG_SUPPLIER });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('SUPPLIER_SERVICE_SUPPLIER_MISMATCH');
+    expect(rows.package_cost_items[0]).toMatchObject({
+      supplier_id: SUPPLIER,
+      supplier_service_id: SERVICE,
+    });
+  });
+
+  it('derives supplier from service switches and intentionally allows clearing the service', async () => {
+    const switched = await request(app)
+      .patch(`/api/packages/${PACKAGE}/cost-items/${COST_ITEM}`)
+      .send({ supplierServiceId: SERVICE_B });
+
+    expect(switched.status).toBe(200);
+    expect(rows.package_cost_items[0]).toMatchObject({
+      supplier_id: SAME_ORG_SUPPLIER,
+      supplier_service_id: SERVICE_B,
+      label: 'Van',
+      unit_cost: 80,
+    });
+
+    const cleared = await request(app)
+      .patch(`/api/packages/${PACKAGE}/cost-items/${COST_ITEM}`)
+      .send({ supplierServiceId: null, supplierId: SUPPLIER });
+
+    expect(cleared.status).toBe(200);
+    expect(rows.package_cost_items[0]).toMatchObject({
+      supplier_id: SUPPLIER,
+      supplier_service_id: null,
+    });
+  });
+
+  it('rejects new selection of inactive supplier services while preserving historical snapshots', async () => {
+    const rejected = await request(app)
+      .post(`/api/packages/${PACKAGE}/cost-items`)
+      .send({ category: 'transport', label: 'Inactive', supplierServiceId: INACTIVE_SERVICE, unit: 'per_group', quantity: 1, unitCost: 90, currency: 'BAM' });
+
+    expect(rejected.status).toBe(400);
+    expect(rejected.body.code).toBe('SUPPLIER_SERVICE_INACTIVE');
+
+    rows.package_cost_items[0].supplier_service_id = INACTIVE_SERVICE;
+    rows.package_cost_items[0].supplier_services = { id: INACTIVE_SERVICE, name: 'Inactive Coach', suppliers: { id: SUPPLIER, name: 'Bus Co' } };
+    rows.supplier_services.find((service) => service.id === INACTIVE_SERVICE)!.net_price = 120;
+
+    const readable = await request(app).get(`/api/packages/${PACKAGE}/costing`);
+
+    expect(readable.status).toBe(200);
+    expect(readable.body.costItems[0]).toMatchObject({
+      id: COST_ITEM,
+      supplierServiceId: INACTIVE_SERVICE,
+      unitCost: 100,
+    });
   });
 });
