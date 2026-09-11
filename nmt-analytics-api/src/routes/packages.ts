@@ -107,6 +107,45 @@ export function buildPackageUpdateData(validated: Record<string, any>) {
   return updateData;
 }
 
+export async function ensurePackageCurrencyChangeAllowed(orgId: string, packageId: string, nextCurrency: string | null | undefined) {
+  if (nextCurrency === undefined || nextCurrency === null) return { allowed: true as const };
+
+  const { data: existingPackage, error: packageError } = await supabaseAdmin
+    .from('packages')
+    .select('id, currency')
+    .eq('id', packageId)
+    .eq('org_id', orgId)
+    .single();
+
+  if (packageError || !existingPackage) {
+    return { allowed: false as const, status: 404, code: 'NOT_FOUND', message: 'Package not found' };
+  }
+
+  const currentCurrency = existingPackage.currency || 'BAM';
+  if (currentCurrency === nextCurrency) return { allowed: true as const };
+
+  const { count, error: costError } = await supabaseAdmin
+    .from('package_cost_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('package_id', packageId)
+    .eq('org_id', orgId);
+
+  if (costError) {
+    return { allowed: false as const, status: 500, code: 'DATABASE_ERROR', message: 'Failed to validate package currency change' };
+  }
+
+  if ((count || 0) > 0) {
+    return {
+      allowed: false as const,
+      status: 400,
+      code: 'PACKAGE_COST_CURRENCY_LOCKED',
+      message: 'Package currency cannot be changed while package cost items exist',
+    };
+  }
+
+  return { allowed: true as const };
+}
+
 const getPackagesQuerySchema = z.object({
   search: z.string().optional(),
   ...paginationQuerySchema,
@@ -314,6 +353,9 @@ router.put('/packages/:id', authenticateToken, requireOrgContext, auditPackageUp
 
     const validated = validationResult.data;
 
+    const currencyGuard = await ensurePackageCurrencyChangeAllowed(orgId, id, validated.currency);
+    if (!currencyGuard.allowed) return apiError(res, currencyGuard.status, currencyGuard.code, currencyGuard.message);
+
     const { data: packageData, error } = await supabaseAdmin
       .from('packages')
       .update({
@@ -362,6 +404,9 @@ router.patch('/packages/:id', authenticateToken, requireOrgContext, auditPackage
     }
 
     const validated = validationResult.data;
+    const currencyGuard = await ensurePackageCurrencyChangeAllowed(orgId, id, validated.currency);
+    if (!currencyGuard.allowed) return apiError(res, currencyGuard.status, currencyGuard.code, currencyGuard.message);
+
     const updateData = buildPackageUpdateData(validated);
 
     const { data: packageData, error } = await supabaseAdmin

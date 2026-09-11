@@ -67,6 +67,40 @@ export interface PackageDetail extends Package {
   departures?: PackageDetailDeparture[];
 }
 
+export type PackageCostCategory = 'hotel' | 'transport' | 'flight' | 'tour' | 'insurance' | 'supplier' | 'extra_service' | 'other';
+export type PackageCostUnit = 'per_person' | 'per_room' | 'per_night' | 'per_vehicle' | 'per_group' | 'per_booking' | 'per_day' | 'per_hour' | 'fixed';
+
+export interface PackageCostItem {
+  id: string;
+  packageId: string;
+  category: PackageCostCategory;
+  label: string;
+  supplierId: string | null;
+  supplierName: string | null;
+  supplierServiceId: string | null;
+  supplierServiceName: string | null;
+  unit: PackageCostUnit;
+  quantity: number;
+  unitCost: number;
+  totalCost: number;
+  currency: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PackageCosting {
+  packageId: string;
+  currency: string;
+  totalCost: number;
+  costItems: PackageCostItem[];
+  categoryBreakdown: Array<{ category: string; amount: number }>;
+  warnings: Array<{ code: string; message: string; details?: unknown }>;
+}
+
+export type CreatePackageCostItem = Pick<PackageCostItem, 'category' | 'label' | 'unit' | 'quantity' | 'unitCost' | 'currency'> &
+  Partial<Pick<PackageCostItem, 'supplierId' | 'supplierServiceId' | 'notes'>>;
+
 export interface PackageVariant {
   id?: string;
   name: string;
@@ -231,6 +265,25 @@ export async function getPackages(filters: PackageFilters = {}, config?: any): P
 export async function getPackageById(id: string): Promise<PackageDetail> {
   const { data } = await get<{ data: PackageDetail }>(`/packages/${id}`);
   return normalizePackageDetail(data.data as RawPackage);
+}
+
+export async function getPackageCosting(id: string): Promise<PackageCosting> {
+  const { data } = await get<PackageCosting>(`/packages/${id}/costing`);
+  return data;
+}
+
+export async function createPackageCostItem(packageId: string, payload: CreatePackageCostItem): Promise<PackageCostItem> {
+  const { data } = await post<{ costItem: PackageCostItem }>(`/packages/${packageId}/cost-items`, payload);
+  return data.costItem;
+}
+
+export async function updatePackageCostItem(packageId: string, itemId: string, payload: Partial<CreatePackageCostItem>): Promise<PackageCostItem> {
+  const { data } = await patch<{ costItem: PackageCostItem }>(`/packages/${packageId}/cost-items/${itemId}`, payload);
+  return data.costItem;
+}
+
+export async function deletePackageCostItem(packageId: string, itemId: string): Promise<void> {
+  await del(`/packages/${packageId}/cost-items/${itemId}`);
 }
 export async function createPackage(data: PackageUpsertInput): Promise<Package> {
   const { data: result } = await post<Package>('/packages', serializePackageUpsert(data));

@@ -1,5 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+let rows: Record<string, any[]> = {};
+
 vi.mock('../middleware/authenticateToken', () => ({
   authenticateToken: (_req: any, _res: any, next: any) => next(),
 }));
@@ -19,18 +21,51 @@ vi.mock('../middleware/requireRole', () => ({
 }));
 
 vi.mock('../lib/supabase', () => ({
-  supabaseAdmin: {},
+  supabaseAdmin: {
+    from: vi.fn((table: string) => query(table)),
+  },
   handleSupabaseError: vi.fn(),
 }));
 
 let buildPackageUpdateData: typeof import('../routes/packages').buildPackageUpdateData;
+let ensurePackageCurrencyChangeAllowed: typeof import('../routes/packages').ensurePackageCurrencyChangeAllowed;
 let normalizePackageVariantInput: typeof import('../routes/packages').normalizePackageVariantInput;
 
 beforeAll(async () => {
   const mod = await import('../routes/packages');
   buildPackageUpdateData = mod.buildPackageUpdateData;
+  ensurePackageCurrencyChangeAllowed = mod.ensurePackageCurrencyChangeAllowed;
   normalizePackageVariantInput = mod.normalizePackageVariantInput;
 });
+
+function query(table: string) {
+  const state = {
+    filters: [] as Array<(row: any) => boolean>,
+    countMode: false,
+  };
+
+  const api: any = {
+    select: vi.fn((_clause?: string, options?: { count?: string; head?: boolean }) => {
+      state.countMode = !!options?.count;
+      return api;
+    }),
+    eq: vi.fn((column: string, value: unknown) => {
+      state.filters.push((row) => row[column] === value);
+      return api;
+    }),
+    single: vi.fn(async () => {
+      const result = (rows[table] || []).filter((row) => state.filters.every((filter) => filter(row)));
+      const row = result[0] || null;
+      return { data: row, error: row ? null : { code: 'PGRST116', message: 'Not found' } };
+    }),
+    then(resolve: any) {
+      const result = (rows[table] || []).filter((row) => state.filters.every((filter) => filter(row)));
+      return Promise.resolve({ data: state.countMode ? null : result, error: null, count: result.length }).then(resolve);
+    },
+  };
+
+  return api;
+}
 
 describe('package update contract helpers', () => {
   it('maps canonical package fields to database column names', () => {
@@ -146,5 +181,41 @@ describe('package update contract helpers', () => {
     expect(buildPackageUpdateData({ transportType: 'none' })).toEqual({
       transport_type: 'none',
     });
+  });
+
+  it('allows package currency changes when no package cost items exist', async () => {
+    rows = {
+      packages: [{ id: 'pkg-1', org_id: 'org-1', currency: 'BAM' }],
+      package_cost_items: [],
+    };
+
+    await expect(ensurePackageCurrencyChangeAllowed('org-1', 'pkg-1', 'EUR')).resolves.toEqual({ allowed: true });
+  });
+
+  it('rejects package currency changes when package costs already exist and preserves cost currency', async () => {
+    rows = {
+      packages: [{ id: 'pkg-1', org_id: 'org-1', currency: 'BAM' }],
+      package_cost_items: [{ id: 'cost-1', org_id: 'org-1', package_id: 'pkg-1', currency: 'BAM', unit_cost: 100 }],
+    };
+
+    const result = await ensurePackageCurrencyChangeAllowed('org-1', 'pkg-1', 'EUR');
+
+    expect(result).toMatchObject({
+      allowed: false,
+      status: 400,
+      code: 'PACKAGE_COST_CURRENCY_LOCKED',
+    });
+    expect(rows.packages[0].currency).toBe('BAM');
+    expect(rows.package_cost_items[0]).toMatchObject({ currency: 'BAM', unit_cost: 100 });
+  });
+
+  it('allows same-currency and unrelated package updates when package costs exist', async () => {
+    rows = {
+      packages: [{ id: 'pkg-1', org_id: 'org-1', currency: 'BAM' }],
+      package_cost_items: [{ id: 'cost-1', org_id: 'org-1', package_id: 'pkg-1', currency: 'BAM' }],
+    };
+
+    await expect(ensurePackageCurrencyChangeAllowed('org-1', 'pkg-1', 'BAM')).resolves.toEqual({ allowed: true });
+    await expect(ensurePackageCurrencyChangeAllowed('org-1', 'pkg-1', undefined)).resolves.toEqual({ allowed: true });
   });
 });
