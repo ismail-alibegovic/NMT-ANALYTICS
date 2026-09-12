@@ -6,6 +6,7 @@ import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
 import { z } from 'zod';
 import { apiError } from "../lib/errors";
 import { generateCSV } from '../utils/csv';
+import { buildCurrencyBreakdown, normalizeCurrency, scalarForCurrencyBreakdown, toMoneyCents, fromMoneyCents } from '../lib/currency';
 
 const router = Router();
 
@@ -15,6 +16,7 @@ router.use(authenticateToken, requireOrgContext, requireMinimumRole("manager"));
 const querySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional(),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional(),
+  currency: z.string().min(3).max(3).optional(),
 });
 
 /**
@@ -30,7 +32,8 @@ router.get('/reports/export/transactions.csv', authenticateToken, requireOrgCont
       return apiError(res, 400, "VALIDATION_ERROR", "Validation error", validationResult.error.issues);
     }
 
-    const { from, to } = validationResult.data;
+    const { from, to, currency } = validationResult.data;
+    const selectedCurrency = currency ? normalizeCurrency(currency) : null;
     const orgId = req.orgId!;
 
     // Date range logic (inclusive)
@@ -83,7 +86,8 @@ router.get('/reports/export/reservations.csv', authenticateToken, requireOrgCont
       return apiError(res, 400, "VALIDATION_ERROR", "Validation error", validationResult.error.issues);
     }
 
-    const { from, to } = validationResult.data;
+    const { from, to, currency } = validationResult.data;
+    const selectedCurrency = currency ? normalizeCurrency(currency) : null;
     const orgId = req.orgId!;
 
     const dateFrom = from ? `${from}T00:00:00Z` : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -99,7 +103,7 @@ router.get('/reports/export/reservations.csv', authenticateToken, requireOrgCont
 
     if (error) return handleSupabaseError(res, error, "Failed to fetch reservations");
 
-    const headers = ['ID', 'Customer Name', 'Customer Phone', 'Party Size', 'Reservation At', 'Status', 'Total Amount', 'Created At'];
+    const headers = ['ID', 'Customer Name', 'Customer Phone', 'Party Size', 'Reservation At', 'Status', 'Total Amount', 'Currency', 'Created At'];
     const rows = (reservations || []).map(r => [
       r.id,
       r.customer_name,
@@ -108,6 +112,7 @@ router.get('/reports/export/reservations.csv', authenticateToken, requireOrgCont
       r.reservation_at,
       r.status,
       r.total_amount,
+      r.currency,
       r.created_at
     ]);
 
@@ -157,7 +162,8 @@ router.get('/reports/summary', authenticateToken, requireOrgContext, async (req,
       return res.status(200).json(zeroedData);
     }
 
-    const { from, to } = validationResult.data;
+    const { from, to, currency } = validationResult.data;
+    const selectedCurrency = currency ? normalizeCurrency(currency) : null;
     const orgId = req.orgId!;
 
     const dateFrom = from ? `${from}T00:00:00Z` : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -171,6 +177,7 @@ router.get('/reports/summary', authenticateToken, requireOrgContext, async (req,
           total_amount,
           paid_amount,
           balance_due,
+          currency,
           status,
           departure_id,
           departures (
@@ -195,29 +202,39 @@ router.get('/reports/summary', authenticateToken, requireOrgContext, async (req,
     const rows = (reservations || []) as any[];
     const validRows = rows.filter((r) => r.status !== 'cancelled');
     const revenueRows = validRows.filter((r) => ['confirmed', 'completed'].includes(r.status));
+    const filteredRevenueRows = selectedCurrency ? revenueRows.filter((r) => normalizeCurrency(r.currency) === selectedCurrency) : revenueRows;
 
-    const bookedRevenue = revenueRows.reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
-    const paidRevenue = revenueRows.reduce((sum, r) => sum + Number(r.paid_amount || 0), 0);
-    const unpaidRevenue = revenueRows.reduce((sum, r) => sum + Number(r.balance_due ?? (Number(r.total_amount || 0) - Number(r.paid_amount || 0))), 0);
+    const breakdown = buildCurrencyBreakdown(filteredRevenueRows, {
+      bookedRevenue: 'total_amount',
+      paidRevenue: 'paid_amount',
+      unpaidRevenue: 'balance_due',
+    });
+    const bookedRevenue = scalarForCurrencyBreakdown(breakdown, 'bookedRevenue', selectedCurrency);
+    const paidRevenue = scalarForCurrencyBreakdown(breakdown, 'paidRevenue', selectedCurrency);
+    const unpaidRevenue = scalarForCurrencyBreakdown(breakdown, 'unpaidRevenue', selectedCurrency);
 
     const destinations = new Map<string, { destination: string; revenue: number; reservations: number }>();
-    for (const row of revenueRows) {
+    for (const row of filteredRevenueRows) {
       const destination = row.departures?.packages?.destination || row.departures?.packages?.name || 'Unknown';
       const existing = destinations.get(destination) || { destination, revenue: 0, reservations: 0 };
-      existing.revenue += Number(row.total_amount || 0);
+      existing.revenue = fromMoneyCents(toMoneyCents(existing.revenue) + toMoneyCents(row.total_amount));
       existing.reservations += 1;
       destinations.set(destination, existing);
     }
 
     return res.json({
-      totalRevenue: Number(bookedRevenue.toFixed(2)),
-      bookedRevenue: Number(bookedRevenue.toFixed(2)),
-      paidRevenue: Number(paidRevenue.toFixed(2)),
-      unpaidRevenue: Number(Math.max(unpaidRevenue, 0).toFixed(2)),
-      paidPercent: bookedRevenue > 0 ? Number(((paidRevenue / bookedRevenue) * 100).toFixed(1)) : 0,
+      currency: selectedCurrency || (breakdown.multiCurrency ? null : breakdown.availableCurrencies[0] || null),
+      availableCurrencies: breakdown.availableCurrencies,
+      multiCurrency: breakdown.multiCurrency,
+      currencyBreakdown: breakdown.currencyBreakdown,
+      totalRevenue: bookedRevenue === null ? null : Number(bookedRevenue.toFixed(2)),
+      bookedRevenue: bookedRevenue === null ? null : Number(bookedRevenue.toFixed(2)),
+      paidRevenue: paidRevenue === null ? null : Number(paidRevenue.toFixed(2)),
+      unpaidRevenue: unpaidRevenue === null ? null : Number(Math.max(unpaidRevenue, 0).toFixed(2)),
+      paidPercent: bookedRevenue !== null && paidRevenue !== null && bookedRevenue > 0 ? Number(((paidRevenue / bookedRevenue) * 100).toFixed(1)) : null,
       totalReservations: validRows.length,
       totalCustomers: Number(customersCount || 0),
-      avgOrderValue: validRows.length > 0 ? Number((bookedRevenue / validRows.length).toFixed(2)) : 0,
+      avgOrderValue: bookedRevenue === null ? null : filteredRevenueRows.length > 0 ? Number((bookedRevenue / filteredRevenueRows.length).toFixed(2)) : 0,
       topDestinations: Array.from(destinations.values())
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 5)

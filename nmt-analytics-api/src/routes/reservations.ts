@@ -83,7 +83,7 @@ const createReservationSchema = z.object({
   customerId: z.string().uuid('Invalid customer ID').optional(),
   departureId: z.string().uuid('Invalid departure ID').optional(),
   totalAmount: z.number().min(0, 'Total amount must be non-negative').optional(),
-  currency: z.string().default('BAM'),
+  currency: z.string().optional(),
   source: z.enum(['web', 'phone', 'agent', 'walk-in', 'other']).optional(),
   customerEmail: z.string().email().optional().nullable(),
   assignedTo: z.string().uuid('Invalid assignedTo id').optional().nullable(),
@@ -192,10 +192,53 @@ type ValidatedAddonSnapshot = {
   line_total: number;
 };
 
+async function resolveDeparturePackageCurrency(orgId: string, departureId: string | undefined | null): Promise<{ packageId: string | null; currency: string } | null> {
+  if (!departureId) return null;
+  const { data: departure } = await supabaseAdmin
+    .from('departures')
+    .select('id, package_id')
+    .eq('id', departureId)
+    .eq('org_id', orgId)
+    .single();
+  if (!departure) return null;
+  if (!departure.package_id) return { packageId: null, currency: 'BAM' };
+  try {
+    const { data: pkg } = await supabaseAdmin
+      .from('packages')
+      .select('id, currency')
+      .eq('id', departure.package_id)
+      .eq('org_id', orgId)
+      .single();
+    if (pkg?.currency) return { packageId: departure.package_id, currency: pkg.currency };
+  } catch {
+    return { packageId: departure.package_id, currency: 'BAM' };
+  }
+  return { packageId: departure.package_id, currency: 'BAM' };
+}
+
+async function reservationHasFinancialChildren(orgId: string, reservationId: string): Promise<boolean> {
+  const tables = [
+    ['payments', 'reservation_id'],
+    ['payment_links', 'reservation_id'],
+    ['contracts', 'reservation_id'],
+    ['receipts', 'reservation_id'],
+  ] as const;
+  for (const [table, column] of tables) {
+    const { count, error } = await supabaseAdmin
+      .from(table)
+      .select('id', { count: 'exact', head: true })
+      .eq(column, reservationId)
+      .eq('org_id', orgId);
+    if (!error && (count || 0) > 0) return true;
+  }
+  return false;
+}
+
 async function resolveSelectedAddons(
   orgId: string,
   departureId: string | undefined,
   selectedAddons: z.infer<typeof selectedAddonSchema>[] | undefined,
+  expectedCurrency?: string,
 ): Promise<{ snapshot: ValidatedAddonSnapshot[]; total: number; packageId: string | null } | { error: true }> {
   if (!selectedAddons || selectedAddons.length === 0) {
     return { snapshot: [], total: 0, packageId: null };
@@ -228,6 +271,9 @@ async function resolveSelectedAddons(
   if (!services || services.length !== requestedIds.length) {
     return { error: true };
   }
+  if (expectedCurrency && services.some((service: any) => service.currency !== expectedCurrency)) {
+    return { error: true };
+  }
 
   const serviceById = new Map((services || []).map((service: any) => [service.id, service]));
   const snapshot = selectedAddons.map((addon) => {
@@ -241,7 +287,7 @@ async function resolveSelectedAddons(
       provider_name: service.provider_name || null,
       description: service.description || null,
       unit_price: unitPrice,
-      currency: service.currency || 'BAM',
+      currency: service.currency,
       quantity: addon.quantity,
       line_total: lineTotal,
     };
@@ -450,8 +496,16 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
 
     const { departureId, status, partySize, customerId, upsert, options, notes, hotelName, roomType, checkIn, checkOut, tourGuide, customerEmail, assignedTo, passengers, create_passenger_group, group_name, accommodationRequirements, selectedAddons, ...rest } = validationResult.data;
     const orgId = req.orgId!;
+    const departureCurrency = await resolveDeparturePackageCurrency(orgId, departureId);
+    if (departureId && !departureCurrency) {
+      return apiError(res, 404, "DEPARTURE_NOT_FOUND", "Departure not found");
+    }
+    if (departureCurrency && rest.currency && rest.currency !== departureCurrency.currency) {
+      return apiError(res, 400, "CURRENCY_MISMATCH", "Reservation currency must match departure package currency");
+    }
+    const reservationCurrency = departureCurrency?.currency || rest.currency || 'BAM';
     let capacityRv: any = null;
-    const resolvedAddons = await resolveSelectedAddons(orgId, departureId, selectedAddons);
+    const resolvedAddons = await resolveSelectedAddons(orgId, departureId, selectedAddons, departureCurrency?.currency);
     if ('error' in resolvedAddons) {
       return apiError(res, 400, 'INVALID_ADDON_SELECTION', 'One or more selected add-ons are invalid for this departure');
     }
@@ -548,7 +602,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       reservation_at: rest.reservationAt,
       status,
       total_amount: rest.totalAmount ?? 0,
-      currency: rest.currency || 'BAM',
+      currency: reservationCurrency,
       source: rest.source || 'agent',
       assigned_to: assignedTo || (config.DEV_BYPASS_AUTH && req.user!.id === '00000000-0000-0000-0000-000000000000' ? null : req.user!.id),
       options: canonicalOptions,
@@ -714,7 +768,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
             provider: s.provider_name,
             description: s.description,
             unitPrice: Number(s.unit_price || 0),
-            currency: s.currency || 'BAM',
+            currency: s.currency || reservationCurrency,
             quantity: Number(s.quantity || 1),
             totalPrice: Number(s.total_price || 0),
             isOptional: Boolean(s.is_optional),
@@ -896,6 +950,30 @@ router.patch('/reservations/:id', authenticateToken, requireOrgContext, auditRes
     const newPartySize = Number(updates.partySize ?? reservation.party_size ?? 0);
     const oldConsumes = reservationConsumesCapacity(oldStatus);
     const newConsumes = reservationConsumesCapacity(newStatus);
+    const currentCurrency = reservation.currency || 'BAM';
+    const oldDepartureCurrency = oldDepId ? await resolveDeparturePackageCurrency(orgId, oldDepId) : null;
+    const newDepartureCurrency = newDepId ? await resolveDeparturePackageCurrency(orgId, newDepId) : null;
+
+    if (newDepId && !newDepartureCurrency) {
+      return apiError(res, 404, "DEPARTURE_NOT_FOUND", "Departure not found");
+    }
+
+    if (updates.currency !== undefined && updates.currency !== currentCurrency) {
+      if (oldDepId || newDepId) {
+        return apiError(res, 400, "CURRENCY_MISMATCH", "Reservation currency must match departure package currency");
+      }
+      if (await reservationHasFinancialChildren(orgId, id)) {
+        return apiError(res, 400, "RESERVATION_CURRENCY_LOCKED", "Reservation currency cannot be changed after financial records exist");
+      }
+    }
+
+    if (newDepartureCurrency && currentCurrency !== newDepartureCurrency.currency) {
+      return apiError(res, 400, "RESERVATION_DEPARTURE_CURRENCY_MISMATCH", "Reservation currency must match the target departure package currency");
+    }
+
+    if (oldDepartureCurrency && newDepartureCurrency && oldDepartureCurrency.currency !== newDepartureCurrency.currency) {
+      return apiError(res, 400, "RESERVATION_DEPARTURE_CURRENCY_MISMATCH", "Reservation cannot move between departures with different package currencies");
+    }
 
     if (oldDepId === newDepId) {
       if (newDepId) {
@@ -951,7 +1029,7 @@ router.patch('/reservations/:id', authenticateToken, requireOrgContext, auditRes
       party_size: updates.partySize,
       customer_name: updates.customerName,
       customer_phone: updates.customerPhone,
-      currency: updates.currency,
+      currency: newDepartureCurrency?.currency || updates.currency,
       source: updates.source
     };
 

@@ -187,6 +187,8 @@ describe('package update contract helpers', () => {
     rows = {
       packages: [{ id: 'pkg-1', org_id: 'org-1', currency: 'BAM' }],
       package_cost_items: [],
+      package_services: [],
+      departures: [],
     };
 
     await expect(ensurePackageCurrencyChangeAllowed('org-1', 'pkg-1', 'EUR')).resolves.toEqual({ allowed: true });
@@ -196,6 +198,8 @@ describe('package update contract helpers', () => {
     rows = {
       packages: [{ id: 'pkg-1', org_id: 'org-1', currency: 'BAM' }],
       package_cost_items: [{ id: 'cost-1', org_id: 'org-1', package_id: 'pkg-1', currency: 'BAM', unit_cost: 100 }],
+      package_services: [],
+      departures: [],
     };
 
     const result = await ensurePackageCurrencyChangeAllowed('org-1', 'pkg-1', 'EUR');
@@ -213,9 +217,39 @@ describe('package update contract helpers', () => {
     rows = {
       packages: [{ id: 'pkg-1', org_id: 'org-1', currency: 'BAM' }],
       package_cost_items: [{ id: 'cost-1', org_id: 'org-1', package_id: 'pkg-1', currency: 'BAM' }],
+      package_services: [],
+      departures: [],
     };
 
     await expect(ensurePackageCurrencyChangeAllowed('org-1', 'pkg-1', 'BAM')).resolves.toEqual({ allowed: true });
     await expect(ensurePackageCurrencyChangeAllowed('org-1', 'pkg-1', undefined)).resolves.toEqual({ allowed: true });
+  });
+
+  it('rejects package currency changes when package services would be relabeled', async () => {
+    rows = {
+      packages: [{ id: 'pkg-1', org_id: 'org-1', currency: 'BAM' }],
+      package_cost_items: [],
+      package_services: [{ id: 'service-1', org_id: 'org-1', package_id: 'pkg-1', currency: 'BAM' }],
+      departures: [],
+    };
+
+    await expect(ensurePackageCurrencyChangeAllowed('org-1', 'pkg-1', 'EUR')).resolves.toMatchObject({
+      allowed: false,
+      code: 'PACKAGE_SERVICE_CURRENCY_LOCKED',
+    });
+  });
+
+  it('rejects package currency changes when departures already depend on package currency', async () => {
+    rows = {
+      packages: [{ id: 'pkg-1', org_id: 'org-1', currency: 'BAM' }],
+      package_cost_items: [],
+      package_services: [],
+      departures: [{ id: 'dep-1', org_id: 'org-1', package_id: 'pkg-1' }],
+    };
+
+    await expect(ensurePackageCurrencyChangeAllowed('org-1', 'pkg-1', 'EUR')).resolves.toMatchObject({
+      allowed: false,
+      code: 'PACKAGE_DEPARTURE_CURRENCY_LOCKED',
+    });
   });
 });

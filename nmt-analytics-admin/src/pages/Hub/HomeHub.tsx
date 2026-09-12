@@ -79,9 +79,11 @@ const groupInt = (n: number, lang: Lang) => {
   return n < 0 ? `-${body}` : body;
 };
 
-const fmtCurrency = (n: number | null | undefined, lang: Lang = "bs") => {
+const fmtCurrency = (n: number | null | undefined, lang: Lang = "bs", currency = "BAM") => {
   if (n == null || Number.isNaN(n)) return "\u2014";
-  return lang === "bs" ? `${groupInt(n, "bs")} KM` : `KM ${groupInt(n, "en")}`;
+  const code = (currency || "BAM").toUpperCase();
+  if (code === "BAM") return lang === "bs" ? `${groupInt(n, "bs")} KM` : `KM ${groupInt(n, "en")}`;
+  return lang === "bs" ? `${groupInt(n, "bs")} ${code}` : `${code} ${groupInt(n, "en")}`;
 };
 
 const fmtCompact = (n: number | null | undefined) => {
@@ -428,7 +430,7 @@ const HomeHub: React.FC = () => {
                 id: r.id,
                 customerName: r.customerName,
                 packageName: r.packageName,
-                amount: fmtCurrency(r.balanceDue, lang),
+                amount: fmtCurrency(r.balanceDue, lang, r.currency || hubCurrency),
                 daysOpen,
                 href: `/reservations/${r.id}`,
               } as PaymentRow;
@@ -470,6 +472,7 @@ const HomeHub: React.FC = () => {
 
   const revenuePoints = useMemo(() => revenue.map((p) => p.total_paid_sum || 0), [revenue]);
   const grossPoints = useMemo(() => revenue.map((p) => p.total_amount_sum || 0), [revenue]);
+  const hubCurrency = overview?.currency || overview?.availableCurrencies?.[0] || (userContext?.org as any)?.currency || "BAM";
   const openBalance = overview?.total_balance_sum || 0;
   const activeCount = overview?.reservations_count || 0;
   const paidCount = overview?.paid_count || 0;
@@ -517,7 +520,7 @@ const HomeHub: React.FC = () => {
         items.push({
           id: `overdue-${reservation.id}`,
           title: reservation.customerName,
-          detail: `${reservation.packageName} · ${fmtCurrency(reservation.balanceDue, lang)}`,
+          detail: `${reservation.packageName} · ${fmtCurrency(reservation.balanceDue, lang, reservation.currency || hubCurrency)}`,
           href: `/reservations/${reservation.id}`,
           kind: "payment",
           urgency: "attention",
@@ -925,7 +928,7 @@ const HomeHub: React.FC = () => {
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-gray-800 dark:text-white">
-                      {openBalance > 0 ? fmtCurrency(openBalance, lang) : hub.allSettled}
+                      {openBalance > 0 ? fmtCurrency(openBalance, lang, hubCurrency) : hub.allSettled}
                     </p>
                     <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{hub.paymentsPanel}</p>
                   </div>

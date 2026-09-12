@@ -13,18 +13,23 @@ import { AnalyticsQuerySchema, sendAnalyticsResponse } from '../analytics/utils'
 import { supabaseAdmin } from '../lib/supabase';
 import { apiError } from '../lib/errors';
 import { z } from 'zod';
+import { buildCurrencyBreakdown, normalizeCurrency, scalarForCurrencyBreakdown, toMoneyCents, fromMoneyCents } from '../lib/currency';
 
 const router = Router();
 
 import { schema } from '../analytics/schema';
 
 type DashboardStats = {
-  revenue: number;
+  revenue: number | null;
   bookings_count: number;
-  average_booking_value: number;
-  revenue_by_month: { month: string; amount: number }[];
+  average_booking_value: number | null;
+  revenue_by_month: { month: string; amount: number | null; currency?: string | null }[];
   bookings_by_month: { month: string; count: number }[];
-  top_packages: { name: string; revenue: number; bookings: number }[];
+  top_packages: { name: string; revenue: number | null; bookings: number; currency?: string | null }[];
+  currency: string | null;
+  availableCurrencies: string[];
+  multiCurrency: boolean;
+  currencyBreakdown: Array<{ currency: string; revenue: number; bookings: number }>;
 };
 
 function normalizeDashboardDateRange(from: unknown, to: unknown) {
@@ -40,13 +45,14 @@ function normalizeDashboardDateRange(from: unknown, to: unknown) {
   return { dateFrom, dateTo };
 }
 
-async function calculateDashboardStats(orgId: string, dateFrom: Date, dateTo: Date): Promise<DashboardStats> {
+async function calculateDashboardStats(orgId: string, dateFrom: Date, dateTo: Date, requestedCurrency?: string): Promise<DashboardStats> {
   const { data: reservations, error } = await supabaseAdmin
     .from('reservations')
     .select(`
       id,
       total_amount,
       paid_amount,
+      currency,
       status,
       reservation_at,
       departures (
@@ -60,21 +66,43 @@ async function calculateDashboardStats(orgId: string, dateFrom: Date, dateTo: Da
 
   if (error) throw error;
 
+  const selectedCurrency = requestedCurrency ? normalizeCurrency(requestedCurrency) : undefined;
   const rows = (reservations || []) as any[];
-  const validRows = rows.filter((r) => r.status !== 'cancelled');
+  const validRowsAll = rows.filter((r) => r.status !== 'cancelled');
+  const validRows = selectedCurrency
+    ? validRowsAll.filter((r) => normalizeCurrency(r.currency) === selectedCurrency)
+    : validRowsAll;
   const confirmedRevenueRows = validRows.filter((r) => ['confirmed', 'completed'].includes(r.status));
+  const allCurrencies = new Set(validRowsAll.map((r) => normalizeCurrency(r.currency)).filter(Boolean));
+  const activeCurrency = selectedCurrency || (allCurrencies.size === 1 ? Array.from(allCurrencies)[0] : null);
+  const mixedCurrency = !selectedCurrency && allCurrencies.size > 1;
 
-  const revenue = confirmedRevenueRows.reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
+  const revenueCents = confirmedRevenueRows.reduce((sum, r) => sum + toMoneyCents(r.total_amount), 0);
+  const revenue = fromMoneyCents(revenueCents);
   const bookingsCount = validRows.length;
 
-  const revenueByMonthMap = new Map<string, number>();
+  const currencyBreakdownMap = new Map<string, { currency: string; revenueCents: number; bookings: number }>();
+  for (const reservation of validRowsAll) {
+    const currency = normalizeCurrency(reservation.currency);
+    const current = currencyBreakdownMap.get(currency) || { currency, revenueCents: 0, bookings: 0 };
+    current.bookings += 1;
+    if (['confirmed', 'completed'].includes(reservation.status)) {
+      current.revenueCents += toMoneyCents(reservation.total_amount);
+    }
+    currencyBreakdownMap.set(currency, current);
+  }
+
+  const revenueByMonthMap = new Map<string, { cents: number; currencies: Set<string> }>();
   const bookingsByMonthMap = new Map<string, number>();
-  const topPackageMap = new Map<string, { name: string; revenue: number; bookings: number }>();
+  const topPackageMap = new Map<string, { name: string; cents: number; bookings: number; currencies: Set<string> }>();
 
   for (const reservation of confirmedRevenueRows) {
     const month = new Date(reservation.reservation_at).toISOString().slice(0, 7);
-    const amount = Number(reservation.total_amount || 0);
-    revenueByMonthMap.set(month, (revenueByMonthMap.get(month) || 0) + amount);
+    const currency = normalizeCurrency(reservation.currency);
+    const existing = revenueByMonthMap.get(month) || { cents: 0, currencies: new Set<string>() };
+    existing.cents += toMoneyCents(reservation.total_amount);
+    existing.currencies.add(currency);
+    revenueByMonthMap.set(month, existing);
   }
 
   for (const reservation of validRows) {
@@ -82,27 +110,32 @@ async function calculateDashboardStats(orgId: string, dateFrom: Date, dateTo: Da
     bookingsByMonthMap.set(month, (bookingsByMonthMap.get(month) || 0) + 1);
 
     const packageName = reservation.departures?.packages?.name || 'Unknown Package';
-    const amount = Number(reservation.total_amount || 0);
-    const existing = topPackageMap.get(packageName) || { name: packageName, revenue: 0, bookings: 0 };
-    existing.revenue += amount;
+    const currency = normalizeCurrency(reservation.currency);
+    const existing = topPackageMap.get(packageName) || { name: packageName, cents: 0, bookings: 0, currencies: new Set<string>() };
+    existing.cents += toMoneyCents(reservation.total_amount);
     existing.bookings += 1;
+    existing.currencies.add(currency);
     topPackageMap.set(packageName, existing);
   }
 
   return {
-    revenue: Number(revenue.toFixed(2)),
+    revenue: mixedCurrency ? null : revenue,
     bookings_count: bookingsCount,
-    average_booking_value: bookingsCount > 0 ? Number((revenue / bookingsCount).toFixed(2)) : 0,
+    average_booking_value: mixedCurrency ? null : (bookingsCount > 0 ? fromMoneyCents(Math.round(revenueCents / bookingsCount)) : 0),
     revenue_by_month: Array.from(revenueByMonthMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, amount]) => ({ month, amount: Number(amount.toFixed(2)) })),
+      .map(([month, entry]) => ({ month, amount: entry.currencies.size > 1 ? null : fromMoneyCents(entry.cents), currency: entry.currencies.size === 1 ? Array.from(entry.currencies)[0] : null })),
     bookings_by_month: Array.from(bookingsByMonthMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, count]) => ({ month, count })),
     top_packages: Array.from(topPackageMap.values())
-      .sort((a, b) => b.revenue - a.revenue)
+      .sort((a, b) => mixedCurrency ? b.bookings - a.bookings : b.cents - a.cents)
       .slice(0, 5)
-      .map((pkg) => ({ ...pkg, revenue: Number(pkg.revenue.toFixed(2)) })),
+      .map((pkg) => ({ name: pkg.name, bookings: pkg.bookings, revenue: pkg.currencies.size > 1 ? null : fromMoneyCents(pkg.cents), currency: pkg.currencies.size === 1 ? Array.from(pkg.currencies)[0] : null })),
+    currency: activeCurrency,
+    availableCurrencies: Array.from(allCurrencies).sort(),
+    multiCurrency: mixedCurrency,
+    currencyBreakdown: Array.from(currencyBreakdownMap.values()).map((row) => ({ currency: row.currency, revenue: fromMoneyCents(row.revenueCents), bookings: row.bookings })).sort((a, b) => a.currency.localeCompare(b.currency)),
   };
 }
 
@@ -327,7 +360,7 @@ router.get('/analytics/trends', authenticateToken, requireOrgContext, requireMod
 router.get('/analytics/dashboard', authenticateToken, requireOrgContext, requireModule('analytics'), async (req: Request, res: Response) => {
   try {
     const { dateFrom, dateTo } = normalizeDashboardDateRange(req.query.from, req.query.to);
-    const stats = await calculateDashboardStats(req.orgId!, dateFrom, dateTo);
+    const stats = await calculateDashboardStats(req.orgId!, dateFrom, dateTo, typeof req.query.currency === 'string' ? req.query.currency : undefined);
     return res.json(stats);
   } catch (error) {
     console.error('ANALYTICS ERROR (Dashboard):', error);
@@ -342,7 +375,7 @@ router.get('/analytics/dashboard', authenticateToken, requireOrgContext, require
 router.get('/dashboard', authenticateToken, requireOrgContext, async (req: Request, res: Response) => {
   try {
     const { dateFrom, dateTo } = normalizeDashboardDateRange(req.query.from, req.query.to);
-    const stats = await calculateDashboardStats(req.orgId!, dateFrom, dateTo);
+    const stats = await calculateDashboardStats(req.orgId!, dateFrom, dateTo, typeof req.query.currency === 'string' ? req.query.currency : undefined);
     return res.json(stats);
   } catch (error) {
     console.error('ANALYTICS ERROR (Dashboard):', error);
@@ -358,15 +391,16 @@ router.get('/dashboard', authenticateToken, requireOrgContext, async (req: Reque
 const phase2QuerySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional(),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional(),
+  currency: z.string().min(3).max(3).optional(),
 });
 
 // DTOs for Phase 2
 export interface OverviewAnalyticsV2 {
   // Reservation metrics
   reservations_count: number;
-  total_amount_sum: number;
-  total_paid_sum: number;
-  total_balance_sum: number;
+  total_amount_sum: number | null;
+  total_paid_sum: number | null;
+  total_balance_sum: number | null;
 
   // Payment status breakdown
   unpaid_count: number;
@@ -374,11 +408,15 @@ export interface OverviewAnalyticsV2 {
   paid_count: number;
 
   // Calculated metrics
-  avg_reservation_value: number;
+  avg_reservation_value: number | null;
 
   // Payment metrics
   payments_count: number;
-  payments_sum: number;
+  payments_sum: number | null;
+  currency?: string | null;
+  availableCurrencies?: string[];
+  multiCurrency?: boolean;
+  currencyBreakdown?: any[];
 
   // Date range
   date_from: string | null;
@@ -392,6 +430,7 @@ export interface PackageAnalyticsV2 {
   total_amount_sum: number;
   total_paid_sum: number;
   total_balance_sum: number;
+  currency?: string | null;
 }
 
 /**
@@ -422,7 +461,8 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async
       return apiError(res, 400, "VALIDATION_ERROR", "Invalid query parameters", validationResult.error.issues);
     }
 
-    const { from, to } = validationResult.data;
+    const { from, to, currency } = validationResult.data;
+    const selectedCurrency = currency ? normalizeCurrency(currency) : null;
 
     if (!orgId) {
       return apiError(res, 403, "ORG_REQUIRED", "Organization context required");
@@ -431,11 +471,12 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async
     // Build reservation metrics query
     let reservationQuery = supabaseAdmin
       .from('reservations')
-      .select('total_amount, paid_amount, balance_due, payment_status')
+      .select('total_amount, paid_amount, balance_due, payment_status, currency')
       .eq('org_id', orgId);
 
     if (from) reservationQuery = reservationQuery.gte('created_at', from);
     if (to) reservationQuery = reservationQuery.lte('created_at', `${to}T23:59:59.999Z`);
+    if (selectedCurrency) reservationQuery = reservationQuery.eq('currency', selectedCurrency);
 
     console.log(`[GET /api/analytics/overview-v2] [Req:${requestId}] Executing reservation metrics query`);
     const { data: reservations, error: reservationError } = await reservationQuery;
@@ -446,11 +487,16 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async
     }
 
     // Calculate reservation metrics
+    const reservationBreakdown = buildCurrencyBreakdown(reservations || [], {
+      total_amount_sum: 'total_amount',
+      total_paid_sum: 'paid_amount',
+      total_balance_sum: 'balance_due',
+    });
     const metrics = {
       reservations_count: reservations?.length || 0,
-      total_amount_sum: reservations?.reduce((sum, r) => sum + Number(r.total_amount || 0), 0) || 0,
-      total_paid_sum: reservations?.reduce((sum, r) => sum + Number(r.paid_amount || 0), 0) || 0,
-      total_balance_sum: reservations?.reduce((sum, r) => sum + Number(r.balance_due || 0), 0) || 0,
+      total_amount_sum: scalarForCurrencyBreakdown(reservationBreakdown, 'total_amount_sum', selectedCurrency),
+      total_paid_sum: scalarForCurrencyBreakdown(reservationBreakdown, 'total_paid_sum', selectedCurrency),
+      total_balance_sum: scalarForCurrencyBreakdown(reservationBreakdown, 'total_balance_sum', selectedCurrency),
       unpaid_count: reservations?.filter(r => r.payment_status === 'unpaid').length || 0,
       partially_paid_count: reservations?.filter(r => r.payment_status === 'partially_paid').length || 0,
       paid_count: reservations?.filter(r => r.payment_status === 'paid').length || 0,
@@ -460,9 +506,10 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async
     // Use payment_date if available, otherwise fall back to created_at
     let paymentQuery = supabaseAdmin
       .from('payments')
-      .select('amount, payment_date, created_at')
+      .select('amount, currency, payment_date, created_at')
       .eq('org_id', orgId)
       .eq('status', 'succeeded');
+    if (selectedCurrency) paymentQuery = paymentQuery.eq('currency', selectedCurrency);
 
     // Note: We need to filter by payment_date OR created_at in application code
     // since we can't do COALESCE in Supabase query builder
@@ -482,17 +529,22 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async
       return true;
     }) || [];
 
+    const paymentBreakdown = buildCurrencyBreakdown(filteredPayments, { payments_sum: 'amount' });
     const paymentMetrics = {
       payments_count: filteredPayments.length,
-      payments_sum: filteredPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0),
+      payments_sum: scalarForCurrencyBreakdown(paymentBreakdown, 'payments_sum', selectedCurrency),
     };
 
     const response: OverviewAnalyticsV2 = {
       ...metrics,
-      avg_reservation_value: metrics.reservations_count > 0
+      avg_reservation_value: metrics.reservations_count > 0 && metrics.total_amount_sum !== null
         ? metrics.total_amount_sum / metrics.reservations_count
-        : 0,
+        : metrics.reservations_count === 0 ? 0 : null,
       ...paymentMetrics,
+      currency: selectedCurrency || (reservationBreakdown.multiCurrency || paymentBreakdown.multiCurrency ? null : reservationBreakdown.availableCurrencies[0] || paymentBreakdown.availableCurrencies[0] || null),
+      availableCurrencies: Array.from(new Set([...reservationBreakdown.availableCurrencies, ...paymentBreakdown.availableCurrencies])).sort(),
+      multiCurrency: reservationBreakdown.multiCurrency || paymentBreakdown.multiCurrency,
+      currencyBreakdown: reservationBreakdown.currencyBreakdown,
       date_from: from || null,
       date_to: to || null,
     };
@@ -536,7 +588,8 @@ router.get('/analytics/by-package', authenticateToken, requireOrgContext, async 
       return apiError(res, 400, "VALIDATION_ERROR", "Invalid query parameters", validationResult.error.issues);
     }
 
-    const { from, to } = validationResult.data;
+    const { from, to, currency } = validationResult.data;
+    const selectedCurrency = currency ? normalizeCurrency(currency) : null;
 
     if (!orgId) {
       return apiError(res, 403, "ORG_REQUIRED", "Organization context required");
@@ -549,15 +602,17 @@ router.get('/analytics/by-package', authenticateToken, requireOrgContext, async 
                 total_amount,
                 paid_amount,
                 balance_due,
+                currency,
                 departures!inner (
                   package_id,
-                  packages!inner ( id, name )
+                  packages!inner ( id, name, currency )
                 )
             `)
       .eq('org_id', orgId);
 
     if (from) query = query.gte('created_at', from);
     if (to) query = query.lte('created_at', `${to}T23:59:59.999Z`);
+    if (selectedCurrency) query = query.eq('currency', selectedCurrency);
 
     console.log(`[GET /api/analytics/by-package] [Req:${requestId}] Executing query`);
     const { data: reservations, error } = await query;
@@ -576,6 +631,7 @@ router.get('/analytics/by-package', authenticateToken, requireOrgContext, async 
       const pkg = departure.packages;
       const packageId = pkg.id;
       const packageName = pkg.name || 'Unknown Package';
+      const rowCurrency = normalizeCurrency(reservation.currency || pkg.currency);
 
       if (!packageMap.has(packageId)) {
         packageMap.set(packageId, {
@@ -585,21 +641,33 @@ router.get('/analytics/by-package', authenticateToken, requireOrgContext, async 
           total_amount_sum: 0,
           total_paid_sum: 0,
           total_balance_sum: 0,
+          currency: rowCurrency,
         });
       }
 
       const pkgData = packageMap.get(packageId)!;
+      if (pkgData.currency !== rowCurrency) {
+        pkgData.currency = null;
+        return;
+      }
       pkgData.reservations_count++;
-      pkgData.total_amount_sum += Number(reservation.total_amount || 0);
-      pkgData.total_paid_sum += Number(reservation.paid_amount || 0);
-      pkgData.total_balance_sum += Number(reservation.balance_due || 0);
+      pkgData.total_amount_sum = fromMoneyCents(toMoneyCents(pkgData.total_amount_sum) + toMoneyCents(reservation.total_amount));
+      pkgData.total_paid_sum = fromMoneyCents(toMoneyCents(pkgData.total_paid_sum) + toMoneyCents(reservation.paid_amount));
+      pkgData.total_balance_sum = fromMoneyCents(toMoneyCents(pkgData.total_balance_sum) + toMoneyCents(reservation.balance_due));
     });
 
-    const response = Array.from(packageMap.values())
-      .sort((a, b) => b.total_amount_sum - a.total_amount_sum); // Sort by revenue desc
+    const rows = Array.from(packageMap.values());
+    const currencies = Array.from(new Set(rows.map((row) => row.currency).filter(Boolean)));
+    const response = rows
+      .sort((a, b) => currencies.length === 1 || selectedCurrency ? b.total_amount_sum - a.total_amount_sum : b.reservations_count - a.reservations_count);
 
     console.log(`[GET /api/analytics/by-package] [Req:${requestId}] Success: ${response.length} packages`);
-    return res.status(200).json(response);
+    return res.status(200).json({
+      currency: selectedCurrency || (currencies.length === 1 ? currencies[0] : null),
+      availableCurrencies: currencies.sort(),
+      multiCurrency: currencies.length > 1,
+      data: response,
+    });
 
   } catch (error) {
     console.error(`[GET /api/analytics/by-package] [Req:${requestId}] Error:`, error);
@@ -624,6 +692,7 @@ router.get('/analytics/revenue-series', authenticateToken, requireOrgContext, as
       from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional(),
       to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional(),
       bucket: z.enum(['daily', 'weekly']).optional().default('daily'),
+      currency: z.string().min(3).max(3).optional(),
     });
 
     const validationResult = querySchema.safeParse(req.query);
@@ -631,7 +700,8 @@ router.get('/analytics/revenue-series', authenticateToken, requireOrgContext, as
       return apiError(res, 400, "VALIDATION_ERROR", "Invalid query parameters", validationResult.error.issues);
     }
 
-    const { from, to, bucket } = validationResult.data;
+    const { from, to, bucket, currency } = validationResult.data;
+    const selectedCurrency = currency ? normalizeCurrency(currency) : null;
 
     if (!orgId) {
       return apiError(res, 403, "ORG_REQUIRED", "Organization context required");
@@ -640,11 +710,12 @@ router.get('/analytics/revenue-series', authenticateToken, requireOrgContext, as
     // Build reservation revenue query
     let reservationQuery = supabaseAdmin
       .from('reservations')
-      .select('created_at, total_amount')
+      .select('created_at, total_amount, currency')
       .eq('org_id', orgId);
 
     if (from) reservationQuery = reservationQuery.gte('created_at', from);
     if (to) reservationQuery = reservationQuery.lte('created_at', `${to}T23:59:59.999Z`);
+    if (selectedCurrency) reservationQuery = reservationQuery.eq('currency', selectedCurrency);
 
     const { data: reservations, error: reservationError } = await reservationQuery;
 
@@ -656,9 +727,10 @@ router.get('/analytics/revenue-series', authenticateToken, requireOrgContext, as
     // Build payment revenue query
     let paymentQuery = supabaseAdmin
       .from('payments')
-      .select('payment_date, created_at, amount')
+      .select('payment_date, created_at, amount, currency')
       .eq('org_id', orgId)
       .eq('status', 'succeeded');
+    if (selectedCurrency) paymentQuery = paymentQuery.eq('currency', selectedCurrency);
 
     const { data: payments, error: paymentError } = await paymentQuery;
 
@@ -667,7 +739,7 @@ router.get('/analytics/revenue-series', authenticateToken, requireOrgContext, as
     }
 
     // Group reservations by date bucket
-    const reservationMap = new Map<string, number>();
+    const reservationMap = new Map<string, Map<string, number>>();
     reservations?.forEach((reservation: any) => {
       const date = new Date(reservation.created_at);
       let bucketKey: string;
@@ -684,14 +756,14 @@ router.get('/analytics/revenue-series', authenticateToken, requireOrgContext, as
       if (from && bucketKey < from) return;
       if (to && bucketKey > to) return;
 
-      reservationMap.set(
-        bucketKey,
-        (reservationMap.get(bucketKey) || 0) + Number(reservation.total_amount || 0)
-      );
+      const rowCurrency = normalizeCurrency(reservation.currency);
+      const byCurrency = reservationMap.get(bucketKey) || new Map<string, number>();
+      byCurrency.set(rowCurrency, (byCurrency.get(rowCurrency) || 0) + toMoneyCents(reservation.total_amount));
+      reservationMap.set(bucketKey, byCurrency);
     });
 
     // Group payments by date bucket
-    const paymentMap = new Map<string, number>();
+    const paymentMap = new Map<string, Map<string, number>>();
     payments?.forEach((payment: any) => {
       const paymentDate = payment.payment_date || payment.created_at?.split('T')[0];
       if (!paymentDate) return;
@@ -711,24 +783,36 @@ router.get('/analytics/revenue-series', authenticateToken, requireOrgContext, as
       if (from && bucketKey < from) return;
       if (to && bucketKey > to) return;
 
-      paymentMap.set(
-        bucketKey,
-        (paymentMap.get(bucketKey) || 0) + Number(payment.amount || 0)
-      );
+      const rowCurrency = normalizeCurrency(payment.currency);
+      const byCurrency = paymentMap.get(bucketKey) || new Map<string, number>();
+      byCurrency.set(rowCurrency, (byCurrency.get(rowCurrency) || 0) + toMoneyCents(payment.amount));
+      paymentMap.set(bucketKey, byCurrency);
     });
 
     // Merge data and create time series
     const allDates = new Set([...reservationMap.keys(), ...paymentMap.keys()]);
+    const allCurrencies = new Set<string>();
+    reservationMap.forEach((map) => map.forEach((_value, key) => allCurrencies.add(key)));
+    paymentMap.forEach((map) => map.forEach((_value, key) => allCurrencies.add(key)));
     const series = Array.from(allDates)
       .sort()
-      .map(date => ({
-        date,
-        total_amount_sum: reservationMap.get(date) || 0,
-        total_paid_sum: paymentMap.get(date) || 0,
-      }));
+      .flatMap(date => {
+        const currencies = selectedCurrency ? [selectedCurrency] : Array.from(allCurrencies).sort();
+        return currencies.map((rowCurrency) => ({
+          date,
+          currency: rowCurrency,
+          total_amount_sum: fromMoneyCents(reservationMap.get(date)?.get(rowCurrency) || 0),
+          total_paid_sum: fromMoneyCents(paymentMap.get(date)?.get(rowCurrency) || 0),
+        })).filter((row) => row.total_amount_sum !== 0 || row.total_paid_sum !== 0);
+      });
 
     console.log(`[GET /api/analytics/revenue-series] [Req:${requestId}] Success: ${series.length} data points`);
-    return res.status(200).json(series);
+    return res.status(200).json({
+      currency: selectedCurrency || (allCurrencies.size === 1 ? Array.from(allCurrencies)[0] : null),
+      availableCurrencies: Array.from(allCurrencies).sort(),
+      multiCurrency: allCurrencies.size > 1,
+      data: series,
+    });
 
   } catch (error) {
     console.error(`[GET /api/analytics/revenue-series] [Req:${requestId}] Error:`, error);
@@ -962,4 +1046,3 @@ router.get('/analytics/payment-status', authenticateToken, requireOrgContext, as
 });
 
 export default router;
-

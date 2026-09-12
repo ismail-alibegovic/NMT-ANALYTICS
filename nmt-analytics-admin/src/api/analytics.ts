@@ -46,9 +46,9 @@ export async function getDashboardStats(params?: { from?: string; to?: string })
 export interface OverviewAnalyticsV2 {
   // Reservation metrics
   reservations_count: number;
-  total_amount_sum: number;
-  total_paid_sum: number;
-  total_balance_sum: number;
+  total_amount_sum: number | null;
+  total_paid_sum: number | null;
+  total_balance_sum: number | null;
 
   // Payment status breakdown
   unpaid_count: number;
@@ -56,11 +56,15 @@ export interface OverviewAnalyticsV2 {
   paid_count: number;
 
   // Calculated metrics
-  avg_reservation_value: number;
+  avg_reservation_value: number | null;
 
   // Payment metrics
   payments_count: number;
-  payments_sum: number;
+  payments_sum: number | null;
+  currency?: string | null;
+  availableCurrencies?: string[];
+  multiCurrency?: boolean;
+  currencyBreakdown?: Array<Record<string, unknown>>;
 
   // Date range
   date_from: string | null;
@@ -74,11 +78,13 @@ export interface PackageAnalyticsV2 {
   total_amount_sum: number;
   total_paid_sum: number;
   total_balance_sum: number;
+  currency?: string | null;
 }
 
 export interface AnalyticsFilters {
   from?: string; // YYYY-MM-DD
   to?: string;   // YYYY-MM-DD
+  currency?: string;
 }
 
 /**
@@ -92,6 +98,7 @@ export async function getAnalyticsOverviewV2(filters: AnalyticsFilters = {}): Pr
 
   if (filters.from) params.from = filters.from;
   if (filters.to) params.to = filters.to;
+  if (filters.currency) params.currency = filters.currency;
 
   const { data } = await get<OverviewAnalyticsV2>('/analytics/overview-v2', { params });
   return data;
@@ -108,15 +115,17 @@ export async function getPackageAnalyticsV2(filters: AnalyticsFilters = {}): Pro
 
   if (filters.from) params.from = filters.from;
   if (filters.to) params.to = filters.to;
+  if (filters.currency) params.currency = filters.currency;
 
-  const { data } = await get<PackageAnalyticsV2[]>('/analytics/by-package', { params });
-  return data;
+  const { data } = await get<PackageAnalyticsV2[] | { data: PackageAnalyticsV2[] }>('/analytics/by-package', { params });
+  return Array.isArray(data) ? data : data.data;
 }
 
 export interface RevenueSeriesDataPoint {
   date: string; // YYYY-MM-DD
   total_amount_sum: number;
   total_paid_sum: number;
+  currency?: string;
 }
 
 /**
@@ -149,7 +158,8 @@ export async function getRevenueSeries(filters: AnalyticsFilters & { bucket?: 'd
   if (filters.from) params.from = filters.from;
   if (filters.to) params.to = filters.to;
   if (filters.bucket) params.bucket = filters.bucket;
+  if (filters.currency) params.currency = filters.currency;
 
-  const { data } = await get<RevenueSeriesDataPoint[]>('/analytics/revenue-series', { params });
-  return data;
+  const { data } = await get<RevenueSeriesDataPoint[] | { data: RevenueSeriesDataPoint[] }>('/analytics/revenue-series', { params });
+  return Array.isArray(data) ? data : data.data;
 }

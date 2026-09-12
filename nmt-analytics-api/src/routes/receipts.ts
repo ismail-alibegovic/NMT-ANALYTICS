@@ -39,7 +39,7 @@ const createSchema = z.object({
   contractId: z.string().uuid().optional(),
   receiptType: z.enum(['advance', 'final', 'refund']),
   amount: z.number().min(0).default(0),
-  currency: z.string().default('BAM'),
+  currency: z.string().optional(),
   paymentMethod: z.enum(['cash', 'card', 'bank']).optional(),
   linkedReceiptId: z.string().uuid().optional().nullable(),
   fiscalData: z.record(z.string(), z.any()).optional(),
@@ -192,6 +192,11 @@ router.post(
         return apiError(res, 404, 'NOT_FOUND', 'Reservation not found');
       }
 
+      const reservationCurrency = reservation.currency || 'BAM';
+      if (body.currency && body.currency !== reservationCurrency) {
+        return apiError(res, 400, 'CURRENCY_MISMATCH', 'Receipt currency must match reservation currency');
+      }
+
       // Mint receipt number FR-YYYY-XXXX with retry on collision.
       let receiptInserted: any | null = null;
       let lastErr: any = null;
@@ -211,7 +216,7 @@ router.post(
           receipt_number: receiptNumber,
           receipt_type: body.receiptType,
           amount: body.amount,
-          currency: body.currency,
+          currency: reservationCurrency,
           payment_method: body.paymentMethod || null,
           linked_receipt_id: body.linkedReceiptId || null,
           fiscal_data: body.fiscalData || {},
@@ -278,7 +283,12 @@ router.patch(
       const updateData: any = {};
       if (b.receiptType !== undefined) updateData.receipt_type = b.receiptType;
       if (b.amount !== undefined) updateData.amount = b.amount;
-      if (b.currency !== undefined) updateData.currency = b.currency;
+      if (b.currency !== undefined) {
+        if (b.currency !== existing.currency) {
+          return apiError(res, 400, 'CURRENCY_MISMATCH', 'Receipt currency cannot differ from its reservation currency');
+        }
+        updateData.currency = b.currency;
+      }
       if (b.paymentMethod !== undefined) updateData.payment_method = b.paymentMethod;
       if (b.linkedReceiptId !== undefined) updateData.linked_receipt_id = b.linkedReceiptId;
       if (b.fiscalData !== undefined) updateData.fiscal_data = b.fiscalData;

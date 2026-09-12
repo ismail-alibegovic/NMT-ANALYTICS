@@ -221,6 +221,45 @@ beforeEach(() => {
 });
 
 describe('M14.2 payment recording', () => {
+  it('inherits EUR from the reservation when payment currency is omitted', async () => {
+    reservations.push({
+      id: '10000000-0000-4000-8000-0000000000ee',
+      org_id: ORG,
+      total_amount: 500,
+      paid_amount: 0,
+      balance_due: 500,
+      payment_status: 'unpaid',
+      status: 'confirmed',
+      currency: 'EUR',
+      customer_name: 'EUR Customer',
+      customer_id: null,
+    });
+
+    const res = await request(app).post('/api/payments').send({
+      reservation_id: '10000000-0000-4000-8000-0000000000ee',
+      amount: 125,
+      status: 'succeeded',
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.payment.currency).toBe('EUR');
+    expect(payments[payments.length - 1]).toMatchObject({ currency: 'EUR' });
+  });
+
+  it('rejects a payment currency that differs from reservation currency', async () => {
+    reservations[0].currency = 'EUR';
+
+    const res = await request(app).post('/api/payments').send({
+      reservation_id: RESERVATION,
+      amount: 125,
+      currency: 'BAM',
+      status: 'succeeded',
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('CURRENCY_MISMATCH');
+  });
+
   it('records a succeeded payment against the pending installment row and derives partial finance state', async () => {
     const res = await request(app).post('/api/payments').send({
       reservation_id: RESERVATION,
