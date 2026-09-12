@@ -51,7 +51,7 @@ const createSchema = z.object({
   returnDate: z.string().optional(),
   partySize: z.number().int().min(1).optional(),
   totalAmount: z.number().min(0).optional(),
-  currency: z.string().default('BAM'),
+  currency: z.string().optional(),
   paymentTerms: z.string().optional(),
   cancellationPolicy: z.string().optional(),
   status: z.enum(['draft', 'signed']).default('draft'),
@@ -249,7 +249,11 @@ router.post(
       const returnDate = body.returnDate || departure?.return_at || null;
       const partySize = body.partySize ?? reservation.party_size ?? 1;
       const totalAmount = body.totalAmount ?? Number(reservation.total_amount ?? 0);
-      const currency = body.currency || reservation.currency || 'BAM';
+      const reservationCurrency = reservation.currency || 'BAM';
+      if (body.currency && body.currency !== reservationCurrency) {
+        return apiError(res, 400, 'CURRENCY_MISMATCH', 'Contract currency must match reservation currency');
+      }
+      const currency = reservationCurrency;
 
       // 2. Mint contract number: UG-YYYY-XXXX — retry on collision (seq race).
       let contract: any | null = null;
@@ -352,7 +356,12 @@ router.patch(
       if (b.returnDate !== undefined) updateData.return_date = b.returnDate;
       if (b.partySize !== undefined) updateData.party_size = b.partySize;
       if (b.totalAmount !== undefined) updateData.total_amount = b.totalAmount;
-      if (b.currency !== undefined) updateData.currency = b.currency;
+      if (b.currency !== undefined) {
+        if (b.currency !== existing.currency) {
+          return apiError(res, 400, 'CURRENCY_MISMATCH', 'Contract currency cannot differ from its reservation currency');
+        }
+        updateData.currency = b.currency;
+      }
       if (b.paymentTerms !== undefined) updateData.payment_terms = b.paymentTerms;
       if (b.cancellationPolicy !== undefined) updateData.cancellation_policy = b.cancellationPolicy;
       if (b.status !== undefined) updateData.status = b.status;

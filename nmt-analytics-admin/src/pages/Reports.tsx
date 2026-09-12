@@ -39,6 +39,8 @@ export default function Reports() {
     const [revenueSeries, setRevenueSeries] = useState<RevenueSeriesDataPoint[]>([]);
     const [bucket, setBucket] = useState<'daily' | 'weekly'>('daily');
     const [loading, setLoading] = useState(true);
+    const reportCurrency = overview?.currency || overview?.availableCurrencies?.[0] || "BAM";
+    const money = (value: number | null | undefined) => value === null || value === undefined ? "Mixed currencies" : formatCurrency(value, reportCurrency);
 
     // Fetch analytics data
     const fetchAnalytics = async () => {
@@ -157,30 +159,30 @@ export default function Reports() {
         {
             key: 'total_amount_sum',
             header: 'Ukupan prihod',
-            render: (val) => (
+            render: (val, row) => (
                 <div className="text-right font-semibold text-brand-600 dark:text-brand-400">
-                    {formatCurrency(val)}
+                    {formatCurrency(val, row.currency || reportCurrency)}
                 </div>
             )
         },
         {
             key: 'total_paid_sum',
             header: 'Plaćeno',
-            render: (val) => (
+            render: (val, row) => (
                 <div className="text-right text-success-600 dark:text-success-400 font-medium">
-                    {formatCurrency(val)}
+                    {formatCurrency(val, row.currency || reportCurrency)}
                 </div>
             )
         },
         {
             key: 'total_balance_sum',
             header: 'Saldo',
-            render: (val) => (
+            render: (val, row) => (
                 <div className={`text-right font-medium ${val > 0
                     ? 'text-error-600 dark:text-error-400'
                     : 'text-success-600 dark:text-success-400'
                     }`}>
-                    {formatCurrency(val)}
+                    {formatCurrency(val, row.currency || reportCurrency)}
                 </div>
             )
         },
@@ -251,7 +253,7 @@ export default function Reports() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
                     <KPICard
                         title="Ukupan prihod"
-                        value={overview ? formatCurrency(overview.total_amount_sum) : '-'}
+                        value={overview ? money(overview.total_amount_sum) : '-'}
                         subtitle={`${overview?.reservations_count || 0} rezervacija`}
                         color="primary"
                         loading={loading}
@@ -264,7 +266,7 @@ export default function Reports() {
 
                     <KPICard
                         title="Plaćeno"
-                        value={overview ? formatCurrency(overview.total_paid_sum) : '-'}
+                        value={overview ? money(overview.total_paid_sum) : '-'}
                         subtitle={`${overview?.payments_count || 0} plaćanja`}
                         color="success"
                         loading={loading}
@@ -277,9 +279,9 @@ export default function Reports() {
 
                     <KPICard
                         title="Saldo"
-                        value={overview ? formatCurrency(overview.total_balance_sum) : '-'}
+                        value={overview ? money(overview.total_balance_sum) : '-'}
                         subtitle="Neplaćeno"
-                        color={overview && overview.total_balance_sum > 0 ? 'error' : 'success'}
+                        color={overview && (overview.total_balance_sum || 0) > 0 ? 'error' : 'success'}
                         loading={loading}
                         icon={
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -290,7 +292,7 @@ export default function Reports() {
 
                     <KPICard
                         title="Prosječna vrijednost"
-                        value={overview ? formatCurrency(overview.avg_reservation_value) : '-'}
+                        value={overview ? money(overview.avg_reservation_value) : '-'}
                         subtitle="Po rezervaciji"
                         color="info"
                         loading={loading}
@@ -362,7 +364,7 @@ export default function Reports() {
                             >Sedmično</button>
                         </div>
                     </div>
-                    <RevenueChart data={revenueSeries} loading={loading} />
+                    <RevenueChart data={revenueSeries} loading={loading} currency={reportCurrency} />
                 </div>
 
                 {/* Package Analytics Table */}
