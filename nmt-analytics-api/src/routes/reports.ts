@@ -213,13 +213,16 @@ router.get('/reports/summary', authenticateToken, requireOrgContext, async (req,
     const paidRevenue = scalarForCurrencyBreakdown(breakdown, 'paidRevenue', selectedCurrency);
     const unpaidRevenue = scalarForCurrencyBreakdown(breakdown, 'unpaidRevenue', selectedCurrency);
 
+    const canRankDestinationsByRevenue = Boolean(selectedCurrency) || !breakdown.multiCurrency;
     const destinations = new Map<string, { destination: string; revenue: number; reservations: number }>();
-    for (const row of filteredRevenueRows) {
-      const destination = row.departures?.packages?.destination || row.departures?.packages?.name || 'Unknown';
-      const existing = destinations.get(destination) || { destination, revenue: 0, reservations: 0 };
-      existing.revenue = fromMoneyCents(toMoneyCents(existing.revenue) + toMoneyCents(row.total_amount));
-      existing.reservations += 1;
-      destinations.set(destination, existing);
+    if (canRankDestinationsByRevenue) {
+      for (const row of filteredRevenueRows) {
+        const destination = row.departures?.packages?.destination || row.departures?.packages?.name || 'Unknown';
+        const existing = destinations.get(destination) || { destination, revenue: 0, reservations: 0 };
+        existing.revenue = fromMoneyCents(toMoneyCents(existing.revenue) + toMoneyCents(row.total_amount));
+        existing.reservations += 1;
+        destinations.set(destination, existing);
+      }
     }
 
     return res.json({

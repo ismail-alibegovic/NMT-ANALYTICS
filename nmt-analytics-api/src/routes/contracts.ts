@@ -357,7 +357,16 @@ router.patch(
       if (b.partySize !== undefined) updateData.party_size = b.partySize;
       if (b.totalAmount !== undefined) updateData.total_amount = b.totalAmount;
       if (b.currency !== undefined) {
-        if (b.currency !== existing.currency) {
+        const { data: reservation, error: reservationError } = await supabaseAdmin
+          .from('reservations')
+          .select('id, currency')
+          .eq('id', existing.reservation_id)
+          .eq('org_id', orgId)
+          .single();
+        if (reservationError || !reservation) {
+          return apiError(res, 404, 'NOT_FOUND', 'Reservation not found');
+        }
+        if (b.currency !== reservation.currency) {
           return apiError(res, 400, 'CURRENCY_MISMATCH', 'Contract currency cannot differ from its reservation currency');
         }
         updateData.currency = b.currency;

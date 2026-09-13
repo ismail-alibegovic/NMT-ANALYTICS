@@ -284,7 +284,16 @@ router.patch(
       if (b.receiptType !== undefined) updateData.receipt_type = b.receiptType;
       if (b.amount !== undefined) updateData.amount = b.amount;
       if (b.currency !== undefined) {
-        if (b.currency !== existing.currency) {
+        const { data: reservation, error: reservationError } = await supabaseAdmin
+          .from('reservations')
+          .select('id, currency')
+          .eq('id', existing.reservation_id)
+          .eq('org_id', orgId)
+          .single();
+        if (reservationError || !reservation) {
+          return apiError(res, 404, 'NOT_FOUND', 'Reservation not found');
+        }
+        if (b.currency !== reservation.currency) {
           return apiError(res, 400, 'CURRENCY_MISMATCH', 'Receipt currency cannot differ from its reservation currency');
         }
         updateData.currency = b.currency;

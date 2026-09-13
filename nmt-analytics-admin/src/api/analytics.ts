@@ -1,7 +1,7 @@
 import { get } from './client';
 
 export interface AnalyticsOverview {
-  totalRevenue: number;
+  totalRevenue: number | null;
   totalBookings: number;
   totalCustomers: number;
   pendingBookings: number;
@@ -9,22 +9,30 @@ export interface AnalyticsOverview {
   revenueChangePct?: number;
   bookingsChangePct?: number;
   customersChangePct?: number;
+  currency?: string | null;
+  availableCurrencies?: string[];
+  multiCurrency?: boolean;
+  currencyBreakdown?: Array<{ currency: string; totalRevenue: number }>;
 }
 
 export interface DashboardStats {
-  revenue: number;
+  revenue: number | null;
   bookings_count: number;
-  average_booking_value: number;
-  revenue_by_month: { month: string; amount: number }[];
-  top_packages: { name: string; revenue: number; bookings: number }[];
+  average_booking_value: number | null;
+  revenue_by_month: { month: string; amount: number | null; currency?: string | null }[];
+  top_packages: { name: string; revenue: number | null; bookings: number; currency?: string | null }[];
+  currency?: string | null;
+  availableCurrencies?: string[];
+  multiCurrency?: boolean;
+  currencyBreakdown?: Array<{ currency: string; revenue: number; bookings: number }>;
 }
 
 /**
  * Get analytics overview for the current organization
  */
-export async function getAnalyticsOverview(from?: string, to?: string): Promise<AnalyticsOverview> {
+export async function getAnalyticsOverview(from?: string, to?: string, currency?: string): Promise<AnalyticsOverview> {
   const { data } = await get<AnalyticsOverview>('/analytics/overview', {
-    params: { from, to }
+    params: { from, to, currency }
   });
   return data;
 }
@@ -32,7 +40,7 @@ export async function getAnalyticsOverview(from?: string, to?: string): Promise<
 /**
  * Get dashboard stats for the current organization
  */
-export async function getDashboardStats(params?: { from?: string; to?: string }): Promise<DashboardStats> {
+export async function getDashboardStats(params?: { from?: string; to?: string; currency?: string }): Promise<DashboardStats> {
   const { data } = await get<DashboardStats>('/analytics/dashboard', {
     params
   });

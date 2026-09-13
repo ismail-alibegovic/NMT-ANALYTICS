@@ -146,6 +146,7 @@ async function calculateDashboardStats(orgId: string, dateFrom: Date, dateTo: Da
 router.get('/analytics/overview', authenticateToken, requireOrgContext, requireModule('analytics'), async (req, res: Response, next) => {
   try {
     const { from, to, granularity } = req.query;
+    const selectedCurrency = typeof req.query.currency === 'string' ? normalizeCurrency(req.query.currency) : null;
 
     const dateFrom = from
       ? new Date(from as string)
@@ -179,7 +180,7 @@ router.get('/analytics/overview', authenticateToken, requireOrgContext, requireM
     // 1. Revenue Query (payments)
     const { data: revenueData, error: revError } = await supabaseAdmin
       .from(schema.revenue.table)
-      .select(schema.revenue.amount)
+      .select('amount, currency')
       .eq(schema.revenue.orgId, orgId)
       .in(schema.revenue.status, schema.revenue.filters.paid)
       .gte(schema.revenue.createdAt, format(currentFrom))
@@ -216,7 +217,11 @@ router.get('/analytics/overview', authenticateToken, requireOrgContext, requireM
 
     if (allBookError) throw allBookError;
 
-    const totalRevenue = (revenueData || []).reduce((sum, r: any) => sum + Number(r[schema.revenue.amount] || 0), 0);
+    const revenueRows = selectedCurrency
+      ? (revenueData || []).filter((row: any) => normalizeCurrency(row.currency) === selectedCurrency)
+      : (revenueData || []);
+    const revenueBreakdown = buildCurrencyBreakdown((revenueRows || []) as Record<string, unknown>[], { totalRevenue: schema.revenue.amount as any });
+    const totalRevenue = scalarForCurrencyBreakdown(revenueBreakdown, 'totalRevenue', selectedCurrency);
     const totalBookings = bookData?.length || 0;
     const totalCustomers = customersCount || 0;
 
@@ -228,10 +233,14 @@ router.get('/analytics/overview', authenticateToken, requireOrgContext, requireM
       : 0;
 
     return res.json({
-      totalRevenue: Number(totalRevenue.toFixed(2)),
+      totalRevenue,
       totalBookings: Number(totalBookings),
       totalCustomers: Number(totalCustomers),
-      cancellationRate: Number(cancellationRate)
+      cancellationRate: Number(cancellationRate),
+      currency: selectedCurrency || (revenueBreakdown.multiCurrency ? null : revenueBreakdown.availableCurrencies[0] || null),
+      availableCurrencies: revenueBreakdown.availableCurrencies,
+      multiCurrency: revenueBreakdown.multiCurrency,
+      currencyBreakdown: revenueBreakdown.currencyBreakdown,
     });
 
   } catch (error) {
@@ -254,6 +263,7 @@ router.get('/analytics/trends', authenticateToken, requireOrgContext, requireMod
     }
 
     const { from, to, granularity } = validationResult.data;
+    const selectedCurrency = typeof req.query.currency === 'string' ? normalizeCurrency(req.query.currency) : null;
     // orgId is now set by authenticateToken + requireOrgContext middleware
     const orgId = req.orgId!;
 
@@ -292,7 +302,7 @@ router.get('/analytics/trends', authenticateToken, requireOrgContext, requireMod
     // Revenue Query (Standardized to transactions)
     const { data: revData, error: revErr } = await supabaseAdmin
       .from(schema.revenue.table)
-      .select(`${schema.revenue.amount}, ${schema.revenue.createdAt}`)
+      .select(`${schema.revenue.amount}, ${schema.revenue.createdAt}, currency`)
       .eq(schema.revenue.orgId, orgId)
       .in(schema.revenue.status, schema.revenue.filters.paid)
       .gte(schema.revenue.createdAt, startDate.toISOString())
@@ -324,10 +334,16 @@ router.get('/analytics/trends', authenticateToken, requireOrgContext, requireMod
       return d.toISOString().split('T')[0];
     };
 
-    const revenueMap = new Map<string, number>();
+    const revenueMap = new Map<string, Map<string, number>>();
+    const revenueCurrencies = new Set<string>();
     (revData || []).forEach((t: any) => {
+      const rowCurrency = normalizeCurrency(t.currency);
+      if (selectedCurrency && rowCurrency !== selectedCurrency) return;
       const key = getGroupKey(t[schema.revenue.createdAt]);
-      revenueMap.set(key, (revenueMap.get(key) || 0) + Number(t[schema.revenue.amount] || 0));
+      revenueCurrencies.add(rowCurrency);
+      const byCurrency = revenueMap.get(key) || new Map<string, number>();
+      byCurrency.set(rowCurrency, (byCurrency.get(rowCurrency) || 0) + toMoneyCents(t[schema.revenue.amount]));
+      revenueMap.set(key, byCurrency);
     });
 
     const bookingsMap = new Map<string, number>();
@@ -340,11 +356,30 @@ router.get('/analytics/trends', authenticateToken, requireOrgContext, requireMod
       }
     });
 
-    const revenue = dateSeries.map(date => ({ date, value: Number((revenueMap.get(date) || 0).toFixed(2)) }));
+    const revenue = dateSeries.flatMap(date => {
+      const currencies = selectedCurrency ? [selectedCurrency] : Array.from(revenueCurrencies).sort();
+      return currencies.map((currency) => ({
+        date,
+        currency,
+        value: fromMoneyCents(revenueMap.get(date)?.get(currency) || 0),
+      }));
+    });
     const bookings = dateSeries.map(date => ({ date, value: bookingsMap.get(date) || 0 }));
     const cancellations = dateSeries.map(date => ({ date, value: cancellationsMap.get(date) || 0 }));
 
-    return sendAnalyticsResponse(res, { revenue, bookings, cancellations }, validationResult.data, { orgId } as any);
+    return sendAnalyticsResponse(
+      res,
+      {
+        revenue,
+        bookings,
+        cancellations,
+        currency: selectedCurrency || (revenueCurrencies.size === 1 ? Array.from(revenueCurrencies)[0] : null),
+        availableCurrencies: Array.from(revenueCurrencies).sort(),
+        multiCurrency: revenueCurrencies.size > 1,
+      },
+      validationResult.data,
+      { orgId } as any,
+    );
 
   } catch (error) {
     console.error('ANALYTICS ERROR (Trends):', error);
@@ -777,7 +812,7 @@ router.get('/analytics/revenue-series', authenticateToken, requireOrgContext, as
         const monday = new Date(date.setDate(diff));
         bucketKey = monday.toISOString().split('T')[0];
       } else {
-        bucketKey = paymentDate;
+        bucketKey = paymentDate.split('T')[0];
       }
 
       if (from && bucketKey < from) return;
