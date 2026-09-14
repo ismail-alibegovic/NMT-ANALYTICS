@@ -79,7 +79,8 @@ async function calculateDashboardStats(orgId: string, dateFrom: Date, dateTo: Da
 
   const revenueCents = confirmedRevenueRows.reduce((sum, r) => sum + toMoneyCents(r.total_amount), 0);
   const revenue = fromMoneyCents(revenueCents);
-  const bookingsCount = validRows.length;
+  const bookingsCount = validRowsAll.length;
+  const moneyBookingCount = selectedCurrency ? validRows.length : bookingsCount;
 
   const currencyBreakdownMap = new Map<string, { currency: string; revenueCents: number; bookings: number }>();
   for (const reservation of validRowsAll) {
@@ -105,10 +106,12 @@ async function calculateDashboardStats(orgId: string, dateFrom: Date, dateTo: Da
     revenueByMonthMap.set(month, existing);
   }
 
-  for (const reservation of validRows) {
+  for (const reservation of validRowsAll) {
     const month = new Date(reservation.reservation_at).toISOString().slice(0, 7);
     bookingsByMonthMap.set(month, (bookingsByMonthMap.get(month) || 0) + 1);
+  }
 
+  for (const reservation of validRows) {
     const packageName = reservation.departures?.packages?.name || 'Unknown Package';
     const currency = normalizeCurrency(reservation.currency);
     const existing = topPackageMap.get(packageName) || { name: packageName, cents: 0, bookings: 0, currencies: new Set<string>() };
@@ -121,7 +124,7 @@ async function calculateDashboardStats(orgId: string, dateFrom: Date, dateTo: Da
   return {
     revenue: mixedCurrency ? null : revenue,
     bookings_count: bookingsCount,
-    average_booking_value: mixedCurrency ? null : (bookingsCount > 0 ? fromMoneyCents(Math.round(revenueCents / bookingsCount)) : 0),
+    average_booking_value: mixedCurrency ? null : (moneyBookingCount > 0 ? fromMoneyCents(Math.round(revenueCents / moneyBookingCount)) : 0),
     revenue_by_month: Array.from(revenueByMonthMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, entry]) => ({ month, amount: entry.currencies.size > 1 ? null : fromMoneyCents(entry.cents), currency: entry.currencies.size === 1 ? Array.from(entry.currencies)[0] : null })),
@@ -565,21 +568,59 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async
     }) || [];
 
     const paymentBreakdown = buildCurrencyBreakdown(filteredPayments, { payments_sum: 'amount' });
+    const combinedCurrencyMap = new Map<string, any>();
+    for (const rowBase of reservationBreakdown.currencyBreakdown) {
+      const row = rowBase as any;
+      combinedCurrencyMap.set(row.currency, {
+        currency: row.currency,
+        total_amount_sum: row.total_amount_sum || 0,
+        total_paid_sum: row.total_paid_sum || 0,
+        total_balance_sum: row.total_balance_sum || 0,
+        payments_sum: 0,
+      });
+    }
+    for (const rowBase of paymentBreakdown.currencyBreakdown) {
+      const row = rowBase as any;
+      const current: any = combinedCurrencyMap.get(row.currency) || {
+        currency: row.currency,
+        total_amount_sum: 0,
+        total_paid_sum: 0,
+        total_balance_sum: 0,
+        payments_sum: 0,
+      };
+      current.payments_sum = row.payments_sum || 0;
+      combinedCurrencyMap.set(row.currency, current);
+    }
+    const combinedCurrencyBreakdown = Array.from(combinedCurrencyMap.values())
+      .sort((a, b) => a.currency.localeCompare(b.currency));
+    const combinedCurrencies = combinedCurrencyBreakdown.map((row) => row.currency);
+    const combinedBreakdown = {
+      currencyBreakdown: combinedCurrencyBreakdown,
+      availableCurrencies: combinedCurrencies,
+      multiCurrency: !selectedCurrency && combinedCurrencies.length > 1,
+    };
+    const totalAmountSum = scalarForCurrencyBreakdown(combinedBreakdown, 'total_amount_sum', selectedCurrency);
+    const totalPaidSum = scalarForCurrencyBreakdown(combinedBreakdown, 'total_paid_sum', selectedCurrency);
+    const totalBalanceSum = scalarForCurrencyBreakdown(combinedBreakdown, 'total_balance_sum', selectedCurrency);
+    const paymentsSum = scalarForCurrencyBreakdown(combinedBreakdown, 'payments_sum', selectedCurrency);
     const paymentMetrics = {
       payments_count: filteredPayments.length,
-      payments_sum: scalarForCurrencyBreakdown(paymentBreakdown, 'payments_sum', selectedCurrency),
+      payments_sum: paymentsSum,
     };
 
     const response: OverviewAnalyticsV2 = {
       ...metrics,
-      avg_reservation_value: metrics.reservations_count > 0 && metrics.total_amount_sum !== null
-        ? metrics.total_amount_sum / metrics.reservations_count
+      total_amount_sum: totalAmountSum,
+      total_paid_sum: totalPaidSum,
+      total_balance_sum: totalBalanceSum,
+      avg_reservation_value: metrics.reservations_count > 0 && totalAmountSum !== null
+        ? totalAmountSum / metrics.reservations_count
         : metrics.reservations_count === 0 ? 0 : null,
       ...paymentMetrics,
-      currency: selectedCurrency || (reservationBreakdown.multiCurrency || paymentBreakdown.multiCurrency ? null : reservationBreakdown.availableCurrencies[0] || paymentBreakdown.availableCurrencies[0] || null),
-      availableCurrencies: Array.from(new Set([...reservationBreakdown.availableCurrencies, ...paymentBreakdown.availableCurrencies])).sort(),
-      multiCurrency: reservationBreakdown.multiCurrency || paymentBreakdown.multiCurrency,
-      currencyBreakdown: reservationBreakdown.currencyBreakdown,
+      currency: selectedCurrency || (combinedCurrencies.length === 1 ? combinedCurrencies[0] : null),
+      availableCurrencies: combinedCurrencies,
+      multiCurrency: combinedBreakdown.multiCurrency,
+      currencyBreakdown: combinedCurrencyBreakdown,
       date_from: from || null,
       date_to: to || null,
     };

@@ -255,8 +255,8 @@ describe('currency-aware analytics routes', () => {
     expect(overviewV2.status).toBe(200);
     expect(overviewV2.body.total_amount_sum).toBeNull();
     expect(overviewV2.body.currencyBreakdown).toEqual([
-      { currency: 'BAM', total_amount_sum: 100, total_paid_sum: 100, total_balance_sum: 0 },
-      { currency: 'EUR', total_amount_sum: 200, total_paid_sum: 200, total_balance_sum: 0 },
+      { currency: 'BAM', total_amount_sum: 100, total_paid_sum: 100, total_balance_sum: 0, payments_sum: 100 },
+      { currency: 'EUR', total_amount_sum: 200, total_paid_sum: 200, total_balance_sum: 0, payments_sum: 200 },
     ]);
 
     const byPackage = await request(app).get('/api/analytics/by-package?from=2026-01-01&to=2026-01-31');
@@ -288,5 +288,97 @@ describe('currency-aware analytics routes', () => {
     const filteredReports = await request(app).get('/api/reports/summary?from=2026-01-01&to=2026-01-31&currency=EUR');
     expect(filteredReports.body.bookedRevenue).toBe(200);
     expect(filteredReports.body.topDestinations).toEqual([{ destination: 'Istanbul', revenue: 200, reservations: 1 }]);
+  });
+
+  it('/analytics/overview-v2 detects mixed currencies across reservations and payments together', async () => {
+    rows.reservations = [
+      {
+        ...rows.reservations[0],
+        id: 'res-bam-current',
+        total_amount: 100,
+        paid_amount: 0,
+        balance_due: 100,
+        currency: 'BAM',
+        created_at: '2026-01-15T08:00:00.000Z',
+      },
+      {
+        ...rows.reservations[1],
+        id: 'res-eur-old',
+        total_amount: 999,
+        paid_amount: 0,
+        balance_due: 999,
+        currency: 'EUR',
+        created_at: '2025-12-15T08:00:00.000Z',
+      },
+    ];
+    rows.payments = [
+      {
+        ...rows.payments[1],
+        id: 'pay-eur-current',
+        reservation_id: 'res-eur-old',
+        amount: 200,
+        currency: 'EUR',
+        status: 'succeeded',
+        payment_date: '2026-01-15T11:00:00.000Z',
+      },
+    ];
+
+    const mixed = await request(app).get('/api/analytics/overview-v2?from=2026-01-01&to=2026-01-31');
+    expect(mixed.status).toBe(200);
+    expect(mixed.body.currency).toBeNull();
+    expect(mixed.body.multiCurrency).toBe(true);
+    expect(mixed.body.availableCurrencies).toEqual(['BAM', 'EUR']);
+    expect(mixed.body.total_amount_sum).toBeNull();
+    expect(mixed.body.payments_sum).toBeNull();
+    expect(mixed.body.currencyBreakdown).toEqual([
+      { currency: 'BAM', total_amount_sum: 100, total_paid_sum: 0, total_balance_sum: 100, payments_sum: 0 },
+      { currency: 'EUR', total_amount_sum: 0, total_paid_sum: 0, total_balance_sum: 0, payments_sum: 200 },
+    ]);
+
+    const bam = await request(app).get('/api/analytics/overview-v2?from=2026-01-01&to=2026-01-31&currency=BAM');
+    expect(bam.body.currency).toBe('BAM');
+    expect(bam.body.multiCurrency).toBe(false);
+    expect(bam.body.total_amount_sum).toBe(100);
+    expect(bam.body.payments_sum).toBe(0);
+
+    const eur = await request(app).get('/api/analytics/overview-v2?from=2026-01-01&to=2026-01-31&currency=EUR');
+    expect(eur.body.currency).toBe('EUR');
+    expect(eur.body.multiCurrency).toBe(false);
+    expect(eur.body.total_amount_sum).toBe(0);
+    expect(eur.body.payments_sum).toBe(200);
+  });
+
+  it('/analytics/dashboard keeps booking counts currency-independent while filtering money', async () => {
+    rows.reservations = [
+      ...Array.from({ length: 2 }, (_, index) => ({
+        ...rows.reservations[0],
+        id: `res-bam-${index}`,
+        total_amount: 100,
+        currency: 'BAM',
+      })),
+      ...Array.from({ length: 3 }, (_, index) => ({
+        ...rows.reservations[1],
+        id: `res-eur-${index}`,
+        total_amount: 200,
+        currency: 'EUR',
+      })),
+    ];
+
+    const unfiltered = await request(app).get('/api/analytics/dashboard?from=2026-01-01&to=2026-01-31');
+    expect(unfiltered.status).toBe(200);
+    expect(unfiltered.body.bookings_count).toBe(5);
+    expect(unfiltered.body.bookings_by_month).toEqual([{ month: '2026-01', count: 5 }]);
+
+    const bam = await request(app).get('/api/analytics/dashboard?from=2026-01-01&to=2026-01-31&currency=BAM');
+    expect(bam.body.revenue).toBe(200);
+    expect(bam.body.average_booking_value).toBe(100);
+    expect(bam.body.bookings_count).toBe(5);
+    expect(bam.body.bookings_by_month).toEqual([{ month: '2026-01', count: 5 }]);
+
+    const eur = await request(app).get('/api/analytics/dashboard?from=2026-01-01&to=2026-01-31&currency=EUR');
+    expect(eur.body.revenue).toBe(600);
+    expect(eur.body.average_booking_value).toBe(200);
+    expect(eur.body.bookings_count).toBe(5);
+    expect(eur.body.bookings_by_month).toEqual([{ month: '2026-01', count: 5 }]);
   });
 });

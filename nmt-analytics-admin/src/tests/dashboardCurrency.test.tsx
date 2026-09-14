@@ -212,6 +212,8 @@ describe('Dashboard currency handling', () => {
     expect(screen.getByRole('button', { name: 'EUR' })).toBeInTheDocument();
     expect(screen.getAllByText('Select currency').length).toBeGreaterThan(0);
     expect(screen.queryByText(/300,00/)).not.toBeInTheDocument();
+    expect(screen.queryByText('BAM Package')).not.toBeInTheDocument();
+    expect(screen.queryByText('EUR Package')).not.toBeInTheDocument();
   });
 
   it('refetches monetary Dashboard data with the selected currency', async () => {

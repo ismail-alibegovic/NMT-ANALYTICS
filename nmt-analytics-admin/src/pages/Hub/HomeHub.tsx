@@ -264,6 +264,7 @@ const HomeHub: React.FC = () => {
   const [queueError, setQueueError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [bookingsTab, setBookingsTab] = useState<"upcoming" | "past">("upcoming");
+  const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
 
   const role = userContext?.role;
   const orgName = userContext?.org?.name;
@@ -288,11 +289,12 @@ const HomeHub: React.FC = () => {
         const today = new Date();
         const todayISO = today.toISOString().split("T")[0];
         const fortnightAgo = new Date(today.getTime() - 14 * 86_400_000).toISOString().split("T")[0];
+        const monetaryFilters = selectedCurrency ? { currency: selectedCurrency } : {};
 
         const [ov, deps, rev, paymentsDashboard, pending] = await Promise.allSettled([
-          getAnalyticsOverviewV2({ from: fortnightAgo, to: todayISO }),
+          getAnalyticsOverviewV2({ from: fortnightAgo, to: todayISO, ...monetaryFilters }),
           getDepartures({ status: "active", dateFrom: todayISO, limit: 12 }),
-          getRevenueSeries({ from: fortnightAgo, to: todayISO, bucket: "daily" }),
+          getRevenueSeries({ from: fortnightAgo, to: todayISO, bucket: "daily", ...monetaryFilters }),
           showFinance ? getPaymentDashboard() : Promise.resolve(null),
           getReservations({ status: "pending", limit: 3 }),
         ]);
@@ -446,7 +448,7 @@ const HomeHub: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [showFinance, lang]);
+  }, [showFinance, lang, selectedCurrency]);
 
   const allDepartures = useMemo(
     () =>
@@ -470,10 +472,13 @@ const HomeHub: React.FC = () => {
     [allDepartures, now]
   );
 
-  const revenuePoints = useMemo(() => revenue.map((p) => p.total_paid_sum || 0), [revenue]);
-  const grossPoints = useMemo(() => revenue.map((p) => p.total_amount_sum || 0), [revenue]);
-  const hubCurrency = overview?.currency || overview?.availableCurrencies?.[0] || (userContext?.org as any)?.currency || "BAM";
-  const openBalance = overview?.total_balance_sum || 0;
+  const availableCurrencies = overview?.availableCurrencies || [];
+  const hasMixedCurrencies = Boolean((overview?.multiCurrency || availableCurrencies.length > 1) && !selectedCurrency);
+  const canShowMoney = !hasMixedCurrencies;
+  const revenuePoints = useMemo(() => canShowMoney ? revenue.map((p) => p.total_paid_sum || 0) : [], [canShowMoney, revenue]);
+  const grossPoints = useMemo(() => canShowMoney ? revenue.map((p) => p.total_amount_sum || 0) : [], [canShowMoney, revenue]);
+  const hubCurrency = selectedCurrency || overview?.currency || (availableCurrencies.length === 1 ? availableCurrencies[0] : (userContext?.org as any)?.currency || "BAM");
+  const openBalance = canShowMoney ? overview?.total_balance_sum : null;
   const activeCount = overview?.reservations_count || 0;
   const paidCount = overview?.paid_count || 0;
 
@@ -593,6 +598,27 @@ const HomeHub: React.FC = () => {
             </button>
           </header>
 
+          {showFinance && availableCurrencies.length > 1 && (
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <span className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                Currency
+              </span>
+              {availableCurrencies.map((currency) => (
+                <button
+                  key={currency}
+                  onClick={() => setSelectedCurrency(currency)}
+                  className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                    selectedCurrency === currency
+                      ? "bg-brand-500 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-300 dark:hover:bg-white/[0.1]"
+                  }`}
+                >
+                  {currency}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* ── Single-viewport 3-column grid ───────────────────────── */}
           {isNewOrg ? <QuickStart /> : (
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.05fr)_300px] lg:overflow-hidden">
@@ -688,6 +714,10 @@ const HomeHub: React.FC = () => {
                 <div className="mb-3 shrink-0 overflow-hidden rounded-lg">
                   {loading ? (
                     <div className={`h-[96px] w-full animate-pulse ${neuInset}`} />
+                  ) : hasMixedCurrencies ? (
+                    <div className={`flex h-[96px] items-center px-4 ${neuInset}`}>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">Select currency</p>
+                    </div>
                   ) : grossPoints.length >= 2 ? (
                     <ComboChart bars={grossPoints} line={revenuePoints} height={96} />
                   ) : (
@@ -820,13 +850,13 @@ const HomeHub: React.FC = () => {
                     </div>
                   </Panel>
                   <Panel className="p-4">
-                    <SectionLabel className={openBalance > 0 ? "text-amber-500 dark:text-amber-400" : ""}>
+                    <SectionLabel className={(openBalance || 0) > 0 ? "text-amber-500 dark:text-amber-400" : ""}>
                       {hub.kpiOutstanding}
                     </SectionLabel>
                     <div className="mt-2 flex items-center gap-2">
-                      <BoxIconLine className={`size-4 ${openBalance > 0 ? "text-amber-500" : "text-gray-400"}`} />
+                      <BoxIconLine className={`size-4 ${(openBalance || 0) > 0 ? "text-amber-500" : "text-gray-400"}`} />
                       <span className="text-xl font-semibold tabular-nums tracking-tight text-gray-800 dark:text-white">
-                        {loading ? "—" : fmtCompact(openBalance)}
+                        {loading ? "—" : openBalance == null ? "Select currency" : fmtCompact(openBalance)}
                       </span>
                     </div>
                   </Panel>
@@ -865,6 +895,11 @@ const HomeHub: React.FC = () => {
                         </li>
                       ))}
                     </ul>
+                  ) : hasMixedCurrencies ? (
+                    <div className="flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center">
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Select currency</p>
+                      <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{hub.paymentsPanel}</p>
+                    </div>
                   ) : watchPayments.length === 0 ? (
                     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center">
                       <span
@@ -928,7 +963,7 @@ const HomeHub: React.FC = () => {
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-gray-800 dark:text-white">
-                      {openBalance > 0 ? fmtCurrency(openBalance, lang, hubCurrency) : hub.allSettled}
+                      {openBalance == null ? "Select currency" : openBalance > 0 ? fmtCurrency(openBalance, lang, hubCurrency) : hub.allSettled}
                     </p>
                     <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{hub.paymentsPanel}</p>
                   </div>

@@ -242,7 +242,7 @@ export default function Home() {
         />
       </div>
 
-      {!loading && dashboardStats?.top_packages && Array.isArray(dashboardStats.top_packages) && dashboardStats.top_packages.length > 0 && (
+      {!loading && !hasMixedCurrencies && dashboardStats?.top_packages && Array.isArray(dashboardStats.top_packages) && dashboardStats.top_packages.length > 0 && (
         <div className="mb-8">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t.dashboard.topPackages}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
