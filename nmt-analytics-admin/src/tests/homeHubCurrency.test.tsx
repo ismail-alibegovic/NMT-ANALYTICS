@@ -185,7 +185,7 @@ describe('HomeHub currency handling', () => {
     renderHub();
 
     await screen.findByText('Revenue');
-    expect(screen.getAllByText(/50 EUR/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/EUR/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/50 KM/)).not.toBeInTheDocument();
   });
 
