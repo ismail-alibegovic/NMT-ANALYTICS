@@ -140,7 +140,7 @@ vi.mock('../lib/supabase', () => {
       }
       if (table === 'departures') {
         return {
-          select: vi.fn(() => buildCollectionQuery(() => [{ id: DEPARTURE_ID, org_id: ORG_ID, capacity }])),
+          select: vi.fn(() => buildCollectionQuery(() => [{ id: DEPARTURE_ID, org_id: ORG_ID, package_id: 'pkg-1', capacity, packages: { currency: 'BAM' } }])),
         }
       }
       if (table === 'departure_passengers') {

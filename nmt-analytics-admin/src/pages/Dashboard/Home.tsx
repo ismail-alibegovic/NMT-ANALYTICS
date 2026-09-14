@@ -14,6 +14,7 @@ import { useToast } from "../../context/ToastContext";
 import { hasAccess } from "../../types/roles";
 import { useApp } from "../../context/AppContext";
 import { useTranslation } from "../../lib/i18n/context";
+import { formatCurrency } from "../../utils/business";
 
 export default function Home() {
   const t = useTranslation();
@@ -30,21 +31,22 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(true);
   const [currentRange, setCurrentRange] = useState<DateRange | null>(null);
+  const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
 
-  const fetchDashboardData = useCallback(async (range: DateRange) => {
+  const fetchDashboardData = useCallback(async (range: DateRange, currency?: string | null) => {
     setLoading(true);
     setChartLoading(true);
     try {
       const [ov, ds, rev, book] = await Promise.all([
-        getAnalyticsOverview(range.from, range.to),
-        getDashboardStats({ from: range.from, to: range.to }),
-        getRevenueSeries(range.from, range.to, range.granularity),
+        getAnalyticsOverview(range.from, range.to, currency || undefined),
+        getDashboardStats({ from: range.from, to: range.to, currency: currency || undefined }),
+        getRevenueSeries(range.from, range.to, range.granularity, currency || undefined),
         getBookingsSeries(range.from, range.to, range.granularity)
       ]);
 
       setOverview(ov || null);
       setDashboardStats(ds || null);
-      setRevenueSeries(Array.isArray(rev) ? rev : []);
+      setRevenueSeries(Array.isArray(rev?.data) ? rev.data : []);
       setBookingsSeries(Array.isArray(book) ? book : []);
     } catch (err: any) {
       console.error("Dashboard fetch error:", err);
@@ -63,26 +65,44 @@ export default function Home() {
 
   useEffect(() => {
     if (currentRange) {
-      fetchDashboardData(currentRange);
+      fetchDashboardData(currentRange, selectedCurrency);
     }
-  }, [currentRange, fetchDashboardData]);
+  }, [currentRange, selectedCurrency, fetchDashboardData]);
+
+  const availableCurrencies = useMemo(() => {
+    const currencies = new Set<string>();
+    overview?.availableCurrencies?.forEach((currency) => currencies.add(currency));
+    dashboardStats?.availableCurrencies?.forEach((currency) => currencies.add(currency));
+    revenueSeries.forEach((point) => {
+      if (point.currency) currencies.add(point.currency);
+    });
+    return Array.from(currencies).sort();
+  }, [overview, dashboardStats, revenueSeries]);
+
+  const hasMixedCurrencies = Boolean((overview?.multiCurrency || dashboardStats?.multiCurrency || availableCurrencies.length > 1) && !selectedCurrency);
+  const displayCurrency = selectedCurrency || dashboardStats?.currency || overview?.currency || (availableCurrencies.length === 1 ? availableCurrencies[0] : null);
+  const moneyLabel = (value: number | null | undefined) => {
+    if (value === null || value === undefined || !displayCurrency || hasMixedCurrencies) return "Select currency";
+    return formatCurrency(value, displayCurrency);
+  };
 
   // Transform revenue_by_month for the chart if standard series is empty
   const chartRevenueData = useMemo(() => {
     // Defensive check
+    if (hasMixedCurrencies) return [];
     if (Array.isArray(revenueSeries) && revenueSeries.length > 0) return revenueSeries;
 
     // Check if revenue_by_month is an array before mapping
     if (dashboardStats?.revenue_by_month && Array.isArray(dashboardStats.revenue_by_month)) {
-      return dashboardStats.revenue_by_month.map(m => ({
+      return dashboardStats.revenue_by_month.filter((m) => m.amount !== null && m.amount !== undefined).map(m => ({
         date: m.month,
-        value: m.amount
+        value: Number(m.amount)
       }));
     }
     return [];
-  }, [revenueSeries, dashboardStats]);
+  }, [revenueSeries, dashboardStats, hasMixedCurrencies]);
 
-  const MetricCard = ({ title, value, change, icon: Icon, prefix = "", suffix = "" }: any) => (
+  const MetricCard = ({ title, value, change, icon: Icon, suffix = "", formatter }: any) => (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 transition-all hover:shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center justify-center w-12 h-12 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl">
@@ -101,8 +121,8 @@ export default function Home() {
         <h4 className="mt-1 font-bold text-gray-900 text-2xl dark:text-white/90">
           {loading ? (
             <div className="h-8 w-24 animate-pulse bg-gray-100 rounded dark:bg-gray-800" />
-          ) : (
-            `${prefix}${value.toLocaleString()}${suffix}`
+        ) : (
+            formatter ? formatter(value) : `${Number(value || 0).toLocaleString()}${suffix}`
           )}
         </h4>
       </div>
@@ -141,6 +161,26 @@ export default function Home() {
         </div>
       </div>
 
+      {isManagerPlus && availableCurrencies.length > 1 && (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Currency</span>
+          {availableCurrencies.map((currency) => (
+            <button
+              key={currency}
+              type="button"
+              onClick={() => setSelectedCurrency(currency)}
+              className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${
+                selectedCurrency === currency
+                  ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-500/10 dark:text-indigo-200"
+                  : "border-gray-200 text-gray-600 hover:border-indigo-300 dark:border-gray-800 dark:text-gray-300"
+              }`}
+            >
+              {currency}
+            </button>
+          ))}
+        </div>
+      )}
+
       <OnboardingChecklist />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 md:gap-6 mb-8">
@@ -150,7 +190,7 @@ export default function Home() {
             value={dashboardStats?.revenue ?? overview?.totalRevenue ?? 0}
             change={overview?.revenueChangePct}
             icon={DollarLineIcon}
-            prefix="KM "
+            formatter={moneyLabel}
           />
         )}
         <MetricCard
@@ -170,7 +210,7 @@ export default function Home() {
             title={t.dashboard.avgBooking}
             value={dashboardStats?.average_booking_value ?? 0}
             icon={ShootingStarIcon}
-            prefix="KM "
+            formatter={moneyLabel}
           />
         )}
         <MetricCard
@@ -187,7 +227,7 @@ export default function Home() {
             title={t.dashboard.revenueTrend}
             subtitle={t.dashboard.revenueGenerated}
             data={chartRevenueData}
-            prefix="KM "
+            prefix={displayCurrency ? `${displayCurrency} ` : ""}
             loading={chartLoading}
             onPointClick={(date) => navigate(`/reports?from=${date}&to=${date}`)}
           />
@@ -202,7 +242,7 @@ export default function Home() {
         />
       </div>
 
-      {!loading && dashboardStats?.top_packages && Array.isArray(dashboardStats.top_packages) && dashboardStats.top_packages.length > 0 && (
+      {!loading && !hasMixedCurrencies && dashboardStats?.top_packages && Array.isArray(dashboardStats.top_packages) && dashboardStats.top_packages.length > 0 && (
         <div className="mb-8">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{t.dashboard.topPackages}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -213,7 +253,11 @@ export default function Home() {
                   <Badge color="info">{pkg?.bookings || 0} {t.dashboard.bookings}</Badge>
                 </div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{(pkg?.revenue || 0).toLocaleString('bs-BA')} KM</span>
+                  <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                    {pkg?.revenue === null || pkg?.revenue === undefined || !(pkg.currency || displayCurrency)
+                      ? "Select currency"
+                      : formatCurrency(pkg.revenue, pkg.currency || displayCurrency!)}
+                  </span>
                   <span className="text-xs text-gray-500">{t.dashboard.revenue}</span>
                 </div>
               </div>

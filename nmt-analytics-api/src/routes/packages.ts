@@ -124,7 +124,7 @@ export async function ensurePackageCurrencyChangeAllowed(orgId: string, packageI
   const currentCurrency = existingPackage.currency || 'BAM';
   if (currentCurrency === nextCurrency) return { allowed: true as const };
 
-  const { count, error: costError } = await supabaseAdmin
+  const { count: costCount, error: costError } = await supabaseAdmin
     .from('package_cost_items')
     .select('id', { count: 'exact', head: true })
     .eq('package_id', packageId)
@@ -134,13 +134,32 @@ export async function ensurePackageCurrencyChangeAllowed(orgId: string, packageI
     return { allowed: false as const, status: 500, code: 'DATABASE_ERROR', message: 'Failed to validate package currency change' };
   }
 
-  if ((count || 0) > 0) {
+  if ((costCount || 0) > 0) {
     return {
       allowed: false as const,
       status: 400,
       code: 'PACKAGE_COST_CURRENCY_LOCKED',
       message: 'Package currency cannot be changed while package cost items exist',
     };
+  }
+
+  const dependentChecks = [
+    { table: 'package_services', code: 'PACKAGE_SERVICE_CURRENCY_LOCKED', message: 'Package currency cannot be changed while package services exist' },
+    { table: 'departures', code: 'PACKAGE_DEPARTURE_CURRENCY_LOCKED', message: 'Package currency cannot be changed while departures exist' },
+  ] as const;
+
+  for (const check of dependentChecks) {
+    const { count, error } = await supabaseAdmin
+      .from(check.table)
+      .select('id', { count: 'exact', head: true })
+      .eq('package_id', packageId)
+      .eq('org_id', orgId);
+    if (error) {
+      return { allowed: false as const, status: 500, code: 'DATABASE_ERROR', message: 'Failed to validate package currency change' };
+    }
+    if ((count || 0) > 0) {
+      return { allowed: false as const, status: 400, code: check.code, message: check.message };
+    }
   }
 
   return { allowed: true as const };

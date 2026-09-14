@@ -160,14 +160,14 @@ vi.mock('../lib/supabase', () => {
         }
         case 'departures': {
           const departureSingle = vi.fn(async () => departureExists
-            ? { data: { id: validBody.departureId, capacity }, error: null }
+            ? { data: { id: validBody.departureId, package_id: 'pkg-1', capacity, packages: { currency: 'BAM' } }, error: null }
             : { data: null, error: { message: 'Not found' } })
           const departureEqOrg = vi.fn(() => ({ single: departureSingle }))
           const departureEqId = vi.fn(() => ({ eq: departureEqOrg }))
           const updateEq = vi.fn(async () => ({ error: null }))
           const update = vi.fn(() => ({ eq: updateEq }))
           const depSelectSingle = vi.fn(async () => ({
-            data: { packages: [{ name: 'Test Package' }] },
+            data: { id: validBody.departureId, package_id: 'pkg-1', packages: [{ name: 'Test Package', currency: 'BAM' }] },
             error: null,
           }))
           const depSelectEq = vi.fn(() => ({ single: depSelectSingle }))

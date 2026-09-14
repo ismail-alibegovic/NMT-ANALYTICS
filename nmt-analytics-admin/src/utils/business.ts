@@ -82,11 +82,11 @@ export function getDepartureStatus(booked: number, capacity: number): OccupancyI
 /**
  * Formats currency amounts consistently.
  */
-export function formatCurrency(amount: number): string {
+export function formatCurrency(amount: number | null | undefined, currency = 'BAM'): string {
     // Use bs-BA for local formatting
     const formatter = new Intl.NumberFormat('bs-BA', {
         style: 'currency',
-        currency: 'BAM',
+        currency,
     });
 
     return formatter.format(amount || 0);

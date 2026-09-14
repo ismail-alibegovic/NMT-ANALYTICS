@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import PageMeta from '../components/common/PageMeta';
 import KPICard from '../components/analytics/KPICard';
 import RevenueChart from '../components/analytics/RevenueChart';
@@ -39,6 +39,13 @@ export default function Reports() {
     const [revenueSeries, setRevenueSeries] = useState<RevenueSeriesDataPoint[]>([]);
     const [bucket, setBucket] = useState<'daily' | 'weekly'>('daily');
     const [loading, setLoading] = useState(true);
+    const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
+    const availableCurrencies = useMemo(() => overview?.availableCurrencies || [], [overview]);
+    const hasMixedCurrencies = Boolean(overview?.multiCurrency || availableCurrencies.length > 1);
+    const effectiveCurrency = selectedCurrency || overview?.currency || (availableCurrencies.length === 1 ? availableCurrencies[0] : null);
+    const reportCurrency = effectiveCurrency || "BAM";
+    const needsCurrencySelection = hasMixedCurrencies && !selectedCurrency;
+    const money = (value: number | null | undefined) => value === null || value === undefined || needsCurrencySelection ? "Select currency" : formatCurrency(value, reportCurrency);
 
     // Fetch analytics data
     const fetchAnalytics = async () => {
@@ -46,7 +53,8 @@ export default function Reports() {
         try {
             const filters: AnalyticsFilters = {
                 from: dateRange.from,
-                to: dateRange.to
+                to: dateRange.to,
+                ...(selectedCurrency ? { currency: selectedCurrency } : {})
             };
 
             const [overviewData, packagesData, seriesData] = await Promise.all([
@@ -73,7 +81,7 @@ export default function Reports() {
             setLoading(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user, authLoading, dateRange, bucket]);
+    }, [user, authLoading, dateRange, bucket, selectedCurrency]);
 
     // Export functions
     const exportOverviewCSV = async () => {
@@ -81,6 +89,7 @@ export default function Reports() {
             const params = new URLSearchParams();
             if (dateRange.from) params.append('from', dateRange.from);
             if (dateRange.to) params.append('to', dateRange.to);
+            if (selectedCurrency) params.append('currency', selectedCurrency);
 
             const token = localStorage.getItem('travline_auth_token');
             const response = await fetch(`${import.meta.env.VITE_API_URL}/analytics/overview.csv?${params.toString()}`, {
@@ -110,6 +119,7 @@ export default function Reports() {
             const params = new URLSearchParams();
             if (dateRange.from) params.append('from', dateRange.from);
             if (dateRange.to) params.append('to', dateRange.to);
+            if (selectedCurrency) params.append('currency', selectedCurrency);
 
             const token = localStorage.getItem('travline_auth_token');
             const response = await fetch(`${import.meta.env.VITE_API_URL}/analytics/by-package.csv?${params.toString()}`, {
@@ -157,30 +167,30 @@ export default function Reports() {
         {
             key: 'total_amount_sum',
             header: 'Ukupan prihod',
-            render: (val) => (
+            render: (val, row) => (
                 <div className="text-right font-semibold text-brand-600 dark:text-brand-400">
-                    {formatCurrency(val)}
+                    {formatCurrency(val, row.currency || reportCurrency)}
                 </div>
             )
         },
         {
             key: 'total_paid_sum',
             header: 'Plaćeno',
-            render: (val) => (
+            render: (val, row) => (
                 <div className="text-right text-success-600 dark:text-success-400 font-medium">
-                    {formatCurrency(val)}
+                    {formatCurrency(val, row.currency || reportCurrency)}
                 </div>
             )
         },
         {
             key: 'total_balance_sum',
             header: 'Saldo',
-            render: (val) => (
+            render: (val, row) => (
                 <div className={`text-right font-medium ${val > 0
                     ? 'text-error-600 dark:text-error-400'
                     : 'text-success-600 dark:text-success-400'
                     }`}>
-                    {formatCurrency(val)}
+                    {formatCurrency(val, row.currency || reportCurrency)}
                 </div>
             )
         },
@@ -236,6 +246,23 @@ export default function Reports() {
                     >
                         Zadnjih 30 dana
                     </button>
+                    {availableCurrencies.length > 1 && (
+                        <div className="flex items-center gap-2 rounded-lg border border-gray-200 p-1 dark:border-gray-800">
+                            {availableCurrencies.map((currency) => (
+                                <button
+                                    key={currency}
+                                    onClick={() => setSelectedCurrency(currency)}
+                                    className={`rounded-md px-3 py-1 text-sm font-semibold transition-colors ${
+                                        selectedCurrency === currency
+                                            ? 'bg-brand-500 text-white'
+                                            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+                                    }`}
+                                >
+                                    {currency}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     <button
                         onClick={exportOverviewCSV}
                         className="ml-auto px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors flex items-center gap-2 shrink-0"
@@ -251,7 +278,7 @@ export default function Reports() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
                     <KPICard
                         title="Ukupan prihod"
-                        value={overview ? formatCurrency(overview.total_amount_sum) : '-'}
+                        value={overview ? money(overview.total_amount_sum) : '-'}
                         subtitle={`${overview?.reservations_count || 0} rezervacija`}
                         color="primary"
                         loading={loading}
@@ -264,7 +291,7 @@ export default function Reports() {
 
                     <KPICard
                         title="Plaćeno"
-                        value={overview ? formatCurrency(overview.total_paid_sum) : '-'}
+                        value={overview ? money(overview.total_paid_sum) : '-'}
                         subtitle={`${overview?.payments_count || 0} plaćanja`}
                         color="success"
                         loading={loading}
@@ -277,9 +304,9 @@ export default function Reports() {
 
                     <KPICard
                         title="Saldo"
-                        value={overview ? formatCurrency(overview.total_balance_sum) : '-'}
+                        value={overview ? money(overview.total_balance_sum) : '-'}
                         subtitle="Neplaćeno"
-                        color={overview && overview.total_balance_sum > 0 ? 'error' : 'success'}
+                        color={overview && (overview.total_balance_sum || 0) > 0 ? 'error' : 'success'}
                         loading={loading}
                         icon={
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -290,7 +317,7 @@ export default function Reports() {
 
                     <KPICard
                         title="Prosječna vrijednost"
-                        value={overview ? formatCurrency(overview.avg_reservation_value) : '-'}
+                        value={overview ? money(overview.avg_reservation_value) : '-'}
                         subtitle="Po rezervaciji"
                         color="info"
                         loading={loading}
@@ -362,7 +389,11 @@ export default function Reports() {
                             >Sedmično</button>
                         </div>
                     </div>
-                    <RevenueChart data={revenueSeries} loading={loading} />
+                    {needsCurrencySelection ? (
+                        <EmptyState title="Mixed currencies" description="Select a currency to view the revenue chart." />
+                    ) : (
+                        <RevenueChart data={revenueSeries} loading={loading} currency={reportCurrency} />
+                    )}
                 </div>
 
                 {/* Package Analytics Table */}
@@ -380,7 +411,9 @@ export default function Reports() {
                         </button>
                     </div>
 
-                    {loading ? (
+                    {needsCurrencySelection ? (
+                        <EmptyState title="Mixed currencies" description="Select a currency to view monetary package rankings." />
+                    ) : loading ? (
                         <div className="flex items-center justify-center p-20">
                             <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                         </div>

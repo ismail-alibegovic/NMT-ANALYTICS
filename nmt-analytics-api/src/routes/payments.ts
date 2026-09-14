@@ -500,18 +500,35 @@ router.patch('/payments/:id', auditPaymentUpdate, async (req: Request, res: Resp
         const oldReservationId = existingPayment.reservation_id;
         const newReservationId = updateData.reservation_id || oldReservationId;
 
-        // If reservation_id is changing, verify new reservation exists and belongs to org
+        const { data: targetReservation, error: reservationError } = await supabaseAdmin
+            .from('reservations')
+            .select('id, org_id, currency')
+            .eq('id', newReservationId)
+            .eq('org_id', orgId)
+            .single();
+
+        if (reservationError || !targetReservation) {
+            return apiError(res, 404, 'RESERVATION_NOT_FOUND', 'Target reservation not found');
+        }
+
+        if (updateData.currency && updateData.currency !== (targetReservation.currency || 'BAM')) {
+            return apiError(res, 400, 'CURRENCY_MISMATCH', 'Payment currency must match reservation currency');
+        }
+
+        if (!updateData.currency && existingPayment.currency !== (targetReservation.currency || 'BAM')) {
+            return apiError(res, 400, 'CURRENCY_MISMATCH', 'Payment currency must match reservation currency');
+        }
+
+        // If reservation_id is changing, target reservation was verified above.
         if (updateData.reservation_id && updateData.reservation_id !== oldReservationId) {
-            const { data: newReservation, error: reservationError } = await supabaseAdmin
+            const { data: newReservation } = await supabaseAdmin
                 .from('reservations')
                 .select('id, org_id')
                 .eq('id', updateData.reservation_id)
                 .eq('org_id', orgId)
                 .single();
 
-            if (reservationError || !newReservation) {
-            return apiError(res, 404, 'RESERVATION_NOT_FOUND', 'Target reservation not found');
-            }
+            if (!newReservation) return apiError(res, 404, 'RESERVATION_NOT_FOUND', 'Target reservation not found');
         }
 
         // Update payment

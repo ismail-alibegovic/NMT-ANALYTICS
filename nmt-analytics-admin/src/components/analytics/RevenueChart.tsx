@@ -5,11 +5,13 @@ interface RevenueChartProps {
         date: string;
         total_amount_sum: number;
         total_paid_sum: number;
+        currency?: string | null;
     }>;
     loading?: boolean;
+    currency?: string;
 }
 
-export default function RevenueChart({ data, loading }: RevenueChartProps) {
+export default function RevenueChart({ data, loading, currency = 'BAM' }: RevenueChartProps) {
     if (loading) {
         return (
             <div className="flex items-center justify-center p-20">
@@ -64,7 +66,7 @@ export default function RevenueChart({ data, loading }: RevenueChartProps) {
                                 textAnchor="end"
                                 className="text-xs fill-gray-600 dark:fill-gray-400"
                             >
-                                {formatCurrency(value)}
+                                {formatCurrency(value, currency)}
                             </text>
                         </g>
                     );
