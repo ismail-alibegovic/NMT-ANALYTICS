@@ -38,13 +38,13 @@ This replaces the stale 2026-09-01 status snapshot. MERGED means the named imple
 
 PR #66 (`feature/finance-11-6-currency-consistency`) covers reservation/package/payment currency guards and currency-separated Dashboard, HomeHub, Reports and analytics, without FX conversion. Review added fail-closed financial-child checks and mixed-currency package aggregation regressions. Record final merge and deployment evidence here when available.
 
-Currency-safe CSV exports (`/analytics/overview.csv`, `/analytics/by-package.csv`) shipped in PR #68: per-currency metric blocks, `Currency` column with per-currency rows grouped by package, optional `currency` filter, and regression tests for mixed-currency and legacy no-currency rows. Deployment evidence: Vercel production promoted the PR #67 merge (commit `1f262ad`) on 2026-10-08; health endpoint 200 with database connected; login page 200. Record PR #68 merge and promotion evidence here when available.
+Currency-safe CSV exports (`/analytics/overview.csv`, `/analytics/by-package.csv`) shipped in PR #68 (merge `e7d3ce2`): per-currency metric blocks, `Currency` column with per-currency rows grouped by package, optional `currency` filter, and regression tests for mixed-currency and legacy no-currency rows. All CI checks green. Deployment evidence (2026-10-08): Vercel production promoted the PR #67 merge (`1f262ad`, `dpl_FfVagbHhs1vhABFhcukiwakDvQf4`) and then the PR #68 merge (`e7d3ce2`, `dpl_GCNWdw25JnCB1kkGauJ5VfkhmLvM`); served admin chunks contain the currency UI (`availableCurrencies`/`multiCurrency`); `/api/health` returns 200 with database connected on the production alias and the Zo-hosted instance.
+
+Old PR reconciliation (2026-10-08): PR #1 is closed and all six of its `20260826155*` security migrations are already in main — nothing outstanding. PR #19 (automatic rooming apply) was re-tested against current main; its own tests fail — the proposal algorithm is not deterministic for permuted inputs and the apply endpoint returns 400 where the tests require 200/409 with stale-proposal semantics — and it conflicts with the merged rooming implementation. Do not merge; if automatic apply is still wanted, re-implement on top of current main. Review verdicts posted on both PRs.
 
 ## Next work, in order
 
-1. Verify authenticated production Dashboard, HomeHub, Reports and reservation/payment behavior; the current session can only confirm public login and health without credentials.
-2. Record PR #68 (currency-safe CSV exports) merge and production promotion evidence when CI completes.
-3. Reconcile old open PRs #19 and #1 with current main. Neither should be merged merely because it is open.
-4. Complete representative end-to-end acceptance (M24), then select one product slice from supplier confirmations, inquiry-to-quote conversion, supplier payables or Today/readiness.
+1. Verify authenticated production Dashboard, HomeHub, Reports and reservation/payment behavior; the current session can only confirm public login, health and served bundle content without credentials.
+2. Complete representative end-to-end acceptance (M24), then select one product slice from supplier confirmations, inquiry-to-quote conversion, supplier payables or Today/readiness.
 
 Create a scoped task under `docs/tasks/active/` before implementing a new milestone slice. This roadmap authorizes no implementation by itself. Stripe billing remains deferred until the user changes the first-paying-client constraint.
