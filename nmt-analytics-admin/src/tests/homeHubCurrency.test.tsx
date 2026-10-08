@@ -175,7 +175,7 @@ describe('HomeHub currency handling', () => {
     seedSingle('BAM');
     renderHub();
 
-    await screen.findByText('Revenue');
+    await screen.findAllByText('20 KM');
     expect(screen.queryByRole('button', { name: 'EUR' })).not.toBeInTheDocument();
     expect(screen.queryByText('Select currency')).not.toBeInTheDocument();
   });
@@ -184,7 +184,7 @@ describe('HomeHub currency handling', () => {
     seedSingle('EUR');
     renderHub();
 
-    await screen.findByText('Revenue');
+    await screen.findAllByText('50 EUR');
     expect(screen.getAllByText(/EUR/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/50 KM/)).not.toBeInTheDocument();
   });
@@ -195,7 +195,7 @@ describe('HomeHub currency handling', () => {
 
     expect(await screen.findByRole('button', { name: 'BAM' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'EUR' })).toBeInTheDocument();
-    expect(screen.getAllByText('Select currency').length).toBeGreaterThan(0);
+    await screen.findAllByText('Select currency');
     expect(screen.queryByText('All settled')).not.toBeInTheDocument();
   });
 
@@ -211,5 +211,6 @@ describe('HomeHub currency handling', () => {
       expect(getAnalyticsOverviewV2).toHaveBeenLastCalledWith(expect.objectContaining({ currency: 'EUR' }));
       expect(getRevenueSeries).toHaveBeenLastCalledWith(expect.objectContaining({ currency: 'EUR' }));
     });
+    await screen.findAllByText('50 EUR');
   });
 });
