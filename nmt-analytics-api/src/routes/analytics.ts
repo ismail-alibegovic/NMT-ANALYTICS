@@ -1035,9 +1035,8 @@ router.get('/analytics/by-package.csv', authenticateToken, requireOrgContext, as
       const packageId = pkg.id;
       const packageName = pkg.name || 'Unknown Package';
 
-      const groupKey = `${packageId}:${rowCurrency}`;
-      if (!packageMap.has(groupKey)) {
-        packageMap.set(groupKey, {
+      if (!packageMap.has(packageId)) {
+        packageMap.set(packageId, {
           package_name: packageName,
           reservations_count: 0,
           total_amount_sum: 0,
