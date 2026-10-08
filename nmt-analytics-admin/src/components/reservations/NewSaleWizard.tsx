@@ -159,6 +159,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const hasVariants = variants.length > 0;
 
   const selectedTransportType = (selectedDeparture as any)?.transport_type ?? selectedDeparture?.capabilities?.transportType ?? "none";
+  const packageCurrency = selectedPackage?.currency || "BAM";
 
   const activeDepartures = departures.filter((d) => d.status === "active" && d.booked < d.capacity);
 
@@ -1032,7 +1033,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                         >
                           <div className="font-medium text-sm text-gray-900 dark:text-white">{v.name}</div>
                           {v.priceModifier ? (
-                            <div className="text-xs text-brand-600 mt-0.5">+{v.priceModifier} BAM</div>
+                            <div className="text-xs text-brand-600 mt-0.5">+{v.priceModifier} {packageCurrency}</div>
                           ) : null}
                         </button>
                       );
@@ -1233,7 +1234,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                           <p className="font-semibold text-gray-900 dark:text-white">{option.hotel?.name || "Hotel"}</p>
                           <p className="text-sm text-gray-500">{option.roomLabel || option.roomType}</p>
                           <p className="mt-1 text-xs text-gray-500">
-                            Kapacitet {option.capacityPerRoom} · Slobodno {option.availableRooms} · Cijena {option.unitSellPrice} BAM
+                            Kapacitet {option.capacityPerRoom} · Slobodno {option.availableRooms} · Cijena {option.unitSellPrice} {packageCurrency}
                           </p>
                         </div>
                         {isSelected && (
@@ -1320,7 +1321,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                           <div>
                             <Label>Ukupno</Label>
                             <div className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm dark:border-gray-800">
-                              {lineTotal} BAM
+                              {lineTotal} {packageCurrency}
                             </div>
                           </div>
                         </div>
@@ -1330,7 +1331,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                         <div>
                           <Label>Ukupno</Label>
                           <div className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm dark:border-gray-800">
-                            {lineTotal} BAM
+                            {lineTotal} {packageCurrency}
                           </div>
                         </div>
                       )}
@@ -1403,7 +1404,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                     Ukupno pokriveno: {accommodationCoverage} / {partySize} putnika
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-300">
-                    Ukupno smještaj: {accommodationTotal} BAM
+                    Ukupno smještaj: {accommodationTotal} {packageCurrency}
                   </div>
                   {!accommodationPassengerMappingValid && accommodationLines.length > 0 && (
                     <p className="text-sm text-error-600">Svaki putnik mora biti dodijeljen tačno jednoj liniji smještaja.</p>
@@ -1496,7 +1497,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                 <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4">
                   <div className="flex justify-between text-sm">
                     <span className="font-medium text-gray-900 dark:text-white">Add-ons ukupno</span>
-                    <span className="font-semibold text-brand-600 dark:text-brand-400">{addOnsTotal} BAM</span>
+                    <span className="font-semibold text-brand-600 dark:text-brand-400">{addOnsTotal} {packageCurrency}</span>
                   </div>
                 </div>
               </div>
@@ -1511,7 +1512,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
             <div className="grid grid-cols-1 gap-3">
               <div>
-                <Label>Ukupan iznos (BAM)</Label>
+                <Label>Ukupan iznos ({packageCurrency})</Label>
                 <Input type="number" min="0" placeholder="0.00" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} />
               </div>
             </div>
@@ -1520,23 +1521,23 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Bazna cijena</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{totalAmount || "0"} BAM</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{totalAmount || "0"} {packageCurrency}</span>
                 </div>
                 {accommodationTotal > 0 && (
                   <div className="flex justify-between text-sm mt-1">
                     <span className="text-gray-500">Smještaj</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{accommodationTotal} BAM</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{accommodationTotal} {packageCurrency}</span>
                   </div>
                 )}
                 {addOnsTotal > 0 && (
                   <div className="flex justify-between text-sm mt-1">
                     <span className="text-gray-500">Add-ons</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{addOnsTotal} BAM</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{addOnsTotal} {packageCurrency}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
                   <span className="font-medium text-gray-900 dark:text-white">Ukupno</span>
-                  <span className="font-semibold text-brand-600 dark:text-brand-400">{displayedTotal} BAM</span>
+                  <span className="font-semibold text-brand-600 dark:text-brand-400">{displayedTotal} {packageCurrency}</span>
                 </div>
               </div>
             )}
@@ -1564,7 +1565,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                   <Label className="!m-0">Depozit %</Label>
                   <Input type="number" min="1" max="99" value={String(depositPct)} onChange={(e) => setDepositPct(Math.min(99, Math.max(1, parseInt(e.target.value) || 10)))} className="w-20 !py-1.5 !text-sm" />
                   <span className="text-xs text-gray-500">
-                    = {Math.round(displayedTotal * (depositPct / 100))} BAM
+                    = {Math.round(displayedTotal * (depositPct / 100))} {packageCurrency}
                   </span>
                 </div>
               )}
@@ -1573,7 +1574,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                   <Label className="!m-0">Broj rata</Label>
                   <Input type="number" min="2" max="24" value={String(installmentCount)} onChange={(e) => setInstallmentCount(Math.min(24, Math.max(2, parseInt(e.target.value) || 2)))} className="w-20 !py-1.5 !text-sm" />
                   <span className="text-xs text-gray-500">
-                    ≈ {displayedTotal ? Math.round(displayedTotal / installmentCount) : 0} BAM / rata
+                    ≈ {displayedTotal ? Math.round(displayedTotal / installmentCount) : 0} {packageCurrency} / rata
                   </span>
                 </div>
               )}
@@ -1607,7 +1608,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               />
               <Row label="Putnici" value={`${partySize} ${passengers.filter((p) => p.full_name.trim()).length > 0 ? `(${passengers.filter((p) => p.full_name.trim()).map((p) => p.full_name).join(", ")})` : ""}`} />
               {createGroup ? <Row label="Grupa" value={groupName || "Da"} /> : null}
-              {accommodationLinesWithOption.length > 0 ? <Row label="Smještaj ukupno" value={`${accommodationTotal} BAM`} /> : null}
+              {accommodationLinesWithOption.length > 0 ? <Row label="Smještaj ukupno" value={`${accommodationTotal} ${packageCurrency}`} /> : null}
               {selectedAddonItems.length > 0 ? (
                 <Row
                   label="Add-ons"
@@ -1616,11 +1617,11 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                     .join(" | ")}
                 />
               ) : null}
-              {selectedAddonItems.length > 0 ? <Row label="Add-ons ukupno" value={`${addOnsTotal} BAM`} /> : null}
-              <Row label="Ukupno" value={`${displayedTotal} BAM`} />
+              {selectedAddonItems.length > 0 ? <Row label="Add-ons ukupno" value={`${addOnsTotal} ${packageCurrency}`} /> : null}
+              <Row label="Ukupno" value={`${displayedTotal} ${packageCurrency}`} />
               <Row label="Plaćanje" value={paymentPlan === "full" ? "Puna uplata" : paymentPlan === "deposit" ? `Depozit ${depositPct}% + ostatak` : `${installmentCount} rata`} />
               {paymentPlan === "deposit" && (
-                <Row label="Iznos depozita" value={`${Math.round(displayedTotal * (depositPct / 100))} BAM`} />
+                <Row label="Iznos depozita" value={`${Math.round(displayedTotal * (depositPct / 100))} ${packageCurrency}`} />
               )}
               {notes ? <Row label="Napomena" value={notes} /> : null}
             </dl>

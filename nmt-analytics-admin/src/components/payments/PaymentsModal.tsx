@@ -218,19 +218,19 @@ export default function PaymentsModal({
                         <div>
                             <span className="text-sm text-gray-500 dark:text-gray-400">Ukupno rezervacija</span>
                             <div className="text-lg font-bold text-gray-800 dark:text-white/90">
-                                {formatCurrency(reservationTotal)}
+                                {formatCurrency(reservationTotal, reservationCurrency)}
                             </div>
                         </div>
                         <div>
                             <span className="text-sm text-gray-500 dark:text-gray-400">Ukupno plaćeno</span>
                             <div className="text-lg font-bold text-success-600 dark:text-success-500">
-                                {formatCurrency(totalSucceeded)}
+                                {formatCurrency(totalSucceeded, reservationCurrency)}
                             </div>
                         </div>
                         <div>
                             <span className="text-sm text-gray-500 dark:text-gray-400">Ukupno refundirano</span>
                             <div className="text-lg font-bold text-info-600 dark:text-info-500">
-                                {formatCurrency(totalRefunded)}
+                                {formatCurrency(totalRefunded, reservationCurrency)}
                             </div>
                         </div>
                         <div>
@@ -239,7 +239,7 @@ export default function PaymentsModal({
                                 ? 'text-success-600 dark:text-success-500'
                                 : 'text-error-600 dark:text-error-500'
                                 }`}>
-                                {formatCurrency(remainingAmount)}
+                                {formatCurrency(remainingAmount, reservationCurrency)}
                             </div>
                         </div>
                     </div>
@@ -376,7 +376,7 @@ export default function PaymentsModal({
                                         <div className="flex-1">
                                             <div className="flex items-center gap-3 mb-2">
                                                 <span className="text-xl font-bold text-gray-800 dark:text-white/90">
-                                                    {formatCurrency(payment.amount)}
+                                                    {formatCurrency(payment.amount, payment.currency || reservationCurrency)}
                                                 </span>
                                                 <Badge
                                                     size="sm"

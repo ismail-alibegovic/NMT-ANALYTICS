@@ -436,7 +436,7 @@ export default function DepartureDetail() {
   const confirmedGuests = summary.confirmedGuests ?? 0;
   const totalDebt = summary.totalDebt ?? 0;
   const totalPaid = summary.totalPaid ?? 0;
-  const currency = summary.currency || departure?.packages?.currency || "EUR";
+  const currency = summary.currency || departure?.packages?.currency || "BAM";
   const allocations = summary.allocations || [];
   const allocationHotelCount = new Set((departure?.hotelAllocations || []).map((allocation: any) => allocation.hotel_id || allocation.hotelId).filter(Boolean)).size;
   const relatedHotels = useMemo(() => {
@@ -551,8 +551,8 @@ export default function DepartureDetail() {
         </button>
       ),
     },
-    { key: "paidAmount", header: "Plaćeno", render: (v) => <span className="text-success-600 dark:text-success-400 font-medium">{formatCurrency(Number(v), "EUR")}</span> },
-    { key: "debtAmount", header: "Dug", render: (v) => Number(v) > 0 ? <span className="text-error-600 font-semibold">{formatCurrency(Number(v), "EUR")}</span> : <span className="text-gray-400">—</span> },
+    { key: "paidAmount", header: "Plaćeno", render: (v) => <span className="text-success-600 dark:text-success-400 font-medium">{formatCurrency(Number(v), currency)}</span> },
+    { key: "debtAmount", header: "Dug", render: (v) => Number(v) > 0 ? <span className="text-error-600 font-semibold">{formatCurrency(Number(v), currency)}</span> : <span className="text-gray-400">—</span> },
     {
       key: "documentReadinessStatus",
       header: t.departure.documents,

@@ -33,6 +33,8 @@ let createdDeparturePassengers = [
 ];
 let insertedDeparturePassengers: any[] = [];
 let packageServices: any[] = [];
+let packages: any[] = [];
+let departureRows: any[] = [];
 const replaceReservationAccommodation = vi.fn(async () => []);
 type LooseRow = Record<string, any>;
 
@@ -164,7 +166,21 @@ vi.mock('../lib/supabase', () => {
   }
 
   function buildDeparturesQuery() {
-    let rows = [{ id: DEPARTURE_ID, org_id: ORG_ID, package_id: PACKAGE_A_ID, packages: { name: 'Test package' } }];
+    let rows = departureRows.slice();
+    const builder: any = {
+      select: vi.fn(() => builder),
+      eq: vi.fn((column: string, value: any) => {
+        rows = rows.filter((row: LooseRow) => row[column] === value);
+        return builder;
+      }),
+      single: vi.fn(async () => ({ data: rows[0] || null, error: rows[0] ? null : { code: 'PGRST116', message: 'Not found' } })),
+      then: (resolve: any) => Promise.resolve(resolve({ data: rows, error: null, count: rows.length })),
+    };
+    return builder;
+  }
+
+  function buildPackagesQuery() {
+    let rows = packages.slice();
     const builder: any = {
       select: vi.fn(() => builder),
       eq: vi.fn((column: string, value: any) => {
@@ -219,6 +235,7 @@ vi.mock('../lib/supabase', () => {
         if (table === 'customers') return buildCustomersQuery();
         if (table === 'reservations') return buildReservationsQuery();
         if (table === 'departures') return buildDeparturesQuery();
+        if (table === 'packages') return buildPackagesQuery();
         if (table === 'departure_passengers') return buildDeparturePassengersQuery();
         if (table === 'package_services') return buildPackageServicesQuery();
         if (table === 'package_hotels') {
@@ -264,6 +281,8 @@ beforeEach(() => {
     { id: 'passenger-1', full_name: 'Traveller One' },
   ];
   insertedDeparturePassengers = [];
+  departureRows = [{ id: DEPARTURE_ID, org_id: ORG_ID, package_id: PACKAGE_A_ID, packages: { name: 'Test package' } }];
+  packages = [{ id: PACKAGE_A_ID, org_id: ORG_ID, currency: 'BAM' }];
   packageServices = [
     {
       id: INSURANCE_ID,
@@ -511,6 +530,49 @@ describe('POST /api/reservations customer linkage', () => {
     expect(res.status).toBe(201);
     expect(reservations[0].options.selected_addons).toBeUndefined();
     expect(reservations[0].options.addons_total_at_booking).toBeUndefined();
+  });
+
+  it('does not create a linked reservation when package currency cannot be resolved', async () => {
+    packages = [];
+
+    const res = await request(app)
+      .post('/api/reservations')
+      .send({
+        customerName: 'Missing Package Customer',
+        customerPhone: '+38768888888',
+        departureId: DEPARTURE_ID,
+        partySize: 1,
+        reservationAt: '2026-09-01T12:00:00.000Z',
+        status: 'pending',
+        source: 'agent',
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('DEPARTURE_PACKAGE_NOT_FOUND');
+    expect(reservations).toHaveLength(0);
+  });
+
+  it('returns CURRENCY_MISMATCH for selected add-ons in a different package currency', async () => {
+    packages = [{ id: PACKAGE_A_ID, org_id: ORG_ID, currency: 'EUR' }];
+
+    const res = await request(app)
+      .post('/api/reservations')
+      .send({
+        customerName: 'Mixed Add-on Customer',
+        customerPhone: '+38769999999',
+        departureId: DEPARTURE_ID,
+        partySize: 1,
+        reservationAt: '2026-09-01T12:00:00.000Z',
+        status: 'pending',
+        source: 'agent',
+        selectedAddons: [
+          { serviceId: INSURANCE_ID, quantity: 1 },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('CURRENCY_MISMATCH');
+    expect(reservations).toHaveLength(0);
   });
 
   it('persists traveler document values into departure passengers', async () => {

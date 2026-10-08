@@ -10,6 +10,7 @@ const router = Router();
 
 import { schema } from '../analytics/schema';
 import { apiError } from "../lib/errors";
+import { fromMoneyCents, normalizeCurrency, toMoneyCents } from '../lib/currency';
 
 // Granularity helper
 function generatePeriods(from: string, to: string, granularity: 'day' | 'week' | 'month'): string[] {
@@ -57,6 +58,7 @@ const seriesSchema = AnalyticsQuerySchema;
 router.get('/metrics/revenue-series', authenticateToken, requireOrgContext, async (req, res: Response) => {
   try {
     const { from, to, granularity } = req.query;
+    const selectedCurrency = typeof req.query.currency === 'string' ? normalizeCurrency(req.query.currency) : null;
 
     const dateFrom = from
       ? new Date(from as string)
@@ -94,7 +96,7 @@ router.get('/metrics/revenue-series', authenticateToken, requireOrgContext, asyn
     // Query using schema
     const { data: revenueData, error: dbError } = await supabaseAdmin
       .from(schema.revenue.table)
-      .select(`${schema.revenue.amount}, ${schema.revenue.createdAt}`)
+      .select(`${schema.revenue.amount}, ${schema.revenue.createdAt}, currency`)
       .eq(schema.revenue.orgId, orgId)
       .in(schema.revenue.status, schema.revenue.filters.paid)
       .gte(schema.revenue.createdAt, `${currentFrom}T00:00:00Z`)
@@ -103,8 +105,11 @@ router.get('/metrics/revenue-series', authenticateToken, requireOrgContext, asyn
     if (dbError) throw dbError;
 
     // Grouping
-    const periodMap = new Map<string, number>();
+    const periodMap = new Map<string, Map<string, number>>();
+    const currencies = new Set<string>();
     (revenueData || []).forEach((item: any) => {
+      const rowCurrency = normalizeCurrency(item.currency);
+      if (selectedCurrency && rowCurrency !== selectedCurrency) return;
       const d = new Date(item[schema.revenue.createdAt]);
       let key = d.toISOString().split('T')[0];
 
@@ -118,16 +123,27 @@ router.get('/metrics/revenue-series', authenticateToken, requireOrgContext, asyn
         key = d.toISOString().slice(0, 7) + '-01';
       }
 
-      const val = Number(item[schema.revenue.amount] || 0);
-      periodMap.set(key, (periodMap.get(key) || 0) + val);
+      currencies.add(rowCurrency);
+      const byCurrency = periodMap.get(key) || new Map<string, number>();
+      byCurrency.set(rowCurrency, (byCurrency.get(rowCurrency) || 0) + toMoneyCents(item[schema.revenue.amount]));
+      periodMap.set(key, byCurrency);
     });
 
-    const series = periods.map(date => ({
-      date,
-      value: Number((periodMap.get(date) || 0).toFixed(2))
-    }));
+    const series = periods.flatMap(date => {
+      const rowCurrencies = selectedCurrency ? [selectedCurrency] : Array.from(currencies).sort();
+      return rowCurrencies.map((currency) => ({
+        date,
+        currency,
+        value: fromMoneyCents(periodMap.get(date)?.get(currency) || 0),
+      }));
+    });
 
-    return res.json({ data: series });
+    return res.json({
+      data: series,
+      currency: selectedCurrency || (currencies.size === 1 ? Array.from(currencies)[0] : null),
+      availableCurrencies: Array.from(currencies).sort(),
+      multiCurrency: currencies.size > 1,
+    });
 
   } catch (error) {
     console.error('ANALYTICS ERROR (Revenue Series):', error);

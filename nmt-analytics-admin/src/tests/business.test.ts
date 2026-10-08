@@ -106,4 +106,11 @@ describe('formatCurrency', () => {
   it('treats null/undefined as 0', () => {
     expect(formatCurrency(0)).toContain('0,00')
   })
+
+  it('formats explicit EUR and USD without relabeling them as BAM', () => {
+    expect(formatCurrency(100, 'EUR')).toContain('€')
+    expect(formatCurrency(100, 'USD')).toContain('USD')
+    expect(formatCurrency(100, 'EUR')).not.toContain('KM')
+    expect(formatCurrency(100, 'USD')).not.toContain('KM')
+  })
 })

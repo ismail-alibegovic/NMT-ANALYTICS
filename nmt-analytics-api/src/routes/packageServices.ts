@@ -28,7 +28,7 @@ const createSchema = z.object({
   providerName: z.string().optional(),
   providerContact: z.string().optional(),
   unitPrice: z.number().min(0).default(0),
-  currency: z.string().default('BAM'),
+  currency: z.string().optional(),
   quantity: z.number().int().min(1).default(1),
   description: z.string().optional(),
   isOptional: z.boolean().default(false),
@@ -54,13 +54,23 @@ function transformService(s: any) {
     providerName: s.provider_name,
     providerContact: s.provider_contact,
     unitPrice: Number(s.unit_price || 0),
-    currency: s.currency || 'BAM',
+    currency: s.currency,
     quantity: Number(s.quantity || 1),
     totalPrice: total,
     description: s.description,
     isOptional: s.is_optional,
     createdAt: s.created_at,
   };
+}
+
+async function getPackageCurrency(orgId: string, packageId: string): Promise<string | null> {
+  const { data: pkg } = await supabaseAdmin
+    .from('packages')
+    .select('id, currency')
+    .eq('id', packageId)
+    .eq('org_id', orgId)
+    .single();
+  return pkg?.currency || null;
 }
 
 /** GET /api/package-services */
@@ -102,9 +112,11 @@ router.post('/package-services', authenticateToken, requireOrgContext, requireMi
 
     const orgId = req.orgId!;
 
-    // Verify package belongs to org
-    const { data: pkg } = await supabaseAdmin.from('packages').select('id').eq('id', r.data.packageId).eq('org_id', orgId).single();
-    if (!pkg) return apiError(res, 404, 'NOT_FOUND', 'Package not found');
+    const packageCurrency = await getPackageCurrency(orgId, r.data.packageId);
+    if (!packageCurrency) return apiError(res, 404, 'NOT_FOUND', 'Package not found');
+    if (r.data.currency && r.data.currency !== packageCurrency) {
+      return apiError(res, 400, 'CURRENCY_MISMATCH', 'Package service currency must match package currency');
+    }
 
     const { data: service, error: err } = await supabaseAdmin
       .from('package_services')
@@ -115,7 +127,7 @@ router.post('/package-services', authenticateToken, requireOrgContext, requireMi
         provider_name: r.data.providerName,
         provider_contact: r.data.providerContact,
         unit_price: r.data.unitPrice,
-        currency: r.data.currency,
+        currency: packageCurrency,
         quantity: r.data.quantity,
         description: r.data.description,
         is_optional: r.data.isOptional,
@@ -139,13 +151,18 @@ router.patch('/package-services/:id', authenticateToken, requireOrgContext, requ
     const { data: existing, error: fetchErr } = await supabaseAdmin
       .from('package_services').select('*').eq('id', id).eq('org_id', orgId).single();
     if (fetchErr || !existing) return apiError(res, 404, 'NOT_FOUND', 'Package service not found');
+    const packageCurrency = await getPackageCurrency(orgId, existing.package_id);
+    if (!packageCurrency) return apiError(res, 404, 'NOT_FOUND', 'Package not found');
+    if (r.data.currency !== undefined && r.data.currency !== packageCurrency) {
+      return apiError(res, 400, 'CURRENCY_MISMATCH', 'Package service currency must match package currency');
+    }
 
     const updates: Record<string, unknown> = {};
     if (r.data.serviceType !== undefined) updates.service_type = r.data.serviceType;
     if (r.data.providerName !== undefined) updates.provider_name = r.data.providerName;
     if (r.data.providerContact !== undefined) updates.provider_contact = r.data.providerContact;
     if (r.data.unitPrice !== undefined) updates.unit_price = r.data.unitPrice;
-    if (r.data.currency !== undefined) updates.currency = r.data.currency;
+    if (r.data.currency !== undefined) updates.currency = packageCurrency;
     if (r.data.quantity !== undefined) updates.quantity = r.data.quantity;
     if (r.data.description !== undefined) updates.description = r.data.description;
     if (r.data.isOptional !== undefined) updates.is_optional = r.data.isOptional;
