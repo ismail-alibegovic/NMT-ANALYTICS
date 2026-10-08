@@ -382,3 +382,16 @@ describe('currency-aware analytics routes', () => {
     expect(eur.body.bookings_by_month).toEqual([{ month: '2026-01', count: 5 }]);
   });
 });
+
+
+it('preserves historical mixed-currency reservations within one package', async () => {
+  rows.reservations[1].departures = rows.reservations[0].departures;
+  const response = await request(app).get('/api/analytics/by-package?from=2026-01-01&to=2026-01-31');
+  expect(response.status).toBe(200);
+  expect(response.body.multiCurrency).toBe(true);
+  expect(response.body.availableCurrencies).toEqual(['BAM', 'EUR']);
+  expect(response.body.data).toEqual(expect.arrayContaining([
+    expect.objectContaining({ package_id: 'pkg-bam', currency: 'BAM', reservations_count: 1, total_amount_sum: 100 }),
+    expect.objectContaining({ package_id: 'pkg-bam', currency: 'EUR', reservations_count: 1, total_amount_sum: 200 }),
+  ]));
+});

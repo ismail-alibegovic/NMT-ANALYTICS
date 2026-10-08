@@ -235,7 +235,8 @@ async function reservationHasFinancialChildren(orgId: string, reservationId: str
       .select('id', { count: 'exact', head: true })
       .eq(column, reservationId)
       .eq('org_id', orgId);
-    if (!error && (count || 0) > 0) return true;
+    if (error) throw new Error('Failed to validate reservation currency change');
+    if ((count || 0) > 0) return true;
   }
   return false;
 }

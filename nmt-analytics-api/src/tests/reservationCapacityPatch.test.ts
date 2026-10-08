@@ -7,7 +7,8 @@ const DEPARTURE_ID = 'a1b2c3d4-0000-4000-8000-000000000000'
 const RESERVATION_ID = 'b1b2c3d4-0000-4000-8000-000000000000'
 
 let capacity = 30
-let currentReservation = {
+let financialLookupError: string | null = null
+let currentReservation: Record<string, any> = {
   id: RESERVATION_ID,
   org_id: ORG_ID,
   departure_id: DEPARTURE_ID,
@@ -143,6 +144,14 @@ vi.mock('../lib/supabase', () => {
           select: vi.fn(() => buildCollectionQuery(() => [{ id: DEPARTURE_ID, org_id: ORG_ID, package_id: 'pkg-1', capacity, packages: { currency: 'BAM' } }])),
         }
       }
+      if (['payments', 'payment_links', 'contracts', 'receipts'].includes(table)) {
+        const query: any = {
+          select: () => query,
+          eq: () => query,
+          then: (resolve: any) => Promise.resolve({ count: 0, error: table === financialLookupError ? { message: 'Database unavailable' } : null }).then(resolve),
+        }
+        return query
+      }
       if (table === 'departure_passengers') {
         return {
           select: vi.fn(() => buildCollectionQuery(() => [])),
@@ -169,6 +178,7 @@ beforeAll(async () => {
 })
 
 beforeEach(() => {
+  financialLookupError = null
   capacity = 30
   currentReservation = {
     id: RESERVATION_ID,
@@ -207,5 +217,17 @@ describe('PATCH /api/reservations/:id capacity delta', () => {
       requestedAdditionalPassengers: 3,
       remainingCapacity: 2,
     })
+  })
+})
+
+
+describe('reservation currency validation failures', () => {
+  it.each(['payments', 'payment_links', 'contracts', 'receipts'])('rejects a currency change when %s cannot be checked', async (table) => {
+    currentReservation.departure_id = null
+    currentReservation.currency = 'BAM'
+    financialLookupError = table
+    const res = await request(app).patch(`/api/reservations/${RESERVATION_ID}`).send({ currency: 'EUR' })
+    expect(res.status).toBe(500)
+    expect(currentReservation.currency).toBe('BAM')
   })
 })

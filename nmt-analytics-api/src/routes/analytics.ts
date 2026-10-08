@@ -709,8 +709,9 @@ router.get('/analytics/by-package', authenticateToken, requireOrgContext, async 
       const packageName = pkg.name || 'Unknown Package';
       const rowCurrency = normalizeCurrency(reservation.currency || pkg.currency);
 
-      if (!packageMap.has(packageId)) {
-        packageMap.set(packageId, {
+      const groupKey = `${packageId}:${rowCurrency}`;
+      if (!packageMap.has(groupKey)) {
+        packageMap.set(groupKey, {
           package_id: packageId,
           package_name: packageName,
           reservations_count: 0,
@@ -721,11 +722,7 @@ router.get('/analytics/by-package', authenticateToken, requireOrgContext, async 
         });
       }
 
-      const pkgData = packageMap.get(packageId)!;
-      if (pkgData.currency !== rowCurrency) {
-        pkgData.currency = null;
-        return;
-      }
+      const pkgData = packageMap.get(groupKey)!;
       pkgData.reservations_count++;
       pkgData.total_amount_sum = fromMoneyCents(toMoneyCents(pkgData.total_amount_sum) + toMoneyCents(reservation.total_amount));
       pkgData.total_paid_sum = fromMoneyCents(toMoneyCents(pkgData.total_paid_sum) + toMoneyCents(reservation.paid_amount));
@@ -1038,8 +1035,9 @@ router.get('/analytics/by-package.csv', authenticateToken, requireOrgContext, as
       const packageId = pkg.id;
       const packageName = pkg.name || 'Unknown Package';
 
-      if (!packageMap.has(packageId)) {
-        packageMap.set(packageId, {
+      const groupKey = `${packageId}:${rowCurrency}`;
+      if (!packageMap.has(groupKey)) {
+        packageMap.set(groupKey, {
           package_name: packageName,
           reservations_count: 0,
           total_amount_sum: 0,
