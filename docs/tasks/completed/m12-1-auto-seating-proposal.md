@@ -1,6 +1,6 @@
 # M12.1 — Read-only automatic bus seating proposal
 
-**Status:** ACTIVE
+**Status:** COMPLETED — merged via PR #53 (`b42ff34`); reconciled 2026-10-08. Apply and UI followed in PRs #54–55.
 **Priority:** P1
 **Branch:** `feature/m12-auto-seating-proposal`
 **Roadmap references:** `docs/ROADMAP.md` — M12 (Automatic bus seating + keep-groups-together)
