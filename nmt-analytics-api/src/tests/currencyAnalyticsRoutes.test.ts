@@ -405,3 +405,81 @@ it('keeps other currency choices available after filtering overview money', asyn
   expect(response.body.total_amount_sum).toBe(200);
   expect(response.body.multiCurrency).toBe(false);
 });
+describe('currency-safe CSV exports', () => {
+  it('/analytics/by-package.csv groups one package by currency instead of mixing amounts', async () => {
+    rows.reservations[1].departures = rows.reservations[0].departures;
+
+    const response = await request(app).get('/api/analytics/by-package.csv?from=2026-01-01&to=2026-01-31');
+
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toContain('text/csv');
+    const csv = response.text.replace(/^\ufeff/, '');
+    expect(csv).toContain('Package Name,Currency,Reservations Count,Total Amount Sum,Total Paid Sum,Total Balance Sum');
+    expect(csv).toContain('"BAM Package",BAM,1,100.00,100.00,0.00');
+    expect(csv).toContain('"BAM Package",EUR,1,200.00,200.00,0.00');
+    expect(csv).not.toContain('300.00');
+  });
+
+  it('/analytics/by-package.csv filters rows by the requested currency', async () => {
+    rows.reservations[1].departures = rows.reservations[0].departures;
+
+    const response = await request(app).get('/api/analytics/by-package.csv?from=2026-01-01&to=2026-01-31&currency=eur');
+
+    expect(response.status).toBe(200);
+    const csv = response.text.replace(/^\ufeff/, '');
+    expect(csv).toContain('"BAM Package",EUR,1,200.00,200.00,0.00');
+    expect(csv).not.toContain(',BAM,');
+  });
+
+  it('/analytics/by-package.csv falls back to the package currency for legacy rows without a reservation currency', async () => {
+    rows.reservations[1].departures = rows.reservations[0].departures;
+    (rows.reservations[1] as any).currency = undefined;
+
+    const response = await request(app).get('/api/analytics/by-package.csv?from=2026-01-01&to=2026-01-31');
+
+    expect(response.status).toBe(200);
+    const csv = response.text.replace(/^\ufeff/, '');
+    expect(csv).toContain('"BAM Package",BAM,2,300.00,300.00,0.00');
+    expect(csv).not.toContain(',EUR,');
+  });
+
+  it('/analytics/overview.csv emits one metrics block per currency and never sums across currencies', async () => {
+    const response = await request(app).get('/api/analytics/overview.csv?from=2026-01-01&to=2026-01-31');
+
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toContain('text/csv');
+    const csv = response.text.replace(/^\ufeff/, '');
+    expect(csv).toContain('Metric,Value,Currency');
+    expect(csv).toContain('Reservations Count,1,BAM');
+    expect(csv).toContain('Total Amount Sum,100.00,BAM');
+    expect(csv).toContain('Average Reservation Value,100.00,BAM');
+    expect(csv).toContain('Paid Count,1,BAM');
+    expect(csv).toContain('Reservations Count,1,EUR');
+    expect(csv).toContain('Total Amount Sum,200.00,EUR');
+    expect(csv).toContain('Average Reservation Value,200.00,EUR');
+    expect(csv).toContain('Paid Count,1,EUR');
+    expect(csv).toContain('Date From,2026-01-01,');
+    expect(csv).toContain('Date To,2026-01-31,');
+    expect(csv).not.toContain('300.00');
+  });
+
+  it('/analytics/overview.csv filters to the requested currency', async () => {
+    const response = await request(app).get('/api/analytics/overview.csv?from=2026-01-01&to=2026-01-31&currency=EUR');
+
+    expect(response.status).toBe(200);
+    const csv = response.text.replace(/^\ufeff/, '');
+    expect(csv).toContain('Total Amount Sum,200.00,EUR');
+    expect(csv).toContain('Reservations Count,1,EUR');
+    expect(csv).not.toContain(',BAM');
+  });
+
+  it('/analytics/overview.csv omits currency blocks when no reservations match', async () => {
+    const response = await request(app).get('/api/analytics/overview.csv?from=2027-01-01&to=2027-01-31');
+
+    expect(response.status).toBe(200);
+    const csv = response.text.replace(/^\ufeff/, '');
+    expect(csv).toContain('Metric,Value,Currency');
+    expect(csv).toContain('Date From,2027-01-01,');
+    expect(csv).not.toContain('Total Amount Sum');
+  });
+});

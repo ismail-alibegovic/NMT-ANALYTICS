@@ -38,14 +38,13 @@ This replaces the stale 2026-09-01 status snapshot. MERGED means the named imple
 
 PR #66 (`feature/finance-11-6-currency-consistency`) covers reservation/package/payment currency guards and currency-separated Dashboard, HomeHub, Reports and analytics, without FX conversion. Review added fail-closed financial-child checks and mixed-currency package aggregation regressions. Record final merge and deployment evidence here when available.
 
-Known follow-up from review: `/analytics/by-package.csv` still aggregates historical reservations by package without a currency column/grouping. Scope a currency-safe export fix; do not treat all exports as verified by PR #66's dashboard tests.
+Currency-safe CSV exports (`/analytics/overview.csv`, `/analytics/by-package.csv`) shipped in PR #68: per-currency metric blocks, `Currency` column with per-currency rows grouped by package, optional `currency` filter, and regression tests for mixed-currency and legacy no-currency rows. Deployment evidence: Vercel production promoted the PR #67 merge (commit `1f262ad`) on 2026-10-08; health endpoint 200 with database connected; login page 200. Record PR #68 merge and promotion evidence here when available.
 
 ## Next work, in order
 
-1. Complete PR #66 checks/release and record deployment evidence.
-2. Verify authenticated production Dashboard, HomeHub, Reports and reservation/payment behavior; the current session can only confirm public login and health without credentials.
-3. Scope currency-safe CSV export verification/fix under M14/M15, including historical mixed currencies.
-4. Reconcile old open PRs #19 and #1 with current main. Neither should be merged merely because it is open.
-5. Complete representative end-to-end acceptance (M24), then select one product slice from supplier confirmations, inquiry-to-quote conversion, supplier payables or Today/readiness.
+1. Verify authenticated production Dashboard, HomeHub, Reports and reservation/payment behavior; the current session can only confirm public login and health without credentials.
+2. Record PR #68 (currency-safe CSV exports) merge and production promotion evidence when CI completes.
+3. Reconcile old open PRs #19 and #1 with current main. Neither should be merged merely because it is open.
+4. Complete representative end-to-end acceptance (M24), then select one product slice from supplier confirmations, inquiry-to-quote conversion, supplier payables or Today/readiness.
 
 Create a scoped task under `docs/tasks/active/` before implementing a new milestone slice. This roadmap authorizes no implementation by itself. Stripe billing remains deferred until the user changes the first-paying-client constraint.
