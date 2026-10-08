@@ -101,16 +101,20 @@ describe('Reports currency handling', () => {
     seedSingle('BAM');
     render(<Reports />);
 
-    expect(await screen.findByTestId('revenue-chart')).toHaveAttribute('data-currency', 'BAM');
-    expect(screen.getAllByText(/100,00\s*KM/).length).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(screen.getByTestId('revenue-chart')).toHaveAttribute('data-currency', 'BAM');
+    });
+    expect((await screen.findAllByText(/100,00\s*KM/)).length).toBeGreaterThan(0);
   });
 
   it('renders single EUR reports as EUR and not KM', async () => {
     seedSingle('EUR');
     render(<Reports />);
 
-    expect(await screen.findByTestId('revenue-chart')).toHaveAttribute('data-currency', 'EUR');
-    expect(screen.getAllByText(/200,00\s*€/).length).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(screen.getByTestId('revenue-chart')).toHaveAttribute('data-currency', 'EUR');
+    });
+    await screen.findAllByText(/200,00\s*€/);
     expect(screen.queryByText(/200,00\s*KM/)).not.toBeInTheDocument();
   });
 
@@ -121,8 +125,8 @@ describe('Reports currency handling', () => {
     expect(await screen.findByRole('button', { name: 'BAM' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'EUR' })).toBeInTheDocument();
     expect(screen.queryByTestId('revenue-chart')).not.toBeInTheDocument();
-    expect(screen.getAllByText('Select currency').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Mixed currencies').length).toBeGreaterThan(0);
+    await screen.findAllByText('Select currency');
+    await screen.findAllByText('Mixed currencies');
   });
 
   it('refetches monetary report APIs with EUR and charts only EUR rows after selection', async () => {
@@ -138,9 +142,11 @@ describe('Reports currency handling', () => {
       expect(getPackageAnalyticsV2).toHaveBeenLastCalledWith(expect.objectContaining({ currency: 'EUR' }));
       expect(getRevenueSeries).toHaveBeenLastCalledWith(expect.objectContaining({ currency: 'EUR' }));
     });
-    const chart = await screen.findByTestId('revenue-chart');
-    expect(chart).toHaveAttribute('data-currency', 'EUR');
-    expect(chart.textContent).toContain('EUR');
-    expect(chart.textContent).not.toContain('BAM');
+    await waitFor(() => {
+      const chart = screen.getByTestId('revenue-chart');
+      expect(chart).toHaveAttribute('data-currency', 'EUR');
+      expect(chart.textContent).toContain('EUR');
+      expect(chart.textContent).not.toContain('BAM');
+    });
   });
 });
