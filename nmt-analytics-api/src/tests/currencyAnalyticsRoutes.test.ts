@@ -395,3 +395,13 @@ it('preserves historical mixed-currency reservations within one package', async 
     expect.objectContaining({ package_id: 'pkg-bam', currency: 'EUR', reservations_count: 1, total_amount_sum: 200 }),
   ]));
 });
+
+
+it('keeps other currency choices available after filtering overview money', async () => {
+  const response = await request(app).get('/api/analytics/overview-v2?from=2026-01-01&to=2026-01-31&currency=EUR');
+  expect(response.status).toBe(200);
+  expect(response.body.availableCurrencies).toEqual(['BAM', 'EUR']);
+  expect(response.body.currency).toBe('EUR');
+  expect(response.body.total_amount_sum).toBe(200);
+  expect(response.body.multiCurrency).toBe(false);
+});

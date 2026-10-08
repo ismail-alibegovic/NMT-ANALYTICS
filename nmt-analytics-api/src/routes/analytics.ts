@@ -514,15 +514,18 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async
 
     if (from) reservationQuery = reservationQuery.gte('created_at', from);
     if (to) reservationQuery = reservationQuery.lte('created_at', `${to}T23:59:59.999Z`);
-    if (selectedCurrency) reservationQuery = reservationQuery.eq('currency', selectedCurrency);
 
     console.log(`[GET /api/analytics/overview-v2] [Req:${requestId}] Executing reservation metrics query`);
-    const { data: reservations, error: reservationError } = await reservationQuery;
+    const { data: allReservations, error: reservationError } = await reservationQuery;
 
     if (reservationError) {
       console.error(`[GET /api/analytics/overview-v2] [Req:${requestId}] Reservation error:`, reservationError);
       return apiError(res, 500, "QUERY_ERROR", "Failed to fetch reservation metrics", reservationError.message);
     }
+
+    const reservations = selectedCurrency
+      ? (allReservations || []).filter(row => normalizeCurrency(row.currency) === selectedCurrency)
+      : (allReservations || []);
 
     // Calculate reservation metrics
     const reservationBreakdown = buildCurrencyBreakdown(reservations || [], {
@@ -547,7 +550,6 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async
       .select('amount, currency, payment_date, created_at')
       .eq('org_id', orgId)
       .eq('status', 'succeeded');
-    if (selectedCurrency) paymentQuery = paymentQuery.eq('currency', selectedCurrency);
 
     // Note: We need to filter by payment_date OR created_at in application code
     // since we can't do COALESCE in Supabase query builder
@@ -559,13 +561,21 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async
     }
 
     // Filter payments by date range (using payment_date or created_at)
-    const filteredPayments = payments?.filter(p => {
+    const datePayments = payments?.filter(p => {
       const paymentDate = p.payment_date || p.created_at?.split('T')[0];
       if (!paymentDate) return false;
       if (from && paymentDate < from) return false;
       if (to && paymentDate > to) return false;
       return true;
     }) || [];
+
+    const filteredPayments = selectedCurrency
+      ? datePayments.filter(row => normalizeCurrency(row.currency) === selectedCurrency)
+      : datePayments;
+    const availableCurrencies = Array.from(new Set([
+      ...(allReservations || []).map(row => normalizeCurrency(row.currency)),
+      ...datePayments.map(row => normalizeCurrency(row.currency)),
+    ])).sort();
 
     const paymentBreakdown = buildCurrencyBreakdown(filteredPayments, { payments_sum: 'amount' });
     const combinedCurrencyMap = new Map<string, any>();
@@ -596,7 +606,7 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async
     const combinedCurrencies = combinedCurrencyBreakdown.map((row) => row.currency);
     const combinedBreakdown = {
       currencyBreakdown: combinedCurrencyBreakdown,
-      availableCurrencies: combinedCurrencies,
+      availableCurrencies,
       multiCurrency: !selectedCurrency && combinedCurrencies.length > 1,
     };
     const totalAmountSum = scalarForCurrencyBreakdown(combinedBreakdown, 'total_amount_sum', selectedCurrency);
@@ -618,7 +628,7 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async
         : metrics.reservations_count === 0 ? 0 : null,
       ...paymentMetrics,
       currency: selectedCurrency || (combinedCurrencies.length === 1 ? combinedCurrencies[0] : null),
-      availableCurrencies: combinedCurrencies,
+      availableCurrencies,
       multiCurrency: combinedBreakdown.multiCurrency,
       currencyBreakdown: combinedCurrencyBreakdown,
       date_from: from || null,
