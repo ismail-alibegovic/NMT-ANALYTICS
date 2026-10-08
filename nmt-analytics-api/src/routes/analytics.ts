@@ -924,7 +924,8 @@ router.get('/analytics/overview.csv', authenticateToken, requireOrgContext, asyn
       return apiError(res, 400, "VALIDATION_ERROR", "Invalid query parameters", validationResult.error.issues);
     }
 
-    const { from, to } = validationResult.data;
+    const { from, to, currency } = validationResult.data;
+    const selectedCurrency = currency ? normalizeCurrency(currency) : null;
 
     if (!orgId) {
       return apiError(res, 403, "ORG_REQUIRED", "Organization context required");
@@ -933,11 +934,12 @@ router.get('/analytics/overview.csv', authenticateToken, requireOrgContext, asyn
     // Fetch overview data (reuse logic from overview-v2)
     let reservationQuery = supabaseAdmin
       .from('reservations')
-      .select('total_amount, paid_amount, balance_due, payment_status')
+      .select('total_amount, paid_amount, balance_due, payment_status, currency')
       .eq('org_id', orgId);
 
     if (from) reservationQuery = reservationQuery.gte('reservation_at', from);
     if (to) reservationQuery = reservationQuery.lte('reservation_at', `${to}T23:59:59.999Z`);
+    if (selectedCurrency) reservationQuery = reservationQuery.eq('currency', selectedCurrency);
 
     const { data: reservations, error: reservationError } = await reservationQuery;
 
@@ -946,36 +948,70 @@ router.get('/analytics/overview.csv', authenticateToken, requireOrgContext, asyn
       return apiError(res, 500, "QUERY_ERROR", "Failed to fetch data", reservationError.message);
     }
 
-    const metrics = {
-      reservations_count: reservations?.length || 0,
-      total_amount_sum: reservations?.reduce((sum, r) => sum + Number(r.total_amount || 0), 0) || 0,
-      total_paid_sum: reservations?.reduce((sum, r) => sum + Number(r.paid_amount || 0), 0) || 0,
-      total_balance_sum: reservations?.reduce((sum, r) => sum + Number(r.balance_due || 0), 0) || 0,
-      unpaid_count: reservations?.filter(r => r.payment_status === 'unpaid').length || 0,
-      partially_paid_count: reservations?.filter(r => r.payment_status === 'partially_paid').length || 0,
-      paid_count: reservations?.filter(r => r.payment_status === 'paid').length || 0,
-    };
+    // Build per-currency metrics — reservations in different currencies are
+    // never summed together (mirrors overview-v2 currencyBreakdown behavior).
+    const currencyMetrics = new Map<string, {
+      reservations_count: number;
+      total_amount_sum: number;
+      total_paid_sum: number;
+      total_balance_sum: number;
+      unpaid_count: number;
+      partially_paid_count: number;
+      paid_count: number;
+    }>();
 
-    const avg_reservation_value = metrics.reservations_count > 0
-      ? metrics.total_amount_sum / metrics.reservations_count
-      : 0;
+    reservations?.forEach((reservation) => {
+      const rowCurrency = normalizeCurrency(reservation.currency);
 
-    // Generate CSV
+      if (!currencyMetrics.has(rowCurrency)) {
+        currencyMetrics.set(rowCurrency, {
+          reservations_count: 0,
+          total_amount_sum: 0,
+          total_paid_sum: 0,
+          total_balance_sum: 0,
+          unpaid_count: 0,
+          partially_paid_count: 0,
+          paid_count: 0,
+        });
+      }
+
+      const metrics = currencyMetrics.get(rowCurrency)!;
+      metrics.reservations_count++;
+      metrics.total_amount_sum = fromMoneyCents(toMoneyCents(metrics.total_amount_sum) + toMoneyCents(reservation.total_amount));
+      metrics.total_paid_sum = fromMoneyCents(toMoneyCents(metrics.total_paid_sum) + toMoneyCents(reservation.paid_amount));
+      metrics.total_balance_sum = fromMoneyCents(toMoneyCents(metrics.total_balance_sum) + toMoneyCents(reservation.balance_due));
+      if (reservation.payment_status === 'unpaid') metrics.unpaid_count++;
+      else if (reservation.payment_status === 'partially_paid') metrics.partially_paid_count++;
+      else if (reservation.payment_status === 'paid') metrics.paid_count++;
+    });
+
+    const blocks = Array.from(currencyMetrics.entries())
+      .sort(([a], [b]) => a.localeCompare(b));
+
+    // Generate CSV — one metrics block per currency, never a cross-currency total
     const csv = [
       // UTF-8 BOM for Excel compatibility
       '\ufeff',
       // Headers
-      'Metric,Value',
-      `Reservations Count,${metrics.reservations_count}`,
-      `Total Amount Sum,${metrics.total_amount_sum.toFixed(2)}`,
-      `Total Paid Sum,${metrics.total_paid_sum.toFixed(2)}`,
-      `Total Balance Sum,${metrics.total_balance_sum.toFixed(2)}`,
-      `Average Reservation Value,${avg_reservation_value.toFixed(2)}`,
-      `Unpaid Count,${metrics.unpaid_count}`,
-      `Partially Paid Count,${metrics.partially_paid_count}`,
-      `Paid Count,${metrics.paid_count}`,
-      `Date From,${from || 'All Time'}`,
-      `Date To,${to || 'All Time'}`,
+      'Metric,Value,Currency',
+      ...blocks.flatMap(([currencyCode, metrics]) => {
+        const avg_reservation_value = metrics.reservations_count > 0
+          ? metrics.total_amount_sum / metrics.reservations_count
+          : 0;
+
+        return [
+          `Reservations Count,${metrics.reservations_count},${currencyCode}`,
+          `Total Amount Sum,${metrics.total_amount_sum.toFixed(2)},${currencyCode}`,
+          `Total Paid Sum,${metrics.total_paid_sum.toFixed(2)},${currencyCode}`,
+          `Total Balance Sum,${metrics.total_balance_sum.toFixed(2)},${currencyCode}`,
+          `Average Reservation Value,${avg_reservation_value.toFixed(2)},${currencyCode}`,
+          `Unpaid Count,${metrics.unpaid_count},${currencyCode}`,
+          `Partially Paid Count,${metrics.partially_paid_count},${currencyCode}`,
+          `Paid Count,${metrics.paid_count},${currencyCode}`,
+        ];
+      }),
+      `Date From,${from || 'All Time'},`,
+      `Date To,${to || 'All Time'},`,
     ].join('\n');
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -1005,7 +1041,8 @@ router.get('/analytics/by-package.csv', authenticateToken, requireOrgContext, as
       return apiError(res, 400, "VALIDATION_ERROR", "Invalid query parameters", validationResult.error.issues);
     }
 
-    const { from, to } = validationResult.data;
+    const { from, to, currency } = validationResult.data;
+    const selectedCurrency = currency ? normalizeCurrency(currency) : null;
 
     if (!orgId) {
       return apiError(res, 403, "ORG_REQUIRED", "Organization context required");
@@ -1018,15 +1055,17 @@ router.get('/analytics/by-package.csv', authenticateToken, requireOrgContext, as
                 total_amount,
                 paid_amount,
                 balance_due,
+                currency,
                 departures!inner (
                   package_id,
-                  packages!inner ( id, name )
+                  packages!inner ( id, name, currency )
                 )
             `)
       .eq('org_id', orgId);
 
     if (from) query = query.gte('reservation_at', from);
     if (to) query = query.lte('reservation_at', `${to}T23:59:59.999Z`);
+    if (selectedCurrency) query = query.eq('currency', selectedCurrency);
 
     const { data: reservations, error } = await query;
 
@@ -1035,8 +1074,16 @@ router.get('/analytics/by-package.csv', authenticateToken, requireOrgContext, as
       return apiError(res, 500, "QUERY_ERROR", "Failed to fetch data", error.message);
     }
 
-    // Group by package
-    const packageMap = new Map<string, any>();
+    // Group by package AND currency — historical reservations of the same
+    // package may carry different currencies and must never be summed together.
+    const packageMap = new Map<string, {
+      package_name: string;
+      currency: string;
+      reservations_count: number;
+      total_amount_sum: number;
+      total_paid_sum: number;
+      total_balance_sum: number;
+    }>();
 
     reservations?.forEach((reservation: any) => {
       const departure = reservation.departures;
@@ -1044,10 +1091,13 @@ router.get('/analytics/by-package.csv', authenticateToken, requireOrgContext, as
       const pkg = departure.packages;
       const packageId = pkg.id;
       const packageName = pkg.name || 'Unknown Package';
+      const rowCurrency = normalizeCurrency(reservation.currency || pkg.currency);
+      const groupKey = `${packageId}:${rowCurrency}`;
 
-      if (!packageMap.has(packageId)) {
-        packageMap.set(packageId, {
+      if (!packageMap.has(groupKey)) {
+        packageMap.set(groupKey, {
           package_name: packageName,
+          currency: rowCurrency,
           reservations_count: 0,
           total_amount_sum: 0,
           total_paid_sum: 0,
@@ -1055,11 +1105,11 @@ router.get('/analytics/by-package.csv', authenticateToken, requireOrgContext, as
         });
       }
 
-      const pkgData = packageMap.get(packageId)!;
+      const pkgData = packageMap.get(groupKey)!;
       pkgData.reservations_count++;
-      pkgData.total_amount_sum += Number(reservation.total_amount || 0);
-      pkgData.total_paid_sum += Number(reservation.paid_amount || 0);
-      pkgData.total_balance_sum += Number(reservation.balance_due || 0);
+      pkgData.total_amount_sum = fromMoneyCents(toMoneyCents(pkgData.total_amount_sum) + toMoneyCents(reservation.total_amount));
+      pkgData.total_paid_sum = fromMoneyCents(toMoneyCents(pkgData.total_paid_sum) + toMoneyCents(reservation.paid_amount));
+      pkgData.total_balance_sum = fromMoneyCents(toMoneyCents(pkgData.total_balance_sum) + toMoneyCents(reservation.balance_due));
     });
 
     const packages = Array.from(packageMap.values())
@@ -1070,10 +1120,10 @@ router.get('/analytics/by-package.csv', authenticateToken, requireOrgContext, as
       // UTF-8 BOM for Excel compatibility
       '\ufeff',
       // Headers
-      'Package Name,Reservations Count,Total Amount Sum,Total Paid Sum,Total Balance Sum',
+      'Package Name,Currency,Reservations Count,Total Amount Sum,Total Paid Sum,Total Balance Sum',
       // Data rows
       ...packages.map(pkg =>
-        `"${pkg.package_name}",${pkg.reservations_count},${pkg.total_amount_sum.toFixed(2)},${pkg.total_paid_sum.toFixed(2)},${pkg.total_balance_sum.toFixed(2)}`
+        `"${pkg.package_name}",${pkg.currency},${pkg.reservations_count},${pkg.total_amount_sum.toFixed(2)},${pkg.total_paid_sum.toFixed(2)},${pkg.total_balance_sum.toFixed(2)}`
       )
     ];
 
