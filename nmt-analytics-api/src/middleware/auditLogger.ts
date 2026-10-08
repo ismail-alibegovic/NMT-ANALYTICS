@@ -101,7 +101,7 @@ export function auditLog(
           user_id: req.user?.id || 'unknown',
           action,
           entity,
-          entity_id: getEntityId?.(req) || (body as Record<string, unknown>)?.id as string,
+          entity_id: getEntityId?.(req) || resolveEntityId(body),
           entity_name: getEntityName?.(req) || (body as Record<string, unknown>)?.name as string,
           ip_address: req.ip || req.socket.remoteAddress,
           user_agent: req.headers['user-agent'],
@@ -120,10 +120,40 @@ export function auditLog(
   };
 }
 
+// Keys checked one level deep in the response body when a route returns a nested entity
+const NESTED_ENTITY_KEYS = ['payment', 'reservation', 'customer', 'departure', 'package', 'document', 'user', 'data'] as const;
+
+/**
+ * Resolve the entity id from a response body.
+ * Handles both flat bodies ({ id }) and nested bodies ({ payment: { id } }).
+ */
+export function resolveEntityId(body: unknown): string | undefined {
+    if (!body || typeof body !== 'object') return undefined;
+    const record = body as Record<string, unknown>;
+
+    if (typeof record.id === 'string') return record.id;
+
+    for (const key of NESTED_ENTITY_KEYS) {
+        const nested = record[key];
+        if (nested && typeof nested === 'object') {
+            const nestedId = (nested as Record<string, unknown>).id;
+            if (typeof nestedId === 'string') return nestedId;
+        }
+    }
+
+    return undefined;
+}
+
 /**
  * Manual audit logging - call from route handlers
  */
 export async function logAuditEntry(entry: AuditLogEntry): Promise<void> {
+    // audit_logs.entity_id is NOT NULL; skip doomed inserts instead of failing
+    if (!entry.entity_id) {
+        console.warn(`[AUDIT] Skipping ${entry.action} ${entry.entity} log: no entity id resolved`);
+        return;
+    }
+
   try {
     // Handle dev bypass user - use null instead of fake UUID
     const userId = entry.user_id === '00000000-0000-0000-0000-000000000000' 

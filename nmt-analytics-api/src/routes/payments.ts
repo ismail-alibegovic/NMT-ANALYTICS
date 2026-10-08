@@ -279,6 +279,16 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
         const effectiveCurrency = currency || reservation.currency || 'BAM';
         const effectivePaymentDate = payment_date || new Date().toISOString().split('T')[0];
 
+        // Guard: succeeded payments must not exceed the outstanding balance.
+        // Mirrors the reservations_paid_lte_total_check DB constraint, but returns a clear 422
+        // instead of leaking a raw Supabase check violation as a 500.
+        if (status === 'succeeded') {
+            const outstandingCents = toCents(reservation.total_amount) - toCents(reservation.paid_amount);
+            if (toCents(amount) > outstandingCents) {
+                return apiError(res, 422, 'PAYMENT_EXCEEDS_TOTAL', `Payment exceeds the outstanding balance of ${(outstandingCents / 100).toFixed(2)} ${effectiveCurrency}`);
+            }
+        }
+
         let payment: any;
 
         if (installment_id) {
