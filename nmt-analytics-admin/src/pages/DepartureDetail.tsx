@@ -46,6 +46,10 @@ import {
   updateDepartureCostItem,
   deleteDepartureCostItem,
   PassengerGroup,
+  setCostItemConfirmation,
+  getSupplierConfirmationEvents,
+  SupplierConfirmationStatus,
+  type SupplierConfirmationEvent,
   DepartureProfitability,
   DepartureCostItem,
   DepartureCostCategory,
@@ -163,6 +167,14 @@ export default function DepartureDetail() {
   const [showCostModal, setShowCostModal] = useState(false);
   const [editingCostItem, setEditingCostItem] = useState<DepartureCostItem | null>(null);
   const [costSaving, setCostSaving] = useState(false);
+  const [confirmationSavingId, setConfirmationSavingId] = useState<string | null>(null);
+  const [confirmationModalItem, setConfirmationModalItem] = useState<DepartureCostItem | null>(null);
+  const [confirmationForm, setConfirmationForm] = useState<{ status: SupplierConfirmationStatus; note: string }>({
+    status: "unconfirmed",
+    note: "",
+  });
+  const [confirmationHistory, setConfirmationHistory] = useState<SupplierConfirmationEvent[] | null>(null);
+  const [confirmationHistoryLoading, setConfirmationHistoryLoading] = useState(false);
   const [costForm, setCostForm] = useState({
     category: "other" as DepartureCostCategory,
     label: "",
@@ -170,6 +182,32 @@ export default function DepartureDetail() {
     unitCost: "",
     notes: "",
   });
+  const confirmationStatusMeta: Record<SupplierConfirmationStatus, { label: string; color: "warning" | "info" | "success" | "error" }> = {
+    unconfirmed: { label: t.departure.supplierConfirmations.unconfirmed, color: "warning" },
+    requested: { label: t.departure.supplierConfirmations.requested, color: "info" },
+    confirmed: { label: t.departure.supplierConfirmations.confirmed, color: "success" },
+    cancelled: { label: t.departure.supplierConfirmations.cancelled, color: "error" },
+  };
+
+  const loadConfirmationHistory = useCallback(async (departureId: string) => {
+    setConfirmationHistoryLoading(true);
+    try {
+      const events = await getSupplierConfirmationEvents(departureId);
+      setConfirmationHistory(events);
+    } catch {
+      setConfirmationHistory([]);
+    } finally {
+      setConfirmationHistoryLoading(false);
+    }
+  }, []);
+
+  const openConfirmationModal = useCallback(
+    (item: DepartureCostItem) => {
+      setConfirmationModalItem(item);
+      setConfirmationForm({ status: item.confirmationStatus || "unconfirmed", note: "" });
+    },
+    []
+  );
 
   const loadProfitability = useCallback(async () => {
     if (!id) return;
@@ -184,9 +222,31 @@ export default function DepartureDetail() {
     }
   }, [id, t.departure.finance.loadError]);
 
+  const handleSaveConfirmation = useCallback(async () => {
+    if (!id || !confirmationModalItem) return;
+    setConfirmationSavingId(confirmationModalItem.id);
+    try {
+      await setCostItemConfirmation(
+        id,
+        confirmationModalItem.id,
+        confirmationForm.status,
+        confirmationForm.note.trim() || undefined
+      );
+      setConfirmationModalItem(null);
+      await Promise.all([loadProfitability(), loadConfirmationHistory(id)]);
+    } catch (err: any) {
+      setProfitError(err?.response?.data?.message || err?.message || t.departure.supplierConfirmations.saveError);
+    } finally {
+      setConfirmationSavingId(null);
+    }
+  }, [id, confirmationModalItem, confirmationForm, loadProfitability, loadConfirmationHistory, t]);
+
   useEffect(() => {
-    if (activeTab === "finance" && canViewFinance) void loadProfitability();
-  }, [activeTab, canViewFinance, loadProfitability]);
+    if (activeTab === "finance" && canViewFinance && id) {
+      void loadProfitability();
+      void loadConfirmationHistory(id);
+    }
+  }, [activeTab, canViewFinance, id, loadProfitability, loadConfirmationHistory]);
 
   // Fetch reservations for this departure when add modal opens
   useEffect(() => {
@@ -462,6 +522,8 @@ export default function DepartureDetail() {
   }, [departure?.hotelAllocations, departure?.packageHotels]);
   const capabilities: DepartureCapabilities | undefined = (departure as any)?.capabilities;
   const transportConfigured = capabilities?.hasBusTransport || capabilities?.hasFlight || false;
+  const confirmedCostItems = profitability?.costItems.filter((item) => item.confirmationStatus === "confirmed").length ?? 0;
+  const totalCostItems = profitability?.costItems.length ?? 0;
   const readinessItems = departure ? [
     {
       label: t.departure.capacityAndManifest,
@@ -1327,6 +1389,13 @@ export default function DepartureDetail() {
                     <div>
                       <h2 className="font-semibold text-gray-950 dark:text-white">{t.departure.finance.costItems}</h2>
                       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t.departure.finance.costItemsDescription}</p>
+                      {totalCostItems > 0 && (
+                        <p className="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">
+                          {t.departure.supplierConfirmations.chip
+                            .replace("{confirmed}", String(confirmedCostItems))
+                            .replace("{total}", String(totalCostItems))}
+                        </p>
+                      )}
                     </div>
                     <Button size="sm" onClick={() => openCostModal()} className="gap-2">
                       <PlusIcon className="size-4" /> {t.departure.finance.addCost}
@@ -1344,6 +1413,9 @@ export default function DepartureDetail() {
                             <div className="flex flex-wrap items-center gap-2">
                               <Badge color="light" size="sm">{(t.departure.finance.categories as Record<string, string>)[item.category] || item.category}</Badge>
                               <span className="font-medium text-gray-950 dark:text-white">{item.label}</span>
+                              {item.supplierName && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400">{item.supplierName}</span>
+                              )}
                             </div>
                             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                               {item.quantity} × {formatCurrency(item.unitCost, item.currency)}
@@ -1352,6 +1424,23 @@ export default function DepartureDetail() {
                           </div>
                           <div className="flex items-center justify-between gap-3 sm:justify-end">
                             <span className="font-semibold text-gray-950 dark:text-white">{formatCurrency(item.totalCost, item.currency)}</span>
+                            <button
+                              type="button"
+                              onClick={() => openConfirmationModal(item)}
+                              disabled={confirmationSavingId === item.id}
+                              className="transition-opacity hover:opacity-75 disabled:opacity-50"
+                              aria-label={t.departure.supplierConfirmations.setStatus}
+                              title={t.departure.supplierConfirmations.setStatus}
+                            >
+                              <Badge
+                                color={confirmationStatusMeta[item.confirmationStatus || "unconfirmed"].color}
+                                size="sm"
+                              >
+                                {confirmationSavingId === item.id
+                                  ? t.departure.supplierConfirmations.saving
+                                  : confirmationStatusMeta[item.confirmationStatus || "unconfirmed"].label}
+                              </Badge>
+                            </button>
                             <Button variant="outline" size="sm" onClick={() => openCostModal(item)}>{t.departure.finance.edit}</Button>
                             <button
                               type="button"
@@ -1364,6 +1453,32 @@ export default function DepartureDetail() {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {profitability.costItems.length > 0 && (
+                    <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-800">
+                      <h3 className="text-sm font-semibold text-gray-950 dark:text-white">{t.departure.supplierConfirmations.history}</h3>
+                      {confirmationHistoryLoading ? (
+                        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{t.departure.supplierConfirmations.loading}</p>
+                      ) : !confirmationHistory || confirmationHistory.length === 0 ? (
+                        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{t.departure.supplierConfirmations.historyEmpty}</p>
+                      ) : (
+                        <ul className="mt-2 space-y-1.5">
+                          {confirmationHistory.slice(0, 10).map((event) => (
+                            <li key={event.id} className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                              <Badge color={confirmationStatusMeta[event.status]?.color || "light"} size="sm">
+                                {confirmationStatusMeta[event.status]?.label || event.status}
+                              </Badge>
+                              <span className="font-medium text-gray-950 dark:text-white">{event.costItemLabel}</span>
+                              {event.note ? <span className="text-gray-500 dark:text-gray-400">{event.note}</span> : null}
+                              <span className="text-xs text-gray-400 dark:text-gray-500">
+                                {new Date(event.createdAt).toLocaleString()}
+                                {event.actorEmail ? ` · ${t.departure.supplierConfirmations.requestedBy.replace("{email}", event.actorEmail)}` : ""}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   )}
                 </section>
@@ -1606,6 +1721,49 @@ export default function DepartureDetail() {
             <Button variant="outline" onClick={() => setShowCostModal(false)} disabled={costSaving}>{t.common.cancel}</Button>
             <Button onClick={handleSaveCostItem} disabled={costSaving}>
               {costSaving ? t.common.saving : t.common.save}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      {/* SUPPLIER CONFIRMATION MODAL */}
+      <Modal
+        isOpen={!!confirmationModalItem}
+        onClose={() => setConfirmationModalItem(null)}
+        className="max-w-md"
+      >
+        <div className="p-6">
+          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">{t.departure.supplierConfirmations.setStatus}</h2>
+          <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+            {confirmationModalItem?.label}
+            {confirmationModalItem?.supplierName ? ` · ${confirmationModalItem.supplierName}` : ""}
+          </p>
+          <div className="space-y-4">
+            <div>
+              <Label>{t.departure.supplierConfirmations.statusLabel}</Label>
+              <Select
+                value={confirmationForm.status}
+                onChange={(value) => setConfirmationForm((prev) => ({ ...prev, status: value as SupplierConfirmationStatus }))}
+                options={(["unconfirmed", "requested", "confirmed", "cancelled"] as SupplierConfirmationStatus[]).map((status) => ({
+                  value: status,
+                  label: confirmationStatusMeta[status].label,
+                }))}
+              />
+            </div>
+            <div>
+              <Label>{t.departure.supplierConfirmations.noteLabel}</Label>
+              <Input
+                value={confirmationForm.note}
+                onChange={(e) => setConfirmationForm((prev) => ({ ...prev, note: e.target.value }))}
+                placeholder={t.departure.supplierConfirmations.notePlaceholder}
+              />
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setConfirmationModalItem(null)} disabled={confirmationSavingId !== null}>
+              {t.departure.supplierConfirmations.cancel}
+            </Button>
+            <Button onClick={() => void handleSaveConfirmation()} disabled={confirmationSavingId !== null}>
+              {confirmationSavingId !== null ? t.departure.supplierConfirmations.saving : t.departure.supplierConfirmations.save}
             </Button>
           </div>
         </div>
