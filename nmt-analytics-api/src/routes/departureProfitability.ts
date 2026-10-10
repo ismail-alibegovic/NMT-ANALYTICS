@@ -22,7 +22,7 @@ const costItemSchema = z.object({
   notes: z.string().trim().max(1000).nullable().optional(),
 });
 
-function transformCostItem(row: any) {
+export function transformCostItem(row: any) {
   const quantity = Number(row.quantity || 0);
   const unitCost = Number(row.unit_cost || 0);
   return {
@@ -37,6 +37,7 @@ function transformCostItem(row: any) {
     totalCost: fromCents(multiplyMoneyToCents(quantity, unitCost)),
     currency: row.currency,
     notes: row.notes,
+    confirmationStatus: row.confirmation_status || 'unconfirmed',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -74,7 +75,7 @@ async function loadProfitability(orgId: string, departureId: string) {
         .eq('org_id', orgId),
       supabaseAdmin
         .from('departure_cost_items')
-        .select('id, departure_id, category, label, supplier_id, quantity, unit_cost, currency, notes, created_at, updated_at, suppliers!departure_cost_items_supplier_org_fk(id, name)')
+        .select('id, departure_id, category, label, supplier_id, quantity, unit_cost, currency, notes, confirmation_status, created_at, updated_at, suppliers!departure_cost_items_supplier_org_fk(id, name)')
         .eq('departure_id', departureId)
         .eq('org_id', orgId)
         .order('created_at', { ascending: true }),
@@ -159,7 +160,7 @@ router.post('/departures/:departureId/cost-items', authenticateToken, requireOrg
       currency: parsedBody.data.currency,
       notes: parsedBody.data.notes || null,
     })
-    .select('id, departure_id, category, label, supplier_id, quantity, unit_cost, currency, notes, created_at, updated_at, suppliers!departure_cost_items_supplier_org_fk(id, name)')
+    .select('id, departure_id, category, label, supplier_id, quantity, unit_cost, currency, notes, confirmation_status, created_at, updated_at, suppliers!departure_cost_items_supplier_org_fk(id, name)')
     .single();
 
   if (error) return handleSupabaseError(res, error, 'Failed to create departure cost item');
@@ -206,7 +207,7 @@ router.patch('/departures/:departureId/cost-items/:itemId', authenticateToken, r
     .eq('id', parsedItemId.data)
     .eq('departure_id', parsedDepartureId.data)
     .eq('org_id', orgId)
-    .select('id, departure_id, category, label, supplier_id, quantity, unit_cost, currency, notes, created_at, updated_at, suppliers!departure_cost_items_supplier_org_fk(id, name)')
+    .select('id, departure_id, category, label, supplier_id, quantity, unit_cost, currency, notes, confirmation_status, created_at, updated_at, suppliers!departure_cost_items_supplier_org_fk(id, name)')
     .single();
 
   if (error) return handleSupabaseError(res, error, 'Failed to update departure cost item');

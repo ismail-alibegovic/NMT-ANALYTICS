@@ -15,8 +15,22 @@ export interface DepartureCostItem {
   totalCost: number;
   currency: string;
   notes: string | null;
+  confirmationStatus: SupplierConfirmationStatus;
   createdAt: string;
   updatedAt: string;
+}
+
+export type SupplierConfirmationStatus = 'unconfirmed' | 'requested' | 'confirmed' | 'cancelled';
+
+export interface SupplierConfirmationEvent {
+  id: string;
+  departureId: string;
+  costItemId: string;
+  costItemLabel: string | null;
+  status: SupplierConfirmationStatus;
+  note: string | null;
+  actorEmail: string | null;
+  createdAt: string;
 }
 
 export interface DepartureProfitability {
@@ -54,6 +68,27 @@ export async function updateDepartureCostItem(departureId: string, itemId: strin
 
 export async function deleteDepartureCostItem(departureId: string, itemId: string): Promise<void> {
   await del(`/departures/${departureId}/cost-items/${itemId}`);
+}
+
+export async function setCostItemConfirmation(
+  departureId: string,
+  itemId: string,
+  status: SupplierConfirmationStatus,
+  note?: string
+): Promise<DepartureCostItem> {
+  const { data } = await post<{ costItem: DepartureCostItem }>(
+    `/departures/${departureId}/cost-items/${itemId}/confirmation`,
+    note ? { status, note } : { status }
+  );
+  return data.costItem;
+}
+
+export async function getSupplierConfirmationEvents(departureId: string, limit = 100): Promise<SupplierConfirmationEvent[]> {
+  const { data } = await get<{ events: SupplierConfirmationEvent[] }>(
+    `/departures/${departureId}/supplier-confirmation-events`,
+    { params: { limit } }
+  );
+  return data.events;
 }
 
 export interface DepartureCapabilities {

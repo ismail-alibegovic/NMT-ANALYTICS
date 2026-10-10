@@ -144,8 +144,9 @@ describe('departure profitability route', () => {
       warnings: [],
     });
     expect(selectClauses).toContain(
-      'id, departure_id, category, label, supplier_id, quantity, unit_cost, currency, notes, created_at, updated_at, suppliers!departure_cost_items_supplier_org_fk(id, name)',
+      'id, departure_id, category, label, supplier_id, quantity, unit_cost, currency, notes, confirmation_status, created_at, updated_at, suppliers!departure_cost_items_supplier_org_fk(id, name)',
     );
+    expect(res.body.costItems[0].confirmationStatus).toBe('unconfirmed');
   });
 
   it('rejects cross-org departures and cross-org suppliers', async () => {
