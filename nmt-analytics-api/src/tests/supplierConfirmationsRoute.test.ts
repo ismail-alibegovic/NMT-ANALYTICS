@@ -11,6 +11,7 @@ const OTHER_ORG_ITEM = '30000000-0000-4000-8000-0000000000ff';
 let rows: Record<string, any[]> = {};
 let app: express.Express;
 let insertCalls: any[] = [];
+let failEventInsert = false;
 
 vi.mock('../middleware/authenticateToken', () => ({
   authenticateToken: (req: Request, _res: Response, next: NextFunction) => {
@@ -68,7 +69,7 @@ function query(table: string) {
         ...row,
       };
       insertCalls.push({ table, row });
-      rows[table].push(state.insertRow);
+      if (!failEventInsert) rows[table].push(state.insertRow);
       return api;
     }),
     update: vi.fn((data: any) => {
@@ -76,6 +77,7 @@ function query(table: string) {
       return api;
     }),
     single: vi.fn(async () => {
+      if (state.insertRow && failEventInsert) return { data: null, error: { code: 'DATABASE_ERROR' } };
       let result = (rows[table] || []).filter((row) => state.filters.every((filter) => filter(row)));
       if (state.updateData) result = result.map((row) => ({ ...row, ...state.updateData }));
       const row = state.insertRow || result[0] || null;
@@ -99,6 +101,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   insertCalls = [];
+  failEventInsert = false;
   rows = {
     departures: [
       { id: DEPARTURE, org_id: ORG, package_id: 'pkg-1', packages: { id: 'pkg-1', name: 'Antalya', currency: 'BAM' } },
@@ -246,7 +249,23 @@ describe('confirmation status update', () => {
     });
   });
 
-  it('allows setting a status without a note', async () => {
+  it('leaves the cost item unchanged when recording history fails', async () => {
+    failEventInsert = true;
+    const before = structuredClone(rows);
+    const res = await request(app)
+      .post(`/api/departures/${DEPARTURE}/cost-items/${ITEM}/confirmation`)
+      .send({ status: 'confirmed' });
+
+    expect(res.status).toBe(500);
+    expect(rows).toEqual(before);
+    const { supabaseAdmin } = await import('../lib/supabase');
+    const calls = vi.mocked(supabaseAdmin.from).mock.results;
+    for (const call of calls) {
+      expect(call.value.update).not.toHaveBeenCalled();
+    }
+  });
+
+  it('allows setting a status without a note' , async () => {
     const res = await request(app)
       .post(`/api/departures/${DEPARTURE}/cost-items/${ITEM}/confirmation`)
       .send({ status: 'requested' });

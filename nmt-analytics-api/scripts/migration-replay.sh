@@ -102,4 +102,5 @@ VALUES (
 );
 ROLLBACK;
 SQL
+"${PSQL_BASE[@]}" -f "$ROOT/scripts/supplier-confirmation-atomicity.sql"
 echo "Migration Replay PASS: $count migrations executed"

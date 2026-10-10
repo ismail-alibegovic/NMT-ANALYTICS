@@ -89,8 +89,6 @@ router.get('/departures/:departureId/supplier-confirmations', authenticateToken,
 });
 
 // Record a confirmation status change with an optional request note.
-// Status update and history insert are two writes: if the event insert fails after
-// the status update, the client may retry the same request (duplicate-safe).
 router.post('/departures/:departureId/cost-items/:itemId/confirmation', authenticateToken, requireOrgContext, requireMinimumRole('manager'), auditLog('UPDATE', 'departure_cost_item', (req) => req.params.itemId), async (req, res: Response) => {
   const parsedDepartureId = idSchema.safeParse(req.params.departureId);
   const parsedItemId = idSchema.safeParse(req.params.itemId);
@@ -107,16 +105,15 @@ router.post('/departures/:departureId/cost-items/:itemId/confirmation', authenti
 
   const { data: costItem, error: updateError } = await supabaseAdmin
     .from('departure_cost_items')
-    .update({ confirmation_status: parsedBody.data.status })
+    .select(COST_ITEM_SELECT)
     .eq('id', itemId)
     .eq('departure_id', departureId)
     .eq('org_id', orgId)
-    .select(COST_ITEM_SELECT)
     .single();
 
   if (updateError) {
     if ((updateError as any).code === 'PGRST116') return apiError(res, 404, 'NOT_FOUND', 'Cost item not found');
-    return handleSupabaseError(res, updateError, 'Failed to update cost item confirmation status');
+    return handleSupabaseError(res, updateError, 'Failed to load cost item');
   }
   if (!costItem) return apiError(res, 404, 'NOT_FOUND', 'Cost item not found');
 
@@ -135,13 +132,13 @@ router.post('/departures/:departureId/cost-items/:itemId/confirmation', authenti
     .single();
 
   if (eventError) {
-    return apiError(res, 500, 'CONFIRMATION_EVENT_LOG_FAILED', 'Confirmation status updated but the history event could not be recorded. Retry with the same status if history completeness is required.');
+    return handleSupabaseError(res, eventError, 'Failed to record supplier confirmation');
   }
 
   const transformedEvent = transformEvent(event);
   if (!transformedEvent.costItemLabel) transformedEvent.costItemLabel = costItem.label;
 
-  return res.json({ costItem: transformCostItem(costItem), event: transformedEvent });
+  return res.json({ costItem: transformCostItem({ ...costItem, confirmation_status: event.status }), event: transformedEvent });
 });
 
 // Append-only request/notes history for a departure.
