@@ -24,7 +24,7 @@ This replaces the stale 2026-09-01 status snapshot. MERGED means the named imple
 | M13 — Flight operations | MERGED: Flight Operations core #11, reorder fix #56, canonical configuration #57, relation fix #58. | Verify remaining manifest/readiness requirements against full milestone. |
 | M14 — Finance | MERGED: installment schedule #59, service loading #60, payment recording #61, remaining-balance fix #62, departure profitability #63–64, package costing #65. | Currency consistency PR #66 is tracked separately below; full finance acceptance remains open. |
 | M15 — Documents | PARTIAL: PDF routes and generators exist. | Verify current contracts, receipts, vouchers, manifest and rooming-list output, including currencies. |
-| M16 — Supplier confirmations | NOT VERIFIED AS IMPLEMENTED: supplier/service catalog exists. | Operational confirmation workflow remains backlog; catalog is not confirmation tracking. |
+| M16 — Supplier confirmations | PARTIAL: M16.1 confirmation tracking MERGED via PR #72 — cost-item `confirmation_status`, immutable `supplier_confirmation_events` history, per-departure summary endpoint, admin finance-tab badges/modal (BS/EN). | HomeHub readiness wiring deferred to M18; broader milestone acceptance (bulk visibility, full readiness impact) remains open. |
 | M17 — Communications | MERGED: Communication Center #3, templates #5, campaigns #6, scheduler auth #7, automation #8 and i18n polish #9. | Verify delivery configuration and scheduler operation in the target deployment. Old notes saying “not started” are obsolete. |
 | M18 — Today/readiness | PARTIAL: HomeHub has payment exceptions plus missing-flight and traveler-document alerts. | Verify existing signals and complete supplier readiness and remaining cross-workflow gaps. |
 | M19 — Inquiry/quote | PARTIAL: inquiry CRUD, public intake, quotations with items/status/PDF (`quotations.ts`) exist. | Verify the connected inquiry-to-quote workflow and implement/verify reservation conversion; do not rebuild quotation CRUD. |
@@ -42,9 +42,13 @@ Currency-safe CSV exports (`/analytics/overview.csv`, `/analytics/by-package.csv
 
 Old PR reconciliation (2026-10-08): PR #1 is closed and all six of its `20260826155*` security migrations are already in main — nothing outstanding. PR #19 (automatic rooming apply) was re-tested against current main; its own tests fail — the proposal algorithm is not deterministic for permuted inputs and the apply endpoint returns 400 where the tests require 200/409 with stale-proposal semantics — and it conflicts with the merged rooming implementation. Do not merge; if automatic apply is still wanted, re-implement on top of current main. Review verdicts posted on both PRs.
 
+## M16.1 release evidence
+
+PR #72 (`feature/m16-supplier-confirmations`) merged 2026-10-09 (merge `bc06402`): departure cost-item confirmation tracking (`unconfirmed | requested | confirmed | cancelled`), append-only `supplier_confirmation_events` history, `GET /departures/:id/supplier-confirmations` board with status-count summary, `POST …/cost-items/:itemId/confirmation`, `GET …/supplier-confirmation-events`, `confirmationStatus` on profitability cost items, and DepartureDetail finance-tab badges + status modal with BS/EN parity. Two append-only migrations (`20261008000000_m16_supplier_confirmation_tracking.sql`, `20261010190000_m16_atomic_confirmation_events.sql`) with org-isolation RLS. All CI checks green (API/admin tests, migration replay, Docker, Vercel preview). HomeHub readiness wiring intentionally deferred to M18.
+
 ## Next work, in order
 
 1. Verify authenticated production Dashboard, HomeHub, Reports and reservation/payment behavior; the current session can only confirm public login, health and served bundle content without credentials.
-2. Complete representative end-to-end acceptance (M24), then select one product slice from supplier confirmations, inquiry-to-quote conversion, supplier payables or Today/readiness.
+2. Complete representative end-to-end acceptance (M24), then select one product slice from inquiry-to-quote conversion, supplier payables or Today/readiness. (Supplier confirmations slice shipped as M16.1, PR #72.)
 
 Create a scoped task under `docs/tasks/active/` before implementing a new milestone slice. This roadmap authorizes no implementation by itself. Stripe billing remains deferred until the user changes the first-paying-client constraint.

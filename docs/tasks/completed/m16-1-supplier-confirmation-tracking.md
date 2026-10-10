@@ -1,6 +1,6 @@
 # M16.1 — Supplier confirmation tracking on departure cost items
 
-**Status:** ACTIVE
+**Status:** DONE — implemented and merged via PR #72 (merge bc06402, 2026-10-09). All CI checks green (API+admin tests, migration replay, Docker, Vercel preview).
 **Priority:** P1
 **Branch:** `feature/m16-supplier-confirmations`
 **Roadmap references:** `docs/ROADMAP.md` (M16 — Documents row "Supplier confirmations"; "Next work, in order" item 2 first slice), `docs/TRAVLINE_MASTER_PLAN_2_0.md` M16.
