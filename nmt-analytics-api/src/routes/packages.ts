@@ -265,7 +265,7 @@ router.get('/packages', authenticateToken, requireOrgContext, async (req: any, r
 /**
  * POST /api/packages
  */
-router.post('/packages', authenticateToken, requireOrgContext, auditPackageCreate, async (req: any, res: Response, next) => {
+router.post('/packages', authenticateToken, requireOrgContext, requireMinimumRole('manager'), auditPackageCreate, async (req: any, res: Response, next) => {
   try {
     const validationResult = createPackageSchema.safeParse(req.body);
 
@@ -359,7 +359,7 @@ router.post('/packages', authenticateToken, requireOrgContext, auditPackageCreat
 /**
  * PUT /api/packages/:id
  */
-router.put('/packages/:id', authenticateToken, requireOrgContext, auditPackageUpdate, async (req: any, res: Response, next) => {
+router.put('/packages/:id', authenticateToken, requireOrgContext, requireMinimumRole('manager'), auditPackageUpdate, async (req: any, res: Response, next) => {
   try {
     const { id } = req.params;
     const orgId = req.orgId!;
@@ -411,7 +411,7 @@ router.put('/packages/:id', authenticateToken, requireOrgContext, auditPackageUp
 /**
  * PATCH /api/packages/:id
  */
-router.patch('/packages/:id', authenticateToken, requireOrgContext, auditPackageUpdate, async (req: any, res: Response, next) => {
+router.patch('/packages/:id', authenticateToken, requireOrgContext, requireMinimumRole('manager'), auditPackageUpdate, async (req: any, res: Response, next) => {
   try {
     const { id } = req.params;
     const orgId = req.orgId!;
@@ -447,7 +447,7 @@ router.patch('/packages/:id', authenticateToken, requireOrgContext, auditPackage
 /**
  * DELETE /api/packages/:id
  */
-router.delete('/packages/:id', authenticateToken, requireOrgContext, auditPackageDelete, async (req: any, res: Response, next) => {
+router.delete('/packages/:id', authenticateToken, requireOrgContext, requireMinimumRole('manager'), auditPackageDelete, async (req: any, res: Response, next) => {
   try {
     const { id } = req.params;
     const orgId = req.orgId!;
