@@ -230,6 +230,7 @@ export interface ApiError {
   message: string;
   status?: number;
   code?: string;
+  details?: unknown;
 }
 
 function normalizeError(error: any): ApiError {
@@ -263,6 +264,7 @@ function normalizeError(error: any): ApiError {
       message,
       status,
       code,
+      details: data?.details,
     };
   }
 

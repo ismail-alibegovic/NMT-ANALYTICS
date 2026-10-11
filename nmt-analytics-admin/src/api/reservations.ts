@@ -26,6 +26,9 @@ export interface Reservation {
   createdAt: string;
   updatedAt: string;
   accommodationRequirements?: ReservationAccommodationRequirement[];
+  creationState?: 'in_progress' | 'completed' | 'recovery_required';
+  recoveryRequired?: boolean;
+  retryable?: boolean;
 }
 
 export interface ReservationAccommodationRequirement {
@@ -105,6 +108,8 @@ export interface CreateReservationData {
   passengers?: CreateReservationPassengerInput[];
   create_passenger_group?: boolean;
   group_name?: string;
+  idempotencyKey?: string;
+  installmentCount?: number;
 }
 
 export interface UpdateReservationData {
@@ -180,7 +185,10 @@ export async function getReservation(id: string): Promise<Reservation> {
 }
 
 export async function createReservation(reservationData: CreateReservationData): Promise<Reservation> {
-  const { data } = await post<Reservation>('/reservations', reservationData);
+  const { idempotencyKey, ...body } = reservationData;
+  const { data } = await post<Reservation>('/reservations', body, {
+    headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+  });
   return data;
 }
 
