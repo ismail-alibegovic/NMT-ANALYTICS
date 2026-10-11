@@ -107,7 +107,7 @@ router.get('/departure-passengers', authenticateToken, requireOrgContext, async 
 /**
  * POST /api/departure-passengers
  */
-router.post('/departure-passengers', authenticateToken, requireOrgContext, async (req, res: Response) => {
+router.post('/departure-passengers', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req, res: Response) => {
   try {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -199,7 +199,7 @@ router.post('/departure-passengers', authenticateToken, requireOrgContext, async
 /**
  * PATCH /api/departure-passengers/:id
  */
-router.patch('/departure-passengers/:id', authenticateToken, requireOrgContext, async (req, res: Response) => {
+router.patch('/departure-passengers/:id', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req, res: Response) => {
   try {
     const { id } = req.params;
     const parsed = updateSchema.safeParse(req.body);
@@ -348,7 +348,7 @@ router.patch('/departure-passengers/:id/seat-lock', authenticateToken, requireOr
  * Safe deletion: cascades to groups (CASCADE), seat (null), accommodation (CASCADE).
  * Does NOT delete reservation, customer, departure, or package.
  */
-router.delete('/departure-passengers/:id', authenticateToken, requireOrgContext, async (req, res: Response) => {
+router.delete('/departure-passengers/:id', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req, res: Response) => {
   try {
     const { id } = req.params;
     const orgId = req.orgId!;

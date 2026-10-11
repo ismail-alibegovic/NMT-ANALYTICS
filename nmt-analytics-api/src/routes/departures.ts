@@ -214,7 +214,7 @@ router.get('/departures', authenticateToken, requireOrgContext, async (req, res,
 /**
  * POST /api/departures
  */
-router.post('/departures', authenticateToken, requireOrgContext, auditDepartureCreate, async (req, res: Response) => {
+router.post('/departures', authenticateToken, requireOrgContext, requireMinimumRole('manager'), auditDepartureCreate, async (req, res: Response) => {
   try {
     const validationResult = createDepartureSchema.safeParse(req.body);
     if (!validationResult.success) {
@@ -449,7 +449,7 @@ router.patch('/departures/:id/accommodation-allotments/:itemId', authenticateTok
 /**
  * PUT /api/departures/:id
  */
-router.put('/departures/:id', authenticateToken, requireOrgContext, auditDepartureUpdate, async (req, res: Response) => {
+router.put('/departures/:id', authenticateToken, requireOrgContext, requireMinimumRole('manager'), auditDepartureUpdate, async (req, res: Response) => {
   try {
     const { id } = req.params;
     const validationResult = putDepartureSchema.safeParse(req.body);
@@ -523,7 +523,7 @@ router.put('/departures/:id', authenticateToken, requireOrgContext, auditDepartu
 /**
  * PATCH /api/departures/:id
  */
-router.patch('/departures/:id', authenticateToken, requireOrgContext, auditDepartureUpdate, async (req, res: Response) => {
+router.patch('/departures/:id', authenticateToken, requireOrgContext, requireMinimumRole('manager'), auditDepartureUpdate, async (req, res: Response) => {
   try {
     const { id } = req.params;
     const validationResult = updateDepartureSchema.safeParse(req.body);
@@ -612,7 +612,7 @@ router.patch('/departures/:id', authenticateToken, requireOrgContext, auditDepar
 /**
  * DELETE /api/departures/:id
  */
-router.delete('/departures/:id', authenticateToken, requireOrgContext, auditDepartureDelete, async (req, res: Response) => {
+router.delete('/departures/:id', authenticateToken, requireOrgContext, requireMinimumRole('manager'), auditDepartureDelete, async (req, res: Response) => {
   try {
     const { id } = req.params;
     const orgId = req.orgId!;
@@ -965,7 +965,7 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
   }
 });
 
-router.post('/departures/:id/manual-message', authenticateToken, requireOrgContext, async (req, res: Response) => {
+router.post('/departures/:id/manual-message', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
   try {
     const { id } = req.params;
     const orgId = req.orgId!;

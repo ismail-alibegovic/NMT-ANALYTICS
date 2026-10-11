@@ -186,7 +186,7 @@ router.get('/customers/:id/timeline', authenticateToken, requireOrgContext, asyn
 });
 
 // CREATE Customer
-router.post('/customers', authenticateToken, requireOrgContext, auditCustomerCreate, async (req: any, res) => {
+router.post('/customers', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditCustomerCreate, async (req: any, res) => {
   console.log('[POST /customers] Payload:', req.body);
   try {
     const { full_name, phone, email, status, notes } = req.body;
@@ -241,7 +241,7 @@ router.post('/customers', authenticateToken, requireOrgContext, auditCustomerCre
 });
 
 // PATCH Customer (Update)
-router.patch('/customers/:id', authenticateToken, requireOrgContext, auditCustomerUpdate, async (req: any, res) => {
+router.patch('/customers/:id', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditCustomerUpdate, async (req: any, res) => {
   try {
     const { id } = req.params;
     const { full_name, phone, email, status, notes } = req.body;
@@ -268,7 +268,7 @@ router.patch('/customers/:id', authenticateToken, requireOrgContext, auditCustom
 });
 
 // DELETE Customer
-router.delete('/customers/:id', authenticateToken, requireOrgContext, auditCustomerDelete, async (req: any, res) => {
+router.delete('/customers/:id', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditCustomerDelete, async (req: any, res) => {
   try {
     const { error } = await supabaseAdmin
       .from('customers')

@@ -1094,7 +1094,7 @@ router.patch('/reservations/:id', authenticateToken, requireOrgContext, requireM
 /**
  * DELETE /api/reservations/:id
  */
-router.delete('/reservations/:id', authenticateToken, requireOrgContext, auditReservationDelete, async (req, res: Response) => {
+router.delete('/reservations/:id', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditReservationDelete, async (req, res: Response) => {
   try {
     const { id } = req.params;
     const orgId = req.orgId!;
@@ -1251,7 +1251,7 @@ router.get('/reservations/:id/invoice.pdf', authenticateToken, requireOrgContext
 /**
  * POST /api/reservations/:id/send-email
  */
-router.post('/reservations/:id/send-email', authenticateToken, requireOrgContext, async (req, res: Response) => {
+router.post('/reservations/:id/send-email', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req, res: Response) => {
   try {
     const { id } = req.params;
     const orgId = req.orgId!;
@@ -1297,7 +1297,7 @@ router.post('/reservations/:id/send-email', authenticateToken, requireOrgContext
   }
 });
 
-router.post('/reservations/:id/manual-message', authenticateToken, requireOrgContext, async (req, res: Response) => {
+router.post('/reservations/:id/manual-message', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
   try {
     const { id } = req.params;
     const orgId = req.orgId!;
@@ -1346,7 +1346,7 @@ router.post('/reservations/:id/manual-message', authenticateToken, requireOrgCon
 /**
  * PATCH /api/reservations/:id/status
  */
-router.patch('/reservations/:id/status', authenticateToken, requireOrgContext, auditReservationUpdate, async (req, res: Response) => {
+router.patch('/reservations/:id/status', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditReservationUpdate, async (req, res: Response) => {
   try {
     const { id } = req.params;
     const validationResult = updateStatusSchema.safeParse(req.body);
@@ -1425,7 +1425,7 @@ const batchStatusSchema = z.object({
   }),
 });
 
-router.post('/reservations/batch/status', authenticateToken, requireOrgContext, async (req, res: Response) => {
+router.post('/reservations/batch/status', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req, res: Response) => {
   try {
     const validationResult = batchStatusSchema.safeParse(req.body);
     if (!validationResult.success) {
