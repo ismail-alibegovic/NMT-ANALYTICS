@@ -1,18 +1,13 @@
-import { auditLog } from "../middleware/auditLogger";
-import { Router, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
 import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
 import { z } from 'zod';
-import { createSuccessResponse } from '../middleware/logging';
+import { requireMinimumRole } from '../middleware/requireRole';
 import { formatListResponse, paginationQuerySchema, dateRangeQuerySchema, getPaginationParams, getDateRangeParams } from '../utils/pagination';
 import { apiError } from "../lib/errors";
 
 const router = Router();
-const auditTransactionCreate = auditLog('CREATE', 'transaction', undefined, (req) => `${req.body?.type || 'unknown'}/${req.body?.amount || '0'}`);
-const auditTransactionUpdate = auditLog('UPDATE', 'transaction', (req) => req.params.id);
-const auditTransactionDelete = auditLog('DELETE', 'transaction', (req) => req.params.id);
-
 const getTransactionsQuerySchema = z.object({
   ...paginationQuerySchema,
   ...dateRangeQuerySchema,
@@ -22,23 +17,6 @@ const getTransactionsQuerySchema = z.object({
   ...getPaginationParams(data),
   ...getDateRangeParams(data),
 }));
-
-const createTransactionSchema = z.object({
-  amount: z.number().positive('Amount must be positive'),
-  currency: z.string().default('BAM'),
-  type: z.string().min(1, 'Type is required'),
-  note: z.string().optional(),
-  occurredAt: z.string().datetime('Invalid datetime format'),
-  reservationId: z.string().uuid('Invalid reservation ID').optional(),
-});
-
-const updateTransactionSchema = z.object({
-  amount: z.number().positive('Amount must be positive').optional(),
-  currency: z.string().optional(),
-  type: z.string().min(1, 'Type is required').optional(),
-  note: z.string().optional(),
-  occurredAt: z.string().datetime('Invalid datetime format').optional(),
-});
 
 /**
  * GET /api/transactions
@@ -51,7 +29,7 @@ const updateTransactionSchema = z.object({
  *
  * Returns: list of transactions for ctx.orgId, sorted by occurred_at desc
  */
-router.get('/transactions', authenticateToken, requireOrgContext, async (req, res, next) => {
+router.get('/transactions', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res, next) => {
   try {
     // Validate query params
     const validationResult = getTransactionsQuerySchema.safeParse(req.query);
@@ -105,153 +83,51 @@ router.get('/transactions', authenticateToken, requireOrgContext, async (req, re
   }
 });
 
-/**
- * POST /api/transactions
- *
- * Body:
- * {
- *   amount: number,
- *   currency: string (default "BAM"),
- *   type: string,
- *   note: string (optional),
- *   occurredAt: ISO datetime string
- * }
- *
- * Rules:
- * - Validates with Zod
- * - Uses ctx.orgId (not from client)
- * - Returns created row
- */
-router.post('/transactions', auditTransactionCreate, authenticateToken, requireOrgContext, async (req, res: Response) => {
+const legacyReservationSchema = z.object({
+  reservationId: z.string().uuid().optional(),
+  reservation_id: z.string().uuid().optional(),
+}).refine(data => !data.reservationId || !data.reservation_id || data.reservationId === data.reservation_id);
+
+const retired = (res: Response) => apiError(
+  res, 410, 'LEGACY_TRANSACTIONS_READ_ONLY',
+  'Legacy transactions are read-only. Record or correct payments through /api/payments; reconcile legacy history before recording money again.',
+);
+
+router.post('/transactions', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
   try {
-    // Validate request body
-    const validationResult = createTransactionSchema.safeParse(req.body);
-    if (!validationResult.success) {
-      apiError(res, 400, "VALIDATION_ERROR", "Validation error", validationResult.error.issues);
-      return;
+    const parsed = legacyReservationSchema.safeParse(req.body);
+    if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid reservation reference');
+    const reservationId = parsed.data.reservationId || parsed.data.reservation_id;
+    if (reservationId) {
+      const { data, error } = await supabaseAdmin.from('reservations')
+        .select('id').eq('id', reservationId).eq('org_id', req.orgId!).maybeSingle();
+      if (error) return handleSupabaseError(res, error, 'Failed to verify reservation');
+      if (!data) return apiError(res, 404, 'NOT_FOUND', 'Reservation not found');
     }
-
-    const { amount, currency, type, note, occurredAt, reservationId } = validationResult.data;
-    const orgId = req.orgId!;
-
-    // Create transaction
-    const { data: transaction, error } = await supabaseAdmin
-      .from('transactions')
-      .insert({
-        org_id: orgId,
-        amount: amount,
-        currency: currency,
-        type: type,
-        note: note,
-        occurred_at: occurredAt,
-        reservation_id: reservationId
-      })
-      .select()
-      .single();
-
-    if (error) return handleSupabaseError(res, error, "Failed to create transaction");
-
-    // If linked to reservation and is a payment, update reservation's paid_amount
-    if (reservationId && type === 'payment') {
-      try {
-        const { data: resData } = await supabaseAdmin
-          .from('reservations')
-          .select('paid_amount')
-          .eq('id', reservationId)
-          .single();
-
-        if (resData) {
-          const currentPaid = parseFloat(resData.paid_amount || 0);
-          await supabaseAdmin
-            .from('reservations')
-            .update({ paid_amount: currentPaid + amount })
-            .eq('id', reservationId);
-        }
-      } catch (err) {
-        console.error('Failed to update reservation paid_amount:', err);
-      }
-    }
-
-    res.status(201).json(transaction);
-
+    return retired(res);
   } catch (error) {
-    console.error('Error in POST /transactions:', error);
-    apiError(res, 500, "INTERNAL_ERROR", "Internal server error");
+    return handleSupabaseError(res, error, 'Failed to verify legacy request');
   }
 });
 
-/**
- * PATCH /api/transactions/:id
- */
-router.patch('/transactions/:id', auditTransactionUpdate, authenticateToken, requireOrgContext, async (req, res: Response) => {
-  try {
-    const { id } = req.params;
-    const validationResult = updateTransactionSchema.safeParse(req.body);
-    if (!validationResult.success) {
-      apiError(res, 400, "VALIDATION_ERROR", "Invalid request body", validationResult.error.issues);
-      return;
-    }
+router.route('/transactions/:id')
+  .all(authenticateToken, requireOrgContext, requireMinimumRole('manager'))
+  .patch(rejectLegacyMutation)
+  .delete(rejectLegacyMutation);
 
-    const updateData: any = {};
-    const { amount, currency, type, note, occurredAt } = validationResult.data;
-
-    if (amount !== undefined) updateData.amount = amount;
-    if (currency !== undefined) updateData.currency = currency;
-    if (type !== undefined) updateData.type = type;
-    if (note !== undefined) updateData.note = note;
-    if (occurredAt !== undefined) updateData.occurred_at = occurredAt;
-
-    const { data: transaction, error } = await supabaseAdmin
-      .from('transactions')
-      .update(updateData)
-      .eq('id', id)
-      .eq('org_id', req.orgId!)
-      .select()
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        apiError(res, 404, "NOT_FOUND", "Transaction not found");
-        return;
-      }
-      return handleSupabaseError(res, error, "Failed to update transaction");
-    }
-
-    res.json(transaction);
-
-  } catch (error) {
-    console.error('Error in PATCH /transactions/:id:', error);
-    apiError(res, 500, "INTERNAL_ERROR", "Internal server error");
+async function rejectLegacyMutation(req: Request, res: Response) {
+  if (!z.string().uuid().safeParse(req.params.id).success) {
+    return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid transaction ID');
   }
-});
-
-/**
- * DELETE /api/transactions/:id
- */
-router.delete('/transactions/:id', auditTransactionDelete, authenticateToken, requireOrgContext, async (req, res: Response) => {
   try {
-    const { id } = req.params;
-
-    const { error } = await supabaseAdmin
-      .from('transactions')
-      .delete()
-      .eq('id', id)
-      .eq('org_id', req.orgId!);
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        apiError(res, 404, "NOT_FOUND", "Transaction not found");
-        return;
-      }
-      return handleSupabaseError(res, error, "Failed to delete transaction");
-    }
-
-    res.status(204).send();
-
+    const { data, error } = await supabaseAdmin.from('transactions')
+      .select('id').eq('id', req.params.id).eq('org_id', req.orgId!).maybeSingle();
+    if (error) return handleSupabaseError(res, error, 'Failed to verify transaction');
+    if (!data) return apiError(res, 404, 'NOT_FOUND', 'Transaction not found');
+    return retired(res);
   } catch (error) {
-    console.error('Error in DELETE /transactions/:id:', error);
-    apiError(res, 500, "INTERNAL_ERROR", "Internal server error");
+    return handleSupabaseError(res, error, 'Failed to verify transaction');
   }
-});
+}
 
 export default router;

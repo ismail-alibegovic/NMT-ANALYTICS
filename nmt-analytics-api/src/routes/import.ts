@@ -102,20 +102,6 @@ const reservationImportSchema = z.object({
   currency: data.currency
 }));
 
-const transactionImportSchema = z.object({
-  amount: z.union([z.string(), z.number()]).transform(val => typeof val === 'string' ? parseFloat(val) : val),
-  currency: z.string().default('BAM'),
-  type: z.string(),
-  note: z.string().optional().or(z.null()),
-  occurredAt: z.string().datetime(),
-}).transform(data => ({
-  amount: data.amount,
-  currency: data.currency,
-  type: data.type,
-  note: data.note,
-  occurred_at: data.occurredAt
-}));
-
 // --- Config ---
 
 const ENTITY_CONFIG: Record<string, any> = {
@@ -139,17 +125,6 @@ const ENTITY_CONFIG: Record<string, any> = {
     schema: reservationImportSchema,
     defaultMatchKey: 'id',
   },
-  transactions: {
-    table: 'transactions',
-    schema: transactionImportSchema,
-    defaultMatchKey: 'id',
-  },
-  payments: {
-    table: 'transactions',
-    schema: transactionImportSchema,
-    defaultMatchKey: 'id',
-    forceFields: { type: 'payment' }
-  }
 };
 
 /**
