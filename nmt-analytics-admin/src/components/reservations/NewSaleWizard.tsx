@@ -111,6 +111,8 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [validationMessage, setValidationMessage] = useState("");
+  const [recoveryReservationId, setRecoveryReservationId] = useState<string | null>(null);
+  const saleIdempotencyKeyRef = useRef<string>("");
 
   // Selections
   const [packageId, setPackageId] = useState("");
@@ -141,6 +143,16 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const [paymentPlan, setPaymentPlan] = useState<PaymentPlan>("full");
   const [depositPct, setDepositPct] = useState(50);
   const [installmentCount, setInstallmentCount] = useState(3);
+
+  useEffect(() => {
+    if (isOpen && !saleIdempotencyKeyRef.current) {
+      saleIdempotencyKeyRef.current = crypto.randomUUID();
+    }
+    if (!isOpen) {
+      saleIdempotencyKeyRef.current = "";
+      setRecoveryReservationId(null);
+    }
+  }, [isOpen]);
 
   const selectedPackage = packages.find((p) => p.id === packageId);
   const selectedDeparture = departures.find((d) => d.id === departureId);
@@ -766,7 +778,14 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         passengers: filledPassengers.length > 0 ? filledPassengers : undefined,
         create_passenger_group: createGroup && filledPassengers.length > 1,
         group_name: groupName || undefined,
+        idempotencyKey: saleIdempotencyKeyRef.current,
+        installmentCount: paymentPlan === "installments" ? installmentCount : undefined,
       });
+      if (createdReservation.recoveryRequired || createdReservation.creationState === "recovery_required") {
+        setRecoveryReservationId(createdReservation.id);
+        showError(`Prodaja je sačuvana kao rezervacija ${createdReservation.id}, ali zahtijeva oporavak. Ponovite isti pokušaj.`);
+        return;
+      }
       if (paymentPlan === "installments") {
         await createReservationInstallmentSchedule(createdReservation.id, installmentCount);
       }
@@ -774,7 +793,13 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       onCreated?.();
       onClose();
     } catch (e: any) {
-      if (e?.code === "DEPARTURE_CAPACITY_EXCEEDED") {
+      const reservationId = e?.details?.reservationId;
+      if (reservationId) {
+        setRecoveryReservationId(reservationId);
+        showError(`Prodaja nije dovršena. Sačuvana rezervacija: ${reservationId}. Ponovite pokušaj istom prodajom.`);
+      } else if (e?.code === "IDEMPOTENCY_KEY_REQUIRED") {
+        showError("Prodaja nije mogla biti pokrenuta. Pokušajte ponovo.");
+      } else if (e?.code === "DEPARTURE_CAPACITY_EXCEEDED") {
         showError("Nema dovoljno mjesta na odabranom polasku.");
       } else {
         showError(e?.message ?? "Greška pri kreiranju rezervacije");
@@ -1632,6 +1657,13 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         {validationMessage && (
           <div className="mt-3 rounded-lg border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-3">
             <p className="text-sm text-error-600 dark:text-error-400">{validationMessage}</p>
+          </div>
+        )}
+        {recoveryReservationId && (
+          <div className="mt-3 rounded-lg border border-warning-200 bg-warning-50 p-3 dark:border-warning-500/20 dark:bg-warning-500/10">
+            <p className="text-sm text-warning-700 dark:text-warning-300">
+              Sačuvana rezervacija {recoveryReservationId} je označena za oporavak. Ponovni klik koristi isti zahtjev i neće kreirati duplikat.
+            </p>
           </div>
         )}
 

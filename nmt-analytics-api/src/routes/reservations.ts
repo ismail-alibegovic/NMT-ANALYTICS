@@ -17,6 +17,12 @@ import PDFDocument from 'pdfkit';
 import { notifyNewReservation } from '../lib/notificationService';
 import { requireMinimumRole } from '../middleware/requireRole';
 import { config } from '../config';
+import { buildInstallmentScheduleRows } from './installments';
+import {
+  normalizeSaleIdempotencyKey,
+  saleRequestFingerprint,
+  SALE_IDEMPOTENCY_HEADER,
+} from '../lib/saleIdempotency';
 import {
   deleteReservationAccommodation,
   getReservationAccommodation,
@@ -104,6 +110,7 @@ const createReservationSchema = z.object({
   })).optional(),
   create_passenger_group: z.boolean().optional(),
   group_name: z.string().optional(),
+  installmentCount: z.number().int().min(2).max(24).optional(),
   notes: z.string().optional().nullable(),
   // Voucher-friendly mirror fields (persisted on the reservation so the downloadable voucher PDF renders them)
   hotelName: z.string().optional().nullable(),
@@ -179,6 +186,23 @@ function handleDepartureCapacityError(res: Response, error: unknown) {
   }
 
   return null;
+}
+
+async function markSaleRecoveryRequired(
+  reservationId: string,
+  orgId: string,
+  stage: string,
+): Promise<Error | null> {
+  try {
+    const { error } = await supabaseAdmin
+      .from('reservations')
+      .update({ creation_state: 'recovery_required', creation_error_stage: stage })
+      .eq('id', reservationId)
+      .eq('org_id', orgId);
+    return error || null;
+  } catch (error) {
+    return error instanceof Error ? error : new Error(String(error));
+  }
 }
 
 type ValidatedAddonSnapshot = {
@@ -501,8 +525,42 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       return apiError(res, 400, "VALIDATION_ERROR", "Invalid request body", validationResult.error.issues);
     }
 
-    const { departureId, status, partySize, customerId, upsert, options, notes, hotelName, roomType, checkIn, checkOut, tourGuide, customerEmail, assignedTo, passengers, create_passenger_group, group_name, accommodationRequirements, selectedAddons, ...rest } = validationResult.data;
+    const { departureId, status, partySize, customerId, upsert, options, notes, hotelName, roomType, checkIn, checkOut, tourGuide, customerEmail, assignedTo, passengers, create_passenger_group, group_name, installmentCount, accommodationRequirements, selectedAddons, ...rest } = validationResult.data;
     const orgId = req.orgId!;
+    const idempotencyKey = normalizeSaleIdempotencyKey(req.header(SALE_IDEMPOTENCY_HEADER));
+    const requestFingerprint = saleRequestFingerprint(validationResult.data as Record<string, unknown>);
+
+    if (idempotencyKey) {
+      const { data: existingSale, error: existingSaleError } = await supabaseAdmin
+        .from('reservations')
+        .select('id, total_amount, currency, customer_name, customer_phone, party_size, options, notes, creation_state, creation_fingerprint, creation_error_stage')
+        .eq('org_id', orgId)
+        .eq('creation_idempotency_key', idempotencyKey)
+        .maybeSingle();
+
+      if (existingSaleError) {
+        return handleSupabaseError(res, existingSaleError, 'Failed to resolve sale retry');
+      }
+
+      if (existingSale) {
+        if (existingSale.creation_fingerprint !== requestFingerprint) {
+          return apiError(
+            res,
+            409,
+            'IDEMPOTENCY_KEY_REUSED',
+            'The idempotency key was already used for a different sale request',
+          );
+        }
+
+        return res.status(existingSale.creation_state === 'completed' ? 200 : 202).json({
+          ...existingSale,
+          creationState: existingSale.creation_state,
+          recoveryRequired: existingSale.creation_state !== 'completed',
+          retryable: existingSale.creation_state !== 'completed',
+        });
+      }
+    }
+
     const departureCurrency = await resolveDeparturePackageCurrency(orgId, departureId);
     if (departureCurrency && !departureCurrency.ok && departureCurrency.code === 'DEPARTURE_NOT_FOUND') {
       return apiError(res, 404, "DEPARTURE_NOT_FOUND", "Departure not found");
@@ -629,6 +687,10 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       check_in: checkIn || null,
       check_out: checkOut || null,
       tour_guide: tourGuide || null,
+      creation_idempotency_key: idempotencyKey,
+      creation_fingerprint: requestFingerprint,
+      creation_state: 'in_progress',
+      creation_error_stage: null,
     };
 
     const { data: created, error: insertError } = await supabaseAdmin
@@ -638,9 +700,30 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       .single();
 
     if (insertError) {
+      if (insertError.code === '23505' && idempotencyKey) {
+        const { data: concurrentSale } = await supabaseAdmin
+          .from('reservations')
+          .select('id, total_amount, currency, customer_name, customer_phone, party_size, options, notes, creation_state, creation_fingerprint, creation_error_stage')
+          .eq('org_id', orgId)
+          .eq('creation_idempotency_key', idempotencyKey)
+          .maybeSingle();
+        if (concurrentSale?.creation_fingerprint === requestFingerprint) {
+          return res.status(concurrentSale.creation_state === 'completed' ? 200 : 202).json({
+            ...concurrentSale,
+            creationState: concurrentSale.creation_state,
+            recoveryRequired: concurrentSale.creation_state !== 'completed',
+            retryable: concurrentSale.creation_state !== 'completed',
+          });
+        }
+        return apiError(res, 409, 'IDEMPOTENCY_KEY_REUSED', 'The idempotency key was already used for a different sale request');
+      }
       // Rollback capacity we may have just added
       if (departureId && reservationConsumesCapacity(status)) {
-        await releaseReservedCapacity(orgId, departureId, partySize);
+        try {
+          await releaseReservedCapacity(orgId, departureId, partySize);
+        } catch (releaseError) {
+          console.error('Failed to release capacity after reservation insert failure:', releaseError);
+        }
       }
       return handleSupabaseError(res, insertError, "Failed to create reservation");
     }
@@ -675,15 +758,24 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
 
           if (paxErr) {
             console.error('Failed to create departure_passengers:', paxErr.message);
-            await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
-            if (departureId && reservationConsumesCapacity(status)) {
-              await releaseReservedCapacity(orgId, departureId, partySize);
+            const cleanupError = await supabaseAdmin
+              .from('departure_passengers')
+              .delete()
+              .eq('reservation_id', reservation.id)
+              .eq('org_id', orgId);
+            const stateError = await markSaleRecoveryRequired(reservation.id, orgId, 'passengers');
+            if (cleanupError.error || stateError) {
+              console.error('Failed to mark passenger sale for recovery:', cleanupError.error || stateError);
             }
             const capacityMessage = paxErr.message || '';
             if (capacityMessage.includes('DEPARTURE_CAPACITY_EXCEEDED')) {
               return apiError(res, 409, 'DEPARTURE_CAPACITY_EXCEEDED', 'Departure capacity would be exceeded');
             }
-            return apiError(res, 500, "PASSENGER_CREATE_FAILED", "Failed to create passengers", paxErr.message);
+            return apiError(res, 500, "PASSENGER_CREATE_FAILED", "Failed to create passengers", {
+              stage: 'passengers',
+              reservationId: reservation.id,
+              cause: paxErr.message,
+            });
           }
 
           createdPassengerRows.push({ ...paxData, inputIndex: index });
@@ -707,23 +799,40 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
             .select('id')
             .single();
 
-          if (!grpErr && groupData) {
-            createdGroupId = groupData.id;
-            const memberRows = createdPassengers.map((p: any) => ({
-              group_id: groupData.id,
-              passenger_id: p.id,
-            }));
-            await supabaseAdmin.from('trip_passenger_group_members').insert(memberRows);
+          if (grpErr || !groupData) {
+            await markSaleRecoveryRequired(reservation.id, orgId, 'passenger_group');
+            return apiError(res, 500, 'PASSENGER_GROUP_CREATE_FAILED', 'Failed to create passenger group', {
+              stage: 'passenger_group',
+              reservationId: reservation.id,
+              cause: grpErr?.message,
+            });
+          }
+
+          createdGroupId = groupData.id;
+          const memberRows = createdPassengers.map((p: any) => ({
+            group_id: groupData.id,
+            passenger_id: p.id,
+          }));
+          const { error: memberError } = await supabaseAdmin
+            .from('trip_passenger_group_members')
+            .insert(memberRows);
+          if (memberError) {
+            await markSaleRecoveryRequired(reservation.id, orgId, 'passenger_group_members');
+            return apiError(res, 500, 'PASSENGER_GROUP_MEMBERS_CREATE_FAILED', 'Failed to assign passengers to group', {
+              stage: 'passenger_group_members',
+              reservationId: reservation.id,
+              cause: memberError.message,
+            });
           }
         }
       } catch (paxError) {
         console.error('Error creating passengers:', paxError);
-        // Cleanup reservation on failure
-        await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
-        if (departureId && reservationConsumesCapacity(status)) {
-          await releaseReservedCapacity(orgId, departureId, partySize);
-        }
-        return apiError(res, 500, "PASSENGER_ERROR", "Failed to create passengers", String(paxError));
+        await markSaleRecoveryRequired(reservation.id, orgId, 'passengers');
+        return apiError(res, 500, "PASSENGER_ERROR", "Failed to create passengers", {
+          stage: 'passengers',
+          reservationId: reservation.id,
+          cause: String(paxError),
+        });
       }
     }
 
@@ -749,18 +858,31 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
 
         createdAccommodation = await replaceReservationAccommodation(reservation.id, orgId, normalizedRequirements);
       } catch (accError: any) {
-        await supabaseAdmin.from('reservations').delete().eq('id', reservation.id).eq('org_id', orgId);
+        await markSaleRecoveryRequired(reservation.id, orgId, 'accommodation');
         if (departureId && reservationConsumesCapacity(status)) {
-          await releaseReservedCapacity(orgId, departureId, partySize);
+          try {
+            await releaseReservedCapacity(orgId, departureId, partySize);
+          } catch (releaseError) {
+            console.error('Failed to normalize capacity after accommodation failure:', releaseError);
+          }
         }
         const mapped = mapAccommodationError(accError);
-        if (mapped) return apiError(res, mapped.status, mapped.code, mapped.message);
-        return handleSupabaseError(res, accError, 'Failed to save reservation accommodation');
+        if (mapped) {
+          return apiError(res, mapped.status, mapped.code, mapped.message, {
+            stage: 'accommodation',
+            reservationId: reservation.id,
+          });
+        }
+        return apiError(res, 500, 'ACCOMMODATION_CREATE_FAILED', 'Failed to save reservation accommodation', {
+          stage: 'accommodation',
+          reservationId: reservation.id,
+        });
       }
     }
 
     // Snapshot selected services and accommodation into reservations.options
     if (departureId) {
+      let snapshotWriteAttempted = false;
       try {
         const pkgId = resolvedAddons.packageId || capacityRv?.data?.package_id || null;
         const effectivePkgId = pkgId || (await supabaseAdmin
@@ -811,7 +933,8 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
 
         // Merge snapshot into options, preserving any wizard-selected options
         const existingOptions = canonicalOptions;
-        await supabaseAdmin
+        snapshotWriteAttempted = true;
+        const { error: snapshotError } = await supabaseAdmin
           .from('reservations')
           .update({
             options: {
@@ -832,6 +955,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
           })
           .eq('id', reservation.id)
           .eq('org_id', orgId);
+        if (snapshotError) throw snapshotError;
         reservation = {
           ...reservation,
           options: {
@@ -852,7 +976,54 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
         };
       } catch (snapErr) {
         console.error('Failed to snapshot booking data:', snapErr);
-        // Non-fatal — reservation is still valid
+        if (snapshotWriteAttempted) {
+          await markSaleRecoveryRequired(reservation.id, orgId, 'snapshot');
+          return apiError(res, 500, 'SALE_SNAPSHOT_FAILED', 'Sale requires recovery before it can be completed', {
+            stage: 'snapshot',
+            reservationId: reservation.id,
+          });
+        }
+      }
+    }
+
+    if (installmentCount) {
+      try {
+        const rows = buildInstallmentScheduleRows({
+          reservationId: reservation.id,
+          orgId,
+          totalAmount: Number(reservation.total_amount || 0),
+          currency: reservation.currency || reservationCurrency,
+          installmentCount,
+          firstDueDate: new Date().toISOString().slice(0, 10),
+        });
+        const rpcRows = rows.map(({ reservation_id, org_id, status, payment_method, payment_date, ...row }) => row);
+        const { error: scheduleError } = await supabaseAdmin.rpc(
+          'replace_reservation_installment_schedule_atomic',
+          {
+            p_org_id: orgId,
+            p_reservation_id: reservation.id,
+            p_schedule: rpcRows,
+          },
+        );
+        if (scheduleError) throw scheduleError;
+      } catch (scheduleError) {
+        await markSaleRecoveryRequired(reservation.id, orgId, 'installments');
+        return apiError(res, 500, 'INSTALLMENT_SCHEDULE_CREATE_FAILED', 'Sale requires recovery before it can be completed', {
+          stage: 'installments',
+          reservationId: reservation.id,
+        });
+      }
+    }
+
+    if (idempotencyKey) {
+      const { error: completionError } = await supabaseAdmin
+        .from('reservations')
+        .update({ creation_state: 'completed', creation_error_stage: null })
+        .eq('id', reservation.id)
+        .eq('org_id', orgId);
+      if (completionError) {
+        await markSaleRecoveryRequired(reservation.id, orgId, 'completion');
+        return handleSupabaseError(res, completionError, 'Failed to finalize sale');
       }
     }
 
@@ -882,7 +1053,13 @@ router.post('/reservations', authenticateToken, requireOrgContext, auditReservat
       console.warn('Failed to create reservation notification:', notificationError);
     }
 
-    res.status(201).json({ ...reservation, accommodationRequirements: createdAccommodation });
+    res.status(201).json({
+      ...reservation,
+      creation_state: 'completed',
+      creationState: 'completed',
+      recoveryRequired: false,
+      accommodationRequirements: createdAccommodation,
+    });
   } catch (error) {
     console.error('Error in POST /reservations:', error);
     apiError(res, 500, "INTERNAL_ERROR", "Internal server error", String(error));
