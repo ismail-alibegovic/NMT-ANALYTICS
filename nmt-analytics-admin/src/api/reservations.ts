@@ -115,7 +115,6 @@ export interface UpdateReservationData {
   reservationAt?: string;
   departureId?: string;
   totalAmount?: number;
-  paidAmount?: number;
   currency?: string;
   notes?: string;
   source?: string;

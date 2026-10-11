@@ -31,6 +31,14 @@ import {
 } from '../lib/departureCapacity';
 
 const router = Router();
+const ledgerOwnedFields = {
+  paidAmount: z.never().optional(),
+  paid_amount: z.never().optional(),
+  balanceDue: z.never().optional(),
+  balance_due: z.never().optional(),
+  paymentStatus: z.never().optional(),
+  payment_status: z.never().optional(),
+};
 
 const getReservationsQuerySchema = z.object({
   search: z.string().optional(),
@@ -75,6 +83,7 @@ const dateString = z
   .refine(isValidCalendarDate, "Invalid calendar date");
 
 const createReservationSchema = z.object({
+  ...ledgerOwnedFields,
   customerName: z.string().min(1, 'Customer name is required'),
   customerPhone: z.string().min(1, 'Phone number is required'),
   partySize: z.number().int().min(1, 'Party size must be at least 1'),
@@ -130,11 +139,11 @@ const createReservationSchema = z.object({
 });
 
 const updateReservationSchema = z.object({
+  ...ledgerOwnedFields,
   status: z.enum(['pending', 'confirmed', 'cancelled', 'completed']).optional(),
   departureId: z.string().uuid('Invalid departure ID').optional(),
   customerId: z.string().uuid('Invalid customer ID').optional(),
   totalAmount: z.number().min(0, 'Total amount must be non-negative').optional(),
-  paidAmount: z.number().min(0, 'Paid amount must be non-negative').optional(),
   reservationAt: z.string().datetime('Invalid datetime format').optional(),
   partySize: z.number().int().min(1, 'Party size must be at least 1').optional(),
   customerName: z.string().min(1, 'Customer name is required').optional(),
@@ -494,7 +503,7 @@ router.get('/reservations/:id', authenticateToken, requireOrgContext, async (req
 /**
  * POST /api/reservations
  */
-router.post('/reservations', authenticateToken, requireOrgContext, auditReservationCreate, async (req, res: Response) => {
+router.post('/reservations', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditReservationCreate, async (req, res: Response) => {
   try {
     const validationResult = createReservationSchema.safeParse(req.body);
     if (!validationResult.success) {
@@ -936,7 +945,7 @@ router.delete('/reservations/:id/accommodation', authenticateToken, requireOrgCo
 /**
  * PATCH /api/reservations/:id
  */
-router.patch('/reservations/:id', authenticateToken, requireOrgContext, auditReservationUpdate, async (req, res: Response) => {
+router.patch('/reservations/:id', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditReservationUpdate, async (req, res: Response) => {
   try {
     const { id } = req.params;
     const validationResult = updateReservationSchema.safeParse(req.body);
@@ -1032,22 +1041,11 @@ router.patch('/reservations/:id', authenticateToken, requireOrgContext, auditRes
     }
 
     // 3. Apply updates to Reservation
-    const newTotalAmount = updates.totalAmount !== undefined ? updates.totalAmount : reservation.total_amount;
-    const newPaidAmountInput = updates.paidAmount !== undefined ? updates.paidAmount : reservation.paid_amount;
-
-    // Note: We now allow overpayments (paid_amount > total_amount)
-    // The database trigger will calculate balance_due correctly (can be negative)
-    // Only validate that paid_amount is non-negative
-    if (newPaidAmountInput < 0) {
-      return apiError(res, 400, "VALIDATION_ERROR", "Paid amount cannot be negative");
-    }
-
     const updateData: any = {
       status: updates.status,
       departure_id: updates.departureId === undefined ? reservation.departure_id : (updates.departureId === null ? null : updates.departureId),
       customer_id: updates.customerId === undefined ? reservation.customer_id : (updates.customerId === null ? null : updates.customerId),
       total_amount: updates.totalAmount,
-      paid_amount: updates.paidAmount,
       reservation_at: updates.reservationAt,
       party_size: updates.partySize,
       customer_name: updates.customerName,

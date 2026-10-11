@@ -230,7 +230,7 @@ async function runSmokeTest() {
     console.log('[SKIP] Reservation creation test (missing test data or ACCESS_TOKEN)');
   }
 
-  // 9. Test transaction creation
+  // 9. Verify retired legacy transaction writes fail closed
   if (ACCESS_TOKEN) {
     try {
       const transactionData = {
@@ -242,7 +242,10 @@ async function runSmokeTest() {
       };
 
       const transactionRes = await makeAuthRequest('post', '/api/transactions', { data: transactionData });
-      console.log(`[OK] Created transaction - Status: ${transactionRes.status}, ID: ${transactionRes.data.id}`);
+      if (transactionRes.status !== 410 || transactionRes.data?.code !== 'LEGACY_TRANSACTIONS_READ_ONLY') {
+        throw new Error(`Expected retired transaction endpoint to return 410, got ${transactionRes.status}`);
+      }
+      console.log(`[PASS] Legacy transaction write rejected - Status: ${transactionRes.status}`);
 
     } catch (error: any) {
       console.error(`[FAIL] Transaction creation - Error: ${error.message}`);

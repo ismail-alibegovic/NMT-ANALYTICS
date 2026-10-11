@@ -445,7 +445,9 @@ async function cleanupSeedOwnedRecords(orgId: string, owned: SeedOwnedRecordIds)
   await deleteIn('reservation_accommodation_requirements', 'reservation_id', owned.reservation_accommodation_requirements);
   await deleteIn('departure_passengers', 'reservation_id', owned.departure_passengers);
   await deleteIn('payments', 'reservation_id', owned.payments);
-  await deleteIn('transactions', 'reservation_id', owned.transactions);
+  if (owned.transactions.length > 0) {
+    throw new Error('Legacy transaction history exists in the golden demo dataset. Reconcile it before resetting demo data; refusing to delete financial history.');
+  }
   await deleteIn('trip_passenger_group_members', 'group_id', owned.trip_passenger_group_members);
   await deleteIn('trip_passenger_groups', 'id', owned.trip_passenger_groups);
   await deleteIn('reservations', 'id', owned.reservations);
@@ -639,7 +641,6 @@ async function seed() {
 
       const totalAmount = spec.basePrice * reservationSpec.passengers.length;
       const paidAmount = Math.round(totalAmount * reservationSpec.paidFraction);
-      const paymentStatus: 'paid' | 'partial' | 'unpaid' = paidAmount >= totalAmount ? 'paid' : (paidAmount > 0 ? 'partial' : 'unpaid');
       const { data: reservation, error: reservationError } = await supabaseAdmin
         .from('reservations')
         .insert({
@@ -651,10 +652,7 @@ async function seed() {
           party_size: reservationSpec.passengers.length,
           reservation_at: '2026-08-31T09:00:00.000Z',
           status: reservationSpec.status,
-          payment_status: paymentStatus,
           total_amount: totalAmount,
-          paid_amount: paidAmount,
-          balance_due: totalAmount - paidAmount,
           currency: 'BAM',
           source: 'agent',
         })

@@ -63,8 +63,15 @@ async function seed() {
 
     // ── 3. Clear existing demo data ───────────────────────────────────
     console.log('\n🧹 Clearing existing demo data...');
+    const { count: legacyTransactionCount, error: legacyTransactionLookupError } = await supabaseAdmin
+        .from('transactions')
+        .select('id', { count: 'exact', head: true })
+        .eq('org_id', orgId);
+    if (legacyTransactionLookupError) throw legacyTransactionLookupError;
+    if ((legacyTransactionCount || 0) > 0) {
+        throw new Error('Legacy transaction history exists for the seed organization. Reconcile it before resetting demo data; refusing to delete financial history.');
+    }
     await supabaseAdmin.from('reservations').delete().eq('org_id', orgId);
-    await supabaseAdmin.from('transactions').delete().eq('org_id', orgId);
     await supabaseAdmin.from('departures').delete().eq('org_id', orgId);
     await supabaseAdmin.from('customers').delete().eq('org_id', orgId);
     await supabaseAdmin.from('packages').delete().eq('org_id', orgId);
@@ -181,7 +188,7 @@ async function seed() {
 
             const resAt = new Date(2026, month - 1, day, randInt(8, 18), 0, 0);
 
-            const { error: resErr } = await supabaseAdmin
+            const { data: seededReservation, error: resErr } = await supabaseAdmin
                 .from('reservations')
                 .insert([{
                     org_id: orgId,
@@ -193,12 +200,25 @@ async function seed() {
                     reservation_at: resAt.toISOString(),
                     status,
                     total_amount: totalAmount,
-                    paid_amount: Math.round(totalAmount * paidFraction * 100) / 100,
                     source: ['web', 'phone', 'agent', 'walk-in'][randInt(0, 3)],
                     currency: 'BAM',
-                }]);
+                }]).select('id').single();
 
-            if (!resErr) resCount++;
+            if (resErr) throw resErr;
+            const paidAmount = Math.round(totalAmount * paidFraction * 100) / 100;
+            if (paidAmount > 0) {
+                const { error: paymentError } = await supabaseAdmin.from('payments').insert({
+                    org_id: orgId,
+                    reservation_id: seededReservation.id,
+                    amount: paidAmount,
+                    currency: 'BAM',
+                    status: 'succeeded',
+                    payment_method: 'cash',
+                    payment_date: resAt.toISOString().slice(0, 10),
+                });
+                if (paymentError) throw paymentError;
+            }
+            resCount++;
 
             // Update departure booked count
             if (status === 'confirmed' && !resErr) {
@@ -220,8 +240,8 @@ async function seed() {
     }
     console.log(`✓ Created ${resCount} reservations across all 12 months of 2026`);
 
-    // ── 8. Create Payments / Transactions ─────────────────────────────
-    console.log('\n💰 Creating payment transactions...');
+    // ── 8. Create Payments ────────────────────────────────────────────
+    console.log('\n💰 Creating payments...');
     const { data: allReservations } = await supabaseAdmin
         .from('reservations')
         .select('id, paid_amount, reservation_at')
@@ -234,21 +254,21 @@ async function seed() {
         const txDate = new Date(res.reservation_at);
         txDate.setDate(txDate.getDate() + randInt(0, 3));
 
-        const { error: txErr } = await supabaseAdmin
-            .from('transactions')
+        const { error: paymentError } = await supabaseAdmin
+            .from('payments')
             .insert([{
                 org_id: orgId,
                 reservation_id: res.id,
                 amount: res.paid_amount,
                 currency: 'BAM',
-                type: 'payment',
-                occurred_at: txDate.toISOString(),
-                note: `Uplata za rezervaciju ${res.id.slice(0, 8)}`,
+                status: 'succeeded',
+                payment_method: 'cash',
+                payment_date: txDate.toISOString().slice(0, 10),
             }]);
 
-        if (!txErr) txCount++;
+        if (!paymentError) txCount++;
     }
-    console.log(`✓ Created ${txCount} payment transactions`);
+    console.log(`✓ Created ${txCount} payments`);
 
     // ── Summary ────────────────────────────────────────────────────────
     console.log('\n✅ Seed completed successfully!');
