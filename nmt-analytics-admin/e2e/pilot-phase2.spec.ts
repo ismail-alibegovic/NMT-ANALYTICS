@@ -328,7 +328,7 @@ test.describe.serial('Travline BAM-only bus-tour pilot acceptance phase 2', () =
       data: { reservation_id: sale.id, amount: 1000, currency: 'BAM', status: 'succeeded', payment_method: 'cash' },
     });
     await expectStatus(overpayment, [422]);
-    expect((await json<{ error?: { code?: string } }>(overpayment)).error?.code).toBe('PAYMENT_EXCEEDS_TOTAL');
+    expect((await json<{ code?: string }>(overpayment)).code).toBe('PAYMENT_EXCEEDS_TOTAL');
   });
 
   test('rejects invalid installment creation, supports recovery after failed schedule, and keeps history append-only', async ({ request }) => {
