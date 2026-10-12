@@ -220,6 +220,18 @@ test.describe.serial('Travline BAM-only bus-tour pilot acceptance phase 2', () =
     await expectStatus(duplicate, [200, 201, 202]);
     expect(duplicateBody.id).toBe(firstBody.id);
 
+    let completed = false;
+    for (let attempt = 0; attempt < 10 && !completed; attempt += 1) {
+      const settled = await request.post(`${apiUrl}/api/reservations`, {
+        headers: headers(managerToken, { 'Idempotency-Key': key }),
+        data: payload,
+      });
+      await expectStatus(settled, [200, 201, 202]);
+      completed = settled.status() === 200 || settled.status() === 201;
+      if (!completed) await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    expect(completed).toBe(true);
+
     const secondSale = await request.post(`${apiUrl}/api/reservations`, {
       headers: headers(managerToken, { 'Idempotency-Key': unique('capacity') }),
       data: { ...payload, customerName: unique('capacity-customer') },
