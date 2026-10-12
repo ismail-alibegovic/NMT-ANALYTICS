@@ -28,7 +28,7 @@ const configured = Boolean(
 
 type Token = string;
 type Reservation = { id: string; creation_state?: string; creationState?: string; recoveryRequired?: boolean };
-type Passenger = { id: string; reservation_id: string; full_name: string };
+type Passenger = { id?: string; passengerId?: string; reservation_id?: string; reservationId?: string; full_name?: string; fullName?: string };
 
 async function signIn(request: APIRequestContext, email = managerEmail, password = managerPassword): Promise<Token> {
   const response = await request.post(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
@@ -134,7 +134,11 @@ async function departurePassengers(request: APIRequestContext, token: Token, tar
   });
   await expectStatus(response, [200]);
   const body = await json<{ manifest?: Passenger[]; passengers?: Passenger[] }>(response);
-  return body.manifest || body.passengers || [];
+  return (body.manifest || body.passengers || []).map((passenger) => ({
+    ...passenger,
+    id: passenger.id || passenger.passengerId,
+    reservation_id: passenger.reservation_id || passenger.reservationId,
+  }));
 }
 
 test.describe.serial('Travline BAM-only bus-tour pilot acceptance phase 2', () => {
@@ -178,7 +182,7 @@ test.describe.serial('Travline BAM-only bus-tour pilot acceptance phase 2', () =
       group_name: unique('group'),
     });
     const passengers = await departurePassengers(request, managerToken, created.departureId);
-    const salePassengers = passengers.filter((passenger) => passenger.reservation_id === sale.id);
+    const salePassengers = passengers.filter((passenger) => (passenger.reservation_id || passenger.reservationId) === sale.id);
     expect(salePassengers).toHaveLength(2);
 
     const groups = await request.get(`${apiUrl}/api/departures/${created.departureId}/groups`, {
@@ -233,7 +237,7 @@ test.describe.serial('Travline BAM-only bus-tour pilot acceptance phase 2', () =
   test('enforces manual bus seating, occupied seats, locked seats, and concurrent assignment conflicts', async ({ request }) => {
     const managerToken = await signIn(request);
     const sale = await createReservation(request, managerToken, departureId, 2);
-    const passengers = (await departurePassengers(request, managerToken, departureId)).filter((p) => p.reservation_id === sale.id);
+    const passengers = (await departurePassengers(request, managerToken, departureId)).filter((p) => (p.reservation_id || p.reservationId) === sale.id);
     expect(passengers).toHaveLength(2);
     const [firstPassenger, secondPassenger] = passengers;
 
@@ -259,7 +263,7 @@ test.describe.serial('Travline BAM-only bus-tour pilot acceptance phase 2', () =
   test('assigns rooms manually with capacity enforcement and tenant rejection', async ({ request }) => {
     const managerToken = await signIn(request);
     const sale = await createReservation(request, managerToken, departureId, 2);
-    const passengers = (await departurePassengers(request, managerToken, departureId)).filter((p) => p.reservation_id === sale.id);
+    const passengers = (await departurePassengers(request, managerToken, departureId)).filter((p) => (p.reservation_id || p.reservationId) === sale.id);
     const accommodation = await request.put(`${apiUrl}/api/reservations/${sale.id}/accommodation`, {
       headers: headers(managerToken),
       data: {
