@@ -802,7 +802,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, requireMinimu
               departure_id: departureId,
               name: group_name || (rest.customerName ? rest.customerName + ' Grupa' : 'Grupa putnika'),
               color: groupColor,
-              primary_passenger_name: createdPassengers[0]?.full_name || null,
+              primary_passenger_id: createdPassengers[0]?.id || null,
               locked: false,
             })
             .select('id')
@@ -821,6 +821,8 @@ router.post('/reservations', authenticateToken, requireOrgContext, requireMinimu
           const memberRows = createdPassengers.map((p: any) => ({
             group_id: groupData.id,
             passenger_id: p.id,
+            reservation_id: reservation.id,
+            is_primary: p.id === createdPassengers[0]?.id,
           }));
           const { error: memberError } = await supabaseAdmin
             .from('trip_passenger_group_members')
