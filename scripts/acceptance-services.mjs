@@ -85,7 +85,7 @@ try {
   const removedObject = await fetch(`${supabaseUrl}/storage/v1/object/remove`, {
     method: 'POST',
     headers: serviceHeaders,
-    body: JSON.stringify({ prefixes: [`${bucketId}/${objectPath}`] }),
+    body: JSON.stringify({ prefixes: [objectPath] }),
   });
   if (!removedObject.ok && removedObject.status !== 404) {
     throw new Error(`Storage object cleanup failed with HTTP ${removedObject.status}: ${await removedObject.text()}`);
