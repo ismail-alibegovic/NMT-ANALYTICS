@@ -76,7 +76,7 @@ jobs:
       - name: Create isolated API and admin environment
         run: |
           cat > nmt-analytics-api/.env <<EOF
-          NODE_ENV=staging
+          NODE_ENV=development
           PORT=3001
           ADMIN_URL=http://127.0.0.1:3001
           TRAVLINE_SUPABASE_URL=$TRAVLINE_SUPABASE_URL
