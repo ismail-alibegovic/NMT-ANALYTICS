@@ -100,7 +100,8 @@ jobs:
             echo "BLOCKED: repository secret TRAVLINE_E2E_SEED_PASSWORD is not configured"
             exit 1
           }
-          E2E_SEED_PASSWORD="$E2E_SEED_PASSWORD" npm --silent run seed:acceptance > "$RUNNER_TEMP/seed.json"
+          DOTENV_CONFIG_QUIET=true E2E_SEED_PASSWORD="$E2E_SEED_PASSWORD" \
+            npm --silent run seed:acceptance > "$RUNNER_TEMP/seed.json" 2> "$RUNNER_TEMP/seed.log"
           node - <<'NODE'
           const fs = require('fs');
           const seedPath = process.env.RUNNER_TEMP + '/seed.json';
@@ -155,7 +156,7 @@ jobs:
         if: always()
         run: |
           mkdir -p "$ACCEPTANCE_EVIDENCE_DIR"
-          for log in "$RUNNER_TEMP/supabase-start.log" "$RUNNER_TEMP/api.log"; do
+          for log in "$RUNNER_TEMP/supabase-start.log" "$RUNNER_TEMP/api.log" "$RUNNER_TEMP/seed.log"; do
             if [ -f "$log" ]; then
               sed -E 's/(Service Role Key: ).*/\1[redacted]/g; s/(service_role[^[:space:]]*)/[redacted]/g' "$log" \
                 > "$ACCEPTANCE_EVIDENCE_DIR/$(basename "$log")"

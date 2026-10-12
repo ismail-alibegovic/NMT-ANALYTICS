@@ -15,13 +15,13 @@ const supabaseAnonKey = process.env.TRAVLINE_SUPABASE_ANON_KEY || process.env.SU
 const supabaseServiceKey = process.env.TRAVLINE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // 2. Debug Logging (Server Start)
-console.log('--- Supabase Configuration Check ---');
-console.log('Current Dir:', __dirname);
-console.log('Project Root (inferred):', path.resolve(__dirname, '../../'));
-console.log('URL:', supabaseUrl ? '✅ Loaded' : '❌ MISSING');
-console.log('Anon Key:', supabaseAnonKey ? '✅ Loaded' : '❌ MISSING');
-console.log('Service Role Key:', supabaseServiceKey ? '✅ Loaded' : '❌ MISSING');
-console.log('------------------------------------');
+console.error('--- Supabase Configuration Check ---');
+console.error('Current Dir:', __dirname);
+console.error('Project Root (inferred):', path.resolve(__dirname, '../../'));
+console.error('URL:', supabaseUrl ? '✅ Loaded' : '❌ MISSING');
+console.error('Anon Key:', supabaseAnonKey ? '✅ Loaded' : '❌ MISSING');
+console.error('Service Role Key:', supabaseServiceKey ? '✅ Loaded' : '❌ MISSING');
+console.error('------------------------------------');
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('CRITICAL: Supabase URL or Anon Key is missing from process.env');
