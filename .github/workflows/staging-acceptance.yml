@@ -55,6 +55,7 @@ jobs:
       - name: Start isolated Supabase PostgreSQL 17, Auth, Storage and SMTP
         working-directory: nmt-analytics-api
         run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
           npm run staging:up > "$RUNNER_TEMP/supabase-start.log" 2>&1
           supabase status -o env > "$RUNNER_TEMP/supabase.env"
           {
