@@ -82,9 +82,10 @@ try {
     smtp: { provider: 'local-inbucket', recipient: managerEmail, delivery: 'PASS' },
   }, null, 2));
 } finally {
-  const removedObject = await fetch(`${supabaseUrl}/storage/v1/object/${bucketId}/${objectPath}`, {
-    method: 'DELETE',
+  const removedObject = await fetch(`${supabaseUrl}/storage/v1/object/remove`, {
+    method: 'POST',
     headers: serviceHeaders,
+    body: JSON.stringify({ prefixes: [`${bucketId}/${objectPath}`] }),
   });
   if (!removedObject.ok && removedObject.status !== 404) {
     throw new Error(`Storage object cleanup failed with HTTP ${removedObject.status}: ${await removedObject.text()}`);
