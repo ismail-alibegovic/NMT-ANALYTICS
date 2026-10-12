@@ -64,7 +64,9 @@ try {
   });
   await expectOk(recovery, 'Synthetic Auth recovery email request');
 
-  const smtp = await fetch('http://127.0.0.1:54324/api/v1/mail');
+  const smtp = await fetch(
+    `http://127.0.0.1:54324/api/v1/mailbox/${encodeURIComponent(managerEmail)}`,
+  );
   await expectOk(smtp, 'Local Inbucket API');
   const messages = await smtp.json();
   const messageList = Array.isArray(messages) ? messages : messages.messages || [];
