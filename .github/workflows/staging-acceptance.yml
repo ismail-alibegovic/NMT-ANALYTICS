@@ -58,10 +58,13 @@ jobs:
           supabase stop --no-backup >/dev/null 2>&1 || true
           npm run staging:up > "$RUNNER_TEMP/supabase-start.log" 2>&1
           supabase status -o env > "$RUNNER_TEMP/supabase.env"
+          env_value() {
+            grep "^$1=" "$RUNNER_TEMP/supabase.env" | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'
+          }
           {
-            echo "TRAVLINE_SUPABASE_URL=$(grep '^API_URL=' "$RUNNER_TEMP/supabase.env" | cut -d= -f2-)"
-            echo "TRAVLINE_SUPABASE_ANON_KEY=$(grep '^ANON_KEY=' "$RUNNER_TEMP/supabase.env" | cut -d= -f2-)"
-            echo "TRAVLINE_SUPABASE_SERVICE_ROLE_KEY=$(grep '^SERVICE_ROLE_KEY=' "$RUNNER_TEMP/supabase.env" | cut -d= -f2-)"
+            echo "TRAVLINE_SUPABASE_URL=$(env_value API_URL)"
+            echo "TRAVLINE_SUPABASE_ANON_KEY=$(env_value ANON_KEY)"
+            echo "TRAVLINE_SUPABASE_SERVICE_ROLE_KEY=$(env_value SERVICE_ROLE_KEY)"
           } >> "$GITHUB_ENV"
 
       - name: Replay complete migration history
