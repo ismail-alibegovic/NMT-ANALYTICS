@@ -95,14 +95,23 @@ jobs:
         env:
           E2E_SEED_PASSWORD: ${{ secrets.TRAVLINE_E2E_SEED_PASSWORD }}
         run: |
+          set -euo pipefail
           test -n "$E2E_SEED_PASSWORD" || {
             echo "BLOCKED: repository secret TRAVLINE_E2E_SEED_PASSWORD is not configured"
             exit 1
           }
-          E2E_SEED_PASSWORD="$E2E_SEED_PASSWORD" npm run seed:acceptance > "$RUNNER_TEMP/seed.json"
+          E2E_SEED_PASSWORD="$E2E_SEED_PASSWORD" npm --silent run seed:acceptance > "$RUNNER_TEMP/seed.json"
           node - <<'NODE'
           const fs = require('fs');
-          const seed = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/seed.json', 'utf8'));
+          const seedPath = process.env.RUNNER_TEMP + '/seed.json';
+          const seed = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
+          const required = [
+            'password', 'managerId', 'staffId', 'otherTenantId', 'orgA', 'orgB',
+            'packageId', 'departureId', 'customerId',
+          ];
+          if (!seed || typeof seed !== 'object' || required.some((key) => typeof seed[key] !== 'string' || seed[key] === '')) {
+            throw new Error('Acceptance seed output is missing required fields.');
+          }
           const env = [
             ['E2E_BASE_URL', 'http://127.0.0.1:3001'],
             ['E2E_API_URL', 'http://127.0.0.1:3001'],
