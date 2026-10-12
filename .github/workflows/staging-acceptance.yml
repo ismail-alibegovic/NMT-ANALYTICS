@@ -112,7 +112,7 @@ jobs:
           const seed = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
           const required = [
             'password', 'managerId', 'staffId', 'otherTenantId', 'orgA', 'orgB',
-            'packageId', 'departureId', 'customerId',
+            'packageId', 'departureId', 'customerId', 'hotelAllocationId',
           ];
           if (!seed || typeof seed !== 'object' || required.some((key) => typeof seed[key] !== 'string' || seed[key] === '')) {
             throw new Error('Acceptance seed output is missing required fields.');
@@ -130,6 +130,7 @@ jobs:
             ['E2E_OTHER_TENANT_PASSWORD', seed.password],
             ['E2E_DEPARTURE_ID', seed.departureId],
             ['E2E_CUSTOMER_ID', seed.customerId],
+            ['E2E_HOTEL_ALLOCATION_ID', seed.hotelAllocationId],
           ];
           fs.appendFileSync(process.env.GITHUB_ENV, env.map(([key, value]) => `${key}=${value}`).join('\n') + '\n');
           NODE

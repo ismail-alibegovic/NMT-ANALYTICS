@@ -99,6 +99,90 @@ async function seed() {
     departureId = departure.data.id;
   }
 
+  const { data: existingHotel, error: hotelLookupError } = await supabaseAdmin
+    .from('hotels')
+    .select('id')
+    .eq('org_id', ORG_A)
+    .eq('name', 'Pilot BAM Hotel')
+    .maybeSingle();
+  if (hotelLookupError) throw hotelLookupError;
+
+  let hotelId = existingHotel?.id;
+  if (!hotelId) {
+    const hotel = await supabaseAdmin.from('hotels').insert({
+      org_id: ORG_A,
+      name: 'Pilot BAM Hotel',
+      destination: 'Mostar',
+      total_rooms: 10,
+      slug: `pilot-bam-hotel-${Date.now()}`,
+    }).select('id').single();
+    if (hotel.error) throw hotel.error;
+    hotelId = hotel.data.id;
+  }
+
+  const { data: existingPackageHotel, error: packageHotelLookupError } = await supabaseAdmin
+    .from('package_hotels')
+    .select('id')
+    .eq('org_id', ORG_A)
+    .eq('package_id', packageId)
+    .eq('hotel_id', hotelId)
+    .maybeSingle();
+  if (packageHotelLookupError) throw packageHotelLookupError;
+
+  let packageHotelId = existingPackageHotel?.id;
+  if (!packageHotelId) {
+    const packageHotel = await supabaseAdmin.from('package_hotels').insert({
+      org_id: ORG_A,
+      package_id: packageId,
+      hotel_id: hotelId,
+      room_options: [{ type: 'double', label: 'Double', available: 10, net_price: 70, sell_price: 90 }],
+      sort_order: 1,
+    }).select('id').single();
+    if (packageHotel.error) throw packageHotel.error;
+    packageHotelId = packageHotel.data.id;
+  }
+
+  const { data: existingAllocation, error: allocationLookupError } = await supabaseAdmin
+    .from('hotel_allocations')
+    .select('id')
+    .eq('org_id', ORG_A)
+    .eq('departure_id', departureId)
+    .eq('hotel_id', hotelId)
+    .eq('room_type', 'double')
+    .maybeSingle();
+  if (allocationLookupError) throw allocationLookupError;
+
+  let hotelAllocationId = existingAllocation?.id;
+  if (!hotelAllocationId) {
+    const allocation = await supabaseAdmin.from('hotel_allocations').insert({
+      org_id: ORG_A,
+      departure_id: departureId,
+      hotel_id: hotelId,
+      package_hotel_id: packageHotelId,
+      source_room_option_index: 0,
+      room_type: 'double',
+      room_label: 'Double',
+      rooms_reserved: 10,
+      template_rooms: 10,
+      capacity_per_room: 2,
+      check_in: '2027-05-15',
+      check_out: '2027-05-16',
+      price_per_night: 90,
+      net_price: 70,
+      sell_price: 90,
+      sort_order: 1,
+    }).select('id').single();
+    if (allocation.error) throw allocation.error;
+    hotelAllocationId = allocation.data.id;
+  }
+
+  const { error: slotSyncError } = await supabaseAdmin.rpc('sync_departure_room_slots_atomic', {
+    p_org_id: ORG_A,
+    p_departure_id: departureId,
+    p_hotel_allocation_id: hotelAllocationId,
+  });
+  if (slotSyncError) throw slotSyncError;
+
   const { data: customer, error: customerError } = await supabaseAdmin.from('customers').upsert({
     org_id: ORG_A, full_name: 'Pilot Passenger', phone: '+38761000001',
     email: 'passenger@pilot-a.test', status: 'active',
@@ -115,6 +199,7 @@ async function seed() {
     packageId,
     departureId,
     customerId: customer.id,
+    hotelAllocationId,
   }, null, 2));
 }
 
