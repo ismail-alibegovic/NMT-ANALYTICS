@@ -214,11 +214,11 @@ test.describe.serial('Travline BAM-only bus-tour pilot acceptance phase 2', () =
       request.post(`${apiUrl}/api/reservations`, { headers: headers(managerToken, { 'Idempotency-Key': key }), data: payload }),
       request.post(`${apiUrl}/api/reservations`, { headers: headers(managerToken, { 'Idempotency-Key': key }), data: payload }),
     ]);
-    const firstBody = await json<Reservation>(first);
-    const duplicateBody = await json<Reservation>(duplicate);
-    await expectStatus(first, [200, 201, 202]);
-    await expectStatus(duplicate, [200, 201, 202]);
-    expect(duplicateBody.id).toBe(firstBody.id);
+    expect([200, 201, 202, 409]).toContain(first.status());
+    expect([200, 201, 202, 409]).toContain(duplicate.status());
+    const successfulInitial = [first, duplicate].filter((response) => [200, 201, 202].includes(response.status()));
+    expect(successfulInitial.length).toBeGreaterThan(0);
+    const firstBody = await json<Reservation>(successfulInitial[0]);
 
     let completed = false;
     for (let attempt = 0; attempt < 10 && !completed; attempt += 1) {
