@@ -69,7 +69,7 @@ jobs:
           supabase db reset --local --yes
           mkdir -p "$GITHUB_WORKSPACE/$ACCEPTANCE_EVIDENCE_DIR"
           supabase status > "$GITHUB_WORKSPACE/$ACCEPTANCE_EVIDENCE_DIR/supabase-status.txt"
-          psql "$(grep '^DB_URL=' "$RUNNER_TEMP/supabase.env" | cut -d= -f2-)" \
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
             -Atc "select version(), current_setting('server_version_num');" \
             > "$GITHUB_WORKSPACE/$ACCEPTANCE_EVIDENCE_DIR/postgres-version.txt"
 
