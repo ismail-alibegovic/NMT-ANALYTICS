@@ -4,7 +4,6 @@ const supabaseUrl = process.env.TRAVLINE_SUPABASE_URL;
 const anonKey = process.env.TRAVLINE_SUPABASE_ANON_KEY;
 const serviceRoleKey = process.env.TRAVLINE_SUPABASE_SERVICE_ROLE_KEY;
 const managerEmail = process.env.E2E_MANAGER_EMAIL;
-const managerMailbox = managerEmail?.split('@')[0];
 const evidenceDir = process.env.ACCEPTANCE_EVIDENCE_DIR || 'acceptance-evidence';
 
 if (!supabaseUrl || !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(supabaseUrl)) {
@@ -65,10 +64,8 @@ try {
   });
   await expectOk(recovery, 'Synthetic Auth recovery email request');
 
-  const smtp = await fetch(
-    `http://127.0.0.1:54324/api/v1/mailbox/${encodeURIComponent(managerMailbox)}`,
-  );
-  await expectOk(smtp, 'Local Inbucket API');
+  const smtp = await fetch('http://127.0.0.1:54324/api/v1/messages');
+  await expectOk(smtp, 'Local Mailpit API');
   const messages = await smtp.json();
   const messageList = Array.isArray(messages) ? messages : messages.messages || [];
   const delivered = messageList.some((message) => {
@@ -76,13 +73,13 @@ try {
     return raw.includes(managerEmail.toLowerCase());
   });
   if (!delivered) {
-    throw new Error(`Local Inbucket did not contain a message for ${managerEmail}.`);
+    throw new Error(`Local Mailpit did not contain a message for ${managerEmail}.`);
   }
 
   await mkdir(evidenceDir, { recursive: true });
   await writeFile(`${evidenceDir}/services.json`, JSON.stringify({
     storage: { bucket: bucketId, upload: 'PASS', download: 'PASS', contentRoundTrip: 'PASS' },
-    smtp: { provider: 'local-inbucket', recipient: managerEmail, delivery: 'PASS' },
+    smtp: { provider: 'local-mailpit', recipient: managerEmail, delivery: 'PASS' },
   }, null, 2));
 } finally {
   const removedObject = await fetch(`${supabaseUrl}/storage/v1/object/${bucketId}/${objectPath}`, {
