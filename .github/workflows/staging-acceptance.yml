@@ -1,0 +1,168 @@
+name: Travline Staging Acceptance
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: travline-staging-acceptance
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  ACCEPTANCE_EVIDENCE_DIR: acceptance-evidence
+
+jobs:
+  acceptance:
+    name: Isolated Supabase acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out requested commit
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            nmt-analytics-api/package-lock.json
+            nmt-analytics-admin/package-lock.json
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+
+      - name: Install API dependencies
+        working-directory: nmt-analytics-api
+        run: npm ci
+
+      - name: Install admin dependencies
+        working-directory: nmt-analytics-admin
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: nmt-analytics-admin
+        run: npx playwright install --with-deps chromium
+
+      - name: Start isolated Supabase PostgreSQL 17, Auth, Storage and SMTP
+        working-directory: nmt-analytics-api
+        run: |
+          npm run staging:up > "$RUNNER_TEMP/supabase-start.log" 2>&1
+          supabase status -o env > "$RUNNER_TEMP/supabase.env"
+          {
+            echo "TRAVLINE_SUPABASE_URL=$(grep '^API_URL=' "$RUNNER_TEMP/supabase.env" | cut -d= -f2-)"
+            echo "TRAVLINE_SUPABASE_ANON_KEY=$(grep '^ANON_KEY=' "$RUNNER_TEMP/supabase.env" | cut -d= -f2-)"
+            echo "TRAVLINE_SUPABASE_SERVICE_ROLE_KEY=$(grep '^SERVICE_ROLE_KEY=' "$RUNNER_TEMP/supabase.env" | cut -d= -f2-)"
+          } >> "$GITHUB_ENV"
+
+      - name: Replay complete migration history
+        working-directory: nmt-analytics-api
+        run: |
+          supabase db reset --local --yes
+          mkdir -p "$GITHUB_WORKSPACE/$ACCEPTANCE_EVIDENCE_DIR"
+          supabase status > "$GITHUB_WORKSPACE/$ACCEPTANCE_EVIDENCE_DIR/supabase-status.txt"
+          psql "$(grep '^DB_URL=' "$RUNNER_TEMP/supabase.env" | cut -d= -f2-)" \
+            -Atc "select version(), current_setting('server_version_num');" \
+            > "$GITHUB_WORKSPACE/$ACCEPTANCE_EVIDENCE_DIR/postgres-version.txt"
+
+      - name: Create isolated API and admin environment
+        run: |
+          cat > nmt-analytics-api/.env <<EOF
+          NODE_ENV=staging
+          PORT=3001
+          ADMIN_URL=http://127.0.0.1:3001
+          TRAVLINE_SUPABASE_URL=$TRAVLINE_SUPABASE_URL
+          TRAVLINE_SUPABASE_ANON_KEY=$TRAVLINE_SUPABASE_ANON_KEY
+          TRAVLINE_SUPABASE_SERVICE_ROLE_KEY=$TRAVLINE_SUPABASE_SERVICE_ROLE_KEY
+          EOF
+          chmod 600 nmt-analytics-api/.env
+          npm run build --prefix nmt-analytics-api
+          VITE_SUPABASE_URL="$TRAVLINE_SUPABASE_URL" \
+          VITE_SUPABASE_ANON_KEY="$TRAVLINE_SUPABASE_ANON_KEY" \
+          VITE_API_URL=/api \
+            npm run build --prefix nmt-analytics-admin
+
+      - name: Seed synthetic two-tenant BAM pilot
+        working-directory: nmt-analytics-api
+        env:
+          E2E_SEED_PASSWORD: ${{ secrets.TRAVLINE_E2E_SEED_PASSWORD }}
+        run: |
+          test -n "$E2E_SEED_PASSWORD" || {
+            echo "BLOCKED: repository secret TRAVLINE_E2E_SEED_PASSWORD is not configured"
+            exit 1
+          }
+          E2E_SEED_PASSWORD="$E2E_SEED_PASSWORD" npm run seed:acceptance > "$RUNNER_TEMP/seed.json"
+          node - <<'NODE'
+          const fs = require('fs');
+          const seed = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/seed.json', 'utf8'));
+          const env = [
+            ['E2E_BASE_URL', 'http://127.0.0.1:3001'],
+            ['E2E_API_URL', 'http://127.0.0.1:3001'],
+            ['E2E_SUPABASE_URL', process.env.TRAVLINE_SUPABASE_URL],
+            ['E2E_SUPABASE_ANON_KEY', process.env.TRAVLINE_SUPABASE_ANON_KEY],
+            ['E2E_MANAGER_EMAIL', 'manager@pilot-a.test'],
+            ['E2E_MANAGER_PASSWORD', seed.password],
+            ['E2E_STAFF_EMAIL', 'staff@pilot-a.test'],
+            ['E2E_STAFF_PASSWORD', seed.password],
+            ['E2E_OTHER_TENANT_EMAIL', 'manager@pilot-b.test'],
+            ['E2E_OTHER_TENANT_PASSWORD', seed.password],
+            ['E2E_DEPARTURE_ID', seed.departureId],
+            ['E2E_CUSTOMER_ID', seed.customerId],
+          ];
+          fs.appendFileSync(process.env.GITHUB_ENV, env.map(([key, value]) => `${key}=${value}`).join('\n') + '\n');
+          NODE
+
+      - name: Start API serving the built admin
+        run: |
+          (cd nmt-analytics-api && npm start > "$RUNNER_TEMP/api.log" 2>&1 & echo $! > "$RUNNER_TEMP/api.pid")
+          for attempt in $(seq 1 30); do
+            curl --fail --silent http://127.0.0.1:3001/api/health && break
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:3001/api/health > "$ACCEPTANCE_EVIDENCE_DIR/api-health.json"
+
+      - name: Run authenticated Playwright acceptance
+        working-directory: nmt-analytics-admin
+        env:
+          CI: "true"
+          E2E_RUN_BROWSER: "1"
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: ${{ github.workspace }}/acceptance-evidence/playwright-results.xml
+        run: npm run test:e2e
+
+      - name: Verify isolated Storage and SMTP delivery
+        env:
+          E2E_MANAGER_EMAIL: manager@pilot-a.test
+        run: node scripts/acceptance-services.mjs
+
+      - name: Sanitize process logs
+        if: always()
+        run: |
+          mkdir -p "$ACCEPTANCE_EVIDENCE_DIR"
+          for log in "$RUNNER_TEMP/supabase-start.log" "$RUNNER_TEMP/api.log"; do
+            if [ -f "$log" ]; then
+              sed -E 's/(Service Role Key: ).*/\1[redacted]/g; s/(service_role[^[:space:]]*)/[redacted]/g' "$log" \
+                > "$ACCEPTANCE_EVIDENCE_DIR/$(basename "$log")"
+            fi
+          done
+
+      - name: Upload sanitized acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: travline-staging-acceptance-${{ github.sha }}
+          path: |
+            acceptance-evidence/
+            nmt-analytics-admin/playwright-report/
+            nmt-analytics-admin/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stop disposable Supabase stack
+        if: always()
+        working-directory: nmt-analytics-api
+        run: supabase stop --no-backup

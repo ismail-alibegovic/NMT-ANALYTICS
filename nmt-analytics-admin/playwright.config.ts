@@ -4,7 +4,13 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   fullyParallel: true,
-  reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : 'list',
+  reporter: process.env.CI
+    ? [
+        ['line'],
+        ['html', { open: 'never' }],
+        ['junit', { outputFile: process.env.PLAYWRIGHT_JUNIT_OUTPUT_FILE || 'test-results/results.xml' }],
+      ]
+    : 'list',
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:5173',
     trace: 'retain-on-failure',
