@@ -94,10 +94,28 @@ async function seed() {
     const departure = await supabaseAdmin.from('departures').insert({
       org_id: ORG_A, package_id: packageId, depart_at: '2027-05-15T07:00:00+02:00',
       return_at: '2027-05-16T20:00:00+02:00', capacity: 30, booked: 0, status: 'active',
+      transport_type: 'bus',
     }).select('id').single();
     if (departure.error) throw departure.error;
     departureId = departure.data.id;
   }
+
+  const { error: departureTypeError } = await supabaseAdmin
+    .from('departures')
+    .update({ transport_type: 'bus' })
+    .eq('id', departureId)
+    .eq('org_id', ORG_A);
+  if (departureTypeError) throw departureTypeError;
+
+  const { error: vehicleError } = await supabaseAdmin.rpc('update_vehicle_atomic', {
+    p_org_id: ORG_A,
+    p_departure_id: departureId,
+    p_vehicle_label: 'Pilot Acceptance Bus',
+    p_registration_number: null,
+    p_capacity: 30,
+    p_layout_type: 'standard_2_plus_2',
+  });
+  if (vehicleError) throw vehicleError;
 
   const { data: existingHotel, error: hotelLookupError } = await supabaseAdmin
     .from('hotels')
