@@ -5,14 +5,12 @@ import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
 import { apiError } from '../lib/errors';
 import { z } from 'zod';
 import { auditLog } from '../middleware/auditLogger';
-import { logAction } from '../lib/audit';
 import {
   formatListResponse,
   paginationQuerySchema,
   getPaginationParams,
 } from '../utils/pagination';
 import { requireMinimumRole } from '../middleware/requireRole';
-import { generateSubAgentSalePDF } from '../lib/excursionGenerator';
 
 const router = Router();
 
@@ -145,167 +143,10 @@ router.delete('/subagents/:id', authenticateToken, requireOrgContext, requireMin
   } catch (err) { console.error('Error in DELETE /subagents/:id:', err); apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err)); }
 });
 
-/** POST /api/subagents/:id/generate-sale */
-router.post('/subagents/:id/generate-sale', authenticateToken, requireOrgContext, requireMinimumRole('director'), async (req, res: Response) => {
-  try {
-    const { id } = req.params;
-    const body = req.body; // reservationId + optional fields
-    const orgId = req.orgId!;
-
-    // Load sub-agent
-    const { data: agent, error: agentErr } = await supabaseAdmin
-      .from('sub_agents')
-      .select('*')
-      .eq('id', id)
-      .eq('org_id', orgId)
-      .single();
-    if (agentErr || !agent) return apiError(res, 404, 'NOT_FOUND', 'Sub-agent not found');
-
-    // Apply partner-type commission rule (overrides default rate if rule exists)
-    const baseAmount = Number(body.totalAmount || 0);
-    let effectiveCommissionPct = Number(agent.commission_rate || 0);
-    let appliedRuleId: string | null = null;
-    let markupAmount = 0;
-    let finalAmount = baseAmount;
-
-    if (agent.partner_type) {
-      const { data: rule } = await supabaseAdmin
-        .from('commission_rules')
-        .select('id, commission_pct, markup_pct')
-        .eq('org_id', orgId)
-        .eq('partner_type', agent.partner_type)
-        .is('service_type', null)
-        .eq('is_active', true)
-        .order('priority', { ascending: true })
-        .limit(1)
-        .single();
-
-      if (rule) {
-        effectiveCommissionPct = Number(rule.commission_pct ?? effectiveCommissionPct);
-        markupAmount = (baseAmount * Number(rule.markup_pct || 0)) / 100;
-        finalAmount = baseAmount + markupAmount;
-        appliedRuleId = rule.id;
-      }
-    }
-
-    // Create reservation via API call pattern (reuse existing logic)
-    const reservationResp = await fetch('http://localhost:3001/api/reservations', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.AUTH_TOKEN}`,
-      },
-      body: JSON.stringify({
-        customerName: 'Client',
-        departureId: null,
-        source: 'subagent',
-        ...body,
-      }),
-    }).catch(() => null);
-
-    // Simplified for this implementation - real impl would use Supabase directly
-    const { data: reservation, error: resErr } = await supabaseAdmin
-      .from('reservations')
-      .insert({
-        customer_name: body.customerName || 'Client',
-        departure_id: body.departureId || null,
-        source: 'subagent',
-        status: 'pending',
-        total_amount: finalAmount,
-        currency: body.currency || 'BAM',
-        notes: appliedRuleId ? `Commission rule applied: ${appliedRuleId} | rate=${effectiveCommissionPct}% | markup=${markupAmount}` : undefined,
-      })
-      .select()
-      .single();
-
-    if (resErr || !reservation) {
-      return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to create reservation');
-    }
-
-    // Create contract
-    const year = new Date().getFullYear();
-    const { count } = await supabaseAdmin
-      .from('contracts')
-      .select('id', { count: 'exact', head: true })
-      .eq('org_id', orgId)
-      .gte('created_at', `${year}-01-01T00:00:00Z`);
-    const seq = (count || 0) + 1;
-    const contractNumber = `UG-${year}-${String(seq).padStart(4, '0')}`;
-
-    const { data: contract, error: cErr } = await supabaseAdmin
-      .from('contracts')
-      .insert({
-        org_id: orgId,
-        reservation_id: reservation.id,
-        contract_number: contractNumber,
-        contract_date: new Date().toISOString().slice(0, 10),
-        traveler_name: body.travelerName || 'Client',
-        traveler_phone: body.travelerPhone || null,
-        traveler_email: body.travelerEmail || null,
-        package_description: body.packageDescription || 'Package',
-        departure_date: body.departureDate || null,
-        return_date: body.returnDate || null,
-        party_size: body.partySize || 1,
-        total_amount: body.totalAmount || 0,
-        currency: body.currency || 'BAM',
-        payment_terms: body.paymentTerms || null,
-        cancellation_policy: body.cancellationPolicy || null,
-        status: 'draft',
-      })
-      .select()
-      .single();
-
-    if (cErr || !contract) {
-      return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to create contract');
-    }
-
-    // Create receipt
-    const { data: receipt, error: rErr } = await supabaseAdmin
-      .from('receipts')
-      .insert({
-        org_id: orgId,
-        reservation_id: reservation.id,
-        contract_id: contract.id,
-        receipt_number: `FR-${year}-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`,
-        receipt_type: 'advance',
-        amount: body.totalAmount || 0,
-        currency: body.currency || 'BAM',
-        payment_method: body.paymentMethod || 'cash',
-      })
-      .select()
-      .single();
-
-    if (rErr || !receipt) {
-      return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to create receipt');
-    }
-
-    // Update sub-agent sales
-    await supabaseAdmin
-      .from('sub_agent_sales')
-      .insert({
-        org_id: orgId,
-        sub_agent_id: id,
-        reservation_id: reservation.id,
-        commission_amount: (baseAmount * effectiveCommissionPct) / 100,
-        documents_generated: { najava: true, ugovor: true, faktura: true },
-      });
-
-    // Generate PDF bundle
-    const branding = { primaryColor: '#1D4ED8', secondaryColor: '#111827' };
-    const pdfBuffer = await generateSubAgentSalePDF({
-      agent,
-      contract,
-      receipt,
-      reservation,
-    }, branding);
-
-    return res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="subagent_bundle_${Date.now()}.pdf"`);
-    res.send(pdfBuffer);
-  } catch (err) {
-    console.error('Error in POST /subagents/:id/generate-sale:', err);
-    apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err));
-  }
+/** POST /api/subagents/:id/generate-sale
+ * Retired for the pilot. Sales must use the canonical reservation/payment workflows.
+ */
+router.post('/subagents/:id/generate-sale', authenticateToken, requireOrgContext, requireMinimumRole('director'), (_req, res: Response) => {
+  return apiError(res, 410, 'LEGACY_SALE_DISABLED', 'Legacy sub-agent sale generation is disabled; use the reservation workflow');
 });
-
 export default router;

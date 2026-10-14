@@ -10,6 +10,9 @@
     "test:smoke": "ts-node src/scripts/smoke.ts",
     "seed:demo": "ts-node src/scripts/seed_demo.ts",
     "seed:dev": "tsx src/scripts/seed.ts",
+    "seed:acceptance": "tsx src/scripts/seed_acceptance.ts",
+    "staging:up": "bash scripts/staging-up.sh",
+    "staging:down": "bash scripts/staging-down.sh",
     "test:watch": "vitest"
   },
   "keywords": [],

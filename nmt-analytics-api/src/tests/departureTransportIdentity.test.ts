@@ -5,7 +5,7 @@ import request from 'supertest';
 // ── mock middleware ──────────────────────────────────────────
 vi.mock('../middleware/authenticateToken', () => ({
   authenticateToken: (req: any, _res: any, next: any) => {
-    req.user = { id: 'user-1', email: 'test@example.com' };
+    req.user = { id: 'user-1', email: 'test@example.com', role: 'manager' };
     next();
   },
 }));

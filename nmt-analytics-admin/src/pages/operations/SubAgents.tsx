@@ -6,12 +6,12 @@ import Badge from "../../components/ui/badge/Badge";
 import { DataTable, Column } from "../../components/ui/DataTable";
 import EmptyState from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/modal";
-import { BoltIcon, TrashBinIcon, PlusIcon, CopyIcon } from "../../icons";
+import { TrashBinIcon, PlusIcon, CopyIcon } from "../../icons";
 import { useToast } from "../../context/ToastContext";
 import { useApp } from "../../context/AppContext";
 import { useT } from "../../lib/i18n/context";
 import {
-  getSubAgents, createSubAgent, deleteSubAgent, generateSubAgentSale,
+  getSubAgents, createSubAgent, deleteSubAgent,
   issueSubAgentPortalToken, revokeSubAgentPortalToken,
   SubAgent,
 } from "../../api/operations";
@@ -24,7 +24,6 @@ export default function SubAgents() {
   const [subAgents, setSubAgents] = useState<SubAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [generating, setGenerating] = useState<string | null>(null);
 
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
@@ -100,19 +99,6 @@ export default function SubAgents() {
     }
   };
 
-  const handleGenerateSale = async (sa: SubAgent) => {
-    setGenerating(sa.id);
-    try {
-      const blob = await generateSubAgentSale(sa.id, {});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = `subagent_${sa.name}.pdf`;
-      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-      showSuccess("Document bundle generated");
-    } catch (err: any) {
-      showError(err.message || "Failed to generate sale");
-    } finally { setGenerating(null); }
-  };
-
   const columns: Column<SubAgent>[] = [
     { key: "name", header: "Name", render: (v) => <span className="font-medium">{v as string}</span> },
     { key: "phone", header: "Phone" },
@@ -138,18 +124,6 @@ export default function SubAgents() {
       key: "actions", header: "Actions",
       render: (_, sa) => (
         <div className="flex gap-2">
-          <Button size="sm" variant="primary" onClick={() => handleGenerateSale(sa as SubAgent)} disabled={generating === (sa as SubAgent).id} title="Generate sale bundle" className="flex items-center gap-1.5 text-sm">
-            {generating === (sa as SubAgent).id ? (
-              <span className="flex items-center gap-1.5">
-                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Generating…
-              </span>
-            ) : (
-              <>
-                <BoltIcon className="w-4 h-4" /> Generate Sale
-              </>
-            )}
-          </Button>
           <Button size="sm" variant="outline" onClick={() => handleIssuePortalToken(sa as SubAgent)} disabled={portalLoading} title="Issue portal access link" className="p-2">
             <CopyIcon className="w-4 h-4" />
           </Button>

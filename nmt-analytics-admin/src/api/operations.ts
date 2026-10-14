@@ -35,12 +35,6 @@ export async function deleteSubAgent(id: string): Promise<void> {
   await del(`/subagents/${id}`);
 }
 
-export async function generateSubAgentSale(subAgentId: string, body: Record<string, unknown>): Promise<Blob> {
-  const api = (await import('../lib/apiClient')).default;
-  const res = await api.post(`/subagents/${subAgentId}/generate-sale`, body, { responseType: 'blob' });
-  return res.data as Blob;
-}
-
 // ─── Sub-agent portal tokens ─────────────────────────────────
 export async function issueSubAgentPortalToken(id: string, ttlDays = 90): Promise<{ token: string; portalUrl: string; expiresAt: string; message: string }> {
   const { data } = await post<{ token: string; portalUrl: string; expiresAt: string; message: string }>(`/subagents/${id}/portal-token`, { ttlDays });

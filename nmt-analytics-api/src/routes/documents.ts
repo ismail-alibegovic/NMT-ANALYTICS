@@ -2,6 +2,7 @@ import { auditLog } from "../middleware/auditLogger";
 import { Router, Response } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
+import { requireMinimumRole } from '../middleware/requireRole';
 import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
 import { z } from 'zod';
 import PDFDocument from 'pdfkit';
@@ -63,7 +64,7 @@ router.get('/documents', authenticateToken, requireOrgContext, async (req: any, 
  * POST /api/documents/upload
  * Upload file to Supabase Storage and save to DB.
  */
-router.post('/documents/upload', auditDocumentCreate, authenticateToken, requireOrgContext, upload.single('file'), async (req: any, res: Response) => {
+router.post('/documents/upload', auditDocumentCreate, authenticateToken, requireOrgContext, requireMinimumRole('manager'), upload.single('file'), async (req: any, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -122,7 +123,7 @@ router.post('/documents/upload', auditDocumentCreate, authenticateToken, require
  * DELETE /api/documents/:id
  * Remove file from storage and DB.
  */
-router.delete('/documents/:id', auditDocumentDelete, authenticateToken, requireOrgContext, async (req: any, res: Response) => {
+router.delete('/documents/:id', auditDocumentDelete, authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req: any, res: Response) => {
   try {
     const { id } = req.params;
     const orgId = req.orgId!;
@@ -244,7 +245,7 @@ router.get('/documents/:id/download', authenticateToken, requireOrgContext, asyn
 /**
  * POST /api/documents/generate
  */
-router.post('/documents/generate', auditDocumentGenerate, authenticateToken, requireOrgContext, async (req: any, res: Response) => {
+router.post('/documents/generate', auditDocumentGenerate, authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req: any, res: Response) => {
   try {
     const validationResult = generateDocumentSchema.safeParse(req.body);
     if (!validationResult.success) {
@@ -289,7 +290,7 @@ router.post('/documents/generate', auditDocumentGenerate, authenticateToken, req
 /**
  * POST /api/documents/voucher
  */
-router.post('/documents/voucher', auditDocumentVoucher, authenticateToken, requireOrgContext, async (req: any, res: Response) => {
+router.post('/documents/voucher', auditDocumentVoucher, authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req: any, res: Response) => {
   // Simplified placeholder to ensure route exists
   res.json({ message: "Voucher generation endpoint" });
 });
