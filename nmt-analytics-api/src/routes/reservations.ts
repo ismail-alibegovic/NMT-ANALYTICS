@@ -565,6 +565,13 @@ async function replyToSavedSale(req: Request, res: Response, sale: any, orgId: s
 }
 
 router.post('/reservations', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditReservationCreate, async (req, res: Response) => {
+  let unattachedCapacityHold: { orgId: string; departureId: string; partySize: number } | null = null;
+  async function releaseUnattachedCapacityHold() {
+    const hold = unattachedCapacityHold;
+    // Clear before awaiting so an error cannot cause this request to release twice.
+    unattachedCapacityHold = null;
+    if (hold) await releaseReservedCapacity(hold.orgId, hold.departureId, hold.partySize);
+  }
   try {
     const validationResult = createReservationSchema.safeParse(req.body);
     if (!validationResult.success) {
@@ -660,6 +667,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, requireMinimu
       if (reservationConsumesCapacity(status)) {
         try {
           capacityRv = await reserveDepartureCapacityOrThrow(orgId, departureId, partySize);
+          unattachedCapacityHold = { orgId, departureId, partySize };
         } catch (capacityError) {
           const handled = handleDepartureCapacityError(res, capacityError);
           if (handled) return handled;
@@ -692,6 +700,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, requireMinimu
           .select('id')
           .single();
         if (custErr) {
+          await releaseUnattachedCapacityHold();
           return handleSupabaseError(res, custErr, "Failed to upsert customer");
         }
         resolvedCustomerId = newCust?.id || null;
@@ -732,6 +741,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, requireMinimu
       .single();
 
     if (insertError) {
+      await releaseUnattachedCapacityHold();
       if (insertError.code === '23505' && idempotencyKey) {
         const { data: concurrentSale } = await supabaseAdmin
           .from('reservations')
@@ -744,16 +754,10 @@ router.post('/reservations', authenticateToken, requireOrgContext, requireMinimu
         }
         return apiError(res, 409, 'IDEMPOTENCY_KEY_REUSED', 'The idempotency key was already used for a different sale request');
       }
-      // Rollback capacity we may have just added
-      if (departureId && reservationConsumesCapacity(status)) {
-        try {
-          await releaseReservedCapacity(orgId, departureId, partySize);
-        } catch (releaseError) {
-          console.error('Failed to release capacity after reservation insert failure:', releaseError);
-        }
-      }
       return handleSupabaseError(res, insertError, "Failed to create reservation");
     }
+    // A persisted reservation now owns the occupancy; later rollback paths remain explicit.
+    unattachedCapacityHold = null;
     reservation = created;
 
     // Create departure_passengers if provided
@@ -1090,6 +1094,12 @@ router.post('/reservations', authenticateToken, requireOrgContext, requireMinimu
       accommodationRequirements: createdAccommodation,
     });
   } catch (error) {
+    try {
+      await releaseUnattachedCapacityHold();
+    } catch (releaseError) {
+      console.error('Failed to release unattached sale capacity:', releaseError);
+      return apiError(res, 500, 'CAPACITY_RELEASE_FAILED', 'Failed to release temporary sale capacity');
+    }
     console.error('Error in POST /reservations:', error);
     apiError(res, 500, "INTERNAL_ERROR", "Internal server error", String(error));
   }

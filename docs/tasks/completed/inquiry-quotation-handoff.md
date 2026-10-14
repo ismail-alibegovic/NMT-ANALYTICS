@@ -1,5 +1,5 @@
 # M19.1 — Preserve inquiry context and create version-pinned quotations
-**Status:** ACTIVE
+**Status:** COMPLETED
 **Priority:** P1
 **Branch:** fix/inquiry-quotation-handoff
 **Roadmap references:** M19 Inquiry → quote → booking
@@ -21,3 +21,5 @@ Read AGENTS, product, architecture, roadmap, M19, relevant APIs/pages, translati
 
 ## Acceptance and verification
 Source lookup latency does not drop inquiry context; failed/missing sources cannot silently become standalone. Both list selection and deep link resolve a real version. Stale responses cannot overwrite latest selection. Browser verifies inquiry → itinerary → priced quotation in BS desktop and EN mobile, preserved snapshot after source edit, and cross-tenant denial. Targeted component/validation tests, full API/admin build/tests/lint, CI migration/Docker, isolated acceptance and Preview before merge.
+
+Completion: PR #83 merged as fc4c336f40297dac5709f5b7223d4d2c05ccb9cb. Final head e1e90ebd4d2413a8eeb15b1f06f7fc0d1b39d470. CI38653165160 passed API668/admin297 tests, builds, lint, migration/Docker. Isolated acceptance38653165143 passed19 tests, none skipped, including BS desktop/EN mobile inquiry-to-itinerary-to-quotation, prices preserved after source edits, tenant denial and supplier readiness. Preview dpl_F8JbsgyBtt9SQMb22ZVZwAXXqNRu READY/health200, database connected/auth bypass disabled. No migration. Exact files and deferred scope recorded in PR83.
