@@ -54,6 +54,20 @@ function fromCents(cents: number): number {
     return cents / 100;
 }
 
+function handlePaymentWriteError(res: Response, error: any, message: string) {
+    if (error.code === '23514' && /reservations_paid_lte_total_check|PAYMENT_EXCEEDS_TOTAL/.test(error.message || '')) {
+        return apiError(res, 422, 'PAYMENT_EXCEEDS_TOTAL', 'Payment exceeds the outstanding reservation balance');
+    }
+    if (error.code === '40001' || error.code === '40P01') {
+        return apiError(res, 409, 'PAYMENT_CONFLICT', 'Another payment changed this reservation. Refresh its balance before retrying.');
+    }
+    if (error.code === '23514' && error.message === 'RESERVATION_FINANCE_LEDGER_ONLY') {
+        console.warn('[payments] Canonical ledger rejected a conflicting write');
+        return apiError(res, 409, 'PAYMENT_CONFLICT', 'The reservation balance could not be reconciled with this payment. Refresh its balance before retrying.');
+    }
+    return handleSupabaseError(res, error, message);
+}
+
 function deriveReservationFinance(totalAmount: unknown, paidAmount: unknown) {
     const totalCents = toCents(totalAmount);
     const paidCents = toCents(paidAmount);
@@ -311,8 +325,8 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
                 return apiError(res, 400, 'NOT_AN_INSTALLMENT', 'Payment row is not an installment');
             }
 
-            if (installment.status !== 'pending') {
-                return apiError(res, 409, 'INSTALLMENT_ALREADY_RECORDED', 'Installment is not pending');
+            if (installment.status !== 'pending' && installment.status !== 'failed') {
+                return apiError(res, 409, 'INSTALLMENT_ALREADY_RECORDED', 'Installment is already recorded or unavailable for retry');
             }
 
             if ((installment.currency || effectiveCurrency) !== effectiveCurrency) {
@@ -323,6 +337,7 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
                 return apiError(res, 400, 'INSTALLMENT_AMOUNT_MISMATCH', 'Payment amount must match the installment amount');
             }
 
+            const previousInstallmentStatus = installment.status;
             const { data: updatedPayment, error: updateError } = await supabaseAdmin
                 .from('payments')
                 .update({
@@ -334,6 +349,7 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
                 })
                 .eq('id', installment_id)
                 .eq('org_id', orgId)
+                .eq('status', previousInstallmentStatus)
                 .select(`
                     id,
                     reservation_id,
@@ -350,10 +366,18 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
                 .single();
 
             if (updateError) {
-                return handleSupabaseError(res, updateError, 'Failed to record installment payment');
+                if (updateError.code === 'PGRST116') {
+                    return apiError(res, 409, 'INSTALLMENT_ALREADY_RECORDED', 'Another request already changed this installment');
+                }
+                return handlePaymentWriteError(res, updateError, 'Failed to record installment payment');
             }
 
             payment = updatedPayment;
+            await logAction(req, 'payment.installment_recorded', 'payment', payment.id, {
+                oldValues: { status: previousInstallmentStatus },
+                newValues: { status: payment.status, amount: payment.amount, currency: payment.currency },
+                metadata: { reservation_id, installment_id, recovered_failed_attempt: previousInstallmentStatus === 'failed' },
+            });
         } else {
             const { data: insertedPayment, error: insertError } = await supabaseAdmin
                 .from('payments')
@@ -382,7 +406,7 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
                 .single();
 
             if (insertError) {
-                return handleSupabaseError(res, insertError, 'Failed to create payment');
+                return handlePaymentWriteError(res, insertError, 'Failed to create payment');
             }
 
             payment = insertedPayment;
@@ -558,7 +582,7 @@ router.patch('/payments/:id', auditPaymentUpdate, async (req: Request, res: Resp
             .single();
 
         if (updateError) {
-            return handleSupabaseError(res, updateError, 'Failed to update payment');
+            return handlePaymentWriteError(res, updateError, 'Failed to update payment');
         }
 
         // Audit log: payment.updated

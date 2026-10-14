@@ -17,6 +17,7 @@ import { useToast } from '../../context/ToastContext';
 import { calculateRemainingFromSuccessfulPayments, formatCurrency, formatDate } from '../../utils/business';
 import Badge from '../ui/badge/Badge';
 import EditPaymentModal from './EditPaymentModal';
+import { useT } from '../../lib/i18n/context';
 
 interface PaymentsModalProps {
     isOpen: boolean;
@@ -39,6 +40,7 @@ export default function PaymentsModal({
     reservationCurrency = 'BAM', // Default to BAM if not provided
     onPaymentCreated,
 }: PaymentsModalProps) {
+    const { t } = useT();
     const { error: showError, success: showSuccess } = useToast();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -422,14 +424,14 @@ export default function PaymentsModal({
                                                     Refundiraj
                                                 </Button>
                                             )}
-                                    {payment.status === 'pending' && (
+                                    {(payment.status === 'pending' || payment.status === 'failed') && (
                                         <Button
                                             variant="outline"
                                             size="sm"
                                             onClick={() => handleUpdateStatus(payment.id, 'succeeded')}
                                             className="text-xs py-1 h-auto text-success-600 border-success-200 hover:bg-success-50"
                                         >
-                                            Potvrdi
+                                            {payment.status === 'failed' ? t.payments.retryFailed : 'Potvrdi'}
                                         </Button>
                                     )}
                                     <Button

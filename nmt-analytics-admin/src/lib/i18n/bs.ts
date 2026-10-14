@@ -498,6 +498,7 @@ export const bs: Translations = {
     overview: 'Pregled', paymentBreakdown: 'Pregled statusa plaćanja',
   },
   payments: {
+    retryFailed: 'Ponovi uplatu',
     title: 'Plaćanja', description: 'Upravljanje svim uplatama i transakcijama',
     add: 'Dodaj uplatu', amount: 'Iznos', method: 'Način', date: 'Datum',
     reference: 'Referenca', status: 'Status', succeeded: 'Uspješno',

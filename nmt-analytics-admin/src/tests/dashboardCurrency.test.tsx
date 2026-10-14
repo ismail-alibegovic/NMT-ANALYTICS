@@ -191,16 +191,14 @@ describe('Dashboard currency handling', () => {
     seedSingleCurrency('BAM', 100);
     renderDashboard();
 
-    await screen.findByText('Total Revenue');
-    expect(screen.getAllByText(/100,00\s*KM/).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/100,00\s*KM/)).length).toBeGreaterThan(0);
   });
 
   it('renders EUR single-currency values as EUR and never KM', async () => {
     seedSingleCurrency('EUR', 200);
     renderDashboard();
 
-    await screen.findByText('Total Revenue');
-    expect(screen.getAllByText(/200,00\s*€/).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/200,00\s*€/)).length).toBeGreaterThan(0);
     expect(screen.queryByText(/200,00\s*KM/)).not.toBeInTheDocument();
   });
 

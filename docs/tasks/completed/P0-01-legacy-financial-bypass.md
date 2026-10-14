@@ -1,6 +1,6 @@
 # P0-01 — Close legacy financial writes
 
-**Status:** IMPLEMENTED, pending review
+**Status:** DONE — included in PR #79, merge `a7f6c4b`, 2026-10-14
 **Priority:** P0
 **Branch:** `fix/p0-legacy-transaction-bypass`
 **Baseline:** `7c1794f5f7a8cf218ff7b92104797ee693efae79`

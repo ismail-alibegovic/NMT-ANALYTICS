@@ -498,6 +498,7 @@ export const en = {
     overview: 'Overview', paymentBreakdown: 'Payment Status Breakdown',
   },
   payments: {
+    retryFailed: 'Retry payment',
     title: 'Payments', description: 'Manage all payments and transactions',
     add: 'Add Payment', amount: 'Amount', method: 'Method', date: 'Date',
     reference: 'Reference', status: 'Status', succeeded: 'Succeeded',

@@ -221,6 +221,28 @@ beforeEach(() => {
 });
 
 describe('M14.2 payment recording', () => {
+  it('recovers a failed installment using its existing row and rejects another successful recording', async () => {
+    payments[0].status = 'failed';
+    const payload = { reservation_id: RESERVATION, installment_id: INSTALLMENT_1, amount: 300, currency: 'BAM', status: 'succeeded' };
+    const recovered = await request(app).post('/api/payments').send(payload);
+    expect(recovered.status).toBe(201);
+    expect(recovered.body.payment.id).toBe(INSTALLMENT_1);
+    expect(recovered.body.reservation.paidAmount).toBe(300);
+    expect(payments).toHaveLength(3);
+    const repeated = await request(app).post('/api/payments').send(payload);
+    expect(repeated.status).toBe(409);
+    expect(repeated.body.code).toBe('INSTALLMENT_ALREADY_RECORDED');
+    expect(reservations[0].paid_amount).toBe(300);
+  });
+
+  it.each(['cancelled', 'refunded'])('does not revive a %s installment', async (status) => {
+    payments[0].status = status;
+    const res = await request(app).post('/api/payments').send({ reservation_id: RESERVATION, installment_id: INSTALLMENT_1, amount: 300, currency: 'BAM', status: 'succeeded' });
+    expect(res.status).toBe(409);
+    expect(reservations[0].paid_amount).toBe(0);
+    expect(payments[0].status).toBe(status);
+  });
+
   it('inherits EUR from the reservation when payment currency is omitted', async () => {
     reservations.push({
       id: '10000000-0000-4000-8000-0000000000ee',
