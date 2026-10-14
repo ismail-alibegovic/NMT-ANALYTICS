@@ -57,6 +57,17 @@ async function ensureOrg(id: string, name: string, slug: string) {
 
 async function seed() {
   assertLocalOnly();
+  // The application uploads documents to this private bucket. Schema replay
+  // alone does not provision Storage buckets in a fresh disposable stack.
+  const buckets = await supabaseAdmin.storage.listBuckets();
+  if (buckets.error) throw buckets.error;
+  const documentsBucket = buckets.data.find((bucket) => bucket.id === 'documents');
+  if (!documentsBucket) {
+    const created = await supabaseAdmin.storage.createBucket('documents', { public: false });
+    if (created.error) throw created.error;
+  } else if (documentsBucket.public) {
+    throw new Error('Acceptance documents bucket must be private.');
+  }
   await ensureOrg(ORG_A, 'Pilot A Travel', 'pilot-a-travel');
   await ensureOrg(ORG_B, 'Pilot B Travel', 'pilot-b-travel');
 
