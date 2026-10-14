@@ -48,7 +48,7 @@ async function json<T>(response: APIResponse): Promise<T> {
 }
 
 async function expectStatus(response: APIResponse, statuses: number[]) {
-  expect(statuses).toContain(response.status());
+  expect(statuses, `Unexpected response from ${response.url()}: ${await response.text()}`).toContain(response.status());
 }
 
 function unique(label: string) {
@@ -386,7 +386,8 @@ test.describe.serial('Travline BAM-only bus-tour pilot acceptance phase 2', () =
       data: { name: unique('supplier'), category: 'transport', defaultCurrency: 'BAM' },
     });
     await expectStatus(supplier, [201, 200]);
-    const supplierBody = await json<{ id?: string }>(supplier);
+    const supplierBody = await json<{ id: string }>(supplier);
+    expect(supplierBody.id).toMatch(/^[0-9a-f-]{36}$/i);
 
     const cost = await request.post(`${apiUrl}/api/departures/${departureId}/cost-items`, {
       headers: headers(managerToken),
@@ -400,14 +401,16 @@ test.describe.serial('Travline BAM-only bus-tour pilot acceptance phase 2', () =
       },
     });
     await expectStatus(cost, [201]);
-    const costBody = await json<{ id: string }>(cost);
+    const costBody = await json<{ costItem: { id: string; supplierId: string } }>(cost);
+    expect(costBody.costItem.id).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(costBody.costItem.supplierId).toBe(supplierBody.id);
 
-    const confirmation = await request.post(`${apiUrl}/api/departures/${departureId}/cost-items/${costBody.id}/confirmation`, {
+    const confirmation = await request.post(`${apiUrl}/api/departures/${departureId}/cost-items/${costBody.costItem.id}/confirmation`, {
       headers: headers(managerToken),
       data: { status: 'requested', note: 'Pilot request' },
     });
     await expectStatus(confirmation, [200, 201]);
-    const confirmed = await request.post(`${apiUrl}/api/departures/${departureId}/cost-items/${costBody.id}/confirmation`, {
+    const confirmed = await request.post(`${apiUrl}/api/departures/${departureId}/cost-items/${costBody.costItem.id}/confirmation`, {
       headers: headers(managerToken),
       data: { status: 'confirmed', note: 'Pilot confirmed' },
     });
@@ -427,7 +430,7 @@ test.describe.serial('Travline BAM-only bus-tour pilot acceptance phase 2', () =
     expect((await json<{ supplierCosts?: number }>(profitability)).supplierCosts).toBe(500);
 
     const upload = await request.post(`${apiUrl}/api/documents/upload`, {
-      headers: headers(managerToken),
+      headers: { Authorization: `Bearer ${managerToken}` },
       multipart: {
         file: {
           name: `${unique('document')}.pdf`,
