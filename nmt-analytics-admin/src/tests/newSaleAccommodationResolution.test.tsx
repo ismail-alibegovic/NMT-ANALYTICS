@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { render } from './renderWithI18n';
 import NewSaleWizard from "../components/reservations/NewSaleWizard";
 const getPackages = vi.fn();
 const getDepartures = vi.fn();

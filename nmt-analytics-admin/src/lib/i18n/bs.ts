@@ -497,6 +497,12 @@ export const bs: Translations = {
     paidColumn: 'Plaćeno', balanceColumn: 'Saldo',
     overview: 'Pregled', paymentBreakdown: 'Pregled statusa plaćanja',
   },
+  saleRecovery: {
+    processing: 'Prodaja se još obrađuje. Sačekajte trenutak, pa ponovite isti pokušaj.',
+    retry: 'Rezervacija je sačuvana. Ponovite pokušaj da je dovršite bez kreiranja nove rezervacije.',
+    manual: 'Rezervacija je sačuvana, ali zahtijeva pregled. Otvorite je prije daljnjih izmjena.',
+    open: 'Otvori sačuvanu rezervaciju',
+  },
   payments: {
     retryFailed: 'Ponovi uplatu',
     title: 'Plaćanja', description: 'Upravljanje svim uplatama i transakcijama',

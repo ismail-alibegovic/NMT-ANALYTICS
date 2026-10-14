@@ -211,6 +211,16 @@ describe('POST /api/payments — overpayment guard', () => {
   })
 })
 
+describe('incomplete sale payment protection', () => {
+  it.each(['in_progress', 'recovery_required'])('rejects recording money while creation is %s', async creation_state => {
+    h.reservationQueue.push({ data: { ...reservationRow, creation_state }, error: null });
+    const res = await request(app).post('/api/payments').send({ reservation_id: RES, amount: 100, currency: 'EUR' });
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('SALE_NOT_COMPLETE');
+    expect(h.paymentInserts).toHaveLength(0);
+  });
+});
+
 describe('resolveEntityId', () => {
   it('resolves flat, nested, and missing ids', async () => {
     const { resolveEntityId } = await import('../middleware/auditLogger')

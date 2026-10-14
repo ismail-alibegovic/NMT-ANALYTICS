@@ -277,13 +277,16 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
         // ALSO fetch currency to use as source of truth
         const { data: reservation, error: reservationError } = await supabaseAdmin
             .from('reservations')
-            .select('id, org_id, total_amount, paid_amount, status, currency, customer_name, customer_id')
+            .select('id, org_id, total_amount, paid_amount, status, currency, customer_name, customer_id, creation_state')
             .eq('id', reservation_id)
             .eq('org_id', orgId)
             .single();
 
         if (reservationError || !reservation) {
             return apiError(res, 404, 'RESERVATION_NOT_FOUND', 'Reservation not found or does not belong to your organization');
+        }
+        if (reservation.creation_state && reservation.creation_state !== 'completed') {
+            return apiError(res, 409, 'SALE_NOT_COMPLETE', 'Complete or review the saved sale before recording payment');
         }
 
         if (currency && currency !== (reservation.currency || 'BAM')) {
@@ -536,13 +539,17 @@ router.patch('/payments/:id', auditPaymentUpdate, async (req: Request, res: Resp
 
         const { data: targetReservation, error: reservationError } = await supabaseAdmin
             .from('reservations')
-            .select('id, org_id, currency')
+            .select('id, org_id, currency, creation_state')
             .eq('id', newReservationId)
             .eq('org_id', orgId)
             .single();
 
         if (reservationError || !targetReservation) {
             return apiError(res, 404, 'RESERVATION_NOT_FOUND', 'Target reservation not found');
+        }
+        if (targetReservation.creation_state && targetReservation.creation_state !== 'completed' &&
+            (updateData.status === 'succeeded' || (existingPayment.status === 'succeeded' && !['cancelled', 'refunded'].includes(updateData.status || '')))) {
+            return apiError(res, 409, 'SALE_NOT_COMPLETE', 'Complete or review the saved sale before recording payment');
         }
 
         if (updateData.currency && updateData.currency !== (targetReservation.currency || 'BAM')) {

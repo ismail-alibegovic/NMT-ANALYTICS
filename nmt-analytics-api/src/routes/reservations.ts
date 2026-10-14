@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+import { Router, Response, type Request } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
 import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
@@ -18,6 +18,7 @@ import { notifyNewReservation } from '../lib/notificationService';
 import { requireMinimumRole } from '../middleware/requireRole';
 import { config } from '../config';
 import { buildInstallmentScheduleRows } from './installments';
+import { resumeSaleCompletion, SaleRecoveryError } from '../lib/saleCompletionRecovery';
 import {
   normalizeSaleIdempotencyKey,
   saleRequestFingerprint,
@@ -88,7 +89,7 @@ const dateString = z
   .regex(VALID_DATE, "Must be YYYY-MM-DD")
   .refine(isValidCalendarDate, "Invalid calendar date");
 
-const createReservationSchema = z.object({
+export const createReservationSchema = z.object({
   ...ledgerOwnedFields,
   customerName: z.string().min(1, 'Customer name is required'),
   customerPhone: z.string().min(1, 'Phone number is required'),
@@ -385,6 +386,9 @@ function transformReservation(reservation: any) {
     createdAt: reservation.created_at,
     updatedAt: reservation.updated_at || reservation.created_at,
     assignedTo: reservation.assigned_to || null,
+    creationState: reservation.creation_state || 'completed',
+    creationErrorStage: reservation.creation_error_stage || null,
+    recoveryRequired: reservation.creation_state === 'recovery_required',
     // Include nested objects if needed by some parts of the UI
     customer: customer,
     departure: departure
@@ -420,6 +424,8 @@ router.get('/reservations', authenticateToken, requireOrgContext, async (req, re
         paid_amount,
         balance_due,
         payment_status,
+        creation_state,
+        creation_error_stage,
         currency,
         source,
         notes,
@@ -495,6 +501,8 @@ router.get('/reservations/:id', authenticateToken, requireOrgContext, async (req
         paid_amount,
         balance_due,
         payment_status,
+        creation_state,
+        creation_error_stage,
         currency,
         source,
         notes,
@@ -527,6 +535,35 @@ router.get('/reservations/:id', authenticateToken, requireOrgContext, async (req
 /**
  * POST /api/reservations
  */
+async function replyToSavedSale(req: Request, res: Response, sale: any, orgId: string, fingerprint: string, installmentCount?: number) {
+  if (sale.creation_fingerprint !== fingerprint) {
+    return apiError(res, 409, 'IDEMPOTENCY_KEY_REUSED', 'The idempotency key was already used for a different sale request');
+  }
+  try {
+    const result = await resumeSaleCompletion(sale, orgId, installmentCount);
+    if (result.recovered) {
+      await logAction(req, 'reservation.creation_recovered', 'reservation', sale.id, {
+        oldValues: { creation_state: sale.creation_state, creation_error_stage: sale.creation_error_stage },
+        newValues: { creation_state: 'completed', creation_error_stage: null },
+      });
+    }
+    const saved = result.sale;
+    return res.status(saved.creation_state === 'completed' ? 200 : 202).json({
+      ...saved,
+      creationState: saved.creation_state,
+      creationErrorStage: saved.creation_error_stage,
+      processing: saved.creation_state === 'in_progress',
+      recoveryRequired: saved.creation_state === 'recovery_required',
+      retryable: saved.creation_state === 'in_progress' || ['installments', 'completion'].includes(saved.creation_error_stage),
+    });
+  } catch (error) {
+    console.error('Saved sale recovery failed:', error);
+    return apiError(res, error instanceof SaleRecoveryError ? error.status : 500,
+      error instanceof SaleRecoveryError ? error.code : 'SALE_RECOVERY_FAILED',
+      'Saved sale could not be completed', { reservationId: sale.id, stage: sale.creation_error_stage });
+  }
+}
+
 router.post('/reservations', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditReservationCreate, async (req, res: Response) => {
   try {
     const validationResult = createReservationSchema.safeParse(req.body);
@@ -542,7 +579,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, requireMinimu
     if (idempotencyKey) {
       const { data: existingSale, error: existingSaleError } = await supabaseAdmin
         .from('reservations')
-        .select('id, total_amount, currency, customer_name, customer_phone, party_size, options, notes, creation_state, creation_fingerprint, creation_error_stage')
+        .select('id, org_id, status, created_at, reservation_at, total_amount, currency, customer_name, customer_phone, party_size, options, notes, creation_state, creation_fingerprint, creation_error_stage')
         .eq('org_id', orgId)
         .eq('creation_idempotency_key', idempotencyKey)
         .maybeSingle();
@@ -552,21 +589,7 @@ router.post('/reservations', authenticateToken, requireOrgContext, requireMinimu
       }
 
       if (existingSale) {
-        if (existingSale.creation_fingerprint !== requestFingerprint) {
-          return apiError(
-            res,
-            409,
-            'IDEMPOTENCY_KEY_REUSED',
-            'The idempotency key was already used for a different sale request',
-          );
-        }
-
-        return res.status(existingSale.creation_state === 'completed' ? 200 : 202).json({
-          ...existingSale,
-          creationState: existingSale.creation_state,
-          recoveryRequired: existingSale.creation_state !== 'completed',
-          retryable: existingSale.creation_state !== 'completed',
-        });
+        return replyToSavedSale(req, res, existingSale, orgId, requestFingerprint, installmentCount);
       }
     }
 
@@ -712,17 +735,12 @@ router.post('/reservations', authenticateToken, requireOrgContext, requireMinimu
       if (insertError.code === '23505' && idempotencyKey) {
         const { data: concurrentSale } = await supabaseAdmin
           .from('reservations')
-          .select('id, total_amount, currency, customer_name, customer_phone, party_size, options, notes, creation_state, creation_fingerprint, creation_error_stage')
+          .select('id, org_id, status, created_at, reservation_at, total_amount, currency, customer_name, customer_phone, party_size, options, notes, creation_state, creation_fingerprint, creation_error_stage')
           .eq('org_id', orgId)
           .eq('creation_idempotency_key', idempotencyKey)
           .maybeSingle();
         if (concurrentSale?.creation_fingerprint === requestFingerprint) {
-          return res.status(concurrentSale.creation_state === 'completed' ? 200 : 202).json({
-            ...concurrentSale,
-            creationState: concurrentSale.creation_state,
-            recoveryRequired: concurrentSale.creation_state !== 'completed',
-            retryable: concurrentSale.creation_state !== 'completed',
-          });
+          return replyToSavedSale(req, res, concurrentSale, orgId, requestFingerprint, installmentCount);
         }
         return apiError(res, 409, 'IDEMPOTENCY_KEY_REUSED', 'The idempotency key was already used for a different sale request');
       }
