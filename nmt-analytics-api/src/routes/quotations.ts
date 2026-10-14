@@ -36,7 +36,7 @@ const quotationSchema = z.object({
   items: z.array(quotationItemSchema).optional().default([]),
   clientNotes: z.string().max(4000).optional().nullable(),
   internalNotes: z.string().max(4000).optional().nullable(),
-  validUntil: z.string().datetime().optional().nullable(),
+  validUntil: z.union([z.string().date(), z.string().datetime()]).optional().nullable(),
   markupStrategy: z.enum(['uniform', 'per_item']).default('per_item'),
   globalMarkupPercent: z.number().min(0).max(1000).default(0),
 }).refine(

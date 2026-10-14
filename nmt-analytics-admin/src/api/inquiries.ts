@@ -41,3 +41,8 @@ export async function updateInquiry(id: string, payload: Partial<Inquiry>): Prom
   const { data } = await patch<Inquiry>(`/inquiries/${id}`, payload);
   return data;
 }
+
+export async function getInquiry(id: string): Promise<Inquiry> {
+  const { data } = await get<Inquiry>(`/inquiries/${id}`);
+  return data;
+}

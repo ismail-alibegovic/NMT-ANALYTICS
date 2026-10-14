@@ -205,7 +205,6 @@ export const en = {
     todayNearDepartures: 'Departures in the next 7 days',
     todayNearDeparturesDetail: '{count} departures need an operational check',
     todayLowOccupancyDetail: '{count} departures are below 30% occupancy',
-    alertSupplierConfirmations: 'Supplier confirmations outstanding: {count}',
     alertFlightMissing: 'Flight not configured',
     alertDocumentsAttention: '{count} passengers need travel document attention',
     alertGroupSplit: '{count} passenger groups are split or partial',
@@ -1070,6 +1069,8 @@ export const en = {
     failed: 'Failed', occupied: 'Occupied', free: 'Free',
   },
   itineraries: {
+    sourceLoading: 'Loading linked source…', sourceError: 'The linked source could not be loaded. Retry before creating this record.', retrySource: 'Retry source',
+    createQuotation: 'Create quotation',
     title: 'Itineraries', description: 'Versioned trip plans connected to inquiries and supplier services', search: 'Search title or destination…', add: 'New itinerary',
     emptyTitle: 'No itineraries yet', emptyDescription: 'Start from an inquiry or create a trip case directly, then build its day-by-day service plan.',
     itineraryTitle: 'Itinerary title', inquiry: 'Inquiry', noInquiry: 'No linked inquiry', tripType: 'Trip type', destination: 'Destination', start: 'Travel start', end: 'Travel end', travelers: 'travelers', currency: 'Currency',
@@ -1080,6 +1081,8 @@ export const en = {
     netSnapshot: 'Supplier net snapshot', addItem: 'Add itinerary item', addItemDescription: 'Choose a contracted supplier service or enter a manual activity. Supplier prices are copied into this version.', supplierService: 'Supplier service', manualItem: 'Manual activity / no supplier', manualTitle: 'Manual title', day: 'Day', time: 'Start time', quantity: 'Quantity', location: 'Location', close: 'Close', saveItem: 'Add item', itemSaved: 'Item added', itemUpdated: 'Item updated', itemRemoved: 'Item removed', editItem: 'Edit item', edit: '✎', itemTitleRequired: 'Select a supplier service or enter a title', remove: 'Remove', noItems: 'This version is empty', noItemsDescription: 'Add accommodation, transport, flights, guides, meals, activities, tickets, or manual schedule items.', notFound: 'Itinerary not found', notFoundDescription: 'This itinerary does not exist or is not available to your organization.',
   },
   quotations: {
+    sourceLoading: 'Loading linked source…', sourceError: 'The linked source could not be loaded. Retry before creating this record.', retrySource: 'Retry source',
+    modeLabel: 'Mode',
     title: 'Quotations', description: 'Fixed-price offers — standalone or from an itinerary', search: 'Search quotations…', add: 'New quotation',
     emptyTitle: 'No quotations yet', emptyDescription: 'Generate a fixed-price offer — with or without an itinerary.',
     loadError: 'Quotations could not be loaded', saveError: 'Changes could not be saved', saved: 'Quotation created', titleRequired: 'Title is required', itineraryRequired: 'Select an itinerary',

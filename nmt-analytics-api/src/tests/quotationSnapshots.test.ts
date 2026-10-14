@@ -483,3 +483,15 @@ describe('Quotation Snapshots', () => {
     });
   });
 });
+
+describe('quotation validity input', () => {
+  it.each(['2027-04-30', '2027-04-30T00:00:00.000Z'])('accepts the calendar/datetime value %s', async validUntil => {
+    const res = await request(makeApp()).post('/quotations').send({ title: 'Date acceptance', validUntil });
+    expect(res.status).toBe(201);
+    expect(res.body.validUntil).toBe(validUntil);
+  });
+  it.each(['2027-02-30', 'not-a-date'])('rejects invalid validity %s', async validUntil => {
+    const res = await request(makeApp()).post('/quotations').send({ title: 'Bad validity', validUntil });
+    expect(res.status).toBe(400);
+  });
+});
