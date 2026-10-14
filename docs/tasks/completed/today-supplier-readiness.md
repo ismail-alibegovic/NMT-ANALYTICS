@@ -1,6 +1,6 @@
 # M18.1 — Today supplier readiness
 
-**Status:** ACTIVE
+**Status:** COMPLETED
 **Priority:** P1
 **Branch:** fix/today-readiness
 **Roadmap references:** M18 Today/readiness, M16 supplier confirmations
@@ -35,3 +35,5 @@ Manager sees outstanding count and finance link; confirmed/cancelled do not coun
 
 ## 10. Verification
 API tests for counts, role and org/ID filters, error handling; admin queue/link and error tests; isolated browser workflow in both languages and desktop/mobile; full CI API/admin test/build/lint, migration replay/Docker, Vercel Preview health before merge.
+
+Completion: PR #82 merged as aa4777300b29e8a5d3595b3618da54dccd0f1af0. CI 38648542648 passed: API 664/admin 290 tests, builds, lint0 errors54 existing warnings, migration replay and Docker. Isolated acceptance 38648542763 passed17 tests, none skipped, including BS desktop/EN mobile supplier readiness, tenant/role isolation and status transitions. Preview dpl_43KbFGGqhH8oWuej7FTQNhcwSs4i READY/health200, database connected/auth bypass disabled. No migration. Exact source files recorded in PR #82.

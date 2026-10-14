@@ -190,7 +190,7 @@ export const bs: Translations = {
     todayNearDepartures: 'Polasci u narednih 7 dana',
     todayNearDeparturesDetail: '{count} polazaka zahtijeva operativnu provjeru',
     todayLowOccupancyDetail: '{count} polazaka je ispod 30% popunjenosti',
-    alertSupplierConfirmations: 'Nepotvrđene usluge dobavljača: {count}',
+    alertSupplierConfirmations: "Nepotvrđene usluge dobavljača: {count}",
     alertFlightMissing: 'Let nije povezan',
     alertDocumentsAttention: '{count} putnika traži provjeru dokumenata',
     alertGroupSplit: '{count} putničkih grupa je razdvojeno ili djelimično raspoređeno',
@@ -1070,6 +1070,8 @@ export const bs: Translations = {
     failed: 'Neuspješno', occupied: 'Zauzeto', free: 'Slobodno',
   },
   itineraries: {
+    sourceLoading: 'Učitavanje povezanog izvora…', sourceError: 'Povezani izvor nije moguće učitati. Pokušajte ponovo prije kreiranja zapisa.', retrySource: 'Pokušaj ponovo',
+    createQuotation: 'Kreiraj ponudu',
     title: 'Itinereri', description: 'Verzionirani planovi putovanja povezani sa upitima i uslugama dobavljača', search: 'Naziv ili destinacija…', add: 'Novi itinerer',
     emptyTitle: 'Nema itinerera', emptyDescription: 'Počnite iz upita ili direktno kreirajte predmet putovanja, a zatim složite dnevni plan usluga.',
     itineraryTitle: 'Naziv itinerera', inquiry: 'Upit', noInquiry: 'Bez povezanog upita', tripType: 'Vrsta putovanja', destination: 'Destinacija', start: 'Početak putovanja', end: 'Kraj putovanja', travelers: 'putnika', currency: 'Valuta',
@@ -1080,6 +1082,9 @@ export const bs: Translations = {
     netSnapshot: 'Snimak nabavnih troškova', addItem: 'Dodaj stavku', addItemDescription: 'Izaberite ugovorenu uslugu dobavljača ili unesite ručnu aktivnost. Cijene dobavljača kopiraju se u ovu verziju.', supplierService: 'Usluga dobavljača', manualItem: 'Ručna aktivnost / bez dobavljača', manualTitle: 'Naziv ručne stavke', day: 'Dan', time: 'Vrijeme početka', quantity: 'Količina', location: 'Lokacija', close: 'Zatvori', saveItem: 'Dodaj stavku', itemSaved: 'Stavka je dodana', itemUpdated: 'Stavka je ažurirana', itemRemoved: 'Stavka je uklonjena', editItem: 'Uredi stavku', edit: '✎', itemTitleRequired: 'Izaberite uslugu dobavljača ili unesite naziv', remove: 'Ukloni', noItems: 'Ova verzija je prazna', noItemsDescription: 'Dodajte smještaj, prevoz, letove, vodiče, obroke, aktivnosti, ulaznice ili ručne stavke rasporeda.', notFound: 'Itinerer nije pronađen', notFoundDescription: 'Itinerer ne postoji ili nije dostupan vašoj organizaciji.',
   },
   quotations: {
+    sourceVersion: "Verzija izvora",
+    sourceLoading: 'Učitavanje povezanog izvora…', sourceError: 'Povezani izvor nije moguće učitati. Pokušajte ponovo prije kreiranja zapisa.', retrySource: 'Pokušaj ponovo',
+    modeLabel: 'Način kreiranja',
     title: 'Ponude', description: 'Fiksne ponude — samostalne ili iz itinerera', search: 'Pretraži ponude…', add: 'Nova ponuda',
     emptyTitle: 'Nema ponuda', emptyDescription: 'Kreirajte fiksnu ponudu — sa ili bez itinerera.',
     loadError: 'Ponude se ne mogu učitati', saveError: 'Izmjene se ne mogu sačuvati', saved: 'Ponuda je kreirana', titleRequired: 'Naziv je obavezan', itineraryRequired: 'Izaberite itinerer',

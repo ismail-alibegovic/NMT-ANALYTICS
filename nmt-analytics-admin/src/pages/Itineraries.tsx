@@ -11,7 +11,7 @@ import { Modal } from '../components/ui/modal';
 import { useToast } from '../context/ToastContext';
 import { useT } from '../lib/i18n/context';
 import { createItinerary, getItineraries, type CreateItinerary, type Itinerary } from '../api/itineraries';
-import { getInquiries, type Inquiry, type InquiryTripType } from '../api/inquiries';
+import { getInquiry, getInquiries, type Inquiry, type InquiryTripType } from '../api/inquiries';
 
 const tripTypes: InquiryTripType[] = ['scheduled_group', 'tailor_made', 'accommodation_only', 'flight_only', 'corporate', 'pilgrimage', 'excursion', 'transfer', 'other'];
 const emptyForm: CreateItinerary = { title: '', tripType: 'tailor_made', status: 'draft', travelers: 1, currency: 'BAM', inquiryId: null, destination: null, travelStart: null, travelEnd: null };
@@ -21,14 +21,41 @@ export default function Itineraries() {
   const { success, error: showError } = useToast();
   const [rows, setRows] = useState<Itinerary[]>([]); const [inquiries, setInquiries] = useState<Inquiry[]>([]); const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true); const [open, setOpen] = useState(false); const [saving, setSaving] = useState(false); const [form, setForm] = useState<CreateItinerary>(emptyForm);
+  const [sourceLoading, setSourceLoading] = useState(false);
+  const [sourceError, setSourceError] = useState(false);
+  const [sourceRetry, setSourceRetry] = useState(0);
   const typeLabel = (value: string) => c.tripTypes[value as keyof typeof c.tripTypes] || value;
   const load = async (q = '') => { setLoading(true); try { setRows(await getItineraries(q)); } catch (e: any) { showError(e?.message || c.loadError); } finally { setLoading(false); } };
-  useEffect(() => { void load(); void getInquiries().then(setInquiries); }, []);
-  useEffect(() => { if (params.get('new') !== '1') return; const inquiryId = params.get('inquiryId'); const inquiry = inquiries.find((item) => item.id === inquiryId); setForm(inquiry ? { ...emptyForm, inquiryId: inquiry.id, title: `${inquiry.destination || c.newTrip} — ${inquiry.contactName}`, tripType: inquiry.tripType, destination: inquiry.destination, travelStart: inquiry.travelStart, travelEnd: inquiry.travelEnd, travelers: inquiry.travelers, currency: inquiry.currency } : emptyForm); setOpen(true); const next = new URLSearchParams(params); next.delete('new'); next.delete('inquiryId'); setParams(next, { replace: true }); }, [params, inquiries, setParams]);
+  useEffect(() => { void load(); void getInquiries().then(rows => setInquiries(previous => [...rows, ...previous.filter(existing => !rows.some(row => row.id === existing.id))])).catch(() => showError(c.loadError)); }, []);
+  useEffect(() => {
+    if (params.get('new') !== '1') return;
+    let active = true;
+    const inquiryId = params.get('inquiryId');
+    setSourceError(false);
+    const finish = (inquiry?: Inquiry) => {
+      if (!active) return;
+      if (inquiry) setInquiries(previous => previous.some(row => row.id === inquiry.id) ? previous : [inquiry, ...previous]);
+      setForm(inquiry ? { ...emptyForm, inquiryId: inquiry.id, title: `${inquiry.destination || c.newTrip} — ${inquiry.contactName}`, tripType: inquiry.tripType, destination: inquiry.destination, travelStart: inquiry.travelStart, travelEnd: inquiry.travelEnd, travelers: inquiry.travelers, currency: inquiry.currency } : emptyForm);
+      setSourceLoading(false);
+      setOpen(true);
+      const next = new URLSearchParams(params);
+      next.delete('new'); next.delete('inquiryId');
+      setParams(next, { replace: true });
+    };
+    if (inquiryId) {
+      setSourceLoading(true);
+      void getInquiry(inquiryId).then(finish).catch(() => {
+        if (active) { setSourceLoading(false); setSourceError(true); }
+      });
+    } else finish();
+    return () => { active = false; };
+  }, [params, setParams, sourceRetry, c.newTrip]);
   const save = async () => { if (!form.title.trim()) return showError(c.titleRequired); setSaving(true); try { const created = await createItinerary({ ...form, travelers: Number(form.travelers) }); success(c.saved); navigate(`/itineraries/${created.id}`); } catch (e: any) { showError(e?.message || c.saveError); } finally { setSaving(false); } };
   return <>
     <PageMeta title={`${c.title} | Travline`} description={c.description} />
     <PageToolbar title={c.title} description={c.description} searchValue={search} searchPlaceholder={c.search} onSearchChange={(v) => { setSearch(v); void load(v); }} createButton={{ label: c.add, onClick: () => { setForm(emptyForm); setOpen(true); } }} />
+    {sourceLoading && <p role="status" className="mb-4 text-sm text-gray-500">{c.sourceLoading}</p>}
+    {sourceError && <div role="alert" className="mb-4 rounded-lg border border-red-200 p-4 text-sm text-red-700 dark:border-red-800 dark:text-red-300">{c.sourceError} <Button variant="outline" onClick={() => setSourceRetry(value => value + 1)}>{c.retrySource}</Button></div>}
     {loading ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{[1,2,3].map((n) => <div key={n} className="h-48 animate-pulse rounded-xl bg-gray-100 dark:bg-white/[0.04]" />)}</div> : rows.length === 0 ? <EmptyState title={c.emptyTitle} description={c.emptyDescription} action={{ label: c.add, onClick: () => setOpen(true) }} /> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{rows.map((row) => <button key={row.id} onClick={() => navigate(`/itineraries/${row.id}`)} className="rounded-xl border border-gray-200 bg-white p-5 text-left transition-colors hover:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-700"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="truncate text-base font-semibold text-gray-900 dark:text-white">{row.title}</h2><p className="mt-1 truncate text-sm text-gray-500 dark:text-gray-400">{row.destination || c.noDestination}</p></div><Badge size="sm" color={row.status === 'active' ? 'success' : 'light'}>{c.statuses[row.status]}</Badge></div><div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-gray-500 dark:text-gray-400"><span>{typeLabel(row.tripType)}</span><span>{row.travelers} {c.travelers}</span><span>v{row.currentVersion}</span></div>{row.inquiry && <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">{c.inquiry}: <strong className="text-gray-700 dark:text-gray-200">{row.inquiry.contactName}</strong></p>}</button>)}</div>}
     <Modal isOpen={open} onClose={() => setOpen(false)} className="m-4 max-w-2xl" title={c.add}>
       <div className="grid max-h-[75vh] gap-4 overflow-y-auto p-6 sm:grid-cols-2"><Field label={`${c.itineraryTitle} *`}><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field><Field label={c.inquiry}><Select value={form.inquiryId || ''} onChange={(v) => { const inquiry = inquiries.find((x) => x.id === v); setForm(inquiry ? { ...form, inquiryId: inquiry.id, tripType: inquiry.tripType, destination: inquiry.destination, travelStart: inquiry.travelStart, travelEnd: inquiry.travelEnd, travelers: inquiry.travelers, currency: inquiry.currency } : { ...form, inquiryId: null }); }} options={[{ value: '', label: c.noInquiry }, ...inquiries.map((x) => ({ value: x.id, label: `${x.contactName}${x.destination ? ` — ${x.destination}` : ''}` }))]} /></Field><Field label={c.tripType}><Select value={form.tripType} onChange={(v) => setForm({ ...form, tripType: v as InquiryTripType })} options={tripTypes.map((v) => ({ value: v, label: typeLabel(v) }))} /></Field><Field label={c.destination}><Input value={form.destination || ''} onChange={(e) => setForm({ ...form, destination: e.target.value || null })} /></Field><Field label={c.start}><Input type="date" value={form.travelStart || ''} onChange={(e) => setForm({ ...form, travelStart: e.target.value || null })} /></Field><Field label={c.end}><Input type="date" value={form.travelEnd || ''} onChange={(e) => setForm({ ...form, travelEnd: e.target.value || null })} /></Field><Field label={c.travelers}><Input type="number" min="1" value={form.travelers} onChange={(e) => setForm({ ...form, travelers: Number(e.target.value) })} /></Field><Field label={c.currency}><Input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase().slice(0, 3) })} /></Field><div className="flex justify-end gap-2 border-t border-gray-100 pt-4 sm:col-span-2 dark:border-gray-800"><Button variant="outline" onClick={() => setOpen(false)}>{c.cancel}</Button><Button onClick={() => void save()} disabled={saving}>{saving ? c.saving : c.create}</Button></div></div>

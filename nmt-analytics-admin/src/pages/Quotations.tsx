@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import PageMeta from '../components/common/PageMeta';
 import PageToolbar from '../components/ui/PageToolbar';
@@ -11,13 +11,17 @@ import { Modal } from '../components/ui/modal';
 import { useToast } from '../context/ToastContext';
 import { useT } from '../lib/i18n/context';
 import { createQuotation, getQuotations, type CreateQuotation, type Quotation } from '../api/quotations';
-import { getItineraries, type Itinerary } from '../api/itineraries';
+import { getItinerary, getItineraries, type Itinerary } from '../api/itineraries';
 
 
 export default function Quotations() {
   const { t } = useT(); const c = t.quotations; const navigate = useNavigate(); const [params, setParams] = useSearchParams();
   const { success, error: showError } = useToast();
   const [rows, setRows] = useState<Quotation[]>([]); const [itineraries, setItineraries] = useState<Itinerary[]>([]);
+  const sourceRequest = useRef(0);
+  const [sourceVersion, setSourceVersion] = useState<number | null>(null);
+  const [sourceLoading, setSourceLoading] = useState(false);
+  const [sourceError, setSourceError] = useState(false);
   const [search, setSearch] = useState(''); const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false); const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<CreateQuotation & { _mode: 'standalone' | 'itinerary' }>({
@@ -26,31 +30,56 @@ export default function Quotations() {
   });
 
   const load = async (q = '') => { setLoading(true); try { setRows(await getQuotations(q ? { search: q } : undefined)); } catch (e: any) { showError(e?.message || c.loadError); } finally { setLoading(false); } };
-  useEffect(() => { void load(); void getItineraries().then(setItineraries); }, []);
+  useEffect(() => { void load(); void getItineraries().then(rows => setItineraries(previous => [...rows, ...previous.filter(existing => !rows.some(row => row.id === existing.id))])).catch(() => showError(c.loadError)); }, []);
+
+  const chooseItinerary = useCallback(async (itineraryId: string, versionId?: string | null) => {
+    const requestId = ++sourceRequest.current;
+    setSourceError(false);
+    setSourceVersion(null);
+    setSourceLoading(Boolean(itineraryId));
+    setForm(previous => ({ ...previous, _mode: 'itinerary', itineraryId: itineraryId || undefined, itineraryVersionId: undefined }));
+    if (!itineraryId) return;
+    try {
+      const detail = await getItinerary(itineraryId);
+      const version = versionId ? detail.versions.find(row => row.id === versionId) : detail.versions.find(row => row.versionNumber === detail.currentVersion);
+      if (!version) throw new Error('Itinerary version unavailable');
+      if (requestId !== sourceRequest.current) return;
+      setSourceVersion(version.versionNumber);
+      setItineraries(previous => previous.some(row => row.id === detail.id) ? previous : [detail, ...previous]);
+      setForm(previous => ({ ...previous, _mode: 'itinerary', itineraryId: detail.id, itineraryVersionId: version.id, title: `${c.offerFor}: ${detail.title}`, currency: detail.currency }));
+      if (params.get('new') === '1') {
+        const next = new URLSearchParams(params);
+        next.delete('new'); next.delete('itineraryId'); next.delete('versionId');
+        setParams(next, { replace: true });
+      }
+    } catch {
+      if (requestId === sourceRequest.current) setSourceError(true);
+    } finally {
+      if (requestId === sourceRequest.current) setSourceLoading(false);
+    }
+  }, [c.offerFor, params, setParams]);
 
   useEffect(() => {
     if (params.get('new') !== '1') return;
+    setOpen(true);
     const itineraryId = params.get('itineraryId');
-    const versionId = params.get('versionId');
-    const itinerary = itineraries.find((x) => x.id === itineraryId);
-    if (itinerary) {
-      const current = itinerary.versions.find((v) => v.versionNumber === itinerary.currentVersion);
-      setForm({
-        _mode: 'itinerary',
-        itineraryId: itinerary.id,
-        itineraryVersionId: versionId || current?.id || '',
-        title: `${c.offerFor}: ${itinerary.title}`,
-        currency: itinerary.currency,
-        clientNotes: null, internalNotes: null, validUntil: null,
-        markupStrategy: 'per_item', globalMarkupPercent: 0,
-      });
+    if (itineraryId) void chooseItinerary(itineraryId, params.get('versionId'));
+    else {
+      const next = new URLSearchParams(params); next.delete('new');
+      setParams(next, { replace: true });
     }
-    setOpen(true); const next = new URLSearchParams(params); next.delete('new'); next.delete('itineraryId'); next.delete('versionId'); setParams(next, { replace: true });
-  }, [params, itineraries, setParams]);
+    return () => { sourceRequest.current += 1; };
+  }, [params, setParams, chooseItinerary]);
+
+  function closeForm() {
+    sourceRequest.current += 1;
+    setSourceLoading(false); setSourceError(false); setOpen(false);
+  }
 
   const save = async () => {
     if (!form.title.trim()) return showError(c.titleRequired);
-    if (form._mode === 'itinerary' && !form.itineraryId) return showError(c.itineraryRequired || 'Select an itinerary');
+    if (sourceLoading || sourceError) return;
+    if (form._mode === 'itinerary' && (!form.itineraryId || !form.itineraryVersionId)) return showError(c.itineraryRequired || 'Select an itinerary');
     setSaving(true);
     try {
       const payload: CreateQuotation = {
@@ -126,15 +155,15 @@ export default function Quotations() {
       </div>
     )}
 
-    <Modal isOpen={open} onClose={() => setOpen(false)} className="m-4 max-w-2xl" title={c.add}>
+    <Modal isOpen={open} onClose={closeForm} className="m-4 max-w-2xl" title={c.add}>
       <div className="grid max-h-[75vh] gap-4 overflow-y-auto p-6 sm:grid-cols-2">
         {/* Mode selector */}
         <div className="sm:col-span-2">
-          <Label>Mode</Label>
+          <Label>{c.modeLabel}</Label>
           <div className="mt-1.5 flex gap-2">
             <button
               type="button"
-              onClick={() => setForm({ ...form, _mode: 'standalone', itineraryId: undefined, itineraryVersionId: undefined })}
+              onClick={() => { sourceRequest.current += 1; setSourceLoading(false); setSourceError(false); setForm({ ...form, _mode: 'standalone', itineraryId: undefined, itineraryVersionId: undefined }); }}
               className={`flex-1 rounded-lg border px-4 py-2.5 text-left text-sm transition-colors ${
                 form._mode === 'standalone'
                   ? 'border-brand-500 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-500/10 dark:text-brand-300'
@@ -163,21 +192,7 @@ export default function Quotations() {
           <Field label={c.itinerary}>
             <Select
               value={form.itineraryId || ''}
-              onChange={(v) => {
-                const itinerary = itineraries.find((x) => x.id === v);
-                if (itinerary) {
-                  const current = itinerary.versions.find((ver) => ver.versionNumber === itinerary.currentVersion);
-                  setForm({
-                    ...form,
-                    itineraryId: itinerary.id,
-                    itineraryVersionId: current?.id || '',
-                    title: `${c.offerFor}: ${itinerary.title}`,
-                    currency: itinerary.currency,
-                  });
-                } else {
-                  setForm({ ...form, itineraryId: undefined, itineraryVersionId: undefined });
-                }
-              }}
+              onChange={(v) => { void chooseItinerary(v); }}
               options={[
                 { value: '', label: c.selectItinerary },
                 ...itineraries.map((x) => ({ value: x.id, label: `${x.title} (v${x.currentVersion})` })),
@@ -185,6 +200,9 @@ export default function Quotations() {
             />
           </Field>
         )}
+        {form._mode === 'itinerary' && sourceVersion !== null && <p className="text-sm text-gray-600 dark:text-gray-300 sm:col-span-2">{c.sourceVersion}: v{sourceVersion}</p>}
+        {sourceLoading && <p role="status" className="text-sm text-gray-500 sm:col-span-2">{c.sourceLoading}</p>}
+        {sourceError && <div role="alert" className="text-sm text-red-700 dark:text-red-300 sm:col-span-2">{c.sourceError} <Button variant="outline" onClick={() => void chooseItinerary(form.itineraryId || '', params.get('versionId'))}>{c.retrySource}</Button></div>}
         <Field label={`${c.titleLabel} *`}>
           <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
         </Field>
@@ -204,7 +222,7 @@ export default function Quotations() {
           <Input type="date" value={form.validUntil || ''} onChange={(e) => setForm({ ...form, validUntil: e.target.value || null })} />
         </Field>
         <Field label={c.currency}>
-          <Input value={form.currency || 'BAM'} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase().slice(0, 3) })} />
+          <Input disabled={form._mode === 'itinerary'} value={form.currency || 'BAM'} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase().slice(0, 3) })} />
         </Field>
         <div className="sm:col-span-2">
           <Label>{c.clientNotes}</Label>
@@ -216,8 +234,8 @@ export default function Quotations() {
           />
         </div>
         <div className="flex justify-end gap-2 border-t border-gray-100 pt-4 sm:col-span-2 dark:border-gray-800">
-          <Button variant="outline" onClick={() => setOpen(false)}>{c.cancel}</Button>
-          <Button onClick={() => void save()} disabled={saving}>{saving ? c.saving : c.create}</Button>
+          <Button variant="outline" onClick={closeForm}>{c.cancel}</Button>
+          <Button onClick={() => void save()} disabled={saving || sourceLoading || sourceError || (form._mode === 'itinerary' && !form.itineraryVersionId)}>{saving ? c.saving : c.create}</Button>
         </div>
       </div>
     </Modal>
