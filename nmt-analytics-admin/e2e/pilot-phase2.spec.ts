@@ -394,6 +394,31 @@ test.describe.serial('Travline BAM-only bus-tour pilot acceptance phase 2', () =
     await expectStatus(repeated, [409]);
   });
 
+  test('releases concurrent sale retry holds so remaining capacity is still bookable', async ({ request }) => {
+    const token = await signIn(request);
+    const target = await createPackageAndDeparture(request, token, 3);
+    const marker = unique('capacity-retry');
+    const data = {
+      departureId: target.departureId, customerId, customerName: marker,
+      customerPhone: '+38761000001', partySize: 1, reservationAt: new Date().toISOString(),
+      status: 'confirmed', totalAmount: 180, currency: 'BAM', source: 'agent',
+      passengers: [{ full_name: marker }],
+    };
+    const retryHeaders = headers(token, { 'Idempotency-Key': unique('same-sale') });
+    const attempts = await Promise.all([0, 1].map(() => request.post(`${apiUrl}/api/reservations`, { headers: retryHeaders, data })));
+    for (const response of attempts) await expectStatus(response, [200, 201, 202]);
+    const sales = await Promise.all(attempts.map(response => json<Reservation>(response)));
+    expect(new Set(sales.map(sale => sale.id)).size).toBe(1);
+    expect(await departurePassengers(request, token, target.departureId)).toHaveLength(1);
+    await createReservation(request, token, target.departureId, 2);
+    expect(await departurePassengers(request, token, target.departureId)).toHaveLength(3);
+    const full = await request.post(`${apiUrl}/api/reservations`, {
+      headers: headers(token, { 'Idempotency-Key': unique('full-sale') }),
+      data: { ...data, customerName: unique('full'), passengers: [{ full_name: unique('full-passenger') }] },
+    });
+    await expectStatus(full, [409]);
+  });
+
   test('tracks supplier confirmation status/history, canonical documents, and profitability', async ({ request }) => {
     const managerToken = await signIn(request);
     const supplier = await request.post(`${apiUrl}/api/suppliers`, {
