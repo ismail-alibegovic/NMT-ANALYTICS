@@ -45,6 +45,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await wizard.getByRole('spinbutton').fill('2');
     await wizard.getByPlaceholder('Putnik 1 - puno ime').fill(`${marker} A`);
     await wizard.getByPlaceholder('Putnik 2 - puno ime').fill(`${marker} B`);
+    // The wizard intentionally rejects progression until package services resolve.
+    await expect(wizard.getByText('Dodatne usluge se još učitavaju...', { exact: true })).toBeHidden({ timeout: 15_000 });
     await wizard.getByRole('button', { name: 'Dalje', exact: true }).click();
     await expect(wizard.getByText('Način plaćanja', { exact: true })).toBeVisible();
     await wizard.getByPlaceholder('0.00').fill('360');
