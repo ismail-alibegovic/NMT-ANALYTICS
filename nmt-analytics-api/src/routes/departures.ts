@@ -24,6 +24,7 @@ import {
   travelerRequirementsWriteSchema,
 } from '../lib/travelerRequirements';
 import { toCents, fromCents } from '../lib/money';
+import { hasAccess } from '../types/roles';
 
 const router = Router();
 
@@ -735,6 +736,22 @@ router.get('/departures/readiness-summary', authenticateToken, requireOrgContext
       departuresWithFlightSegments.add(seg.departure_id);
     }
 
+    // Match the supplier board's authorization and outstanding semantics.
+    const supplierIssuesByDeparture = new Map<string, number>();
+    const canReadSuppliers = hasAccess('manager', req.user?.role);
+    if (canReadSuppliers) {
+      const { data: supplierItems, error: supplierError } = await supabaseAdmin
+        .from('departure_cost_items')
+        .select('departure_id, confirmation_status')
+        .eq('org_id', orgId)
+        .in('departure_id', departureIds);
+      if (supplierError) return handleSupabaseError(res, supplierError, 'Failed to fetch supplier readiness');
+      for (const item of supplierItems || []) {
+        if (item.confirmation_status === 'confirmed' || item.confirmation_status === 'cancelled') continue;
+        supplierIssuesByDeparture.set(item.departure_id, (supplierIssuesByDeparture.get(item.departure_id) || 0) + 1);
+      }
+    }
+
     const results = departures.map((departure: any) => {
       const pkg = departure.packages || null;
 
@@ -787,6 +804,9 @@ router.get('/departures/readiness-summary', authenticateToken, requireOrgContext
 
       return {
         departureId: departure.id,
+        departureLabel: pkg?.name || pkg?.destination || '',
+        departAt: departure.depart_at,
+        ...(canReadSuppliers ? { supplierIssues: supplierIssuesByDeparture.get(departure.id) || 0 } : {}),
         hasFlight: capabilities.hasFlight,
         flightConfigured: capabilities.flightConfigured,
         needTravelDocuments: capabilities.needTravelDocuments,

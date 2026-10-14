@@ -9,7 +9,7 @@ import {
   type OverviewAnalyticsV2,
   type RevenueSeriesDataPoint,
 } from "../../api/analytics";
-import { generateRoomingProposal, getDeparture, getDeparturePassengers, getDepartures } from "../../api/departures";
+import { generateRoomingProposal, getDeparture, getDeparturePassengers, getDepartures, getReadinessSummary } from "../../api/departures";
 import { getReservations, type Reservation } from "../../api/reservations";
 import { getPaymentDashboard, type PaymentDashboardMetric } from "../../api/payments";
 import {
@@ -51,6 +51,7 @@ type TodayWorkItem = {
 
 type ReadinessAlert = {
   id: string;
+  href?: string;
   departureId: string;
   departureLabel: string;
   label: string;
@@ -291,12 +292,13 @@ const HomeHub: React.FC = () => {
         const fortnightAgo = new Date(today.getTime() - 14 * 86_400_000).toISOString().split("T")[0];
         const monetaryFilters = selectedCurrency ? { currency: selectedCurrency } : {};
 
-        const [ov, deps, rev, paymentsDashboard, pending] = await Promise.allSettled([
+        const [ov, deps, rev, paymentsDashboard, pending, supplierReadiness] = await Promise.allSettled([
           getAnalyticsOverviewV2({ from: fortnightAgo, to: todayISO, ...monetaryFilters }),
           getDepartures({ status: "active", dateFrom: todayISO, limit: 12 }),
           getRevenueSeries({ from: fortnightAgo, to: todayISO, bucket: "daily", ...monetaryFilters }),
           showFinance ? getPaymentDashboard() : Promise.resolve(null),
           getReservations({ status: "pending", limit: 3 }),
+          showFinance ? getReadinessSummary(todayISO, 12) : Promise.resolve({ departures: [] }),
         ]);
 
         if (!active) return;
@@ -402,7 +404,22 @@ const HomeHub: React.FC = () => {
           );
 
           if (active) {
-            setReadinessAlerts(readinessResults.flat().slice(0, 4));
+            const supplierAlerts: ReadinessAlert[] = supplierReadiness.status === "fulfilled"
+              ? supplierReadiness.value.departures
+                .filter((row) => {
+                  const time = new Date(row.departAt).getTime();
+                  return (row.supplierIssues || 0) > 0 && time >= Date.now() - 86_400_000 && time <= Date.now() + 7 * 86_400_000;
+                })
+                .map((row) => ({
+                  id: `suppliers-${row.departureId}`,
+                  departureId: row.departureId,
+                  departureLabel: row.departureLabel || hub.untitledDeparture,
+                  label: hub.alertSupplierConfirmations.replace("{count}", String(row.supplierIssues)),
+                  urgency: "attention" as const,
+                  href: `/departures/${row.departureId}?tab=finance`,
+                }))
+              : [];
+            setReadinessAlerts([...supplierAlerts, ...readinessResults.flat()].slice(0, 4));
           }
         }
         if (rev.status === "fulfilled") setRevenue(rev.value || []);
@@ -413,9 +430,9 @@ const HomeHub: React.FC = () => {
         setQueueError(
           deps.status === "rejected" ||
           pending.status === "rejected" ||
-          (showFinance && paymentsDashboard.status === "rejected")
+          (showFinance && (paymentsDashboard.status === "rejected" || supplierReadiness.status === "rejected"))
         );
-        [ov, deps, rev, paymentsDashboard, pending].forEach((result) => {
+        [ov, deps, rev, paymentsDashboard, pending, supplierReadiness].forEach((result) => {
           if (result.status === "rejected") logger.error("[HomeHub] partial load failed", result.reason);
         });
         if (paymentsDashboard.status === "fulfilled" && paymentsDashboard.value) {
@@ -537,7 +554,7 @@ const HomeHub: React.FC = () => {
         id: alert.id,
         title: alert.departureLabel,
         detail: alert.label,
-        href: `/departures/${alert.departureId}`,
+        href: alert.href || `/departures/${alert.departureId}`,
         kind: "departure",
         urgency: alert.urgency,
       });

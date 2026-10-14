@@ -194,6 +194,8 @@ export interface DepartureAccommodationResponse {
 
 export interface ReadinessDeparture {
   departureId: string;
+  departAt: string;
+  supplierIssues?: number;
   hasFlight: boolean;
   flightConfigured: boolean;
   needTravelDocuments: boolean;
@@ -986,4 +988,10 @@ export async function applySeatingProposal(
 ): Promise<SeatingApplyResult> {
   const { data } = await post<SeatingApplyResult>(`/departures/${departureId}/seating/apply`, input);
   return data;
+}
+
+/** Batched operational readiness; supplier signals are manager-only. */
+export async function getReadinessSummary(dateFrom: string, limit = 12): Promise<ReadinessSummary> {
+  const response = await get<ReadinessSummary>(`/departures/readiness-summary?dateFrom=${encodeURIComponent(dateFrom)}&limit=${limit}`);
+  return response.data;
 }

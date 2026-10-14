@@ -190,6 +190,7 @@ export const bs: Translations = {
     todayNearDepartures: 'Polasci u narednih 7 dana',
     todayNearDeparturesDetail: '{count} polazaka zahtijeva operativnu provjeru',
     todayLowOccupancyDetail: '{count} polazaka je ispod 30% popunjenosti',
+    alertSupplierConfirmations: 'Nepotvrđene usluge dobavljača: {count}',
     alertFlightMissing: 'Let nije povezan',
     alertDocumentsAttention: '{count} putnika traži provjeru dokumenata',
     alertGroupSplit: '{count} putničkih grupa je razdvojeno ili djelimično raspoređeno',
