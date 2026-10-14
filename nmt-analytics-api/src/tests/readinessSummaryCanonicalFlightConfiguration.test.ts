@@ -6,12 +6,15 @@ const mockState = vi.hoisted(() => ({
   departures: [] as any[],
   flightSegments: [] as any[],
   flightSegmentsError: null as any,
+  role: 'manager',
+  supplierItems: [] as any[],
+  supplierError: null as any,
   calls: [] as Array<{ table: string; method: string; args: any[] }>,
 }));
 
 vi.mock('../middleware/authenticateToken', () => ({
   authenticateToken: (req: any, _res: any, next: any) => {
-    req.user = { id: 'user-1', email: 'test@example.com' };
+    req.user = { id: 'user-1', email: 'test@example.com', role: mockState.role };
     next();
   },
 }));
@@ -74,6 +77,7 @@ async function execute(table: string) {
   if (table === 'departure_flights') {
     return { data: mockState.flightSegments, error: mockState.flightSegmentsError };
   }
+  if (table === 'departure_cost_items') return { data: mockState.supplierItems, error: mockState.supplierError };
   return { data: [], error: null };
 }
 
@@ -114,6 +118,9 @@ beforeEach(() => {
   mockState.flightSegments = [];
   mockState.flightSegmentsError = null;
   mockState.calls = [];
+  mockState.role = 'manager';
+  mockState.supplierItems = [];
+  mockState.supplierError = null;
 });
 
 describe('GET /api/departures/readiness-summary — canonical flight configuration', () => {
@@ -177,5 +184,38 @@ describe('GET /api/departures/readiness-summary — canonical flight configurati
       method: 'in',
       args: ['departure_id', ['dep-empty', 'dep-configured']],
     });
+  });
+});
+
+describe('supplier readiness in batch summary', () => {
+  it('counts only outstanding confirmations and scopes one batch read by tenant and departures', async () => {
+    mockState.departures = [flightDeparture()];
+    mockState.supplierItems = ['unconfirmed', 'requested', 'confirmed', 'cancelled', null]
+      .map(confirmation_status => ({ departure_id: 'dep-1', confirmation_status }));
+    const res = await request(app).get('/api/departures/readiness-summary');
+    expect(res.status).toBe(200);
+    expect(res.body.departures[0]).toMatchObject({ supplierIssues: 3, departureLabel: 'Vienna Imperial Tour' });
+    const calls = mockState.calls.filter(call => call.table === 'departure_cost_items');
+    expect(calls.filter(call => call.method === 'select')).toHaveLength(1);
+    expect(calls).toContainEqual({ table: 'departure_cost_items', method: 'eq', args: ['org_id', 'org-1'] });
+    expect(calls).toContainEqual({ table: 'departure_cost_items', method: 'in', args: ['departure_id', ['dep-1']] });
+    expect(calls.find(call => call.method === 'select')?.args).toEqual(['departure_id, confirmation_status']);
+  });
+
+  it.each(['agent', 'viewer'])('does not query or expose supplier data to %s', async role => {
+    mockState.role = role;
+    mockState.departures = [flightDeparture()];
+    const res = await request(app).get('/api/departures/readiness-summary');
+    expect(res.status).toBe(200);
+    expect(res.body.departures[0]).not.toHaveProperty('supplierIssues');
+    expect(mockState.calls.some(call => call.table === 'departure_cost_items')).toBe(false);
+  });
+
+  it('fails visibly when supplier readiness cannot be read', async () => {
+    mockState.departures = [flightDeparture()];
+    mockState.supplierError = { message: 'supplier query unavailable' };
+    const res = await request(app).get('/api/departures/readiness-summary');
+    expect(res.status).toBe(500);
+    expect(res.body.message).toBe('Failed to fetch supplier readiness');
   });
 });

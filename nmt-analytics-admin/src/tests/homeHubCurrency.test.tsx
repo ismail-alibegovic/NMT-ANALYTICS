@@ -5,6 +5,12 @@ import HomeHub from '../pages/Hub/HomeHub';
 
 let overviewResponse: any;
 let revenueResponse: any[];
+let readinessResponse: any = { departures: [] };
+let readinessError = false;
+const getReadinessSummary = vi.fn(async () => {
+  if (readinessError) throw new Error('readiness unavailable');
+  return readinessResponse;
+});
 
 const getAnalyticsOverviewV2 = vi.fn(async (_filters?: any) => overviewResponse);
 const getRevenueSeries = vi.fn(async (_filters?: any) => revenueResponse);
@@ -19,6 +25,7 @@ vi.mock('../api/analytics', () => ({
 
 vi.mock('../api/departures', () => ({
   getDepartures: (params?: any) => getDepartures(params),
+  getReadinessSummary: () => getReadinessSummary(),
   getDeparture: vi.fn(),
   getDeparturePassengers: vi.fn(),
   generateRoomingProposal: vi.fn(),
@@ -69,6 +76,7 @@ const hub = {
   good_evening: 'Good evening',
   focusNewReservation: 'New reservation',
   untitledDeparture: 'Untitled departure',
+  alertSupplierConfirmations: 'Supplier confirmations outstanding: {count}',
   alertFlightMissing: 'Flight missing',
   alertDocumentsAttention: 'Documents {count}',
   alertRoomingMissingConfig: 'Rooming missing',
@@ -166,6 +174,8 @@ function renderHub() {
 }
 
 beforeEach(() => {
+  readinessResponse = { departures: [] };
+  readinessError = false;
   vi.clearAllMocks();
   seedSingle('BAM');
 });
@@ -212,5 +222,34 @@ describe('HomeHub currency handling', () => {
       expect(getRevenueSeries).toHaveBeenLastCalledWith(expect.objectContaining({ currency: 'EUR' }));
     });
     await screen.findAllByText('50 EUR');
+  });
+});
+
+describe('HomeHub supplier readiness', () => {
+  it('shows the outstanding count and opens the exact finance tab', async () => {
+    seedSingle('BAM');
+    readinessResponse = { departures: [{ departureId: 'near-departure', departAt: new Date(Date.now() + 86400000).toISOString(), departureLabel: 'Near Tour', supplierIssues: 2 }] };
+    renderHub();
+    const alert = await screen.findByText('Supplier confirmations outstanding: 2');
+    expect(alert.closest('a')).toHaveAttribute('href', '/departures/near-departure?tab=finance');
+    expect(getReadinessSummary).toHaveBeenCalled();
+  });
+
+  it('ignores distant and confirmed supplier services', async () => {
+    seedSingle('BAM');
+    readinessResponse = { departures: [
+      { departureId: 'far', departAt: new Date(Date.now() + 30 * 86400000).toISOString(), supplierIssues: 2 },
+      { departureId: 'ready', departAt: new Date(Date.now() + 86400000).toISOString(), supplierIssues: 0 },
+    ] };
+    renderHub();
+    await screen.findAllByText('20 KM');
+    expect(screen.queryByText(/Supplier confirmations outstanding/)).not.toBeInTheDocument();
+  });
+
+  it('shows the queue error if the supplier summary fails', async () => {
+    seedSingle('BAM');
+    readinessError = true;
+    renderHub();
+    expect(await screen.findByText('Queue error')).toBeInTheDocument();
   });
 });
