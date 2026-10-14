@@ -187,6 +187,7 @@ describe('POST /api/payments — overpayment guard', () => {
     ['23514', 'new row violates check constraint "reservations_paid_lte_total_check"', 422, 'PAYMENT_EXCEEDS_TOTAL'],
     ['40001', 'could not serialize access due to concurrent update', 409, 'PAYMENT_CONFLICT'],
     ['40P01', 'deadlock detected', 409, 'PAYMENT_CONFLICT'],
+    ['23514', 'RESERVATION_FINANCE_LEDGER_ONLY', 409, 'PAYMENT_CONFLICT'],
     ['23514', 'unrelated constraint failed', 500, 'DB_ERROR'],
     ['08006', 'connection failure', 500, 'DB_ERROR'],
   ])('classifies payment write error %s without masking other database failures', async (code, message, expectedStatus, expectedCode) => {

@@ -21,6 +21,6 @@ No schema change, new payment ledger, historical payment rewrite, supplier finan
 - Failed installment can become succeeded exactly once; paid amount and balance match the canonical ledger.
 - Retry of a recorded installment and concurrent losing transition are rejected.
 - Invalid amounts, currency or foreign reservation/installment IDs remain rejected.
-- Overpayment constraints return 422; serialization/deadlock return 409; unknown database errors stay 500.
+- Overpayment constraints return 422; serialization/deadlock or the named canonical-cache conflict guard return 409; unrelated database errors stay 500. The guard is a rejected write, never success.
 - Failed payment retry is reachable in the modal in BS/EN.
 - API build/full suite and admin lint/build/full suite pass; isolated acceptance and Vercel preview remain green.

@@ -61,6 +61,10 @@ function handlePaymentWriteError(res: Response, error: any, message: string) {
     if (error.code === '40001' || error.code === '40P01') {
         return apiError(res, 409, 'PAYMENT_CONFLICT', 'Another payment changed this reservation. Refresh its balance before retrying.');
     }
+    if (error.code === '23514' && error.message === 'RESERVATION_FINANCE_LEDGER_ONLY') {
+        console.warn('[payments] Canonical ledger rejected a conflicting write');
+        return apiError(res, 409, 'PAYMENT_CONFLICT', 'The reservation balance could not be reconciled with this payment. Refresh its balance before retrying.');
+    }
     return handleSupabaseError(res, error, message);
 }
 
