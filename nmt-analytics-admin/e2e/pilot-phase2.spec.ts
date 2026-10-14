@@ -321,7 +321,7 @@ test.describe.serial('Travline BAM-only bus-tour pilot acceptance phase 2', () =
     }));
     const paymentResponses = await Promise.all(paymentRequests);
     expect(paymentResponses.filter((response) => response.status() === 201)).toHaveLength(1);
-    expect(paymentResponses.some((response) => [422, 500].includes(response.status()))).toBe(true);
+    expect(paymentResponses.some((response) => [422, 409].includes(response.status()))).toBe(true);
 
     const overpayment = await request.post(`${apiUrl}/api/payments`, {
       headers: headers(managerToken),
@@ -331,18 +331,14 @@ test.describe.serial('Travline BAM-only bus-tour pilot acceptance phase 2', () =
     expect((await json<{ code?: string }>(overpayment)).code).toBe('PAYMENT_EXCEEDS_TOTAL');
   });
 
-  test('rejects invalid installment creation, supports recovery after failed schedule, and keeps history append-only', async ({ request }) => {
+  test('rejects invalid installment creation and recovers a failed installment exactly once', async ({ request }) => {
     const managerToken = await signIn(request);
     const sale = await createReservation(request, managerToken, departureId, 1);
     const invalid = await request.put(`${apiUrl}/api/reservations/${sale.id}/installments`, {
       headers: headers(managerToken),
       data: { installmentCount: 1, firstDueDate: '2027-05-01', intervalDays: 30 },
     });
-    await expectStatus(invalid, [200, 400]);
-    if (invalid.status() === 200) {
-      const body = await json<{ installments: unknown[] }>(invalid);
-      expect(body.installments.length).toBe(1);
-    }
+    await expectStatus(invalid, [400]);
 
     const valid = await request.put(`${apiUrl}/api/reservations/${sale.id}/installments`, {
       headers: headers(managerToken),
@@ -365,7 +361,26 @@ test.describe.serial('Travline BAM-only bus-tour pilot acceptance phase 2', () =
     });
     await expectStatus(failed, [201]);
 
-    const retry = await request.post(`${apiUrl}/api/payments`, {
+    const recoveryPayload = {
+        reservation_id: sale.id,
+        installment_id: schedule.installments[0].id,
+        amount: schedule.installments[0].amount,
+        currency: 'BAM',
+        status: 'succeeded',
+        payment_method: 'cash',
+    };
+    const recoveries = await Promise.all([0, 1].map(() => request.post(`${apiUrl}/api/payments`, {
+      headers: headers(managerToken),
+      data: recoveryPayload,
+    })));
+    expect(recoveries.filter(response => response.status() === 201)).toHaveLength(1);
+    expect(recoveries.filter(response => response.status() === 409)).toHaveLength(1);
+    const retry = recoveries.find(response => response.status() === 201)!;
+    const recovered = await json<{ payment: { id: string; status: string }; reservation: { paidAmount: number } }>(retry);
+    expect(recovered.payment.id).toBe(schedule.installments[0].id);
+    expect(recovered.payment.status).toBe('succeeded');
+    expect(recovered.reservation.paidAmount).toBe(schedule.installments[0].amount);
+    const repeated = await request.post(`${apiUrl}/api/payments`, {
       headers: headers(managerToken),
       data: {
         reservation_id: sale.id,
@@ -376,7 +391,7 @@ test.describe.serial('Travline BAM-only bus-tour pilot acceptance phase 2', () =
         payment_method: 'cash',
       },
     });
-    await expectStatus(retry, [409]);
+    await expectStatus(repeated, [409]);
   });
 
   test('tracks supplier confirmation status/history, canonical documents, and profitability', async ({ request }) => {

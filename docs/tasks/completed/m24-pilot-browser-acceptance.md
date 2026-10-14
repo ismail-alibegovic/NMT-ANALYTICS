@@ -1,6 +1,6 @@
 # M24 — Complete pilot acceptance
 
-**Status:** ACTIVE
+**Status:** DONE — PR #79, merge `a7f6c4b`, 2026-10-14
 **Priority:** P0
 **Branch:** `feat/travline-pilot-acceptance-phase2`
 **Authority:** User requested completing Travline in the agreed order on 2026-10-14.
@@ -26,3 +26,15 @@ Correct the test harness, add browser sale verification, and record exact CI evi
 ## Verification and release
 
 Run API build/tests and admin lint/tests/build locally; execute the complete isolated GitHub acceptance workflow and inspect logs. Verify Vercel preview and review required production migrations before merging. No new user-facing copy is introduced, so BS/EN changes are not required in this verification slice. Broader language parity remains a separate task.
+
+## Completion evidence
+
+- CI `38602860616`: all API/admin, Docker and migration checks passed.
+- Acceptance `38602860621`: 14 passed, none failed/skipped; isolated Storage and SMTP checks passed.
+- Local API build and 638 tests passed. Admin lint: zero errors, 54 existing warnings; 283 tests and build passed.
+- Vercel preview READY; health 200, database connected, auth bypass disabled.
+- Three pending migrations applied and history aligned with repository filenames; columns/triggers verified.
+- Five verified unpaid/no-payment balance caches repaired atomically with five audit records; drift is zero. No transactions invented or deleted.
+- Empty production documents bucket made private; anonymous public endpoint rejects access.
+- Production `dpl_9hLrWkH4Kh5FmTeT4wWWLZ32Xj7e` READY for `a7f6c4b`; health 200.
+- General payment idempotency, failed-installment recovery/conflict semantics, broader UI/language acceptance and remaining product milestones remain follow-ups.
