@@ -50,8 +50,8 @@ export function validateEnv(): EnvConfig {
 
     // Safety & Diagnostic logs
     const url = new URL(parsed.SUPABASE_URL);
-    console.log(`[CONFIG] Supabase Host: ${url.host}`);
-    console.log(`[CONFIG] Service Role Key: ${parsed.SUPABASE_SERVICE_ROLE_KEY.substring(0, 8)}***`);
+    console.error(`[CONFIG] Supabase Host: ${url.host}`);
+    console.error('[CONFIG] Service Role Key: configured');
 
     // HARD PRODUCTION GUARD
     // Dev convenience flags must NEVER be active in production. Failing fast at
@@ -88,7 +88,7 @@ export function validateEnv(): EnvConfig {
     }
 
     if (parsed.DEV_AUTO_BOOTSTRAP) {
-      console.log('ℹ️  DEV_AUTO_BOOTSTRAP is enabled - will auto-create org/profile/modules for new users');
+      console.error('ℹ️  DEV_AUTO_BOOTSTRAP is enabled - will auto-create org/profile/modules for new users');
     }
 
     return parsed;
