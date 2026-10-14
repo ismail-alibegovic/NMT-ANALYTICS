@@ -205,6 +205,7 @@ export const en = {
     todayNearDepartures: 'Departures in the next 7 days',
     todayNearDeparturesDetail: '{count} departures need an operational check',
     todayLowOccupancyDetail: '{count} departures are below 30% occupancy',
+    alertSupplierConfirmations: "Supplier confirmations outstanding: {count}",
     alertFlightMissing: 'Flight not configured',
     alertDocumentsAttention: '{count} passengers need travel document attention',
     alertGroupSplit: '{count} passenger groups are split or partial',

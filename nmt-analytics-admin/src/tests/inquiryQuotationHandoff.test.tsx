@@ -1,3 +1,5 @@
+import { en } from '../lib/i18n/en';
+import { bs } from '../lib/i18n/bs';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -101,5 +103,12 @@ describe('quotation handoff', () => {
     expect(screen.getByDisplayValue('Offer for: Second Plan')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Create quotation' }));
     await waitFor(() => expect(api.createQuotation).toHaveBeenCalledWith(expect.objectContaining({ itineraryId: 'itin-2', itineraryVersionId: 'v-current' })));
+  });
+});
+
+// This flow must retain the existing Today translation consumed with replace().
+describe('handoff translation compatibility', () => {
+  it.each([['en', en], ['bs', bs]] as const)('retains supplier readiness copy in %s', (_lang, locale) => {
+    expect(locale.hub.alertSupplierConfirmations.replace('{count}', '2')).toContain('2');
   });
 });
