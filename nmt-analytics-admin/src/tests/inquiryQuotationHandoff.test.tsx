@@ -45,7 +45,7 @@ describe('inquiry handoff', () => {
     expect(screen.getByDisplayValue('2027-04-15')).toBeInTheDocument();
     expect(screen.getByDisplayValue('4')).toBeInTheDocument();
     expect(screen.getByDisplayValue('EUR')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Create itinerary', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create itinerary' }));
     await waitFor(() => expect(api.createItinerary).toHaveBeenCalledWith(expect.objectContaining({ inquiryId: 'inq-1', travelers: 4, currency: 'EUR', destination: 'Vienna' })));
   });
 
@@ -66,7 +66,7 @@ describe('quotation handoff', () => {
     show(<Quotations />, '/quotations?new=1&itineraryId=itin-1&versionId=v-old');
     await screen.findByDisplayValue('Offer for: Vienna Plan');
     expect(screen.getByDisplayValue('EUR')).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Create quotation', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create quotation' }));
     await waitFor(() => expect(api.createQuotation).toHaveBeenCalledWith(expect.objectContaining({ itineraryId: 'itin-1', itineraryVersionId: 'v-old', currency: 'EUR' })));
   });
 
@@ -74,12 +74,12 @@ describe('quotation handoff', () => {
     api.getItinerary.mockResolvedValue({ ...itinerary, versions: [] });
     show(<Quotations />, '/quotations?new=1&itineraryId=itin-1&versionId=v-old');
     await screen.findByRole('alert');
-    expect(screen.getByRole('button', { name: 'Create quotation', exact: true })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Create quotation' })).toBeDisabled();
     expect(api.createQuotation).not.toHaveBeenCalled();
     api.getItinerary.mockResolvedValue(itinerary);
     fireEvent.click(screen.getByRole('button', { name: 'Retry source' }));
     await screen.findByDisplayValue('Offer for: Vienna Plan');
-    expect(screen.getByRole('button', { name: 'Create quotation', exact: true })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Create quotation' })).toBeEnabled();
   });
 
   it('uses the current version for list selection and ignores an older async selection', async () => {
@@ -96,7 +96,7 @@ describe('quotation handoff', () => {
     await screen.findByDisplayValue('Offer for: Second Plan');
     await act(async () => old.resolve(itinerary));
     expect(screen.getByDisplayValue('Offer for: Second Plan')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Create quotation', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create quotation' }));
     await waitFor(() => expect(api.createQuotation).toHaveBeenCalledWith(expect.objectContaining({ itineraryId: 'itin-2', itineraryVersionId: 'v-current' })));
   });
 });
