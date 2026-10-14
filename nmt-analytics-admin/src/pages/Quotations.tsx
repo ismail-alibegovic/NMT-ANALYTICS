@@ -19,6 +19,7 @@ export default function Quotations() {
   const { success, error: showError } = useToast();
   const [rows, setRows] = useState<Quotation[]>([]); const [itineraries, setItineraries] = useState<Itinerary[]>([]);
   const sourceRequest = useRef(0);
+  const [sourceVersion, setSourceVersion] = useState<number | null>(null);
   const [sourceLoading, setSourceLoading] = useState(false);
   const [sourceError, setSourceError] = useState(false);
   const [search, setSearch] = useState(''); const [loading, setLoading] = useState(true);
@@ -29,11 +30,12 @@ export default function Quotations() {
   });
 
   const load = async (q = '') => { setLoading(true); try { setRows(await getQuotations(q ? { search: q } : undefined)); } catch (e: any) { showError(e?.message || c.loadError); } finally { setLoading(false); } };
-  useEffect(() => { void load(); void getItineraries().then(setItineraries).catch(() => showError(c.loadError)); }, []);
+  useEffect(() => { void load(); void getItineraries().then(rows => setItineraries(previous => [...rows, ...previous.filter(existing => !rows.some(row => row.id === existing.id))])).catch(() => showError(c.loadError)); }, []);
 
   const chooseItinerary = useCallback(async (itineraryId: string, versionId?: string | null) => {
     const requestId = ++sourceRequest.current;
     setSourceError(false);
+    setSourceVersion(null);
     setSourceLoading(Boolean(itineraryId));
     setForm(previous => ({ ...previous, _mode: 'itinerary', itineraryId: itineraryId || undefined, itineraryVersionId: undefined }));
     if (!itineraryId) return;
@@ -42,6 +44,8 @@ export default function Quotations() {
       const version = versionId ? detail.versions.find(row => row.id === versionId) : detail.versions.find(row => row.versionNumber === detail.currentVersion);
       if (!version) throw new Error('Itinerary version unavailable');
       if (requestId !== sourceRequest.current) return;
+      setSourceVersion(version.versionNumber);
+      setItineraries(previous => previous.some(row => row.id === detail.id) ? previous : [detail, ...previous]);
       setForm(previous => ({ ...previous, _mode: 'itinerary', itineraryId: detail.id, itineraryVersionId: version.id, title: `${c.offerFor}: ${detail.title}`, currency: detail.currency }));
       if (params.get('new') === '1') {
         const next = new URLSearchParams(params);
@@ -196,6 +200,7 @@ export default function Quotations() {
             />
           </Field>
         )}
+        {form._mode === 'itinerary' && sourceVersion !== null && <p className="text-sm text-gray-600 dark:text-gray-300 sm:col-span-2">{c.sourceVersion}: v{sourceVersion}</p>}
         {sourceLoading && <p role="status" className="text-sm text-gray-500 sm:col-span-2">{c.sourceLoading}</p>}
         {sourceError && <div role="alert" className="text-sm text-red-700 dark:text-red-300 sm:col-span-2">{c.sourceError} <Button variant="outline" onClick={() => void chooseItinerary(form.itineraryId || '', params.get('versionId'))}>{c.retrySource}</Button></div>}
         <Field label={`${c.titleLabel} *`}>

@@ -26,7 +26,7 @@ export default function Itineraries() {
   const [sourceRetry, setSourceRetry] = useState(0);
   const typeLabel = (value: string) => c.tripTypes[value as keyof typeof c.tripTypes] || value;
   const load = async (q = '') => { setLoading(true); try { setRows(await getItineraries(q)); } catch (e: any) { showError(e?.message || c.loadError); } finally { setLoading(false); } };
-  useEffect(() => { void load(); void getInquiries().then(setInquiries).catch(() => showError(c.loadError)); }, []);
+  useEffect(() => { void load(); void getInquiries().then(rows => setInquiries(previous => [...rows, ...previous.filter(existing => !rows.some(row => row.id === existing.id))])).catch(() => showError(c.loadError)); }, []);
   useEffect(() => {
     if (params.get('new') !== '1') return;
     let active = true;
@@ -34,6 +34,7 @@ export default function Itineraries() {
     setSourceError(false);
     const finish = (inquiry?: Inquiry) => {
       if (!active) return;
+      if (inquiry) setInquiries(previous => previous.some(row => row.id === inquiry.id) ? previous : [inquiry, ...previous]);
       setForm(inquiry ? { ...emptyForm, inquiryId: inquiry.id, title: `${inquiry.destination || c.newTrip} — ${inquiry.contactName}`, tripType: inquiry.tripType, destination: inquiry.destination, travelStart: inquiry.travelStart, travelEnd: inquiry.travelEnd, travelers: inquiry.travelers, currency: inquiry.currency } : emptyForm);
       setSourceLoading(false);
       setOpen(true);

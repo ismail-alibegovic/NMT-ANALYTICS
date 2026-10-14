@@ -45,6 +45,7 @@ describe('inquiry handoff', () => {
     expect(screen.getByDisplayValue('2027-04-15')).toBeInTheDocument();
     expect(screen.getByDisplayValue('4')).toBeInTheDocument();
     expect(screen.getByDisplayValue('EUR')).toBeInTheDocument();
+    expect(screen.getAllByRole('combobox')[0]).toHaveValue('inq-1');
     fireEvent.click(screen.getByRole('button', { name: 'Create itinerary' }));
     await waitFor(() => expect(api.createItinerary).toHaveBeenCalledWith(expect.objectContaining({ inquiryId: 'inq-1', travelers: 4, currency: 'EUR', destination: 'Vienna' })));
   });
@@ -66,6 +67,8 @@ describe('quotation handoff', () => {
     show(<Quotations />, '/quotations?new=1&itineraryId=itin-1&versionId=v-old');
     await screen.findByDisplayValue('Offer for: Vienna Plan');
     expect(screen.getByDisplayValue('EUR')).toBeDisabled();
+    expect(screen.getAllByRole('combobox')[0]).toHaveValue('itin-1');
+    expect(screen.getByText('Source version: v1')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Create quotation' }));
     await waitFor(() => expect(api.createQuotation).toHaveBeenCalledWith(expect.objectContaining({ itineraryId: 'itin-1', itineraryVersionId: 'v-old', currency: 'EUR' })));
   });

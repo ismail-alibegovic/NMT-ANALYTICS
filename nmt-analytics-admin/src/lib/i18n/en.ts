@@ -1081,6 +1081,7 @@ export const en = {
     netSnapshot: 'Supplier net snapshot', addItem: 'Add itinerary item', addItemDescription: 'Choose a contracted supplier service or enter a manual activity. Supplier prices are copied into this version.', supplierService: 'Supplier service', manualItem: 'Manual activity / no supplier', manualTitle: 'Manual title', day: 'Day', time: 'Start time', quantity: 'Quantity', location: 'Location', close: 'Close', saveItem: 'Add item', itemSaved: 'Item added', itemUpdated: 'Item updated', itemRemoved: 'Item removed', editItem: 'Edit item', edit: '✎', itemTitleRequired: 'Select a supplier service or enter a title', remove: 'Remove', noItems: 'This version is empty', noItemsDescription: 'Add accommodation, transport, flights, guides, meals, activities, tickets, or manual schedule items.', notFound: 'Itinerary not found', notFoundDescription: 'This itinerary does not exist or is not available to your organization.',
   },
   quotations: {
+    sourceVersion: "Source version",
     sourceLoading: 'Loading linked source…', sourceError: 'The linked source could not be loaded. Retry before creating this record.', retrySource: 'Retry source',
     modeLabel: 'Mode',
     title: 'Quotations', description: 'Fixed-price offers — standalone or from an itinerary', search: 'Search quotations…', add: 'New quotation',
