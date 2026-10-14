@@ -9,6 +9,7 @@ import CommunicationHistoryPanel from "../components/communications/Communicatio
 import ManualMessageComposer from "../components/communications/ManualMessageComposer";
 import { Modal } from "../components/ui/modal";
 import { useToast } from "../context/ToastContext";
+import { useT } from '../lib/i18n/context';
 import {
   ChevronLeftIcon,
   GroupIcon,
@@ -58,6 +59,7 @@ const transportLabels: Record<string, string> = {
 };
 
 export default function ReservationDetail() {
+  const { t: copy } = useT();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showError, showSuccess } = useToast();
@@ -327,6 +329,11 @@ export default function ReservationDetail() {
     <>
       <PageMeta title={`Rezervacija ${reservationShortId}`} description="" />
       <div className="p-4 sm:p-6 space-y-6">
+        {reservation.status !== 'cancelled' && reservation.creationState && reservation.creationState !== 'completed' && (
+          <div role="status" className="rounded-xl border border-warning-200 bg-warning-50 p-4 text-sm text-warning-700 dark:border-warning-500/20 dark:bg-warning-500/10 dark:text-warning-300">
+            {reservation.creationState === 'in_progress' ? copy.saleRecovery.processing : copy.saleRecovery.manual}
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
             <ChevronLeftIcon className="size-4" />
@@ -455,6 +462,7 @@ export default function ReservationDetail() {
                 </div>
                 <Button
                   size="sm"
+                  disabled={Boolean(reservation.creationState && reservation.creationState !== 'completed')}
                   onClick={() => {
                     setSelectedInstallmentId(pendingInstallments[0]?.id || null);
                     setAddPaymentOpen(true);
@@ -512,6 +520,7 @@ export default function ReservationDetail() {
                             <Button
                               size="sm"
                               variant="outline"
+                              disabled={Boolean(reservation.creationState && reservation.creationState !== 'completed')}
                               onClick={() => {
                                 setSelectedInstallmentId(installment.id);
                                 setAddPaymentOpen(true);

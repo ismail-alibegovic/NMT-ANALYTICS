@@ -1,6 +1,6 @@
 # Pilot — Recover failed installments and report payment conflicts
 
-**Status:** ACTIVE
+**Status:** DONE — PR #80, merge 52c4e64b, 2026-10-14
 **Priority:** P0
 **Branch:** `fix/pilot-payment-recovery`
 **Baseline:** `a7f6c4be4416e5c4c80b74cf2e1d1906ebc79e7f`
@@ -24,3 +24,7 @@ No schema change, new payment ledger, historical payment rewrite, supplier finan
 - Overpayment constraints return 422; serialization/deadlock or the named canonical-cache conflict guard return 409; unrelated database errors stay 500. The guard is a rejected write, never success.
 - Failed payment retry is reachable in the modal in BS/EN.
 - API build/full suite and admin lint/build/full suite pass; isolated acceptance and Vercel preview remain green.
+
+## Evidence
+
+Local API: 647 tests and build passed; admin: 285 tests/build, 54 existing lint warnings, no errors. CI 38606181464 and isolated acceptance 38606181399 passed. Acceptance: 14/14, including one concurrent installment winner, successful failed-installment recovery and canonical ledger conflict rejection. Vercel preview READY; health 200. No migration added.

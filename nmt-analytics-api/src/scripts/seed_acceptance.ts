@@ -1,4 +1,6 @@
 import { supabaseAdmin } from '../lib/supabase';
+import { createReservationSchema } from '../routes/reservations';
+import { saleRequestFingerprint } from '../lib/saleIdempotency';
 
 const LOCAL_URL_PATTERN = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
 const PASSWORD = process.env.E2E_SEED_PASSWORD || 'TravlinePilot!2026-local';
@@ -218,6 +220,33 @@ async function seed() {
   }, { onConflict: 'org_id,phone' }).select('id').single();
   if (customerError) throw customerError;
 
+  const recoveryKey = 'acceptance-recovery-installments';
+  const recoveryPayload = createReservationSchema.parse({
+    departureId, customerId: customer.id, customerName: 'Recovered Pilot Customer', customerPhone: '+38761000003',
+    partySize: 1, reservationAt: new Date().toISOString(), status: 'pending', totalAmount: 180, currency: 'BAM', source: 'agent',
+    passengers: [{ full_name: 'Recovered Pilot Passenger' }], installmentCount: 2,
+  });
+  const existingRecovery = await supabaseAdmin.from('reservations').select('id')
+    .eq('org_id', ORG_A).eq('creation_idempotency_key', recoveryKey).maybeSingle();
+  if (existingRecovery.error) throw existingRecovery.error;
+  let recoveryReservationId = existingRecovery.data?.id;
+  if (!recoveryReservationId) {
+    const recovery = await supabaseAdmin.from('reservations').insert({
+      org_id: ORG_A, departure_id: departureId, customer_id: customer.id,
+      customer_name: recoveryPayload.customerName, customer_phone: recoveryPayload.customerPhone,
+      party_size: 1, reservation_at: recoveryPayload.reservationAt, status: 'pending',
+      total_amount: 180, currency: 'BAM', source: 'agent',
+      creation_idempotency_key: recoveryKey, creation_fingerprint: saleRequestFingerprint(recoveryPayload as Record<string, unknown>),
+      creation_state: 'recovery_required', creation_error_stage: 'installments',
+    }).select('id').single();
+    if (recovery.error) throw recovery.error;
+    recoveryReservationId = recovery.data.id;
+    const passenger = await supabaseAdmin.from('departure_passengers').insert({
+      org_id: ORG_A, departure_id: departureId, reservation_id: recoveryReservationId, full_name: 'Recovered Pilot Passenger',
+    });
+    if (passenger.error) throw passenger.error;
+  }
+
   console.log(JSON.stringify({
     password: PASSWORD,
     managerId,
@@ -229,6 +258,7 @@ async function seed() {
     departureId,
     customerId: customer.id,
     hotelAllocationId,
+    recoveryReservationId,
   }, null, 2));
 }
 

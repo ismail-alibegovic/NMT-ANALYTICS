@@ -27,6 +27,8 @@ export interface Reservation {
   updatedAt: string;
   accommodationRequirements?: ReservationAccommodationRequirement[];
   creationState?: 'in_progress' | 'completed' | 'recovery_required';
+  creationErrorStage?: string | null;
+  processing?: boolean;
   recoveryRequired?: boolean;
   retryable?: boolean;
 }

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { render } from './renderWithI18n';
 import NewSaleWizard from '../components/reservations/NewSaleWizard';
 
 const getPackages = vi.fn();
@@ -118,7 +119,7 @@ describe('NewSaleWizard — M14.1 canonical installment schedule', () => {
     createReservationInstallmentSchedule.mockResolvedValue({ reservationId: 'reservation-1', installments: [] });
   });
 
-  it('creates canonical installment schedule after reservation creation when Rate is selected', async () => {
+  it('asks the canonical sale API to create the schedule once when Rate is selected', async () => {
     await renderWizard();
     await fillRequiredSaleFields();
 
@@ -127,8 +128,8 @@ describe('NewSaleWizard — M14.1 canonical installment schedule', () => {
     await submitSale();
 
     await waitFor(() => expect(createReservation).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(createReservationInstallmentSchedule).toHaveBeenCalledTimes(1));
-    expect(createReservationInstallmentSchedule).toHaveBeenCalledWith('reservation-1', 4);
+    expect(createReservation).toHaveBeenCalledWith(expect.objectContaining({ installmentCount: 4 }));
+    expect(createReservationInstallmentSchedule).not.toHaveBeenCalled();
     expect(toastSuccess).toHaveBeenCalledWith('Rezervacija kreirana');
     expect(onCreated).toHaveBeenCalledTimes(1);
   });
@@ -141,4 +142,25 @@ describe('NewSaleWizard — M14.1 canonical installment schedule', () => {
     await waitFor(() => expect(createReservation).toHaveBeenCalledTimes(1));
     expect(createReservationInstallmentSchedule).not.toHaveBeenCalled();
   });
+  it('does not report success while processing and retries with the same sale identity', async () => {
+    createReservation.mockResolvedValueOnce({ id: 'reservation-1', creationState: 'in_progress' })
+      .mockResolvedValueOnce({ id: 'reservation-1', creationState: 'completed' });
+    await renderWizard(); await fillRequiredSaleFields(); await submitSale();
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/still being processed|još obrađuje/)));
+    expect(toastSuccess).not.toHaveBeenCalled(); expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('link', { name: /Open saved reservation|Otvori sačuvanu rezervaciju/ })).toHaveAttribute('href', '/reservations/reservation-1');
+    fireEvent.click(screen.getByRole('button', { name: 'Potvrdi prodaju' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(createReservation.mock.calls[0][0].idempotencyKey).toBe(createReservation.mock.calls[1][0].idempotencyKey);
+    expect(createReservationInstallmentSchedule).not.toHaveBeenCalled();
+  });
+
+  it('links to manual review instead of repeatedly submitting an unsupported recovery stage', async () => {
+    createReservation.mockResolvedValue({ id: 'reservation-1', creationState: 'recovery_required', recoveryRequired: true, retryable: false });
+    await renderWizard(); await fillRequiredSaleFields(); await submitSale();
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/needs review|zahtijeva pregled/)));
+    expect(screen.getByRole('button', { name: 'Potvrdi prodaju' })).toBeDisabled();
+    expect(onClose).not.toHaveBeenCalled(); expect(toastSuccess).not.toHaveBeenCalled();
+  });
+
 });

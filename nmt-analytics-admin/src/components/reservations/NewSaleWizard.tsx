@@ -8,7 +8,7 @@ import { getPackages, Package } from "../../api/packages";
 import { getDepartures, getDepartureAccommodationOptions, Departure, DepartureCapabilities, type DepartureAccommodationOption } from "../../api/departures";
 import { getCustomers, Customer } from "../../api/customers";
 import { createReservation, type CreateReservationPassengerInput } from "../../api/reservations";
-import { createReservationInstallmentSchedule } from "../../api/installments";
+import { useT } from "../../lib/i18n/context";
 import { getPackageServices, type PackageService } from "../../api/operations";
 import type { TravelerRequirements } from "../../api/packages";
 
@@ -102,6 +102,7 @@ interface Props {
 }
 
 export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPackageId, initialDepartureId }: Props) {
+  const { t } = useT();
   const { success, error: showError } = useToast();
 
   const [step, setStep] = useState<Step>("trip");
@@ -112,6 +113,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const [submitting, setSubmitting] = useState(false);
   const [validationMessage, setValidationMessage] = useState("");
   const [recoveryReservationId, setRecoveryReservationId] = useState<string | null>(null);
+  const [recoveryMode, setRecoveryMode] = useState<'processing' | 'retry' | 'manual' | null>(null);
   const saleIdempotencyKeyRef = useRef<string>("");
 
   // Selections
@@ -151,6 +153,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     if (!isOpen) {
       saleIdempotencyKeyRef.current = "";
       setRecoveryReservationId(null);
+      setRecoveryMode(null);
     }
   }, [isOpen]);
 
@@ -781,13 +784,17 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         idempotencyKey: saleIdempotencyKeyRef.current,
         installmentCount: paymentPlan === "installments" ? installmentCount : undefined,
       });
-      if (createdReservation.recoveryRequired || createdReservation.creationState === "recovery_required") {
+      if (createdReservation.creationState === 'in_progress') {
         setRecoveryReservationId(createdReservation.id);
-        showError(`Prodaja je sačuvana kao rezervacija ${createdReservation.id}, ali zahtijeva oporavak. Ponovite isti pokušaj.`);
+        setRecoveryMode('processing');
+        showError(t.saleRecovery.processing);
         return;
       }
-      if (paymentPlan === "installments") {
-        await createReservationInstallmentSchedule(createdReservation.id, installmentCount);
+      if (createdReservation.recoveryRequired || createdReservation.creationState === "recovery_required") {
+        setRecoveryReservationId(createdReservation.id);
+        setRecoveryMode(createdReservation.retryable ? 'retry' : 'manual');
+        showError(createdReservation.retryable ? t.saleRecovery.retry : t.saleRecovery.manual);
+        return;
       }
       success("Rezervacija kreirana");
       onCreated?.();
@@ -796,7 +803,9 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       const reservationId = e?.details?.reservationId;
       if (reservationId) {
         setRecoveryReservationId(reservationId);
-        showError(`Prodaja nije dovršena. Sačuvana rezervacija: ${reservationId}. Ponovite pokušaj istom prodajom.`);
+        const retryable = ['installments', 'completion'].includes(e?.details?.stage) && e?.code !== 'SALE_MANUAL_RECOVERY_REQUIRED';
+        setRecoveryMode(retryable ? 'retry' : 'manual');
+        showError(retryable ? t.saleRecovery.retry : t.saleRecovery.manual);
       } else if (e?.code === "IDEMPOTENCY_KEY_REQUIRED") {
         showError("Prodaja nije mogla biti pokrenuta. Pokušajte ponovo.");
       } else if (e?.code === "DEPARTURE_CAPACITY_EXCEEDED") {
@@ -1662,8 +1671,9 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         {recoveryReservationId && (
           <div className="mt-3 rounded-lg border border-warning-200 bg-warning-50 p-3 dark:border-warning-500/20 dark:bg-warning-500/10">
             <p className="text-sm text-warning-700 dark:text-warning-300">
-              Sačuvana rezervacija {recoveryReservationId} je označena za oporavak. Ponovni klik koristi isti zahtjev i neće kreirati duplikat.
+              {recoveryMode === 'processing' ? t.saleRecovery.processing : recoveryMode === 'retry' ? t.saleRecovery.retry : t.saleRecovery.manual}
             </p>
+            <a href={`/reservations/${recoveryReservationId}`} className="mt-2 inline-block text-sm font-medium text-brand-600 underline">{t.saleRecovery.open}</a>
           </div>
         )}
 
@@ -1681,7 +1691,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                 Dalje
               </Button>
             ) : (
-              <Button onClick={submit} disabled={submitting}>
+              <Button onClick={submit} disabled={submitting || recoveryMode === 'manual'}>
                 {submitting ? "Kreiranje..." : "Potvrdi prodaju"}
               </Button>
             )}

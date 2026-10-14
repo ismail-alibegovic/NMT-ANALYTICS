@@ -497,6 +497,12 @@ export const en = {
     paidColumn: 'Paid', balanceColumn: 'Balance',
     overview: 'Overview', paymentBreakdown: 'Payment Status Breakdown',
   },
+  saleRecovery: {
+    processing: 'Your sale is still being processed. Wait a moment, then retry the same sale.',
+    retry: 'Your reservation is saved. Retry to finish it without creating another reservation.',
+    manual: 'Your reservation is saved but needs review. Open it before making further changes.',
+    open: 'Open saved reservation',
+  },
   payments: {
     retryFailed: 'Retry payment',
     title: 'Payments', description: 'Manage all payments and transactions',

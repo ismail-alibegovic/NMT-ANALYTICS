@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { screen, waitFor, fireEvent } from "@testing-library/react";
+import { render } from './renderWithI18n';
 import { MemoryRouter, Route, Routes } from "react-router";
 
 vi.mock("../components/common/PageMeta", () => ({
