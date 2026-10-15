@@ -129,23 +129,11 @@ const relativeDayLabel = (iso: string, lang: Lang) => {
 
 /* ───────────────────────── Neumorphic primitives ───────────────────────── */
 
-/**
- * Soft neumorphic elevation. The signature look: a card lifted off a
- * slightly-off-white canvas by two opposing soft shadows — a light one from
- * the top-left, a cool grey-blue one from the bottom-right — with a faint
- * inner top-left highlight for the "pressed-from-above" depth cue. No hard
- * borders. Dark mode inverts to a deeper slate canvas with velvet shadows.
- */
 const neuCard =
-  "relative rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900";
+  "relative rounded-2xl border border-gray-200/80 bg-white/95 shadow-sm transition-all dark:border-gray-800/80 dark:bg-white/[0.03]";
 
-/** Inset neumorphic well — for inputs, pressed tiles, chart wells. */
 const neuInset =
-  "rounded-lg bg-gray-100 dark:bg-gray-800";
-
-/** Raised neumorphic icon tile — a small "popped" button on the canvas. */
-const neuTile =
-  "rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900";
+  "rounded-xl bg-gray-50/80 dark:bg-white/[0.04]";
 
 const Panel: React.FC<{ children: React.ReactNode; className?: string }> = ({
   children,
@@ -159,7 +147,7 @@ const SectionLabel: React.FC<{ children: React.ReactNode; className?: string }> 
   className = "",
 }) => (
   <h2
-    className={`text-[0.64rem] font-semibold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 ${className}`}
+    className={`text-[0.66rem] font-bold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500 ${className}`}
   >
     {children}
   </h2>
@@ -580,25 +568,24 @@ const HomeHub: React.FC = () => {
 
       <div className="mx-auto flex min-h-[calc(100dvh-65px)] w-full max-w-[1380px] flex-col px-4 py-5 md:px-6 md:py-6 lg:h-[calc(100dvh-130px)] lg:min-h-0 lg:overflow-hidden">
           {/* ── Masthead ─────────────────────────────────────────────── */}
-          <header className="mb-5 flex items-center justify-between gap-4">
+          <header className="mb-6 flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3.5">
               <span
-                className={`relative inline-flex size-12 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-lg font-bold text-white`}
-                
+                className="relative inline-flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 text-lg font-bold text-white shadow-md shadow-brand-500/20"
               >
                 {(orgName || "T").charAt(0).toUpperCase()}
               </span>
               <div className="min-w-0">
-                <h1 className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-2xl font-semibold leading-tight tracking-tight text-gray-800 dark:text-white sm:text-[1.7rem]">
+                <h1 className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-2xl font-bold leading-tight tracking-tight text-gray-900 dark:text-white sm:text-[1.75rem]">
                   <span>
                     {greeting}
                     <span className="text-brand-500">.</span>
                   </span>
-                  <span className="text-[0.82rem] font-normal capitalize text-gray-400 dark:text-gray-500">
+                  <span className="text-[0.82rem] font-medium capitalize text-gray-400 dark:text-gray-500">
                     {dateLine}
                   </span>
                 </h1>
-                <p className="mt-0.5 truncate text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-gray-400 dark:text-gray-500">
+                <p className="mt-0.5 truncate text-[0.66rem] font-semibold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500">
                   {orgName || "Travline"} · {hub.title}
                 </p>
               </div>
@@ -606,7 +593,7 @@ const HomeHub: React.FC = () => {
             <button
               onClick={openQuickCreate}
               aria-label={hub.focusNewReservation}
-              className="group inline-flex size-12 shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-500 text-sm font-semibold text-white transition-colors hover:bg-brand-600 active:translate-y-px sm:h-auto sm:w-auto sm:px-5 sm:py-3"
+              className="group inline-flex size-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-500 text-sm font-semibold text-white shadow-sm shadow-brand-500/25 transition-all hover:bg-brand-600 hover:shadow-md hover:shadow-brand-500/30 active:scale-[0.98] sm:h-11 sm:w-auto sm:px-5 sm:py-2.5"
             >
               <span className="text-xl leading-none sm:hidden">+</span>
               <PlusIcon className="hidden size-4 sm:block" />
@@ -642,28 +629,31 @@ const HomeHub: React.FC = () => {
             {/* ════ COL 1 — Today's work + Departures ════ */}
             <div className="flex min-w-0 flex-col gap-5 lg:min-h-0">
               <Panel className="flex shrink-0 flex-col overflow-hidden p-5">
-                <div className="mb-3 flex items-start justify-between gap-4">
+                <div className="mb-3.5 flex items-start justify-between gap-4">
                   <div>
                     <SectionLabel>{hub.needsAttentionTitle || hub.todayQueueTitle}</SectionLabel>
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{hub.needsAttentionSubtitle || hub.todayQueueSubtitle}</p>
                   </div>
                   {!loading && !queueError && (
-                    <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold tabular-nums text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+                    <span className="flex size-6 items-center justify-center rounded-full bg-brand-50 text-xs font-bold tabular-nums text-brand-600 ring-4 ring-brand-500/10 dark:bg-brand-500/20 dark:text-brand-300">
                       {todayWork.length}
                     </span>
                   )}
                 </div>
                 {!loading && !queueError && (
-                  <div className="mb-3 flex flex-wrap gap-2">
-                    <Link to="/reservations?status=pending" className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                  <div className="mb-3.5 flex flex-wrap gap-2">
+                    <Link to="/reservations?status=pending" className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200/80 bg-amber-50/70 px-2.5 py-1 text-[11px] font-semibold text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-300">
+                      <span className="size-1.5 rounded-full bg-amber-500" />
                       {hub.todayPendingReservations}: {fmtNumber(pendingReservations, lang)}
                     </Link>
                     {showFinance && (
-                      <Link to="/payments" className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
+                      <Link to="/payments" className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200/80 bg-rose-50/70 px-2.5 py-1 text-[11px] font-semibold text-rose-800 transition-colors hover:bg-rose-100 dark:border-rose-800/40 dark:bg-rose-950/30 dark:text-rose-300">
+                        <span className="size-1.5 rounded-full bg-rose-500" />
                         {hub.attentionOutstanding}: {fmtNumber(overdueCount, lang)}
                       </Link>
                     )}
-                    <Link to="/operations/calendar" className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+                    <Link to="/operations/calendar" className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200/80 bg-brand-50/70 px-2.5 py-1 text-[11px] font-semibold text-brand-800 transition-colors hover:bg-brand-100 dark:border-brand-800/40 dark:bg-brand-950/30 dark:text-brand-300">
+                      <span className="size-1.5 rounded-full bg-brand-500" />
                       {hub.todayNearDepartures}: {fmtNumber(nearDepartures.length, lang)}
                     </Link>
                   </div>
@@ -673,11 +663,11 @@ const HomeHub: React.FC = () => {
                     {[0, 1, 2].map((item) => <div key={item} className="h-12 animate-pulse rounded-lg bg-gray-100 dark:bg-white/[0.04]" />)}
                   </div>
                 ) : queueError ? (
-                  <div className="flex min-h-[116px] items-center rounded-lg border border-rose-200 bg-rose-50 px-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
+                  <div className="flex min-h-[116px] items-center rounded-xl border border-rose-200 bg-rose-50/80 px-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
                     {hub.needsAttentionError || hub.todayQueueError}
                   </div>
                 ) : todayWork.length === 0 ? (
-                  <div className="flex min-h-[116px] items-center gap-3 rounded-lg bg-emerald-50 px-4 dark:bg-emerald-500/10">
+                  <div className="flex min-h-[116px] items-center gap-3 rounded-xl border border-emerald-200/60 bg-emerald-50/60 px-4 dark:border-emerald-900/30 dark:bg-emerald-500/10">
                     <CheckCircleIcon className="size-5 text-emerald-500" />
                     <div>
                       <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">{hub.needsAttentionClear || hub.todayQueueClear}</p>
@@ -685,19 +675,19 @@ const HomeHub: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <ul className="-mx-2 max-h-[196px] overflow-y-auto">
+                  <ul className="-mx-2 max-h-[196px] space-y-1 overflow-y-auto pr-1">
                     {todayWork.map((item) => {
                       const Icon = item.kind === "reservation" ? TableIcon : item.kind === "departure" ? CalenderIcon : item.kind === "payment" ? DollarLineIcon : BoxIconLine;
-                      const tone = item.urgency === "urgent" ? "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400" : item.urgency === "attention" ? "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400" : "bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400";
+                      const tone = item.urgency === "urgent" ? "bg-rose-50 text-rose-600 ring-1 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:ring-rose-500/20" : item.urgency === "attention" ? "bg-amber-50 text-amber-600 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20" : "bg-brand-50 text-brand-600 ring-1 ring-brand-200 dark:bg-brand-500/10 dark:text-brand-400 dark:ring-brand-500/20";
                       return (
                         <li key={item.id}>
-                          <Link to={item.href} className="group flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]">
-                            <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${tone}`}><Icon className="size-4" /></span>
+                          <Link to={item.href} className="group flex items-center gap-3 rounded-xl border border-transparent px-2.5 py-2 transition-all hover:border-gray-200 hover:bg-gray-50/80 hover:shadow-2xs dark:hover:border-gray-800 dark:hover:bg-white/[0.04]">
+                            <span className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${tone}`}><Icon className="size-4" /></span>
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-semibold text-gray-800 dark:text-white">{item.title}</span>
+                              <span className="block truncate text-sm font-semibold text-gray-900 dark:text-white">{item.title}</span>
                               <span className="mt-0.5 block truncate text-xs text-gray-500 dark:text-gray-400">{item.detail}</span>
                             </span>
-                            <ArrowRightIcon className="size-4 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-500 dark:text-gray-600" />
+                            <ArrowRightIcon className="size-4 shrink-0 text-gray-300 transition-all group-hover:translate-x-0.5 group-hover:text-brand-500 dark:text-gray-600" />
                           </Link>
                         </li>
                       );
@@ -708,17 +698,17 @@ const HomeHub: React.FC = () => {
 
               {/* Bookings panel */}
               <Panel className="flex min-h-0 flex-1 flex-col p-5">
-                <div className="mb-3 flex shrink-0 items-center justify-between gap-4">
+                <div className="mb-3.5 flex shrink-0 items-center justify-between gap-4">
                   <SectionLabel>{hub.recentDepartures}</SectionLabel>
-                  <div className={`flex items-center gap-1 p-1 ${neuInset}`}>
+                  <div className={`flex items-center gap-1 rounded-xl p-1 bg-gray-100/80 dark:bg-gray-800/80`}>
                     {(["upcoming", "past"] as const).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => setBookingsTab(tab)}
-                        className={`rounded-md px-3 py-1 text-[0.72rem] font-semibold capitalize transition-all ${
+                        className={`rounded-lg px-3 py-1 text-[0.72rem] font-semibold capitalize transition-all ${
                           bookingsTab === tab
-                            ? "bg-brand-500 text-white"
-                            : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                            ? "bg-brand-500 text-white shadow-xs"
+                            : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
                         }`}
                       >
                         {tab === "upcoming" ? hub.recentDepartures.split(" ")[0] : "Past"}
@@ -728,18 +718,18 @@ const HomeHub: React.FC = () => {
                 </div>
 
                 {/* Combo chart */}
-                <div className="mb-3 shrink-0 overflow-hidden rounded-lg">
+                <div className="mb-3.5 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-gray-50/50 p-1 dark:border-gray-800 dark:bg-white/[0.02]">
                   {loading ? (
-                    <div className={`h-[96px] w-full animate-pulse ${neuInset}`} />
+                    <div className={`h-[96px] w-full animate-pulse rounded-lg bg-gray-100 dark:bg-white/[0.04]`} />
                   ) : hasMixedCurrencies ? (
-                    <div className={`flex h-[96px] items-center px-4 ${neuInset}`}>
+                    <div className="flex h-[96px] items-center justify-center px-4">
                       <p className="text-xs text-gray-400 dark:text-gray-500">Select currency</p>
                     </div>
                   ) : grossPoints.length >= 2 ? (
                     <ComboChart bars={grossPoints} line={revenuePoints} height={96} />
                   ) : (
-                    <div className={`flex h-[96px] items-end px-4 ${neuInset}`}>
-                      <p className="mb-2.5 text-xs text-gray-400 dark:text-gray-500">{hub.quietPeriod}</p>
+                    <div className="flex h-[96px] items-center justify-center px-4">
+                      <p className="text-xs font-medium text-gray-400 dark:text-gray-500">{hub.quietPeriod}</p>
                     </div>
                   )}
                 </div>
@@ -749,7 +739,7 @@ const HomeHub: React.FC = () => {
                   <ul className="space-y-2.5">
                     {[0, 1, 2].map((i) => (
                       <li key={i} className="flex items-center gap-3.5">
-                        <div className="h-11 w-11 shrink-0 animate-pulse rounded-lg bg-gray-200 dark:bg-white/[0.06]" />
+                        <div className="h-11 w-11 shrink-0 animate-pulse rounded-xl bg-gray-200 dark:bg-white/[0.06]" />
                         <div className="flex-1 space-y-2">
                           <div className="h-3 w-2/5 animate-pulse rounded bg-gray-200 dark:bg-white/[0.06]" />
                           <div className="h-2.5 w-1/3 animate-pulse rounded bg-gray-100 dark:bg-white/[0.04]" />
@@ -759,15 +749,15 @@ const HomeHub: React.FC = () => {
                   </ul>
                 ) : bookingsList.length === 0 ? (
                   <div className="flex flex-1 items-center">
-                    <div className={`flex w-full items-center gap-2.5 px-4 py-4 ${neuInset}`}>
+                    <div className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-dashed border-gray-200 px-4 py-6 dark:border-gray-800">
                       <CalenderIcon className="size-4 text-gray-300 dark:text-gray-600" />
-                      <span className="text-sm text-gray-400 dark:text-gray-500">
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
                         {bookingsTab === "upcoming" ? hub.noDepartures : hub.noDepartures}
                       </span>
                     </div>
                   </div>
                 ) : (
-                  <ul className="-mx-1 flex-1 overflow-y-auto">
+                  <ul className="-mx-1 flex-1 space-y-1 overflow-y-auto pr-1">
                     {bookingsList.map((d) => {
                       const pct = d.seats > 0 ? Math.min(100, Math.round((d.booked / d.seats) * 100)) : 0;
                       const tone = pct >= 70 ? "warm" : "brand";
@@ -776,24 +766,24 @@ const HomeHub: React.FC = () => {
                         <li key={d.id}>
                           <Link
                             to={`/departures/${d.id}`}
-                            className="group flex items-center gap-3.5 rounded-lg px-2 py-2.5 transition-all hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+                            className="group flex items-center gap-3.5 rounded-xl border border-transparent px-2 py-2 transition-all hover:border-gray-200 hover:bg-gray-50/80 hover:shadow-2xs dark:hover:border-gray-800 dark:hover:bg-white/[0.04]"
                           >
                             <div
-                              className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center ${neuTile}`}
+                              className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl border border-gray-200/80 bg-white shadow-2xs dark:border-gray-700/80 dark:bg-gray-800"
                             >
-                              <span className="text-sm font-semibold leading-none tabular-nums text-gray-800 dark:text-white">
+                              <span className="text-sm font-bold leading-none tabular-nums text-gray-900 dark:text-white">
                                 {String(dt.getDate()).padStart(2, "0")}
                               </span>
-                              <span className="mt-0.5 text-[0.5rem] uppercase leading-none text-gray-500 dark:text-gray-400">
+                              <span className="mt-1 text-[0.62rem] font-bold uppercase leading-none text-brand-600 dark:text-brand-400">
                                 {fmtMonthShort(dt, lang)}
                               </span>
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-semibold text-gray-800 dark:text-white">
+                              <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">
                                 {d.label}
                               </div>
                               <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                <span className="tabular-nums">{relativeDayLabel(d.departAt, lang)}</span>
+                                <span className="tabular-nums font-medium text-gray-600 dark:text-gray-300">{relativeDayLabel(d.departAt, lang)}</span>
                                 {d.destination && (
                                   <>
                                     <span className="text-gray-300 dark:text-gray-700">·</span>
@@ -826,7 +816,7 @@ const HomeHub: React.FC = () => {
               <Panel className="flex shrink-0 items-center justify-between gap-4 p-5">
                 <div className="min-w-0">
                   <SectionLabel>{hub.kpiReservations}</SectionLabel>
-                  <span className="mt-2 block text-[2.6rem] font-semibold leading-none tabular-nums tracking-tight text-gray-800 dark:text-white">
+                  <span className="mt-2 block text-[2.75rem] font-bold leading-none tabular-nums tracking-tight text-gray-900 dark:text-white">
                     {loading ? (
                       <span className="block h-12 w-16 animate-pulse rounded-lg bg-gray-200 dark:bg-white/[0.06]" />
                     ) : (
@@ -835,16 +825,16 @@ const HomeHub: React.FC = () => {
                   </span>
                 </div>
                 <div className="flex shrink-0 flex-col gap-2 text-right">
-                  <div className={`rounded-lg px-3 py-2 ${neuInset}`}>
-                    <span className="block text-[0.6rem] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/70 px-3.5 py-2 dark:border-gray-800 dark:bg-white/[0.03]">
+                    <span className="block text-[0.62rem] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                       {hub.psPaid}
                     </span>
-                    <span className="block text-sm font-semibold tabular-nums text-gray-700 dark:text-gray-200">
+                    <span className="block text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
                       {loading ? "—" : fmtNumber(paidCount, lang)}
                     </span>
                   </div>
-                  <div className={`rounded-lg px-3 py-2 ${neuInset}`}>
-                    <span className="block text-[0.6rem] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/70 px-3.5 py-2 dark:border-gray-800 dark:bg-white/[0.03]">
+                    <span className="block text-[0.62rem] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                       {hub.recent}
                     </span>
                     <span className="block text-sm font-semibold tabular-nums text-gray-700 dark:text-gray-200">
@@ -856,12 +846,12 @@ const HomeHub: React.FC = () => {
 
               {/* Mini cards row — Revenue + Open balance */}
               {showFinance && (
-                <div className="grid shrink-0 grid-cols-2 gap-5">
+                <div className="grid shrink-0 grid-cols-2 gap-4">
                   <Panel className="p-4">
                     <SectionLabel>{hub.kpiRevenue}</SectionLabel>
-                    <div className="mt-2 flex items-center gap-2">
-                      <DollarLineIcon className="size-4 text-brand-500" />
-                      <span className="text-xl font-semibold tabular-nums tracking-tight text-gray-800 dark:text-white">
+                    <div className="mt-2.5 flex items-baseline gap-2">
+                      <span className="text-sm font-bold text-brand-500">$</span>
+                      <span className="text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white">
                         {loading ? "—" : fmtCompact(overview?.total_paid_sum)}
                       </span>
                     </div>
@@ -870,9 +860,9 @@ const HomeHub: React.FC = () => {
                     <SectionLabel className={(openBalance || 0) > 0 ? "text-amber-500 dark:text-amber-400" : ""}>
                       {hub.kpiOutstanding}
                     </SectionLabel>
-                    <div className="mt-2 flex items-center gap-2">
-                      <BoxIconLine className={`size-4 ${(openBalance || 0) > 0 ? "text-amber-500" : "text-gray-400"}`} />
-                      <span className="text-xl font-semibold tabular-nums tracking-tight text-gray-800 dark:text-white">
+                    <div className="mt-2.5 flex items-baseline gap-2">
+                      <span className={`text-sm font-bold ${(openBalance || 0) > 0 ? "text-amber-500" : "text-gray-400"}`}>$</span>
+                      <span className="text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white">
                         {loading ? "—" : openBalance == null ? "Select currency" : fmtCompact(openBalance)}
                       </span>
                     </div>
@@ -883,11 +873,11 @@ const HomeHub: React.FC = () => {
               {/* Outstanding balances */}
               {showFinance && (
                 <Panel className="flex min-h-0 flex-1 flex-col p-5">
-                  <div className="mb-3 flex shrink-0 items-center justify-between gap-4">
+                  <div className="mb-3.5 flex shrink-0 items-center justify-between gap-4">
                     <SectionLabel>{hub.focusOutstanding}</SectionLabel>
                     <Link
                       to="/payments"
-                      className="inline-flex items-center gap-1 text-xs font-medium text-brand-500 transition-colors hover:text-brand-600 dark:text-brand-400"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
                     >
                       {hub.viewAll}
                       <ArrowRightIcon className="size-3" />
@@ -895,7 +885,7 @@ const HomeHub: React.FC = () => {
                   </div>
 
                   {/* Column header */}
-                  <div className="mb-1 flex shrink-0 items-center px-2 text-[0.6rem] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  <div className="mb-2 flex shrink-0 items-center px-2 text-[0.62rem] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                     <span className="flex-1">{t.reservations.customer}</span>
                     <span className="w-20 text-right">{common_amount(lang)}</span>
                   </div>
@@ -904,7 +894,7 @@ const HomeHub: React.FC = () => {
                     <ul className="space-y-2.5">
                       {[0, 1].map((i) => (
                         <li key={i} className="flex items-center gap-3 px-2">
-                          <div className="size-9 shrink-0 animate-pulse rounded-lg bg-gray-200 dark:bg-white/[0.06]" />
+                          <div className="size-9 shrink-0 animate-pulse rounded-xl bg-gray-200 dark:bg-white/[0.06]" />
                           <div className="flex-1 space-y-2">
                             <div className="h-3 w-2/5 animate-pulse rounded bg-gray-200 dark:bg-white/[0.06]" />
                             <div className="h-2.5 w-1/4 animate-pulse rounded bg-gray-100 dark:bg-white/[0.04]" />
@@ -913,39 +903,35 @@ const HomeHub: React.FC = () => {
                       ))}
                     </ul>
                   ) : hasMixedCurrencies ? (
-                    <div className="flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center">
+                    <div className="flex flex-1 flex-col items-center justify-center gap-2 py-6 text-center">
                       <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Select currency</p>
-                      <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{hub.paymentsPanel}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">{hub.paymentsPanel}</p>
                     </div>
                   ) : watchPayments.length === 0 ? (
                     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center">
-                      <span
-                        className="flex size-12 items-center justify-center rounded-full text-emerald-500 dark:text-emerald-400"
-                        
-                      >
-                        <CheckCircleIcon className="size-6" />
+                      <span className="flex size-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500 ring-4 ring-emerald-500/10 dark:bg-emerald-500/10 dark:text-emerald-400">
+                        <CheckCircleIcon className="size-5" />
                       </span>
                       <div>
-                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{hub.allSettled}</p>
+                        <p className="text-sm font-semibold text-gray-800 dark:text-white">{hub.allSettled}</p>
                         <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{hub.paymentsPanel}</p>
                       </div>
                     </div>
                   ) : (
-                    <ul className="-mx-1 flex-1 overflow-y-auto">
+                    <ul className="-mx-1 flex-1 space-y-1 overflow-y-auto pr-1">
                       {watchPayments.slice(0, 4).map((p) => (
                         <li key={p.id}>
                           <Link
                             to={p.href}
-                            className="group flex items-center gap-3 rounded-lg px-2 py-2.5 transition-all hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+                            className="group flex items-center gap-3 rounded-xl border border-transparent px-2.5 py-2 transition-all hover:border-gray-200 hover:bg-gray-50/80 hover:shadow-2xs dark:hover:border-gray-800 dark:hover:bg-white/[0.04]"
                           >
                             <div
-                              className="flex size-9 shrink-0 items-center justify-center rounded-lg text-amber-500 dark:text-amber-400"
-                              
+                              className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
                             >
-                              <DollarLineIcon className="size-4" />
+                              <DollarLineIcon className="size-3.5" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-semibold text-gray-800 dark:text-white">
+                              <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">
                                 {p.customerName}
                               </div>
                               <div className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
@@ -953,11 +939,11 @@ const HomeHub: React.FC = () => {
                               </div>
                             </div>
                             <div className="shrink-0 text-right">
-                              <div className="text-sm font-semibold tabular-nums text-gray-800 dark:text-white">
+                              <div className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
                                 {p.amount}
                               </div>
                               {p.daysOpen > 0 && (
-                                <div className="mt-0.5 text-[0.66rem] leading-none text-amber-500 dark:text-amber-400">
+                                <div className="mt-0.5 text-[0.66rem] font-medium leading-none text-amber-500 dark:text-amber-400">
                                   {p.daysOpen}d
                                 </div>
                               )}
@@ -970,16 +956,16 @@ const HomeHub: React.FC = () => {
                 </Panel>
               )}
 
-              {/* Current pay cycle — green check */}
+              {/* Current pay cycle banner */}
               {showFinance && (
                 <Panel className="flex shrink-0 items-center gap-3.5 p-4">
                   <span
-                    className="flex size-11 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"
+                    className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm shadow-emerald-500/30"
                   >
                     <CheckCircleIcon className="size-5" />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-white">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">
                       {openBalance == null ? "Select currency" : openBalance > 0 ? fmtCurrency(openBalance, lang, hubCurrency) : hub.allSettled}
                     </p>
                     <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{hub.paymentsPanel}</p>
@@ -992,19 +978,19 @@ const HomeHub: React.FC = () => {
             <aside className="flex min-w-0 flex-col gap-5 lg:min-h-0">
               <Panel className="shrink-0 p-5 pb-4">
                 <SectionLabel>{hub.workspacesTitle}</SectionLabel>
-                <nav className="mt-3.5 flex flex-col gap-2">
+                <nav className="mt-3.5 flex flex-col gap-1.5">
                   {workspaces.map((s) => (
                     <Link
                       key={s.href}
                       to={s.href}
-                      className="group flex items-center gap-3 rounded-lg px-2.5 py-2.5 transition-all"
+                      className="group flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 transition-all hover:border-gray-200 hover:bg-gray-50/80 hover:shadow-2xs dark:hover:border-gray-800 dark:hover:bg-white/[0.04]"
                     >
                       <span
-                        className={`flex size-9 shrink-0 items-center justify-center ${neuTile} text-gray-400 transition-colors group-hover:text-brand-500 dark:text-gray-500`}
+                        className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-gray-200/80 bg-white text-gray-500 shadow-2xs transition-colors group-hover:border-brand-300 group-hover:text-brand-600 dark:border-gray-800 dark:bg-gray-800/80 dark:text-gray-400 dark:group-hover:border-brand-500 dark:group-hover:text-brand-300"
                       >
-                        <s.icon className="size-[17px]" />
+                        <s.icon className="size-[18px]" />
                       </span>
-                      <span className="flex-1 text-[0.88rem] font-medium text-gray-600 transition-colors group-hover:text-gray-900 dark:text-gray-300 dark:group-hover:text-white">
+                      <span className="flex-1 text-[0.88rem] font-semibold text-gray-700 transition-colors group-hover:text-gray-900 dark:text-gray-300 dark:group-hover:text-white">
                         {s.label}
                       </span>
                       <ArrowRightIcon className="size-3.5 text-gray-300 transition-all group-hover:translate-x-0.5 group-hover:text-brand-500 dark:text-gray-600" />
@@ -1015,15 +1001,17 @@ const HomeHub: React.FC = () => {
 
               <Panel className="flex min-h-0 flex-1 flex-col p-5">
                 <SectionLabel>{hub.shortcutsTitle}</SectionLabel>
-                <nav className="mt-3.5 grid grid-cols-2 gap-3">
+                <nav className="mt-3.5 grid grid-cols-2 gap-2.5">
                   {shortcuts.map((s) => (
                     <Link
                       key={s.href}
                       to={s.href}
-                      className={`group flex flex-col gap-2.5 rounded-lg border border-gray-200 bg-white p-3.5 transition-colors hover:border-brand-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-white/[0.04]`}
+                      className="group flex flex-col gap-2 rounded-xl border border-gray-200/80 bg-white p-3 shadow-2xs transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:bg-brand-50/20 hover:shadow-xs dark:border-gray-800 dark:bg-gray-800/40 dark:hover:border-brand-500 dark:hover:bg-brand-500/10"
                     >
-                      <s.icon className="size-5 text-gray-400 transition-colors group-hover:text-brand-500 dark:text-gray-500" />
-                      <span className="text-xs font-medium leading-tight text-gray-600 transition-colors group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white">
+                      <div className="flex size-8 items-center justify-center rounded-lg bg-gray-50 text-gray-500 transition-colors group-hover:bg-brand-100/60 group-hover:text-brand-600 dark:bg-gray-800 dark:text-gray-400 dark:group-hover:bg-brand-500/20 dark:group-hover:text-brand-300">
+                        <s.icon className="size-4" />
+                      </div>
+                      <span className="text-xs font-semibold leading-tight text-gray-700 transition-colors group-hover:text-gray-900 dark:text-gray-300 dark:group-hover:text-white">
                         {s.label}
                       </span>
                     </Link>
@@ -1037,8 +1025,8 @@ const HomeHub: React.FC = () => {
           )}
           {/* Footer */}
           <footer className="mt-4 shrink-0 px-1">
-            <p className="text-[0.66rem] text-gray-400 dark:text-gray-600">
-              Footer © {new Date().getFullYear()} {(orgName || "NMT Analytics")} — {hub.subtitle}
+            <p className="text-[0.66rem] font-medium text-gray-400 dark:text-gray-500">
+              © {new Date().getFullYear()} {(orgName || "NMT Analytics")} — {hub.subtitle}
             </p>
           </footer>
         </div>
