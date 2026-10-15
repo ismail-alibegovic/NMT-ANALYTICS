@@ -114,37 +114,46 @@ export default function AutoSeatingPanel({
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-          {bs.title || "Automatic Seating"}
-        </h3>
-        {proposal && (
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-5 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
+            <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3zM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9L18 15z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+              {bs.title || "Automatic Seating"}
+            </h3>
+            {!proposal && (
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                {bs.noProposal || "No proposal generated yet"}
+              </p>
+            )}
+          </div>
+        </div>
+        {proposal ? (
           <button
             onClick={handleDiscard}
-            className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="flex size-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
           >
             ✕
           </button>
-        )}
-      </div>
-
-      {!proposal ? (
-        <div className="space-y-2">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {bs.noProposal || "No proposal generated yet"}
-          </p>
+        ) : (
           <button
             onClick={handleGenerate}
             disabled={!canGenerate}
-            className="w-full px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {generating
               ? bs.generating || "Generating..."
               : bs.generate || "Generate Proposal"}
           </button>
-        </div>
-      ) : (
+        )}
+      </div>
+
+      {!proposal ? null : (
         <div className="space-y-4">
           {/* Summary */}
           <div className="grid grid-cols-3 gap-2 text-center">
@@ -257,7 +266,7 @@ export default function AutoSeatingPanel({
           <button
             onClick={handleApply}
             disabled={!canApply}
-            className="w-full px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {applying
               ? bs.applying || "Applying..."
