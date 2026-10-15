@@ -65,6 +65,8 @@ import { getFlights, getDepartureFlightSegments, linkFlightToDeparture, unlinkFl
 import { getReservations } from "../api/reservations";
 import { sendDepartureManualMessage } from "../api/manualMessaging";
 import { canAccessFinances } from "../types/roles";
+import SupplierPayablesPanel from "../components/departures/SupplierPayablesPanel";
+import { getSuppliers, type Supplier } from "../api/suppliers";
 
 const formatCurrency = (amount: number, currency = "BAM") =>
   new Intl.NumberFormat("bs-BA", { style: "currency", currency }).format(amount || 0);
@@ -167,6 +169,8 @@ export default function DepartureDetail() {
   const [showCostModal, setShowCostModal] = useState(false);
   const [editingCostItem, setEditingCostItem] = useState<DepartureCostItem | null>(null);
   const [costSaving, setCostSaving] = useState(false);
+  const [costSuppliers, setCostSuppliers] = useState<Supplier[]>([]);
+  const [costSupplierError, setCostSupplierError] = useState(false);
   const [confirmationSavingId, setConfirmationSavingId] = useState<string | null>(null);
   const [confirmationModalItem, setConfirmationModalItem] = useState<DepartureCostItem | null>(null);
   const [confirmationForm, setConfirmationForm] = useState<{ status: SupplierConfirmationStatus; note: string }>({
@@ -180,6 +184,7 @@ export default function DepartureDetail() {
     label: "",
     quantity: "1",
     unitCost: "",
+    supplierId: "",
     notes: "",
   });
   const confirmationStatusMeta: Record<SupplierConfirmationStatus, { label: string; color: "warning" | "info" | "success" | "error" }> = {
@@ -247,6 +252,15 @@ export default function DepartureDetail() {
       void loadConfirmationHistory(id);
     }
   }, [activeTab, canViewFinance, id, loadProfitability, loadConfirmationHistory]);
+
+  useEffect(() => {
+    if (!showCostModal || !canViewFinance) return;
+    let current = true;
+    setCostSupplierError(false);
+    getSuppliers().then(items => { if (current) setCostSuppliers(items); })
+      .catch(() => { if (current) setCostSupplierError(true); });
+    return () => { current = false; };
+  }, [showCostModal, canViewFinance]);
 
   // Fetch reservations for this departure when add modal opens
   useEffect(() => {
@@ -723,6 +737,7 @@ export default function DepartureDetail() {
       label: item?.label || "",
       quantity: item ? String(item.quantity) : "1",
       unitCost: item ? String(item.unitCost) : "",
+      supplierId: item?.supplierId || "",
       notes: item?.notes || "",
     });
     setShowCostModal(true);
@@ -751,6 +766,7 @@ export default function DepartureDetail() {
         quantity,
         unitCost,
         currency: profitability.currency,
+        supplierId: costForm.supplierId || null,
         notes: costForm.notes.trim() || undefined,
       };
       if (editingCostItem) await updateDepartureCostItem(id, editingCostItem.id, payload);
@@ -758,7 +774,7 @@ export default function DepartureDetail() {
       setShowCostModal(false);
       await loadProfitability();
     } catch (err: any) {
-      setProfitError(err?.response?.data?.message || err?.message || t.departure.finance.saveError);
+      setProfitError((err?.response?.data?.code || err?.code) === 'PAYABLE_COST_LOCKED' ? t.supplierPayables.sourceLocked : err?.response?.data?.message || err?.message || t.departure.finance.saveError);
     } finally {
       setCostSaving(false);
     }
@@ -771,7 +787,7 @@ export default function DepartureDetail() {
       await deleteDepartureCostItem(id, item.id);
       await loadProfitability();
     } catch (err: any) {
-      setProfitError(err?.response?.data?.message || err?.message || t.departure.finance.deleteError);
+      setProfitError((err?.response?.data?.code || err?.code) === 'PAYABLE_COST_LOCKED' ? t.supplierPayables.sourceLocked : err?.response?.data?.message || err?.message || t.departure.finance.deleteError);
     }
   };
 
@@ -1384,6 +1400,7 @@ export default function DepartureDetail() {
                   <FinanceCard label={t.departure.finance.grossProfit} value={formatCurrency(profitability.estimatedGrossProfit, profitability.currency)} />
                   <FinanceCard label={t.departure.finance.margin} value={profitability.marginPct === null ? "—" : `${profitability.marginPct.toFixed(2)}%`} />
                 </section>
+                <SupplierPayablesPanel key={id} departureId={id!} costs={profitability.costItems} onChanged={() => { void loadProfitability(); }} />
                 <section className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                   <div className="flex flex-col gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -1700,6 +1717,16 @@ export default function DepartureDetail() {
             <div>
               <Label>{t.departure.finance.label}</Label>
               <Input value={costForm.label} onChange={(e) => setCostForm((prev) => ({ ...prev, label: e.target.value }))} />
+            </div>
+            <div>
+              <label htmlFor="cost-supplier" className="mb-1 block text-sm">{t.supplierPayables.supplier}</label>
+              <select id="cost-supplier" value={costForm.supplierId} onChange={e => setCostForm(prev => ({ ...prev, supplierId: e.target.value }))}
+                className="w-full min-w-0 rounded-lg border border-gray-300 p-2 dark:border-gray-700 dark:bg-gray-900">
+                <option value="">{t.supplierPayables.noSupplier}</option>
+                {costForm.supplierId && !costSuppliers.some(s => s.id === costForm.supplierId) && <option value={costForm.supplierId}>{editingCostItem?.supplierName || costForm.supplierId}</option>}
+                {costSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              {costSupplierError && <p role="alert" className="mt-1 text-sm text-red-600">{t.supplierPayables.loadError}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

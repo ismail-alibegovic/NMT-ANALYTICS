@@ -210,6 +210,7 @@ router.patch('/departures/:departureId/cost-items/:itemId', authenticateToken, r
     .select('id, departure_id, category, label, supplier_id, quantity, unit_cost, currency, notes, confirmation_status, created_at, updated_at, suppliers!departure_cost_items_supplier_org_fk(id, name)')
     .single();
 
+  if (error?.message === 'PAYABLE_COST_LOCKED') return apiError(res, 409, 'PAYABLE_COST_LOCKED', 'Cancel the zero-balance supplier obligation before changing its source cost');
   if (error) return handleSupabaseError(res, error, 'Failed to update departure cost item');
   return res.json({ costItem: transformCostItem(data) });
 });
@@ -226,6 +227,8 @@ router.delete('/departures/:departureId/cost-items/:itemId', authenticateToken, 
     .eq('departure_id', parsedDepartureId.data)
     .eq('org_id', req.orgId!);
 
+  if (error?.message === 'PAYABLE_COST_LOCKED' || (error?.code === '23503' && error.message?.includes('supplier_payables_cost_org_fk')))
+    return apiError(res, 409, 'PAYABLE_COST_LOCKED', 'Supplier obligation history prevents deleting this cost item');
   if (error) return handleSupabaseError(res, error, 'Failed to delete departure cost item');
   return res.status(204).send();
 });
