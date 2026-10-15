@@ -6,3 +6,4 @@ dist/
 # Local env overrides — never commit
 .env*.local
 test-results/
+.vercel
