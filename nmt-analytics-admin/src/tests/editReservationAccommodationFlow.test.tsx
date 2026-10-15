@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { I18nProvider } from '../lib/i18n/context';
 import EditReservationModal from '../components/reservations/EditReservationModal';
 
 const getPackages = vi.fn();
@@ -146,7 +147,7 @@ describe('EditReservationModal accommodation flow', () => {
   it('persists edited canonical reservation accommodation after reservation core update', async () => {
     const onSuccess = vi.fn();
     const onClose = vi.fn();
-    render(<EditReservationModal isOpen onClose={onClose} onSuccess={onSuccess} reservationId="reservation-1" />);
+    render(<I18nProvider><EditReservationModal isOpen onClose={onClose} onSuccess={onSuccess} reservationId="reservation-1" /></I18nProvider>);
 
     expect(await screen.findByText('Smještaj')).toBeInTheDocument();
     await waitFor(() => expect(getDepartureAccommodationOptions).toHaveBeenCalledWith('departure-1', 'reservation-1'));
@@ -182,7 +183,7 @@ describe('EditReservationModal accommodation flow', () => {
     updateReservationAccommodation.mockRejectedValueOnce(new Error('Accommodation overbooked'));
     const onSuccess = vi.fn();
     const onClose = vi.fn();
-    render(<EditReservationModal isOpen onClose={onClose} onSuccess={onSuccess} reservationId="reservation-1" />);
+    render(<I18nProvider><EditReservationModal isOpen onClose={onClose} onSuccess={onSuccess} reservationId="reservation-1" /></I18nProvider>);
 
     await screen.findByText('Smještaj');
     await waitFor(() => expect(getDepartureAccommodationOptions).toHaveBeenCalledWith('departure-1', 'reservation-1'));
@@ -213,7 +214,7 @@ describe('EditReservationModal accommodation flow', () => {
       },
     });
 
-    render(<EditReservationModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} reservationId="reservation-1" />);
+    render(<I18nProvider><EditReservationModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} reservationId="reservation-1" /></I18nProvider>);
 
     expect(await screen.findByText('Dodatne usluge')).toBeInTheDocument();
     expect(screen.getByText('Travel insurance')).toBeInTheDocument();

@@ -21,7 +21,7 @@ BEGIN
  INSERT INTO public.itinerary_versions(id,org_id,itinerary_id,version_number) VALUES(version,org,itinerary,1);
  INSERT INTO public.itinerary_items(org_id,itinerary_version_id,title,quantity,net_unit_price,markup_percent,currency)
  VALUES(org,version,'Quoted service',2,80,10,'EUR');
- INSERT INTO public.packages(id,org_id,itinerary_id,name,destination,base_price,currency,active)
+ INSERT INTO public.packages(id,org_id,itinerary_id,name,destination,base_price,currency,is_active)
  VALUES(product,org,itinerary,'Operational package','Vienna',999,'EUR',true);
  INSERT INTO public.departures(id,org_id,package_id,depart_at,return_at,capacity,status,booked)
  VALUES(departure,org,product,'2027-04-10T10:00:00Z','2027-04-15T10:00:00Z',4,'active',0);

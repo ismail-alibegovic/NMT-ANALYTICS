@@ -54,7 +54,7 @@ BEGIN
     'departAt',d.depart_at,'returnAt',d.return_at,'capacity',d.capacity) ORDER BY d.depart_at,d.id),'[]'::jsonb)
   INTO result FROM public.departures d JOIN public.packages p ON p.id=d.package_id AND p.org_id=d.org_id
   WHERE d.org_id=p_org_id AND p.org_id=p_org_id AND p.itinerary_id=q.itinerary_id AND p.currency=q.currency
-    AND d.status='active' AND p.active=true
+    AND d.status='active' AND p.is_active=true
     AND (d.depart_at AT TIME ZONE tz)::date=(q.booking_context->>'travelStart')::date
     AND (d.return_at AT TIME ZONE tz)::date=(q.booking_context->>'travelEnd')::date;
   RETURN result;
