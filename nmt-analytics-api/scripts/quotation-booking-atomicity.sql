@@ -24,7 +24,7 @@ BEGIN
  INSERT INTO public.packages(id,org_id,itinerary_id,name,destination,base_price,currency,is_active)
  VALUES(product,org,itinerary,'Operational package','Vienna',999,'EUR',true);
  INSERT INTO public.departures(id,org_id,package_id,depart_at,return_at,capacity,status,booked)
- VALUES(departure,org,product,'2027-04-10T10:00:00Z','2027-04-15T10:00:00Z',4,'active',0);
+ VALUES(departure,org,product,'2027-04-09T22:30:00Z','2027-04-14T22:30:00Z',4,'active',0);
  q:=public.create_quotation_snapshot_atomic(org,actor,jsonb_build_object('title','Booked quote','itinerary_id',itinerary,'itinerary_version_id',version));
  failed_q:=public.create_quotation_snapshot_atomic(org,actor,jsonb_build_object('title','Failure quote','itinerary_id',itinerary,'itinerary_version_id',version));
  full_q:=public.create_quotation_snapshot_atomic(org,actor,jsonb_build_object('title','Full quote','itinerary_id',itinerary,'itinerary_version_id',version));
@@ -36,7 +36,7 @@ BEGIN
  UPDATE public.packages SET currency='EUR' WHERE id=product;
  UPDATE public.departures SET depart_at='2027-04-11T10:00:00Z' WHERE id=departure;
  IF jsonb_array_length(public.quotation_booking_departures(org,(q->>'id')::uuid))<>0 THEN RAISE EXCEPTION 'Mismatched date offered'; END IF;
- UPDATE public.departures SET depart_at='2027-04-10T10:00:00Z' WHERE id=departure;
+ UPDATE public.departures SET depart_at='2027-04-09T22:30:00Z' WHERE id=departure;
  PERFORM pg_temp.expect_booking_error(format('SELECT public.book_quotation_atomic(%L,%L,%L,%L::jsonb,%L)',other_org,actor,q->>'id',payload,fingerprint),'QUOTATION_ACTOR_INVALID');
  result:=public.book_quotation_atomic(org,actor,(q->>'id')::uuid,payload,fingerprint);
  retry:=public.book_quotation_atomic(org,actor,(q->>'id')::uuid,payload,fingerprint);

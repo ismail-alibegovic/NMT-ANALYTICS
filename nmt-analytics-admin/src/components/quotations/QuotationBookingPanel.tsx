@@ -60,7 +60,7 @@ export default function QuotationBookingPanel({quotation:q}:{quotation:Quotation
         {loading?<p role="status">{c.bookingLoading}</p>:choices.length===0?(!error?<p>{c.bookingNoDepartures}</p>:null):<label className="grid min-w-0 gap-1 text-sm">{c.bookingDeparture}
           <select required value={departureId} onChange={e=>setDepartureId(e.target.value)} className="min-w-0 w-full rounded-lg border border-gray-300 p-2 dark:border-gray-700 dark:bg-gray-900">
             <option value="">{c.bookingSelectDeparture}</option>
-            {choices.map(d=><option key={d.id} value={d.id}>{d.packageName} · {d.departAt.slice(0,10)} – {d.returnAt.slice(0,10)}</option>)}
+            {choices.map(d=><option key={d.id} value={d.id}>{d.packageName} · {q.bookingContext?.travelStart} – {q.bookingContext?.travelEnd}</option>)}
           </select>
         </label>}
         <label className="grid min-w-0 gap-1 text-sm">{c.contactName}<input required maxLength={200} value={name} onChange={e=>setName(e.target.value)} className="min-w-0 w-full rounded-lg border p-2 dark:border-gray-700 dark:bg-gray-900"/></label>
