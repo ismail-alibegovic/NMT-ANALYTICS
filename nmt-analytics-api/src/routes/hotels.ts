@@ -74,7 +74,7 @@ function transformHotel(h: any) {
 }
 
 /** GET /api/hotels */
-router.get('/hotels', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res, next) => {
+router.get('/hotels', authenticateToken, requireOrgContext, requireMinimumRole('viewer'), async (req, res, next) => {
   try {
     const r = listQuerySchema.safeParse(req.query);
     if (!r.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', r.error.issues);

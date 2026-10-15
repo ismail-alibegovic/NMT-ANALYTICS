@@ -196,8 +196,12 @@ function normalizeHotel(row: any): Hotel {
   };
 }
 
-export async function getHotels(): Promise<Hotel[]> {
-  const { data } = await get<{ data: Hotel[] }>('/hotels');
+export async function getHotels(params?: { search?: string; limit?: number }): Promise<Hotel[]> {
+  const query = new URLSearchParams();
+  if (params?.search) query.set('search', params.search);
+  if (params?.limit) query.set('limit', String(params.limit));
+  const queryString = query.toString() ? `?${query.toString()}` : '';
+  const { data } = await get<{ data: Hotel[] }>(`/hotels${queryString}`);
   return (data.data || []).map((row: any) => normalizeHotel(row));
 }
 
