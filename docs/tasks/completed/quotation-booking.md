@@ -1,5 +1,5 @@
 # M19.4 — Accepted quotation to existing departure booking
-**Status:** ACTIVE
+**Status:** COMPLETE
 **Priority:** P1
 **Branch:** feature/quotation-booking
 **Roadmap references:** M19 connected inquiry/quote/booking; M24 acceptance
@@ -41,3 +41,5 @@ Baseline API/admin relevant suites; API input/RPC/error/role/org and edit-guard 
 
 ## 14–15. Completion
 Report branch, exact files, migration applied status, security, actual test/browser results, deferred provisioning/operational work, final SHA/PR and production verification. Fill release evidence only after acceptance.
+
+Completed via PR #87, merge 5a578ec876f15153ebe8a1263ee0e9863c719b14. Exact-head CI passed 718 API / 313 admin tests, 108 migrations and Docker; isolated acceptance passed 27 browser scenarios and Storage/SMTP checks. Migration 20261015081531 applied and verified. Production deployment dpl_56mHyzAGUvKF1LBWsdciaZ8JZ2R2 READY; health 200 with database connected and bypass disabled on 2026-10-15. Full evidence in the PR.

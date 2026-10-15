@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router";
 import DepartureDetail from "../pages/DepartureDetail";
 import { en } from "../lib/i18n/en";
+vi.mock("../api/suppliers", () => ({ getSuppliers: vi.fn(async () => []) }));
+vi.mock("../components/departures/SupplierPayablesPanel", () => ({ default: () => null }));
 
 const {
   mockReorder,
