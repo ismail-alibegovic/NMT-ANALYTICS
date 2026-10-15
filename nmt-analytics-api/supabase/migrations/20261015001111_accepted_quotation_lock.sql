@@ -23,9 +23,10 @@ BEGIN
     IF TG_OP = 'DELETE' THEN
       RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'QUOTATION_LOCKED';
     END IF;
-    IF (to_jsonb(NEW) - ARRAY['internal_notes','updated_at','status','rejected_at','commercial_locked'])
+    -- Operational assignee/creator FK cleanup does not alter approved terms.
+    IF (to_jsonb(NEW) - ARRAY['internal_notes','updated_at','status','rejected_at','commercial_locked','created_by','assigned_to'])
        IS DISTINCT FROM
-       (to_jsonb(OLD) - ARRAY['internal_notes','updated_at','status','rejected_at','commercial_locked'])
+       (to_jsonb(OLD) - ARRAY['internal_notes','updated_at','status','rejected_at','commercial_locked','created_by','assigned_to'])
        OR (NEW.status IS DISTINCT FROM OLD.status AND NEW.status NOT IN ('rejected','expired')) THEN
       RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'QUOTATION_LOCKED';
     END IF;
