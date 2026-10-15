@@ -57,6 +57,16 @@ app.use(helmet({
   crossOriginResourcePolicy: false,
 }));
 
+// Public booking forms are designed to be embedded in agencies' own websites via iframe.
+// helmet's default frameguard (X-Frame-Options: SAMEORIGIN) would block that, so lift it
+// for the public form page only; every other route keeps clickjacking protection.
+app.use((req, res, next) => {
+  if (req.method === 'GET' && /^\/public\/forms\/[^/]+\/?$/.test(req.path)) {
+    res.removeHeader('X-Frame-Options');
+  }
+  next();
+});
+
 function isAllowedOrigin(origin: string): boolean {
   if (origin === config.ADMIN_URL) return true;
 
