@@ -73,11 +73,13 @@ BEGIN
     RAISE EXCEPTION 'Failed item/source write leaked quotation or consumed reference';
   END IF;
   UPDATE public.quotations SET status='accepted' WHERE id=(quote->>'id')::uuid;
-  PERFORM pg_temp.expect_atomic_quote_error(format('UPDATE public.quotations SET booking_context=''{}''::jsonb WHERE id=%L',quote->>'id'),'P0001','QUOTATION_CONTEXT_LOCKED');
+  PERFORM pg_temp.expect_atomic_quote_error(format('UPDATE public.quotations SET booking_context=''{}''::jsonb WHERE id=%L',quote->>'id'),'P0001','QUOTATION_LOCKED');
   IF has_function_privilege('authenticated','public.create_quotation_snapshot_atomic(uuid,uuid,jsonb)','execute')
      OR has_function_privilege('anon','public.create_quotation_snapshot_atomic(uuid,uuid,jsonb)','execute')
      OR has_table_privilege('authenticated','public.quotation_reference_counters','select')
-     OR has_table_privilege('anon','public.quotation_reference_counters','insert') THEN
+     OR has_table_privilege('anon','public.quotation_reference_counters','insert')
+     OR has_table_privilege('authenticated','public.quotations','update')
+     OR has_table_privilege('authenticated','public.quotation_items','insert') THEN
     RAISE EXCEPTION 'Atomic quote resources accessible to clients';
   END IF;
   IF NOT EXISTS(SELECT FROM pg_class WHERE oid='public.quotation_reference_counters'::regclass AND relrowsecurity) THEN

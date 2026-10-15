@@ -1,4 +1,7 @@
 -- Quotation creation is one API-only transaction. No historical context is invented.
+-- Quotation business writes must pass Express authentication/role validation.
+REVOKE INSERT, UPDATE, DELETE ON public.quotations, public.quotation_items FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.quotations, public.quotation_items TO service_role;
 ALTER TABLE public.quotations ADD COLUMN booking_context jsonb NOT NULL DEFAULT '{}'::jsonb
   CHECK (jsonb_typeof(booking_context) = 'object');
 
@@ -133,3 +136,5 @@ $$;
 REVOKE ALL ON FUNCTION public.create_quotation_snapshot_atomic(uuid,uuid,jsonb) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.create_quotation_snapshot_atomic(uuid,uuid,jsonb) TO service_role;
 COMMENT ON FUNCTION public.create_quotation_snapshot_atomic(uuid,uuid,jsonb) IS 'Service-only API boundary: org/year reference, context, persisted item prices and header commit atomically.';
+
+NOTIFY pgrst, 'reload schema';
