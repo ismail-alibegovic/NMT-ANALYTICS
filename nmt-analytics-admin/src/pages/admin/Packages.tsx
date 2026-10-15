@@ -142,20 +142,20 @@ export default function Packages() {
   };
 
   const handleDelete = async (pkg: Package) => {
-    if (!confirm(`Are you sure you want to delete "${pkg.name}"?`)) return;
+    if (!confirm(t.packages.deleteConfirm || `Are you sure you want to delete "${pkg.name}"?`)) return;
     try {
       await deletePackage(pkg.id);
-      showSuccess('Package deleted successfully');
+      showSuccess(t.packages.deleteSuccess);
       fetchPackages(currentPage, searchTerm);
     } catch {
-      showError('Failed to delete package');
+      showError(t.packages.deleteError);
     }
   };
 
   const columns: Column<Package>[] = [
     {
       key: 'name',
-      header: 'Package',
+      header: t.packages.name,
       render: (_, pkg) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
@@ -170,7 +170,7 @@ export default function Packages() {
     },
     {
       key: 'price',
-      header: 'Price',
+      header: t.packages.basePrice,
       render: (val, pkg) => (
         <span className="font-medium text-gray-900 dark:text-white">
           {pkg.currency} {Number(val || 0).toLocaleString()}
@@ -179,19 +179,19 @@ export default function Packages() {
     },
     {
       key: 'active',
-      header: 'Status',
+      header: t.common.status,
       render: (val) => (
         <Badge color={val ? 'success' : 'error'} variant="light" size="sm">
-          {val ? 'Enabled' : 'Disabled'}
+          {val ? t.packages.active : t.packages.inactive}
         </Badge>
       )
     },
     {
-      key: 'actions', header: 'Actions', render: (_, pkg) => (
+      key: 'actions', header: t.common.actions, render: (_, pkg) => (
         <div className="flex gap-2 justify-end">
           <Button size="sm" variant="outline" onClick={() => navigate(`/packages/${pkg.id}`)} className="p-2">{t.packages.open}</Button>
-          <Button size="sm" variant="outline" onClick={() => handleEdit(pkg)} className="p-2">Edit</Button>
-          <Button size="sm" variant="outline" onClick={() => handleDelete(pkg)} className="p-2 text-red-600 hover:text-red-700">Delete</Button>
+          <Button size="sm" variant="outline" onClick={() => handleEdit(pkg)} className="p-2">{t.common.edit}</Button>
+          <Button size="sm" variant="outline" onClick={() => handleDelete(pkg)} className="p-2 text-red-600 hover:text-red-700">{t.common.delete}</Button>
         </div>
       )
     },
@@ -203,12 +203,12 @@ export default function Packages() {
     <>
       <PageMeta title={t.packages.title + " | Travline"} description={t.packages.description} />
       <PageToolbar
-        title="Packages"
-        description="Manage travel packages and destinations"
-        searchPlaceholder="Search packages..."
+        title={t.packages.title}
+        description={t.packages.description}
+        searchPlaceholder={t.packages.search}
         searchValue={searchTerm}
         onSearchChange={handleSearch}
-        createButton={{ label: "Add Package", onClick: handleCreate }}
+        createButton={{ label: t.packages.add, onClick: handleCreate }}
         actions={
           <Button
             variant="outline"
@@ -216,7 +216,7 @@ export default function Packages() {
             className="flex items-center gap-2"
           >
             <FileIcon className="w-4 h-4" />
-            Import CSV
+            {t.common.import} CSV
           </Button>
         }
       />

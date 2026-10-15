@@ -242,6 +242,7 @@ export const en = {
     total: 'Total', all: 'All', yes: 'Yes', no: 'No', close: 'Close',
     download: 'Download', upload: 'Upload', submit: 'Submit', success: 'Success',
     error: 'Error', isRequired: 'is required', saving: 'Saving...', deleting: 'Deleting...', sending: 'Sending...',
+    loadingWorkspace: 'Loading workspace...', user: 'User', pending: 'pending', view: 'View',
   },
   dashboard: {
     title: 'Dashboard Overview', description: 'Track your business performance and metrics',
@@ -302,6 +303,7 @@ export const en = {
     noCustomers: 'No clients found', search: 'Search clients...',
     hasReservations: 'Has Reservations', customerDetails: 'Customer Details',
     editCustomer: 'Edit Customer', deleteConfirm: 'Are you sure you want to delete this client?',
+    deleteSuccess: 'Client deleted successfully', deleteError: 'Failed to delete client',
     created: 'Created', reservations: 'Reservations',
   },
   packages: {
@@ -311,6 +313,7 @@ export const en = {
     duration: 'Duration (days)', maxParticipants: 'Max Participants', isActive: 'Active',
     fieldDescription: 'Description', noPackages: 'No packages found',
     search: 'Search packages...', deleteConfirm: 'Are you sure you want to delete this package?',
+    deleteSuccess: 'Package deleted successfully', deleteError: 'Failed to delete package',
     departures: 'Departures', reservations: 'Reservations',
     active: 'Active', inactive: 'Inactive',
     open: 'Open',
@@ -1068,6 +1071,7 @@ export const en = {
     upload: 'Upload Document', generate: 'Generate Document',
     noDocuments: 'No documents found', name: 'Name', type: 'Type', size: 'Size',
     uploadedAt: 'Uploaded At', deleteConfirm: 'Are you sure you want to delete this document?',
+    deleteSuccess: 'Document deleted successfully', deleteError: 'Failed to delete document',
   },
   auditLogs: {
     title: 'Audit Logs', description: 'Track all system changes',
@@ -1077,6 +1081,12 @@ export const en = {
   profile: {
     title: 'Profile', description: 'Manage your profile',
     email: 'Email', role: 'Role', orgnization: 'Organization',
+  },
+  userMenu: {
+    organization: 'Organization',
+    viewProfile: 'View Profile',
+    support: 'Support',
+    signOut: 'Sign out',
   },
   errors: {
     generic: 'Something went wrong', notFound: 'Page not found',
@@ -1088,6 +1098,15 @@ export const en = {
   notifications: {
     title: 'Notifications', markAllRead: 'Mark all as read',
     noNotifications: 'No notifications',
+    unread: 'unread',
+    allCaughtUp: 'All caught up',
+    loading: 'Loading notifications...',
+    emptyDescription: 'Operational updates will appear here.',
+    justNow: 'Just now',
+    minAgo: '{min}m ago',
+    hoursAgo: '{hours}h ago',
+    daysAgo: '{days}d ago',
+    close: 'Close notifications',
   },
   statusLabels: {
     active: 'Active', completed: 'Completed', cancelled: 'Cancelled',
@@ -1379,6 +1398,7 @@ export const en = {
       summaryTotal: 'Total departures', summaryAvailable: 'Available',
       summaryFull: 'Full', summaryCritical: '< 20% left',
       statusGreen: '≥ 20% available', statusAmber: '1–20% available', statusRed: 'Full',
+      lastRefreshed: 'Last refreshed',
     },
     rooming: {
       loading: 'Loading accommodation…',

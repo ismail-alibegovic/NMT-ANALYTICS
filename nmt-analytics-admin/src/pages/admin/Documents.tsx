@@ -19,10 +19,12 @@ import {
     DocumentListResponse
 } from '../../api/documents';
 import { formatDate } from '../../utils/business';
+import { useT } from '../../lib/i18n';
 
 const ITEMS_PER_PAGE = 10;
 
 export default function Documents() {
+    const { t } = useT();
     const { success: showSuccess, error: showError } = useToast();
     const { user, loading: authLoading } = useApp();
     const { getParam, setParams } = useQueryParams();
@@ -139,13 +141,13 @@ export default function Documents() {
     };
 
     const handleDelete = async (doc: Document) => {
-        if (!confirm(`Are you sure you want to delete "${doc.name}"?`)) return;
+        if (!confirm(t.documents.deleteConfirm || `Are you sure you want to delete "${doc.name}"?`)) return;
         try {
             await deleteDocument(doc.id);
-            showSuccess('Document deleted successfully');
+            showSuccess(t.documents.deleteSuccess);
             fetchDocuments(currentPage, searchTerm);
         } catch (err: any) {
-            showError('Failed to delete document');
+            showError(t.documents.deleteError);
         }
     };
 
@@ -160,7 +162,7 @@ export default function Documents() {
     const columns: Column<Document>[] = [
         {
             key: 'name',
-            header: 'Name',
+            header: t.documents.name,
             render: (_val, doc) => {
                 const isImage = doc.type.startsWith('image/');
                 const isPDF = doc.type === 'application/pdf';
@@ -190,7 +192,7 @@ export default function Documents() {
         },
         {
             key: 'type',
-            header: 'Type',
+            header: t.documents.type,
             render: (val) => {
                 const parts = (val as string).split('/');
                 return parts[parts.length - 1].toUpperCase();
@@ -198,7 +200,7 @@ export default function Documents() {
         },
         {
             key: 'size',
-            header: 'Size',
+            header: t.documents.size,
             render: (val) => formatSize(val as number)
         },
         {
@@ -213,12 +215,12 @@ export default function Documents() {
         },
         {
             key: 'created_at',
-            header: 'Date',
+            header: t.documents.uploadedAt,
             render: (val) => formatDate(val as string)
         },
         {
             key: 'actions',
-            header: 'Actions',
+            header: t.common.actions,
             render: (_, doc) => (
                 <div className="flex gap-2 justify-end">
                     <Button
@@ -256,13 +258,13 @@ export default function Documents() {
             />
 
             <div className="mb-6">
-                <PageBreadCrumb pageTitle="Documents" />
+                <PageBreadCrumb pageTitle={t.documents.title} />
             </div>
 
             <PageToolbar
-                title="Documents"
-                description="Manage and store important files and documents"
-                searchPlaceholder="Search documents..."
+                title={t.documents.title}
+                description={t.documents.description}
+                searchPlaceholder={t.common.search + '...'}
                 searchValue={searchTerm}
                 onSearchChange={handleSearch}
                 actions={
@@ -277,7 +279,7 @@ export default function Documents() {
                         ) : (
                             <FileIcon className="w-4 h-4" />
                         )}
-                        {uploading ? 'Uploading...' : 'Upload Document'}
+                        {uploading ? t.common.saving : t.documents.upload}
                     </Button>
                 }
             />

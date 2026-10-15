@@ -11,6 +11,7 @@ import Button from '../../components/ui/button/Button';
 import Badge from '../../components/ui/badge/Badge';
 import { useToast } from '../../context/ToastContext';
 import { useApp } from '../../context/AppContext';
+import { useT } from '../../lib/i18n';
 import { useQueryParams } from '../../hooks/useQueryParams';
 import { useDataInvalidation } from '../../hooks/useDataInvalidation';
 import {
@@ -26,6 +27,7 @@ const ITEMS_PER_PAGE = 10;
 
 export default function Customers() {
   const navigate = useNavigate();
+  const { t } = useT();
   const { success: showSuccess, error: showError } = useToast();
   const { user, loading: authLoading } = useApp();
   const { getParam, setParams } = useQueryParams();
@@ -122,13 +124,13 @@ export default function Customers() {
   };
 
   const handleDelete = async (customer: Customer) => {
-    if (!confirm(`Are you sure you want to delete ${customer.full_name}?`)) return;
+    if (!confirm(t.customers.deleteConfirm || `Are you sure you want to delete ${customer.full_name}?`)) return;
     try {
       await deleteCustomer(customer.id);
-      showSuccess('Customer deleted successfully');
+      showSuccess(t.customers.deleteSuccess);
       fetchCustomers(currentPage, searchTerm, packageFilter);
     } catch {
-      showError('Failed to delete customer');
+      showError(t.customers.deleteError);
     }
   };
 
@@ -179,7 +181,7 @@ export default function Customers() {
   const columns: Column<Customer>[] = [
     {
       key: 'fullName',
-      header: 'Customer',
+      header: t.customers.name,
       render: (_, customer) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
@@ -189,15 +191,15 @@ export default function Customers() {
             <span className="font-medium text-gray-900 dark:text-white">
               {customer.full_name || '-'}
             </span>
-            <span className="text-xs text-gray-500">{customer.email || 'No email'}</span>
+            <span className="text-xs text-gray-500">{customer.email || '-'}</span>
           </div>
         </div>
       )
     },
-    { key: 'phone', header: 'Phone' },
+    { key: 'phone', header: t.customers.phone },
     {
       key: 'status',
-      header: 'Status',
+      header: t.common.status,
       render: (val) => (
         <Badge color={getStatusColor(val as string)} variant="light" size="sm">
           {(val as string)?.charAt(0).toUpperCase() + (val as string)?.slice(1)}
@@ -205,11 +207,11 @@ export default function Customers() {
       )
     },
     {
-      key: 'actions', header: 'Actions', render: (_, customer) => (
+      key: 'actions', header: t.customers.actions, render: (_, customer) => (
         <div className="flex gap-2 justify-end">
-          <Button size="sm" variant="outline" onClick={() => navigate(`/customers/${customer.id}`)} className="p-2">View</Button>
-          <Button size="sm" variant="outline" onClick={() => handleEdit(customer)} className="p-2">Edit</Button>
-          <Button size="sm" variant="outline" onClick={() => handleDelete(customer)} className="p-2 text-red-600 hover:text-red-700">Delete</Button>
+          <Button size="sm" variant="outline" onClick={() => navigate(`/customers/${customer.id}`)} className="p-2">{t.common.view}</Button>
+          <Button size="sm" variant="outline" onClick={() => handleEdit(customer)} className="p-2">{t.common.edit}</Button>
+          <Button size="sm" variant="outline" onClick={() => handleDelete(customer)} className="p-2 text-red-600 hover:text-red-700">{t.common.delete}</Button>
         </div>
       )
     },
@@ -239,12 +241,12 @@ export default function Customers() {
     <>
       <PageMeta title="Customers | Travline" description="Manage your customer database" />
       <PageToolbar
-        title="Customers"
-        description="Manage your customer database"
-        searchPlaceholder="Search customers..."
+        title={t.customers.title}
+        description={t.customers.description}
+        searchPlaceholder={t.customers.search}
         searchValue={searchTerm}
         onSearchChange={handleSearch}
-        createButton={{ label: "Add Customer", onClick: handleCreate }}
+        createButton={{ label: t.customers.addCustomer, onClick: handleCreate }}
         actions={
           <Button
             variant="outline"
@@ -252,7 +254,7 @@ export default function Customers() {
             className="flex items-center gap-2"
           >
             <FileIcon className="w-4 h-4" />
-            Import CSV
+            {t.customers.importCustomers}
           </Button>
         }
       />
@@ -279,7 +281,7 @@ export default function Customers() {
             }}
             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/[0.1] dark:bg-gray-900 dark:text-white"
           >
-            <option value="">Svi klijenti (svi aranžmani)</option>
+            <option value="">{t.customers.allPackages}</option>
             {packages.map((pkg) => (
               <option key={pkg.id} value={pkg.id}>{pkg.name} - {pkg.destination}</option>
             ))}
