@@ -137,6 +137,7 @@ test.describe('Complete Business Scenarios (M13, M15, M19, M20, M24)', () => {
         customerName: 'Adnan Cengic',
         customerPhone: '+38761111222',
         partySize: 2,
+        reservationAt: new Date().toISOString(),
         totalAmount: 1700,
         currency: 'BAM',
         status: 'confirmed',
@@ -305,7 +306,7 @@ test.describe('Complete Business Scenarios (M13, M15, M19, M20, M24)', () => {
     const costRes = await request.post(`${apiUrl}/api/departures/${departure.id}/cost-items`, {
       headers: headers(token),
       data: {
-        category: 'accommodation',
+        category: 'hotel',
         label: 'Local DMC Partner Accommodation',
         quantity: 1,
         unitCost: 150,
