@@ -27,6 +27,7 @@ CREATE TABLE public.supplier_payables (
     REFERENCES public.suppliers(id,org_id) ON DELETE RESTRICT
 );
 CREATE UNIQUE INDEX supplier_payables_active_cost ON public.supplier_payables(org_id,cost_item_id) WHERE cancelled_at IS NULL;
+CREATE INDEX supplier_payables_cost_history ON public.supplier_payables(org_id,cost_item_id);
 CREATE INDEX supplier_payables_departure ON public.supplier_payables(org_id,departure_id,created_at,id);
 CREATE INDEX supplier_payables_supplier ON public.supplier_payables(org_id,supplier_id,due_date);
 
