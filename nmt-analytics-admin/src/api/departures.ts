@@ -202,6 +202,8 @@ export interface ReadinessDeparture {
   supplierIssues?: number;
   hasFlight: boolean;
   flightConfigured: boolean;
+  hasBusTransport?: boolean;
+  unassignedSeats?: number;
   needTravelDocuments: boolean;
   hasAccommodation: boolean;
   documentIssues: number;
@@ -209,6 +211,10 @@ export interface ReadinessDeparture {
   unassignedAccommodation: number;
   departureLabel: string;
   accommodationConfigured: boolean;
+  capacity?: number;
+  booked?: number;
+  isCapacityFull?: boolean;
+  availableCapacity?: number;
 }
 
 export interface ReadinessSummary {

@@ -656,7 +656,7 @@ router.get('/departures/readiness-summary', authenticateToken, requireOrgContext
 
     const { data: departures, error: depErr } = await supabaseAdmin
       .from('departures')
-      .select('id, depart_at, return_at, transport_type, flight_id, document_readiness_required, traveler_requirements, package_id, packages!inner(id, name, destination, transport_type, trip_type, traveler_requirements)')
+      .select('id, depart_at, return_at, transport_type, flight_id, document_readiness_required, traveler_requirements, package_id, capacity, booked, packages!inner(id, name, destination, transport_type, trip_type, traveler_requirements)')
       .eq('org_id', orgId)
       .eq('status', 'active')
       .gte('depart_at', dateFrom)
@@ -670,7 +670,7 @@ router.get('/departures/readiness-summary', authenticateToken, requireOrgContext
 
     const { data: allPassengers } = await supabaseAdmin
       .from('departure_passengers')
-      .select('id, departure_id, id_document_type, id_document_number, id_document_expiry, nationality, date_of_birth')
+      .select('id, departure_id, seat_number, id_document_type, id_document_number, id_document_expiry, nationality, date_of_birth')
       .eq('org_id', orgId)
       .in('departure_id', departureIds);
 
@@ -736,6 +736,21 @@ router.get('/departures/readiness-summary', authenticateToken, requireOrgContext
       departuresWithFlightSegments.add(seg.departure_id);
     }
 
+    // Accommodation template detection: check package_hotels and departure hotel_allocations
+    const packageIds = Array.from(new Set(departures.map((d: any) => d.package_id).filter(Boolean)));
+    const [
+      { data: allPackageHotels },
+      { data: allAllocations },
+    ] = await Promise.all([
+      packageIds.length > 0
+        ? supabaseAdmin.from('package_hotels').select('package_id').eq('org_id', orgId).in('package_id', packageIds)
+        : Promise.resolve({ data: [] }),
+      supabaseAdmin.from('hotel_allocations').select('departure_id').eq('org_id', orgId).in('departure_id', departureIds),
+    ]);
+
+    const packagesWithHotels = new Set<string>((allPackageHotels || []).map((ph: any) => ph.package_id));
+    const departuresWithAllocations = new Set<string>((allAllocations || []).map((ha: any) => ha.departure_id));
+
     // Match the supplier board's authorization and outstanding semantics.
     const supplierIssuesByDeparture = new Map<string, number>();
     const canReadSuppliers = hasAccess('manager', req.user?.role);
@@ -755,13 +770,17 @@ router.get('/departures/readiness-summary', authenticateToken, requireOrgContext
     const results = departures.map((departure: any) => {
       const pkg = departure.packages || null;
 
-      const packageHasAccommodation = hasBuildingsByDeparture.has(departure.id);
+      const hasBuildings = hasBuildingsByDeparture.has(departure.id);
+      const packageHasAccommodation = hasBuildings
+        || departuresWithAllocations.has(departure.id)
+        || (departure.package_id ? packagesWithHotels.has(departure.package_id) : false);
+
       const segsForDeparture: unknown[] = departuresWithFlightSegments.has(departure.id) ? [true] : [];
       const capabilities = resolveDepartureCapabilities(departure, pkg, packageHasAccommodation, segsForDeparture);
+      const depPassengers = passengersByDeparture.get(departure.id) || [];
 
       let documentIssues = 0;
       if (capabilities.needTravelDocuments) {
-        const depPassengers = passengersByDeparture.get(departure.id) || [];
         const readinessCtx = {
           needTravelDocuments: capabilities.needTravelDocuments,
           travelerRequirements: capabilities.travelerRequirements,
@@ -777,6 +796,13 @@ router.get('/departures/readiness-summary', authenticateToken, requireOrgContext
         }
         const summary = summarizeDocumentReadiness(true, entries);
         documentIssues = summary.missing + summary.expiredBeforeDeparture + summary.expiredBeforeReturn;
+      }
+
+      let unassignedSeats = 0;
+      if (capabilities.hasBusTransport) {
+        unassignedSeats = depPassengers.filter(
+          (p: any) => p.seat_number === null || p.seat_number === undefined || Number(p.seat_number) <= 0
+        ).length;
       }
 
       let splitOrPartialGroups = 0;
@@ -796,11 +822,17 @@ router.get('/departures/readiness-summary', authenticateToken, requireOrgContext
             }
           }
 
-          const depPassengerIds = (passengersByDeparture.get(departure.id) || []).map((p: any) => p.id);
+          const depPassengerIds = depPassengers.map((p: any) => p.id);
           const unassigned = depPassengerIds.filter((id: string) => !assignedPassengerIds.has(id));
           unassignedAccommodation = unassigned.length;
         }
       }
+
+      const capacity = Number(departure.capacity || 0);
+      const booked = Number(departure.booked || 0);
+      const isCapacityFull = capacity > 0 && booked >= capacity;
+      const availableCapacity = Math.max(0, capacity - booked);
+      const accommodationConfigured = capabilities.hasAccommodation ? hasBuildings : true;
 
       return {
         departureId: departure.id,
@@ -809,10 +841,18 @@ router.get('/departures/readiness-summary', authenticateToken, requireOrgContext
         ...(canReadSuppliers ? { supplierIssues: supplierIssuesByDeparture.get(departure.id) || 0 } : {}),
         hasFlight: capabilities.hasFlight,
         flightConfigured: capabilities.flightConfigured,
+        hasBusTransport: capabilities.hasBusTransport,
+        unassignedSeats,
+        hasAccommodation: capabilities.hasAccommodation,
+        accommodationConfigured,
         needTravelDocuments: capabilities.needTravelDocuments,
         documentIssues,
         splitOrPartialGroups,
         unassignedAccommodation,
+        capacity,
+        booked,
+        isCapacityFull,
+        availableCapacity,
       };
     });
 

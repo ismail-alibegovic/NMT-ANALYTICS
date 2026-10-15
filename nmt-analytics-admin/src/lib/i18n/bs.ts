@@ -196,6 +196,8 @@ export const bs: Translations = {
     alertGroupSplit: '{count} putničkih grupa je razdvojeno ili djelimično raspoređeno',
     alertRoomingUnassigned: '{count} putnika još nema raspored smještaja',
     alertRoomingMissingConfig: 'Smještaj nije konfigurisan',
+    alertSeatingUnassigned: '{count} putnika nema dodijeljeno sjedište',
+    alertCapacityFull: 'Kapacitet popunjen ({booked}/{capacity})',
     todayQueueClear: 'Nema hitnih zadataka',
     todayQueueClearDetail: 'Rezervacije i polasci su pod kontrolom.',
     todayQueueError: 'Dio operativnih podataka nije učitan. Osvježite stranicu i pokušajte ponovo.',

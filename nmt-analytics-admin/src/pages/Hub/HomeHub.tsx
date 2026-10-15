@@ -9,7 +9,7 @@ import {
   type OverviewAnalyticsV2,
   type RevenueSeriesDataPoint,
 } from "../../api/analytics";
-import { generateRoomingProposal, getDeparture, getDeparturePassengers, getDepartures, getReadinessSummary } from "../../api/departures";
+import { getDepartures, getReadinessSummary } from "../../api/departures";
 import { getReservations, type Reservation } from "../../api/reservations";
 import { getPaymentDashboard, type PaymentDashboardMetric } from "../../api/payments";
 import {
@@ -55,7 +55,7 @@ type ReadinessAlert = {
   departureId: string;
   departureLabel: string;
   label: string;
-  urgency: "urgent" | "attention";
+  urgency: "urgent" | "attention" | "normal";
 };
 
 /**
@@ -280,136 +280,135 @@ const HomeHub: React.FC = () => {
         const fortnightAgo = new Date(today.getTime() - 14 * 86_400_000).toISOString().split("T")[0];
         const monetaryFilters = selectedCurrency ? { currency: selectedCurrency } : {};
 
-        const [ov, deps, rev, paymentsDashboard, pending, supplierReadiness] = await Promise.allSettled([
+        const [ov, deps, rev, paymentsDashboard, pending, readinessSummaryRes] = await Promise.allSettled([
           getAnalyticsOverviewV2({ from: fortnightAgo, to: todayISO, ...monetaryFilters }),
           getDepartures({ status: "active", dateFrom: todayISO, limit: 12 }),
           getRevenueSeries({ from: fortnightAgo, to: todayISO, bucket: "daily", ...monetaryFilters }),
           showFinance ? getPaymentDashboard() : Promise.resolve(null),
           getReservations({ status: "pending", limit: 3 }),
-          showFinance ? getReadinessSummary(todayISO, 12) : Promise.resolve({ departures: [] }),
+          getReadinessSummary(todayISO, 12),
         ]);
 
         if (!active) return;
         if (ov.status === "fulfilled") setOverview(ov.value);
         if (deps.status === "fulfilled") setDepartures((deps.value as any)?.data || []);
-        if (deps.status === "fulfilled") {
-          const departureRows = ((deps.value as any)?.data || []) as any[];
-          const nearDepartureRows = departureRows
-            .filter((departure) => {
-              const departureTime = new Date(departure.depart_at).getTime();
-              const nowTime = Date.now();
-              return departureTime >= nowTime - 86_400_000 && departureTime <= nowTime + 7 * 86_400_000;
-            })
-            .slice(0, 6);
 
-          const readinessResults = await Promise.all(
-            nearDepartureRows.map(async (departure) => {
-              try {
-                const detail = await getDeparture(departure.id);
-                const alerts: ReadinessAlert[] = [];
-                const departureLabel =
-                  detail.packages?.name || detail.packageName || detail.destination || hub.untitledDeparture;
+        if (readinessSummaryRes.status === "fulfilled") {
+          const departureSummaries = readinessSummaryRes.value?.departures || [];
+          const nowTime = Date.now();
+          const nearDeparturesList = departureSummaries.filter((row) => {
+            const time = new Date(row.departAt).getTime();
+            return time >= nowTime - 86_400_000 && time <= nowTime + 7 * 86_400_000;
+          });
 
-                if (detail.capabilities?.hasFlight && !detail.capabilities?.flightConfigured) {
-                  alerts.push({
-                    id: `flight-${detail.id}`,
-                    departureId: detail.id,
-                    departureLabel,
-                    label: hub.alertFlightMissing,
-                    urgency: "urgent",
-                  });
-                }
+          const alerts: ReadinessAlert[] = [];
 
-                if (detail.capabilities?.needTravelDocuments) {
-                  // ponytail: reuses the /passengers endpoint's server-side readiness
-                  // summary instead of duplicating the calculation client-side.
-                  try {
-                    const manifest = await getDeparturePassengers(detail.id);
-                    const attentionCount = manifest.documentReadiness?.missing || 0;
-                    if (attentionCount > 0) {
-                      alerts.push({
-                        id: `documents-${detail.id}`,
-                        departureId: detail.id,
-                        departureLabel,
-                        label: hub.alertDocumentsAttention.replace("{count}", String(attentionCount)),
-                        urgency: "urgent",
-                      });
-                    }
-                  } catch {
-                    // manifest unavailable - skip documents alert rather than block other alerts
-                  }
-                }
+          for (const row of nearDeparturesList) {
+            const label = row.departureLabel || hub.untitledDeparture;
 
-                if (detail.capabilities?.hasAccommodation && showFinance) {
-                  // ponytail: proposal endpoint is manager-gated - agent/viewer roles
-                  // silently get no rooming alerts; upgrade path is a readiness summary
-                  // endpoint readable by all roles.
-                  const roomingSignals = new Set<string>();
-                  if ((detail.accommodationBuildings?.length || 0) === 0) {
-                    // No buildings configured at all - that IS the unconfigured signal;
-                    // the proposal engine can't distinguish it from "configured but
-                    // nothing placeable".
-                    roomingSignals.add(hub.alertRoomingMissingConfig);
-                  } else {
-                    try {
-                      const proposal = await generateRoomingProposal(detail.id);
-                      const groupIssues = proposal.groupResults.filter(
-                        (group) => group.status === "split" || group.status === "partial"
-                      ).length;
-                      if (groupIssues > 0) {
-                        roomingSignals.add(
-                          hub.alertGroupSplit.replace("{count}", String(groupIssues))
-                        );
-                      }
-                      const unplacedCount = proposal.unplaced?.length || 0;
-                      if (unplacedCount > 0) {
-                        roomingSignals.add(
-                          hub.alertRoomingUnassigned.replace("{count}", String(unplacedCount))
-                        );
-                      }
-                    } catch {
-                      // manager-gated endpoint - non-manager roles simply get no rooming alerts
-                    }
-                  }
+            // 1. Unconfirmed suppliers (manager-only, populated if user can view suppliers)
+            if ((row.supplierIssues || 0) > 0) {
+              alerts.push({
+                id: `suppliers-${row.departureId}`,
+                departureId: row.departureId,
+                departureLabel: label,
+                label: hub.alertSupplierConfirmations.replace("{count}", String(row.supplierIssues)),
+                urgency: "attention",
+                href: `/departures/${row.departureId}?tab=finance`,
+              });
+            }
 
-                  roomingSignals.forEach((label) => {
-                    alerts.push({
-                      id: `${detail.id}-${label}`,
-                      departureId: detail.id,
-                      departureLabel,
-                      label,
-                      urgency: "attention",
-                    });
-                  });
-                }
+            // 2. Flight unconfigured
+            if (row.hasFlight && !row.flightConfigured) {
+              alerts.push({
+                id: `flight-${row.departureId}`,
+                departureId: row.departureId,
+                departureLabel: label,
+                label: hub.alertFlightMissing,
+                urgency: "urgent",
+                href: `/departures/${row.departureId}?tab=overview`,
+              });
+            }
 
-                return alerts;
-              } catch (error) {
-                logger.error("[HomeHub] readiness detail failed", error);
-                return [];
-              }
-            })
-          );
+            // 3. Document issues
+            if (row.needTravelDocuments && (row.documentIssues || 0) > 0) {
+              alerts.push({
+                id: `documents-${row.departureId}`,
+                departureId: row.departureId,
+                departureLabel: label,
+                label: hub.alertDocumentsAttention.replace("{count}", String(row.documentIssues)),
+                urgency: "urgent",
+                href: `/departures/${row.departureId}?tab=passengers`,
+              });
+            }
 
-          if (active) {
-            const supplierAlerts: ReadinessAlert[] = supplierReadiness.status === "fulfilled"
-              ? supplierReadiness.value.departures
-                .filter((row) => {
-                  const time = new Date(row.departAt).getTime();
-                  return (row.supplierIssues || 0) > 0 && time >= Date.now() - 86_400_000 && time <= Date.now() + 7 * 86_400_000;
-                })
-                .map((row) => ({
-                  id: `suppliers-${row.departureId}`,
+            // 4. Seating unassigned (bus transport)
+            if (row.hasBusTransport && (row.unassignedSeats || 0) > 0) {
+              alerts.push({
+                id: `seating-${row.departureId}`,
+                departureId: row.departureId,
+                departureLabel: label,
+                label: hub.alertSeatingUnassigned.replace("{count}", String(row.unassignedSeats)),
+                urgency: "attention",
+                href: `/departures/${row.departureId}?tab=passengers`,
+              });
+            }
+
+            // 5. Accommodation
+            if (row.hasAccommodation) {
+              if (!row.accommodationConfigured) {
+                alerts.push({
+                  id: `rooming-config-${row.departureId}`,
                   departureId: row.departureId,
-                  departureLabel: row.departureLabel || hub.untitledDeparture,
-                  label: hub.alertSupplierConfirmations.replace("{count}", String(row.supplierIssues)),
-                  urgency: "attention" as const,
-                  href: `/departures/${row.departureId}?tab=finance`,
-                }))
-              : [];
-            setReadinessAlerts([...supplierAlerts, ...readinessResults.flat()].slice(0, 4));
+                  departureLabel: label,
+                  label: hub.alertRoomingMissingConfig,
+                  urgency: "attention",
+                  href: `/departures/${row.departureId}?tab=hotels`,
+                });
+              } else {
+                if ((row.splitOrPartialGroups || 0) > 0) {
+                  alerts.push({
+                    id: `group-split-${row.departureId}`,
+                    departureId: row.departureId,
+                    departureLabel: label,
+                    label: hub.alertGroupSplit.replace("{count}", String(row.splitOrPartialGroups)),
+                    urgency: "attention",
+                    href: `/departures/${row.departureId}?tab=hotels`,
+                  });
+                }
+                if ((row.unassignedAccommodation || 0) > 0) {
+                  alerts.push({
+                    id: `rooming-unassigned-${row.departureId}`,
+                    departureId: row.departureId,
+                    departureLabel: label,
+                    label: hub.alertRoomingUnassigned.replace("{count}", String(row.unassignedAccommodation)),
+                    urgency: "attention",
+                    href: `/departures/${row.departureId}?tab=hotels`,
+                  });
+                }
+              }
+            }
+
+            // 6. Capacity full
+            if (row.isCapacityFull && (row.capacity || 0) > 0) {
+              alerts.push({
+                id: `capacity-${row.departureId}`,
+                departureId: row.departureId,
+                departureLabel: label,
+                label: hub.alertCapacityFull
+                  .replace("{booked}", String(row.booked || 0))
+                  .replace("{capacity}", String(row.capacity || 0)),
+                urgency: "normal",
+                href: `/departures/${row.departureId}?tab=overview`,
+              });
+            }
           }
+
+          const urgencyRank: Record<string, number> = { urgent: 0, attention: 1, normal: 2 };
+          alerts.sort((a, b) => (urgencyRank[a.urgency] ?? 1) - (urgencyRank[b.urgency] ?? 1));
+          setReadinessAlerts(alerts.slice(0, 4));
         }
+
         if (rev.status === "fulfilled") setRevenue(rev.value || []);
         if (pending.status === "fulfilled") {
           setPendingReservations(pending.value.total);
@@ -418,9 +417,10 @@ const HomeHub: React.FC = () => {
         setQueueError(
           deps.status === "rejected" ||
           pending.status === "rejected" ||
-          (showFinance && (paymentsDashboard.status === "rejected" || supplierReadiness.status === "rejected"))
+          readinessSummaryRes.status === "rejected" ||
+          (showFinance && paymentsDashboard.status === "rejected")
         );
-        [ov, deps, rev, paymentsDashboard, pending, supplierReadiness].forEach((result) => {
+        [ov, deps, rev, paymentsDashboard, pending, readinessSummaryRes].forEach((result) => {
           if (result.status === "rejected") logger.error("[HomeHub] partial load failed", result.reason);
         });
         if (paymentsDashboard.status === "fulfilled" && paymentsDashboard.value) {
