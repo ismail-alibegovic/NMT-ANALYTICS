@@ -18,6 +18,8 @@ export interface QuotationBookingContext {
   phone?: string | null; email?: string | null;
 }
 
+export interface QuotationBookingDeparture { id:string; packageName:string; departAt:string; returnAt:string; capacity:number; }
+export interface QuotationBooking { id:string; status:string; creation_state:string; }
 export interface Quotation {
   id: string;
   itineraryId: string | null;
@@ -30,6 +32,7 @@ export interface Quotation {
   validUntil: string | null;
   markupStrategy: 'uniform' | 'per_item'; globalMarkupPercent: number;
   sellTotal: number; netTotal: number; marginTotal: number; currency: string;
+  booking?: QuotationBooking | null;
   bookingContext?: QuotationBookingContext;
   commercialLocked?: boolean;
   sentAt: string | null; acceptedAt: string | null; rejectedAt: string | null;
@@ -96,3 +99,12 @@ export async function deleteQuotationItem(quotationId: string, itemId: string) {
 }
 
 export function quotationPdfUrl(id: string) { return `/api/quotations/${id}/pdf`; }
+
+export async function getQuotationBookingOptions(id:string){
+  const {data}=await get<{departures:QuotationBookingDeparture[]}>(`/quotations/${id}/booking-options`);
+  return data.departures;
+}
+export async function bookQuotation(id:string,payload:{departureId:string;customerName:string;customerPhone:string;customerEmail?:string|null;passengers:{full_name:string}[]}){
+  const {data}=await post<{created:boolean;reservation:{id:string;status:string}}>(`/quotations/${id}/booking`,payload);
+  return data;
+}

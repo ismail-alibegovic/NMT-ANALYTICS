@@ -39,6 +39,11 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     const wizard = page.locator('.modal');
     await expect(wizard.getByText('Nova prodaja', { exact: true })).toBeVisible();
     await expect(wizard.getByRole('button').filter({ hasText: marker })).toBeVisible();
+    // Drive the actual selection rather than racing asynchronous URL preselection.
+    await wizard.getByRole('button').filter({ hasText: marker }).click();
+    const departureChoice = wizard.getByRole('button').filter({ hasText: '2027-07-15 → 2027-07-15' });
+    await expect(departureChoice).toBeVisible();
+    await departureChoice.click();
     await wizard.getByRole('button', { name: 'Dalje', exact: true }).click();
     await wizard.getByPlaceholder('Npr. Ahmed Hodžić').fill(marker);
     await wizard.getByPlaceholder('+387 61 234 567').fill('+38761000002');
