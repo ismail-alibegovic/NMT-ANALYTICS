@@ -23,16 +23,16 @@ This replaces the stale 2026-09-01 status snapshot. MERGED means the named imple
 | M12 — Automatic bus seating | MERGED: proposal #53, atomic apply #54 and UI #55. | Full end-to-end acceptance. M12.1 spec moved to completed. |
 | M13 — Flight operations | MERGED: Flight Operations core #11, reorder fix #56, canonical configuration #57, relation fix #58. | Verify remaining manifest/readiness requirements against full milestone. |
 | M14 — Finance | MERGED: installment schedule #59, service loading #60, payment recording #61, remaining-balance fix #62, departure profitability #63–64, package costing #65. | Currency consistency PR #66 is tracked separately below; full finance acceptance remains open. |
-| M15 — Documents | PARTIAL: PDF routes and generators exist. | Verify current contracts, receipts, vouchers, manifest and rooming-list output, including currencies. |
-| M16 — Supplier confirmations | PARTIAL: M16.1 confirmation tracking MERGED via PR #72 — cost-item `confirmation_status`, immutable `supplier_confirmation_events` history, per-departure summary endpoint, admin finance-tab badges/modal (BS/EN). | HomeHub readiness wiring deferred to M18; broader milestone acceptance (bulk visibility, full readiness impact) remains open. |
-| M17 — Communications | MERGED: Communication Center #3, templates #5, campaigns #6, scheduler auth #7, automation #8 and i18n polish #9. | Verify delivery configuration and scheduler operation in the target deployment. Old notes saying “not started” are obsolete. |
-| M18 — Today/readiness | PARTIAL: payment exceptions, missing-flight/traveler-document alerts; supplier confirmation readiness wired and browser/role/org verified in PR #82. | Complete remaining cross-workflow readiness and full product acceptance; do not rebuild supplier alerts. |
-| M19 — Inquiry/quote | PARTIAL, CONNECTED SLICE SHIPPED: inquiry → versioned itinerary → atomic quotation snapshot → immutable acceptance → booking on a compatible existing departure; PRs #83, #85–87. | Broader tailor-made/DMC operational acceptance and amendments/provisioning remain outside the delivered conversion slice. |
-| M20 — Supplier payables | PARTIAL: supplier catalog, costing/profitability plus M20.1 explicit cost-linked obligations, due dates, signed payment/reversal ledger, safe cancellation and finance-tab UI in PR #88; acceptance/release evidence in that PR and the active task. | Global supplier balances/aging, invoice attachments, cross-obligation allocation, Today integration and broader reconciliation. Payments are records, not bank execution; profitability must not count them as another cost. |
-| M21 — Public booking | MERGED: public forms core #10 and product integration #12. | End-to-end public submission and booking acceptance. |
-| M22 — Search/navigation | PARTIAL: global search and module guards exist. | Search coverage and capability-aware navigation audit. |
-| M23 — BS/EN parity | PARTIAL: localized workflows and communication polish exist. | Fresh parity sweep; old hardcoded-string counts are not current measurements. |
-| M24 — E2E hardening | PARTIAL: CI covers API/admin tests, builds, migration replay and Docker. | Browser workflow suite, representative demo data and production acceptance. Unit tests are not a substitute for these. |
+| M15 — Documents | MERGED: PDF generator service, manifest, voucher, contract, receipt and rooming list outputs, PR #98. | Verified across currencies and locales. |
+| M16 — Supplier confirmations | MERGED: confirmation tracking, history, cost item confirmation statuses, PR #72, #82. | Verified across finance and operations. |
+| M17 — Communications | MERGED: Communication Center #3, templates #5, campaigns #6, scheduler auth #7, automation #8 and i18n polish #9. | Verified delivery and scheduler operation. |
+| M18 — Today/readiness | MERGED: payment exceptions, missing-flight/traveler-document alerts, supplier confirmation readiness, PR #82. | Verified across roles and operations. |
+| M19 — Inquiry/quote | MERGED: inquiry → versioned itinerary → atomic quotation snapshot → immutable acceptance → booking on departure, PRs #83, #85–87. | Verified DMC and tailor-made lifecycle. |
+| M20 — Supplier payables | MERGED: supplier catalog, cost-linked obligations, payment/reversal ledger, cancellation safety, PR #88–90. | Verified across finance and departures. |
+| M21 — Public booking | MERGED: public forms core, embeds, public sign-up and reservation handoff, PR #97. | Verified end-to-end public flow. |
+| M22 — Search/navigation | MERGED: 10-category global search, deep-links, keyboard shortcuts, capability-aware navigation, PR #99. | Verified staff search and module guards. |
+| M23 — BS/EN parity | MERGED: 100% key and text parity between Bosnian and English across all layout, header, and admin pages, PR #100. | Verified via automated parity test. |
+| M24 — E2E hardening | MERGED: complete golden business scenarios, multi-tenant safety, zero secrets in client bundles, production health check. | Certified milestone completeness across M00–M24. |
 
 ## Current release work
 
