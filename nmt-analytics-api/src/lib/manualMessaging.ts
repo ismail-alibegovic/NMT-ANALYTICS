@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { EmailService } from './email/EmailService';
 import { SmtpEmailProvider } from './email/SmtpProvider';
-import { createSmsProvider, SmsService } from './sms/SmsService';
+import { createSmsProvider, SmsProviderConfig, SmsService } from './sms/SmsService';
 import { supabaseAdmin } from './supabase';
 
 export const manualMessageSchema = z.discriminatedUnion('channel', [
@@ -114,13 +114,25 @@ export async function sendManualSmsForOrg(
     throw new Error('INVALID_SMS_PAYLOAD');
   }
 
-  const config = await getSavedOrgSetting<{ provider: 'mock' }>(payload.orgId, 'sms_config');
+  let config = await getSavedOrgSetting<SmsProviderConfig>(payload.orgId, 'sms_config');
   if (!config) {
-    throw new Error('SMS_NOT_CONFIGURED');
+    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+      config = { provider: 'twilio' };
+    } else if (process.env.SMS_HTTP_ENDPOINT) {
+      config = { provider: 'http' };
+    } else {
+      throw new Error('SMS_NOT_CONFIGURED');
+    }
   }
 
   const sender = await getSmsSender(payload.orgId);
-  if (!sender.fromNumber) {
+  const effectiveSenderNumber =
+    sender.fromNumber ||
+    (config.provider === 'twilio' ? config.fromNumber : null) ||
+    process.env.TWILIO_FROM_NUMBER ||
+    process.env.TWILIO_PHONE_NUMBER;
+
+  if (!effectiveSenderNumber && config.provider !== 'http') {
     throw new Error('SMS_SENDER_MISSING');
   }
 
@@ -129,7 +141,7 @@ export async function sendManualSmsForOrg(
     to: payload.recipient,
     message: payload.body,
     fromName: sender.fromName,
-    fromNumber: sender.fromNumber,
+    fromNumber: effectiveSenderNumber || null,
     orgId: payload.orgId,
     relatedReservationId: payload.relatedReservationId ?? null,
     relatedDepartureId: payload.relatedDepartureId ?? null,

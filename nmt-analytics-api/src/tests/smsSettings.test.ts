@@ -30,16 +30,17 @@ vi.mock('../middleware/auditLogger', () => ({
   auditLog: () => (_req: any, _res: any, next: any) => next(),
 }));
 
-vi.mock('../lib/sms/SmsService', () => ({
-  MockSmsProvider: class {
-    sendSms = sendSms;
-  },
-  createSmsProvider: vi.fn(() => ({ sendSms })),
-  SmsService: {
-    setProvider: (provider: any) => setProvider(provider),
-    sendSms: (options: any) => sendSms(options),
-  },
-}));
+vi.mock('../lib/sms/SmsService', async () => {
+  const actual = await vi.importActual<any>('../lib/sms/SmsService');
+  return {
+    ...actual,
+    createSmsProvider: vi.fn(() => ({ sendSms })),
+    SmsService: {
+      setProvider: (provider: any) => setProvider(provider),
+      sendSms: (options: any) => sendSms(options),
+    },
+  };
+});
 
 vi.mock('../lib/supabase', () => ({
   supabaseAdmin: {
@@ -101,6 +102,9 @@ describe('sms settings route', () => {
     ]);
     sendSms.mockClear();
     setProvider.mockClear();
+    delete process.env.TWILIO_ACCOUNT_SID;
+    delete process.env.TWILIO_AUTH_TOKEN;
+    delete process.env.SMS_HTTP_ENDPOINT;
   });
 
   it('sends a valid SMS through the configured provider', async () => {
@@ -119,12 +123,23 @@ describe('sms settings route', () => {
     });
   });
 
-  it('returns missing configuration when org sms config is absent', async () => {
+  it('returns missing configuration when org sms config is absent and no env fallback', async () => {
     const res = await request(app()).post('/settings/sms/test').send({ to: '+38761123456' });
 
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('SMS_NOT_CONFIGURED');
     expect(sendSms).not.toHaveBeenCalled();
+  });
+
+  it('falls back to environment credentials when org sms config is absent', async () => {
+    process.env.TWILIO_ACCOUNT_SID = 'AC1234567890';
+    process.env.TWILIO_AUTH_TOKEN = 'secret-token';
+
+    const res = await request(app()).post('/settings/sms/test').send({ to: '+38761123456' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(sendSms).toHaveBeenCalled();
   });
 
   it('rejects an invalid recipient', async () => {
@@ -161,5 +176,68 @@ describe('sms settings route', () => {
       fromNumber: '+38763333444',
       message: 'Travline SMS configuration is working correctly.',
     });
+  });
+
+  it('saves and reads Twilio SMS config with masked auth token', async () => {
+    const saveRes = await request(app())
+      .post('/settings/sms')
+      .send({
+        provider: 'twilio',
+        accountSid: 'AC9999999999',
+        authToken: 'my-super-secret-token',
+        fromNumber: '+1234567890',
+      });
+
+    expect(saveRes.status).toBe(200);
+    expect(saveRes.body.success).toBe(true);
+
+    const getRes = await request(app()).get('/settings/sms');
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.provider).toBe('twilio');
+    expect(getRes.body.accountSid).toBe('AC9999999999');
+    expect(getRes.body.authToken).toBe('********');
+    expect(getRes.body.fromNumber).toBe('+1234567890');
+  });
+
+  it('preserves existing authToken when updating with masked token', async () => {
+    orgSettings.set('org-1:sms_config', {
+      provider: 'twilio',
+      accountSid: 'AC9999999999',
+      authToken: 'original-secret-token',
+      fromNumber: '+1234567890',
+    });
+
+    const updateRes = await request(app())
+      .post('/settings/sms')
+      .send({
+        provider: 'twilio',
+        accountSid: 'AC9999999999',
+        authToken: '********',
+        fromNumber: '+1999999999',
+      });
+
+    expect(updateRes.status).toBe(200);
+    const saved = orgSettings.get('org-1:sms_config');
+    expect(saved.authToken).toBe('original-secret-token');
+    expect(saved.fromNumber).toBe('+1999999999');
+  });
+
+  it('saves and reads HTTP SMS gateway config with masked API key', async () => {
+    const saveRes = await request(app())
+      .post('/settings/sms')
+      .send({
+        provider: 'http',
+        endpoint: 'https://sms.example.com/webhook',
+        apiKey: 'secret-api-key',
+      });
+
+    expect(saveRes.status).toBe(200);
+    expect(saveRes.body.success).toBe(true);
+
+    const getRes = await request(app()).get('/settings/sms');
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.provider).toBe('http');
+    expect(getRes.body.endpoint).toBe('https://sms.example.com/webhook');
+    expect(getRes.body.apiKey).toBe('********');
   });
 });

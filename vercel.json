@@ -15,6 +15,12 @@
       "maxDuration": 60
     }
   },
+  "crons": [
+    {
+      "path": "/api/internal/jobs/process-communication-jobs",
+      "schedule": "0 6 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api",

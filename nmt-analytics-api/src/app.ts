@@ -7,6 +7,9 @@ import { authRateLimit, strictRateLimit, contextRateLimit } from './middleware/r
 import { config } from './config';
 import apiRouter from './routes/index';
 import { sentryRequestContext, sentryErrorHandler } from './middleware/sentry';
+import { activateSmtpProvider } from './lib/email/activateSmtpProvider';
+
+activateSmtpProvider();
 
 const app = express();
 app.set('trust proxy', 1);const adminDistPath = path.resolve(process.cwd(), '../nmt-analytics-admin/dist');

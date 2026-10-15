@@ -6,7 +6,12 @@ import { requireMinimumRole } from '../middleware/requireRole';
 import { auditLog } from '../middleware/auditLogger';
 import { supabaseAdmin } from '../lib/supabase';
 import { apiError } from '../lib/errors';
-import { createSmsProvider, SmsProviderConfig, SmsService } from '../lib/sms/SmsService';
+import {
+  createSmsProvider,
+  smsConfigSchema,
+  SmsProviderConfig,
+  SmsService,
+} from '../lib/sms/SmsService';
 
 const router = Router();
 
@@ -15,10 +20,6 @@ const auditSmsSettingsTest = auditLog('VIEW', 'settings', (req) => req.orgId!, u
 
 router.use(authenticateToken);
 router.use(requireOrgContext);
-
-const smsConfigSchema = z.object({
-  provider: z.literal('mock'),
-});
 
 const smsTestSchema = z.object({
   to: z.string().trim().min(1).regex(/^\+[1-9]\d{7,14}$/, 'Recipient must be in E.164 format'),
@@ -29,7 +30,7 @@ function isMissingColumnError(error: unknown): boolean {
   return Boolean(error && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === '42703');
 }
 
-async function getSavedSmsConfig(orgId: string) {
+async function getSavedSmsConfig(orgId: string): Promise<SmsProviderConfig | null> {
   const { data, error } = await supabaseAdmin
     .from('org_settings')
     .select('value')
@@ -72,8 +73,33 @@ router.get('/', requireMinimumRole('director'), async (req: Request, res: Respon
     if (!config) {
       return res.json({
         configured: false,
+        provider: 'mock',
         senderName: sender.sms_sender_name || '',
         senderNumber: sender.sms_sender_number || '',
+      });
+    }
+
+    if (config.provider === 'twilio') {
+      return res.json({
+        configured: true,
+        provider: 'twilio',
+        senderName: sender.sms_sender_name || '',
+        senderNumber: sender.sms_sender_number || config.fromNumber || '',
+        accountSid: config.accountSid || '',
+        authToken: config.authToken ? '********' : '',
+        fromNumber: config.fromNumber || '',
+      });
+    }
+
+    if (config.provider === 'http') {
+      return res.json({
+        configured: true,
+        provider: 'http',
+        senderName: sender.sms_sender_name || '',
+        senderNumber: sender.sms_sender_number || '',
+        endpoint: config.endpoint || '',
+        apiKey: config.apiKey ? '********' : '',
+        headers: config.headers,
       });
     }
 
@@ -93,7 +119,24 @@ router.get('/', requireMinimumRole('director'), async (req: Request, res: Respon
 
 router.post('/', auditSmsSettingsUpdate, requireMinimumRole('director'), async (req: Request, res: Response) => {
   try {
-    const config = smsConfigSchema.parse(req.body);
+    let body = req.body;
+
+    // If masking token was re-submitted, preserve previously stored secrets
+    if (body && typeof body === 'object') {
+      if (body.provider === 'twilio' && body.authToken === '********') {
+        const existing = await getSavedSmsConfig(req.orgId!);
+        if (existing && existing.provider === 'twilio') {
+          body = { ...body, authToken: existing.authToken };
+        }
+      } else if (body.provider === 'http' && body.apiKey === '********') {
+        const existing = await getSavedSmsConfig(req.orgId!);
+        if (existing && existing.provider === 'http') {
+          body = { ...body, apiKey: existing.apiKey };
+        }
+      }
+    }
+
+    const config = smsConfigSchema.parse(body);
 
     await supabaseAdmin
       .from('org_settings')
@@ -120,14 +163,27 @@ router.post('/', auditSmsSettingsUpdate, requireMinimumRole('director'), async (
 router.post('/test', auditSmsSettingsTest, requireMinimumRole('director'), async (req: Request, res: Response) => {
   try {
     const { to, message } = smsTestSchema.parse(req.body);
-    const config = await getSavedSmsConfig(req.orgId!);
+    let config = await getSavedSmsConfig(req.orgId!);
 
     if (!config) {
-      return apiError(res, 400, 'SMS_NOT_CONFIGURED', 'SMS provider is not configured');
+      // Support environment fallback if defined
+      if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+        config = { provider: 'twilio' };
+      } else if (process.env.SMS_HTTP_ENDPOINT) {
+        config = { provider: 'http' };
+      } else {
+        return apiError(res, 400, 'SMS_NOT_CONFIGURED', 'SMS provider is not configured');
+      }
     }
 
     const sender = await getSmsSender(req.orgId!);
-    if (!sender.sms_sender_number) {
+    const effectiveSenderNumber =
+      sender.sms_sender_number ||
+      (config.provider === 'twilio' ? config.fromNumber : null) ||
+      process.env.TWILIO_FROM_NUMBER ||
+      process.env.TWILIO_PHONE_NUMBER;
+
+    if (!effectiveSenderNumber && config.provider !== 'http') {
       return apiError(res, 400, 'SMS_SENDER_MISSING', 'SMS sender number is not configured');
     }
 
@@ -137,7 +193,7 @@ router.post('/test', auditSmsSettingsTest, requireMinimumRole('director'), async
     await SmsService.sendSms({
       to,
       fromName: sender.sms_sender_name || null,
-      fromNumber: sender.sms_sender_number,
+      fromNumber: effectiveSenderNumber || null,
       message: message || 'Travline SMS configuration is working correctly.',
     });
 
