@@ -99,7 +99,7 @@ export default function Quotations() {
       success(c.saved);
       navigate(`/quotations/${created.id}`);
     } catch (e: any) {
-      showError(e?.message || c.saveError);
+      showError(e?.code === 'QUOTATION_CURRENCY_MISMATCH' ? c.createCurrencyError : c.snapshotError);
     } finally { setSaving(false); }
   };
 

@@ -134,7 +134,7 @@ export default function QuotationDetail() {
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {c.sourceItinerary}:{' '}
             <Link to={`/itineraries/${data.itineraryId}`} className="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400">
-              {data.itinerary?.title || data.itineraryId}
+              {data.bookingContext?.itineraryTitle || data.itinerary?.title || data.itineraryId}
             </Link>
           </p>
         )}
@@ -155,6 +155,18 @@ export default function QuotationDetail() {
       <Pill label={c.sellTotal} value={`${data.sellTotal.toLocaleString()} ${data.currency}`} />
       <Pill label={c.marginTotal} value={`${data.marginTotal.toLocaleString()} ${data.currency}`} />
     </div>
+
+    {data.bookingContext?.source === 'itinerary' && (
+      <section className="mb-6 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{c.bookingContextTitle}</h2>
+        <dl className="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+          <div><dt className="text-gray-500 dark:text-gray-400">{c.contactName}</dt><dd className="text-gray-900 dark:text-white">{data.bookingContext.contactName || '—'}</dd></div>
+          <div><dt className="text-gray-500 dark:text-gray-400">{c.destination}</dt><dd className="text-gray-900 dark:text-white">{data.bookingContext.destination || '—'}</dd></div>
+          <div><dt className="text-gray-500 dark:text-gray-400">{c.travelDates}</dt><dd className="text-gray-900 dark:text-white">{data.bookingContext.travelStart || '—'} – {data.bookingContext.travelEnd || '—'}</dd></div>
+          <div><dt className="text-gray-500 dark:text-gray-400">{c.travelers}</dt><dd className="text-gray-900 dark:text-white">{data.bookingContext.travelers ?? '—'}</dd></div>
+        </dl>
+      </section>
+    )}
 
     {data.clientNotes && (
       <section className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.02]">

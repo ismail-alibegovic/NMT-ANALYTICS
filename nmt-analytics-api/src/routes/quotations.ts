@@ -33,7 +33,8 @@ const quotationSchema = z.object({
   title: z.string().trim().min(1).max(200),
   itineraryId: z.string().uuid().optional().nullable(),
   itineraryVersionId: z.string().uuid().optional().nullable(),
-  items: z.array(quotationItemSchema).optional().default([]),
+  currency: z.string().trim().regex(/^[A-Z]{3}$/).optional(),
+  items: z.array(quotationItemSchema.extend({ currency: z.string().trim().regex(/^[A-Z]{3}$/).optional() })).max(500).optional().default([]),
   clientNotes: z.string().max(4000).optional().nullable(),
   internalNotes: z.string().max(4000).optional().nullable(),
   validUntil: z.union([z.string().date(), z.string().datetime()]).optional().nullable(),
@@ -83,6 +84,7 @@ const quotationOut = (row: any) => ({
   sentAt: row.sent_at,
   acceptedAt: row.accepted_at,
   commercialLocked: !!row.commercial_locked,
+  bookingContext: row.booking_context || {},
   rejectedAt: row.rejected_at,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
@@ -171,11 +173,6 @@ async function recalcQuotationTotals(quotationId: string, orgId: string, supabas
     .eq('org_id', orgId);
 }
 
-function nextReference(index: number) {
-  const year = new Date().getFullYear();
-  return `QTN-${year}-${String(index + 1).padStart(4, '0')}`;
-}
-
 // ─── List ──────────────────────────────────────────────────
 router.get('/quotations', authenticateToken, requireOrgContext, requireMinimumRole('viewer'), async (_req, res: Response) => {
   const { data: rows, error } = await supabaseAdmin
@@ -188,157 +185,39 @@ router.get('/quotations', authenticateToken, requireOrgContext, requireMinimumRo
 });
 
 // ─── Create ────────────────────────────────────────────────
-router.post('/quotations', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditLog('CREATE', 'itinerary'), async (req, res: Response) => {
+router.post('/quotations', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditLog('CREATE', 'quotation'), async (req, res: Response) => {
   const parsed = quotationSchema.safeParse(req.body);
   if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid quotation', parsed.error.issues);
 
   const b = parsed.data;
-  const isItineraryDerived = !!b.itineraryId;
-  let currency = 'BAM';
-
-  if (isItineraryDerived) {
-    const { data: itinerary } = await supabaseAdmin
-      .from('itineraries')
-      .select('id,currency,current_version')
-      .eq('id', b.itineraryId)
-      .eq('org_id', req.orgId!)
-      .maybeSingle();
-    if (!itinerary) return apiError(res, 404, 'NOT_FOUND', 'Itinerary not found');
-
-    const { data: version } = await supabaseAdmin
-      .from('itinerary_versions')
-      .select('id')
-      .eq('id', b.itineraryVersionId)
-      .eq('org_id', req.orgId!)
-      .eq('itinerary_id', b.itineraryId)
-      .maybeSingle();
-    if (!version) return apiError(res, 404, 'NOT_FOUND', 'Itinerary version not found');
-
-    currency = itinerary.currency;
-  }
-
-  const { count } = await supabaseAdmin.from('quotations').select('*', { count: 'exact', head: true }).eq('org_id', req.orgId!);
-  const ref = nextReference(count || 0);
-
-  const quotationPayload: Record<string, unknown> = {
-    org_id: req.orgId!,
-    itinerary_id: b.itineraryId || null,
-    itinerary_version_id: b.itineraryVersionId || null,
-    title: b.title,
-    reference: ref,
-    status: 'draft',
-    client_notes: b.clientNotes || null,
-    internal_notes: b.internalNotes || null,
-    valid_until: b.validUntil || null,
-    markup_strategy: b.markupStrategy,
-    global_markup_percent: b.globalMarkupPercent,
-    net_total: 0,
-    sell_total: 0,
-    margin_total: 0,
-    currency,
-    created_by: req.user?.id || null,
-  };
-
-  const { data: quotation, error } = await supabaseAdmin
-    .from('quotations')
-    .insert(quotationPayload)
-    .select('*')
-    .single();
-
-  if (error) return handleSupabaseError(res, error, 'Failed to create quotation');
-
-  let itemsToPricing: Array<{ netUnitPrice: number; quantity: number; markupPercent: number }> = [];
-
-  if (isItineraryDerived) {
-    const { data: sourceItems } = await supabaseAdmin
-      .from('itinerary_items')
-      .select('day_number,sort_order,start_time,title,description,location,category,supplier_id,supplier_service_id,quantity,unit,net_unit_price,currency,markup_percent,included')
-      .eq('itinerary_version_id', b.itineraryVersionId)
-      .eq('org_id', req.orgId!)
-      .order('day_number')
-      .order('sort_order');
-
-    const inserts = (sourceItems || []).map((si: any) => ({
-      org_id: req.orgId!,
-      quotation_id: quotation.id,
-      day_number: si.day_number,
-      sort_order: si.sort_order,
-      start_time: si.start_time,
-      title: si.title,
-      description: si.description,
-      location: si.location,
-      category: si.category,
-      supplier_id: si.supplier_id,
-      supplier_service_id: si.supplier_service_id,
-      quantity: si.quantity,
-      unit: si.unit,
-      net_unit_price: si.net_unit_price,
-      currency: si.currency,
-      markup_percent: si.markup_percent,
-      included: si.included,
-    }));
-
-    if (inserts.length > 0) {
-      await supabaseAdmin.from('quotation_items').insert(inserts);
+  const { data: created, error } = await supabaseAdmin.rpc('create_quotation_snapshot_atomic', {
+    p_org_id: req.orgId!,
+    p_actor_id: req.user!.id,
+    p_payload: {
+      title: b.title, itinerary_id: b.itineraryId || null, itinerary_version_id: b.itineraryVersionId || null,
+      currency: b.currency || null, client_notes: b.clientNotes || null, internal_notes: b.internalNotes || null,
+      valid_until: b.validUntil || null, markup_strategy: b.markupStrategy, global_markup_percent: b.globalMarkupPercent,
+      items: b.items.map(item => ({
+        title: item.title, description: item.description || null, location: item.location || null,
+        category: item.category, day_number: item.dayNumber, sort_order: item.sortOrder, start_time: item.startTime || null,
+        supplier_id: item.supplierId || null, supplier_service_id: item.supplierServiceId || null,
+        quantity: item.quantity, unit: item.unit, net_unit_price: item.netUnitPrice, markup_percent: item.markupPercent,
+        currency: item.currency || null, included: item.included,
+      })),
+    },
+  });
+  if (error) {
+    if (error.message === 'QUOTATION_SOURCE_NOT_FOUND') return apiError(res, 404, 'NOT_FOUND', 'Quotation source not found');
+    if (error.message === 'QUOTATION_ACTOR_CONTEXT_INVALID') return apiError(res, 403, 'INSUFFICIENT_PERMISSIONS', 'Quotation actor context is invalid');
+    if (error.message === 'QUOTATION_CURRENCY_MISMATCH') return apiError(res, 422, 'QUOTATION_CURRENCY_MISMATCH', 'Quotation items must use the quotation currency');
+    if (['QUOTATION_INVALID_PAYLOAD', 'QUOTATION_TOO_MANY_ITEMS'].includes(error.message) || ['23503', '23514', '22003'].includes(error.code)) {
+      return apiError(res, 422, 'QUOTATION_INVALID_SNAPSHOT', 'Quotation source or item values are invalid');
     }
-
-    itemsToPricing = (sourceItems || []).map((i: any) => ({
-      netUnitPrice: Number(i.net_unit_price),
-      quantity: Number(i.quantity),
-      markupPercent: Number(i.markup_percent),
-    }));
-  } else if (b.items && b.items.length > 0) {
-    const inserts = b.items.map((item) => ({
-      org_id: req.orgId!,
-      quotation_id: quotation.id,
-      day_number: item.dayNumber,
-      sort_order: item.sortOrder,
-      start_time: item.startTime || null,
-      title: item.title,
-      description: item.description || null,
-      location: item.location || null,
-      category: item.category,
-      supplier_id: item.supplierId || null,
-      supplier_service_id: item.supplierServiceId || null,
-      quantity: item.quantity,
-      unit: item.unit,
-      net_unit_price: item.netUnitPrice,
-      currency: item.currency,
-      markup_percent: item.markupPercent,
-      included: item.included,
-    }));
-
-    await supabaseAdmin.from('quotation_items').insert(inserts);
-
-    itemsToPricing = b.items.map((i) => ({
-      netUnitPrice: i.netUnitPrice,
-      quantity: i.quantity,
-      markupPercent: i.markupPercent,
-    }));
+    return handleSupabaseError(res, error, 'Failed to create complete quotation snapshot');
   }
-
-  if (itemsToPricing.length > 0) {
-    const pricing = computePricingFromItems(itemsToPricing, b.markupStrategy, b.globalMarkupPercent);
-    await supabaseAdmin
-      .from('quotations')
-      .update({
-        net_total: pricing.netTotal,
-        sell_total: pricing.sellTotal,
-        margin_total: pricing.marginTotal,
-        currency: isItineraryDerived ? currency : (b.items?.[0]?.currency || 'BAM'),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', quotation.id)
-      .eq('org_id', req.orgId!);
+  if (!created?.id || created.org_id !== req.orgId!) {
+    return apiError(res, 500, 'QUOTATION_SNAPSHOT_FAILED', 'Quotation snapshot was not created');
   }
-
-  const { data: created } = await supabaseAdmin
-    .from('quotations')
-    .select('*')
-    .eq('id', quotation.id)
-    .eq('org_id', req.orgId!)
-    .single();
-
   return res.status(201).json(quotationOut(created));
 });
 
@@ -411,7 +290,7 @@ router.get('/quotations/:id', authenticateToken, requireOrgContext, requireMinim
 });
 
 // ─── Update ────────────────────────────────────────────────
-router.patch('/quotations/:id', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditLog('UPDATE', 'itinerary', (r) => r.params.id), async (req, res: Response) => {
+router.patch('/quotations/:id', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditLog('UPDATE', 'quotation', (r) => r.params.id), async (req, res: Response) => {
   const parsed = quotationPatchSchema.safeParse(req.body);
   if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid quotation update', parsed.error.issues);
   const body = parsed.data;
@@ -449,7 +328,7 @@ router.patch('/quotations/:id', authenticateToken, requireOrgContext, requireMin
 });
 
 // ─── Add quotation item ────────────────────────────────────
-router.post('/quotations/:id/items', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditLog('UPDATE', 'itinerary', (r) => r.params.id), async (req, res: Response) => {
+router.post('/quotations/:id/items', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditLog('UPDATE', 'quotation', (r) => r.params.id), async (req, res: Response) => {
   const parsed = quotationItemSchema.safeParse(req.body);
   if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid quotation item', parsed.error.issues);
 
@@ -494,7 +373,7 @@ router.post('/quotations/:id/items', authenticateToken, requireOrgContext, requi
 });
 
 // ─── Update quotation item ─────────────────────────────────
-router.patch('/quotations/:id/items/:itemId', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditLog('UPDATE', 'itinerary', (r) => r.params.id), async (req, res: Response) => {
+router.patch('/quotations/:id/items/:itemId', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditLog('UPDATE', 'quotation', (r) => r.params.id), async (req, res: Response) => {
   const parsed = quotationItemSchema.safeParse(req.body);
   if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid quotation item', parsed.error.issues);
 
@@ -541,7 +420,7 @@ router.patch('/quotations/:id/items/:itemId', authenticateToken, requireOrgConte
 });
 
 // ─── Delete quotation item ─────────────────────────────────
-router.delete('/quotations/:id/items/:itemId', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditLog('UPDATE', 'itinerary', (r) => r.params.id), async (req, res: Response) => {
+router.delete('/quotations/:id/items/:itemId', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditLog('UPDATE', 'quotation', (r) => r.params.id), async (req, res: Response) => {
   const { data: quotation } = await supabaseAdmin
     .from('quotations')
     .select('id,status,accepted_at,commercial_locked')

@@ -80,3 +80,19 @@ describe('quotation approval UI', () => {
     expect(screen.getByText(item.title)).toBeInTheDocument();
   });
 });
+
+describe('saved booking context',()=>{
+  for(const [lang,copy]of [['en',en],['bs',bs]] as const){
+    it(`shows the saved source rather than later itinerary changes in ${lang}`,async()=>{
+      localStorage.setItem('travline_lang',lang);
+      api.getQuotation.mockResolvedValue({...quote,itineraryId:'itinerary',itinerary:{title:'Changed live plan'},
+        bookingContext:{source:'itinerary',itineraryTitle:'Original plan',contactName:'Original client',destination:'Vienna',travelStart:'2027-04-10',travelEnd:'2027-04-15',travelers:4}});
+      show();
+      expect(await screen.findByText(copy.quotations.bookingContextTitle)).toBeInTheDocument();
+      expect(screen.getByRole('link',{name:'Original plan'})).toBeInTheDocument();
+      expect(screen.queryByText('Changed live plan')).not.toBeInTheDocument();
+      expect(screen.getByText('Original client')).toBeInTheDocument();
+      expect(screen.getByText('2027-04-10 – 2027-04-15')).toBeInTheDocument();
+    });
+  }
+});

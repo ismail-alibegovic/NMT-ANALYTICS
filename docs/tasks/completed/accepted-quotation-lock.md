@@ -1,5 +1,5 @@
 # M19.2 — Preserve accepted quotation commercial terms
-**Status:** ACTIVE
+**Status:** COMPLETED
 **Priority:** P0
 **Branch:** fix/accepted-quotation-lock
 **Baseline:** fac23fa16c781494bae8d1f6afd5e66533f32b26
@@ -22,3 +22,6 @@ Draft item CRUD remains usable; accepted and ever-accepted quotes reject item ad
 
 ## Migration
 Additive triggers only. Only approval-lock metadata is backfilled; historical commercial fields and totals are untouched. Rollback is an append-only migration dropping the two named triggers/functions; API/UI guards remain. Organization deletion of accepted historical quotes is intentionally blocked pending a dedicated erasure workflow.
+
+## Release evidence
+PR #85 merged as 19e8d35e374cbc1b603a244833ed4b2da14e4615. Exact-head CI 38659326043 passed (API 693/admin 302); isolated acceptance 38659326004 passed 23/23 without skips. Preview dpl_HCNNtwhGC5oJj5687Lm2zhv7g72Y READY, health 200/database connected/auth bypass false. Migration 20261015001111 applied with repository-aligned history; both private invoker guards verified. Production dpl_4cwiYExkwLCsE2jAJLy5chgnnQ6u READY; public health 200/database connected/auth bypass false.

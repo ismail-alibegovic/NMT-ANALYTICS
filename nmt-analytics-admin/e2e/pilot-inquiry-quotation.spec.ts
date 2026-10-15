@@ -75,12 +75,21 @@ for (const scenario of [{ lang: 'bs', width: 1440 }, { lang: 'en', width: 390 }]
     await expect(page.getByText(`${marker} service`, { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
+    await expect(page.getByText(copy.quotations.bookingContextTitle,{exact:true})).toBeVisible();
+    await expect(page.getByText(marker,{exact:true})).toBeVisible();
+    const changedSource = await request.patch(`${apiUrl}/api/itineraries/${itinerary.id}`, {headers,data:{travelStart:'2027-05-01',travelers:9,title:'Changed live plan'}});
+    expect(changedSource.status(),await changedSource.text()).toBe(200);
+
     const edited = await request.patch(`${apiUrl}/api/itinerary-items/${itemId}`, { headers, data: { netUnitPrice: 900 } });
     expect(edited.status(), await edited.text()).toBe(200);
     const snapshot = await request.get(`${apiUrl}/api/quotations/${quote.id}`, { headers });
     expect(snapshot.status()).toBe(200);
     const savedQuote = await snapshot.json();
     expect(savedQuote.netTotal).toBe(160);
+    expect(savedQuote.bookingContext).toMatchObject({contactName:marker,travelStart:'2027-04-10',travelEnd:'2027-04-15',travelers:4,currency:'EUR'});
+    await page.reload();
+    await expect(page.getByText('2027-04-10 – 2027-04-15',{exact:true})).toBeVisible();
+    await expect(page.getByRole('link',{name:`Vienna — ${marker}`,exact:true})).toBeVisible();
     expect(savedQuote.items[0].netUnitPrice).toBe(80);
     const otherHeaders = await authenticate(process.env.E2E_OTHER_TENANT_EMAIL!, process.env.E2E_OTHER_TENANT_PASSWORD!);
     const forbidden = await request.post(`${apiUrl}/api/quotations`, { headers: otherHeaders, data: {

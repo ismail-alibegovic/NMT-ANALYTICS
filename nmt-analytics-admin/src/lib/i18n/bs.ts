@@ -1082,6 +1082,11 @@ export const bs: Translations = {
     netSnapshot: 'Snimak nabavnih troškova', addItem: 'Dodaj stavku', addItemDescription: 'Izaberite ugovorenu uslugu dobavljača ili unesite ručnu aktivnost. Cijene dobavljača kopiraju se u ovu verziju.', supplierService: 'Usluga dobavljača', manualItem: 'Ručna aktivnost / bez dobavljača', manualTitle: 'Naziv ručne stavke', day: 'Dan', time: 'Vrijeme početka', quantity: 'Količina', location: 'Lokacija', close: 'Zatvori', saveItem: 'Dodaj stavku', itemSaved: 'Stavka je dodana', itemUpdated: 'Stavka je ažurirana', itemRemoved: 'Stavka je uklonjena', editItem: 'Uredi stavku', edit: '✎', itemTitleRequired: 'Izaberite uslugu dobavljača ili unesite naziv', remove: 'Ukloni', noItems: 'Ova verzija je prazna', noItemsDescription: 'Dodajte smještaj, prevoz, letove, vodiče, obroke, aktivnosti, ulaznice ili ručne stavke rasporeda.', notFound: 'Itinerer nije pronađen', notFoundDescription: 'Itinerer ne postoji ili nije dostupan vašoj organizaciji.',
   },
   quotations: {
+    bookingContextTitle: 'Podaci putovanja sačuvani uz ovu ponudu',
+    contactName: 'Klijent', destination: 'Destinacija', travelDates: 'Datumi putovanja', travelers: 'Putnici',
+    createCurrencyError: 'Sve stavke moraju koristiti valutu ponude. Uskladite valute u izvoru.',
+    snapshotError: 'Ponudu nije moguće potvrditi. Provjerite izvor i cijene, a prije ponavljanja provjerite listu ponuda.',
+
     acceptedLocked: 'Prihvaćene cijene i uslovi su zaključani. Za izmjene kreirajte novu ponudu.',
     acceptancePricingError: 'Dodajte stavke ponude i koristite jednu valutu prije prihvatanja.',
 
