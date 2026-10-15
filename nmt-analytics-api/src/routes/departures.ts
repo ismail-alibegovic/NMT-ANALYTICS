@@ -1242,6 +1242,11 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
             currency: r.currency || pkg?.currency || 'BAM',
             payments: paymentsForRes,
             notes: p.notes,
+            id_document_type: p.id_document_type || null,
+            id_document_number: p.id_document_number || null,
+            id_document_expiry: p.id_document_expiry || null,
+            nationality: p.nationality || null,
+            date_of_birth: p.date_of_birth || null,
             groupName: (() => { const gm = groupMemberByPassengerId[p.id]; return gm && groupById[gm.group_id] ? groupById[gm.group_id].name : null; })(),
             groupId: groupMemberByPassengerId[p.id]?.group_id || null,
             groupColor: (() => { const gm = groupMemberByPassengerId[p.id]; return gm && groupById[gm.group_id] ? groupById[gm.group_id].color : null; })(),
@@ -1277,6 +1282,11 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
           currency: r.currency || pkg?.currency || 'BAM',
           payments: paymentsForRes,
           notes: null,
+          id_document_type: null,
+          id_document_number: null,
+          id_document_expiry: null,
+          nationality: null,
+          date_of_birth: null,
           groupName: null,  // reservation-level fallback, no passenger_id
           groupId: null,  // reservation-level fallback, no passenger_id
           groupColor: null,  // reservation-level fallback, no passenger_id
