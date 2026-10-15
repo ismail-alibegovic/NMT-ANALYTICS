@@ -3,22 +3,10 @@ import { Router, Request, Response } from 'express';
 import { RequestHandler } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
 import { z } from 'zod';
-import path from "path";
-import fs from "fs";
 import { apiError } from '../lib/errors';
+import { strictRateLimit } from '../middleware/rateLimit';
 
 const router = Router();
-
-// Audit wrappers for public
-
-// Serve widget HTML
-router.get("/public/:orgId/widget", async (req: Request, res: Response) => {
-  const widgetPath = path.resolve(__dirname, "../../public/widget.html");
-  if (!widgetPath) return res.status(404).send("Widget not found");
-  const html = require("fs").readFileSync(widgetPath, "utf-8");
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.send(html.replace("{{ORG_ID}}", req.params.orgId));
-});
 
 // Public CORS middleware
 router.use("/public", (req, res, next) => {
@@ -142,6 +130,10 @@ async function travlineSubmit() {
 
     document.getElementById('travline-step-1').style.display = 'none';
     document.getElementById('travline-success').style.display = 'block';
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'travline-widget-submitted', orgId: window.TRAVLINE_ORG_ID }, '*');
+      window.parent.postMessage({ type: 'travline-widget-resize', height: document.body.scrollHeight }, '*');
+    }
   } catch(e) {
     errEl.textContent = e.message;
     btn.disabled = false;
@@ -153,7 +145,7 @@ async function travlineSubmit() {
 `;
 
 // GET /api/public/:orgId/widget — returns embeddable HTML
-router.get('/public/:orgId/widget', async (req: Request, res: Response) => {
+router.get('/public/:orgId/widget', strictRateLimit, async (req: Request, res: Response) => {
   const { orgId } = req.params;
 
   // Verify org exists
@@ -176,7 +168,7 @@ router.get('/public/:orgId/widget', async (req: Request, res: Response) => {
 });
 
 // GET /api/public/:orgId/packages — public packages list
-router.get('/public/:orgId/packages', async (req: Request, res: Response) => {
+router.get('/public/:orgId/packages', strictRateLimit, async (req: Request, res: Response) => {
   const { orgId } = req.params;
 
   const { data: packages, error } = await supabaseAdmin
@@ -200,7 +192,7 @@ router.get('/public/:orgId/packages', async (req: Request, res: Response) => {
 });
 
 // GET /api/public/:orgId/departures — public departures for a package
-router.get('/public/:orgId/departures', async (req: Request, res: Response) => {
+router.get('/public/:orgId/departures', strictRateLimit, async (req: Request, res: Response) => {
   const { orgId } = req.params;
   const packageId = req.query.packageId as string;
 
@@ -240,7 +232,7 @@ const publicReservationSchema = z.object({
   partySize: z.number().int().min(1).max(20).default(2),
 });
 
-router.post('/public/reserve', async (req: Request, res: Response) => {
+router.post('/public/reserve', strictRateLimit, async (req: Request, res: Response) => {
   try {
     const input = publicReservationSchema.parse(req.body);
 
@@ -286,7 +278,7 @@ const hotelBookingSchema = z.object({
   guestPhone: z.string().min(1),
 });
 
-router.post('/public/hotel-bookings', async (req: Request, res: Response) => {
+router.post('/public/hotel-bookings', strictRateLimit, async (req: Request, res: Response) => {
   try {
     const input = hotelBookingSchema.parse(req.body);
 

@@ -26,7 +26,7 @@ import {
 } from '../../api/forms';
 import { getPackages, type Package } from '../../api/packages';
 import { getDepartures, type Departure } from '../../api/departures';
-import { CopyIcon, EyeIcon, PencilIcon, PlusIcon, TrashBinIcon } from '../../icons';
+import { CopyIcon, EyeIcon, PencilIcon, PlugInIcon, PlusIcon, TrashBinIcon } from '../../icons';
 
 type FieldType = FormField['type'];
 
@@ -133,6 +133,8 @@ export default function PublicForms() {
   const [submissionsTarget, setSubmissionsTarget] = useState<PublicForm | null>(null);
   const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [embedTarget, setEmbedTarget] = useState<PublicForm | null>(null);
+  const [copiedEmbed, setCopiedEmbed] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
@@ -277,6 +279,10 @@ export default function PublicForms() {
                 <EyeIcon className="size-4" />
               </Button>
             </Link>
+            <Button size="sm" variant="outline" onClick={() => setEmbedTarget(form)} title={c.embed}>
+              <PlugInIcon className="size-4" />
+              <span className="hidden sm:inline ml-1 text-xs">{c.embed}</span>
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setSubmissionsTarget(form)}>
               {c.viewSubmissions}
             </Button>
@@ -805,6 +811,84 @@ export default function PublicForms() {
               ))}
             </div>
           )}
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!embedTarget}
+        onClose={() => setEmbedTarget(null)}
+        className="m-4 max-w-xl"
+        title={c.embedModal.title}
+      >
+        <div className="space-y-4 p-6">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {c.embedModal.description}
+          </p>
+
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/50">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400">
+                {c.embedModal.iframeCode}
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!embedTarget) return;
+                  const snippet = `<iframe src="${publicBase}/public/forms/${embedTarget.slug}?embed=1" width="100%" height="700" frameborder="0" style="border:none;border-radius:12px;width:100%;min-height:600px;overflow:hidden;" loading="lazy"></iframe>`;
+                  void copyPublicLink(snippet);
+                  setCopiedEmbed(true);
+                  setTimeout(() => setCopiedEmbed(false), 2000);
+                }}
+                className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
+              >
+                <CopyIcon className="size-3.5" />
+                {copiedEmbed ? c.embedModal.copied : c.embedModal.copyCode}
+              </button>
+            </div>
+            <pre className="overflow-x-auto rounded-lg bg-gray-900 p-3 text-xs text-gray-100 font-mono whitespace-pre-wrap break-all">
+              {embedTarget ? `<iframe src="${publicBase}/public/forms/${embedTarget.slug}?embed=1" width="100%" height="700" frameborder="0" style="border:none;border-radius:12px;width:100%;min-height:600px;overflow:hidden;" loading="lazy"></iframe>` : ''}
+            </pre>
+            <p className="mt-2 text-xs text-gray-400">
+              {c.embedModal.previewHint}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/50">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-1.5">
+              {c.embedModal.directLink}
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={embedTarget ? `${publicBase}/public/forms/${embedTarget.slug}` : ''}
+                className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 outline-none select-all"
+              />
+              {embedTarget && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void copyPublicLink(`${publicBase}/public/forms/${embedTarget.slug}`)}
+                    title={c.copyLink}
+                  >
+                    <CopyIcon className="size-3.5" />
+                  </Button>
+                  <Link to={`/public/forms/${embedTarget.slug}`} target="_blank" rel="noreferrer">
+                    <Button size="sm" variant="outline" title={c.preview}>
+                      <EyeIcon className="size-3.5" />
+                    </Button>
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setEmbedTarget(null)}>
+              {common.close}
+            </Button>
+          </div>
         </div>
       </Modal>
 

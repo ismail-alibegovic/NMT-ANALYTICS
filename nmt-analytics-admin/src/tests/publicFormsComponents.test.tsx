@@ -49,6 +49,7 @@ vi.mock('../icons', () => {
     CopyIcon: stub,
     EyeIcon: stub,
     PencilIcon: stub,
+    PlugInIcon: stub,
     PlusIcon: stub,
     TrashBinIcon: stub,
   };
@@ -176,12 +177,31 @@ vi.mock('../lib/i18n/context', () => {
             openInquiry: 'Open inquiry',
             noInquiry: 'No linked inquiry',
           },
+          embed: 'Embed',
+          embedModal: {
+            title: 'Embed form on website',
+            description: 'Copy the iframe snippet and place it on your website.',
+            iframeCode: 'Iframe embed code',
+            directLink: 'Direct form link',
+            copied: 'Copied to clipboard!',
+            copyCode: 'Copy code',
+            previewHint: 'The form automatically adapts its height and is responsive on mobile devices.',
+          },
           public: {
             notFound: mockState.currentLang === 'bs' ? 'Obrazac nije pronađen.' : 'Form not found.',
             loadError: mockState.currentLang === 'bs' ? 'Obrazac nije moguće učitati.' : 'Failed to load form.',
             unavailableTitle: mockState.currentLang === 'bs' ? 'Obrazac nije dostupan' : 'Form unavailable',
             successTitle: mockState.currentLang === 'bs' ? 'Hvala' : 'Thank you',
             successFallback: mockState.currentLang === 'bs' ? 'Vaša prijava je zaprimljena.' : 'Your submission has been received.',
+            tripDetails: 'Trip details',
+            departureDate: 'Departure date',
+            selectDeparture: 'Select departure date',
+            availableSpots: '{count} spots available',
+            spotsLeft: 'spots available',
+            soldOut: 'Sold out',
+            priceFrom: 'Price from',
+            duration: 'Duration',
+            days: 'days',
             required: mockState.currentLang === 'bs' ? '{label} je obavezno.' : '{label} is required.',
             invalidEmail: mockState.currentLang === 'bs' ? 'Unesite ispravnu email adresu.' : 'Enter a valid email address.',
             invalidPhone: mockState.currentLang === 'bs' ? 'Unesite ispravan broj telefona.' : 'Enter a valid phone number.',
@@ -196,6 +216,7 @@ vi.mock('../lib/i18n/context', () => {
         common: {
           actions: 'Actions',
           cancel: 'Cancel',
+          close: 'Close',
           delete: 'Delete',
           deleting: 'Deleting…',
           saving: 'Saving…',
@@ -398,5 +419,169 @@ describe('PublicFormRenderer', () => {
       expect(screen.getByText('Obrazac nije dostupan')).toBeInTheDocument();
       expect(screen.getByText('Obrazac nije pronađen.')).toBeInTheDocument();
     });
+  });
+
+  it('renders trip details, fixed departure availability, and submits payload', async () => {
+    mockState.currentLang = 'en';
+    const postMessageSpy = vi.spyOn(window.parent, 'postMessage');
+
+    apiGet.mockResolvedValue({
+      data: {
+        title: 'Istanbul Booking',
+        description: 'Book your trip',
+        fields: [
+          { id: 'full_name', label: 'Full name', type: 'short_text', required: true },
+        ],
+        thankYouMessage: 'Thank you for booking!',
+        package: {
+          id: 'pkg-1',
+          name: 'Istanbul Express',
+          destination: 'Istanbul, Turkey',
+          basePrice: 650,
+          currency: 'EUR',
+          durationDays: 5,
+        },
+        departure: {
+          id: 'dep-1',
+          departAt: '2026-06-10T10:00:00Z',
+          returnAt: '2026-06-15T18:00:00Z',
+          capacity: 40,
+          booked: 28,
+          available: 12,
+          status: 'active',
+        },
+      },
+    });
+
+    apiPost.mockResolvedValue({ data: { ok: true, inquiryId: 'inq-99' } });
+
+    render(
+      <MemoryRouter initialEntries={['/public/forms/istanbul-booking?embed=1']}>
+        <Routes>
+          <Route path="/public/forms/:slug" element={<PublicFormRenderer />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Istanbul Booking')).toBeInTheDocument();
+    expect(screen.getByText(/Istanbul Express — Istanbul, Turkey/)).toBeInTheDocument();
+    expect(screen.getByText(/12 spots available/)).toBeInTheDocument();
+    expect(screen.getByText('650 EUR')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: 'Kemal Malic' } });
+    fireEvent.click(screen.getByText('Submit'));
+
+    await waitFor(() => {
+      expect(apiPost).toHaveBeenCalledWith('/public/forms/istanbul-booking', {
+        full_name: 'Kemal Malic',
+        departureId: 'dep-1',
+        packageId: 'pkg-1',
+      });
+      expect(screen.getByText('Thank you for booking!')).toBeInTheDocument();
+      expect(postMessageSpy).toHaveBeenCalledWith({ type: 'travline-form-submitted', slug: 'istanbul-booking' }, '*');
+    });
+
+    postMessageSpy.mockRestore();
+  });
+
+  it('renders selectable departures when multiple dates are available', async () => {
+    mockState.currentLang = 'en';
+
+    apiGet.mockResolvedValue({
+      data: {
+        title: 'Rome Tours',
+        description: 'Choose your date',
+        fields: [
+          { id: 'full_name', label: 'Full name', type: 'short_text', required: true },
+        ],
+        package: {
+          id: 'pkg-2',
+          name: 'Rome Weekend',
+          destination: 'Rome, Italy',
+          basePrice: 400,
+          currency: 'EUR',
+        },
+        availableDepartures: [
+          {
+            id: 'dep-a',
+            departAt: '2026-07-01T08:00:00Z',
+            returnAt: '2026-07-05T18:00:00Z',
+            capacity: 30,
+            booked: 10,
+            available: 20,
+            status: 'active',
+          },
+          {
+            id: 'dep-b',
+            departAt: '2026-08-01T08:00:00Z',
+            returnAt: '2026-08-05T18:00:00Z',
+            capacity: 30,
+            booked: 30,
+            available: 0,
+            status: 'active',
+          },
+        ],
+      },
+    });
+
+    apiPost.mockResolvedValue({ data: { ok: true } });
+
+    render(
+      <MemoryRouter initialEntries={['/public/forms/rome-tours']}>
+        <Routes>
+          <Route path="/public/forms/:slug" element={<PublicFormRenderer />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Rome Tours')).toBeInTheDocument();
+    expect(screen.getByText('Select departure date')).toBeInTheDocument();
+
+    const selector = screen.getByLabelText('Select departure date');
+    fireEvent.change(selector, { target: { value: 'dep-a' } });
+
+    fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: 'Amina S' } });
+    fireEvent.click(screen.getByText('Submit'));
+
+    await waitFor(() => {
+      expect(apiPost).toHaveBeenCalledWith('/public/forms/rome-tours', {
+        full_name: 'Amina S',
+        departureId: 'dep-a',
+        packageId: 'pkg-2',
+      });
+    });
+  });
+});
+
+describe('PublicForms Embed Modal', () => {
+  it('opens embed modal and displays copyable iframe code snippet', async () => {
+    mockState.currentLang = 'en';
+    getForms.mockResolvedValue([
+      {
+        id: 'f-1',
+        title: 'Dubai Summer Form',
+        slug: 'dubai-summer',
+        active: true,
+        fields: [{ id: 'name', label: 'Name', type: 'short_text', required: true }],
+        updatedAt: '2026-08-01T12:00:00Z',
+      },
+    ]);
+    getPackages.mockResolvedValue({ data: [] });
+    getDepartures.mockResolvedValue({ data: [] });
+
+    render(
+      <MemoryRouter>
+        <PublicForms />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Dubai Summer Form')).toBeInTheDocument();
+
+    const embedBtn = screen.getByTitle('Embed');
+    fireEvent.click(embedBtn);
+
+    expect(await screen.findByText('Embed form on website')).toBeInTheDocument();
+    expect(screen.getByText('Iframe embed code')).toBeInTheDocument();
+    expect(screen.getByText(/<iframe src=".*\/public\/forms\/dubai-summer\?embed=1"/)).toBeInTheDocument();
   });
 });

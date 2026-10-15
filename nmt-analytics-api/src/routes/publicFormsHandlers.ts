@@ -69,7 +69,13 @@ function validateFieldDefinitions(fields: unknown): { valid: true; fields: Publi
   return { valid: true, fields: normalized };
 }
 
-function normalizeFormSubmission(fieldDefs: PublicField[], payload: unknown) {
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function normalizeFormSubmission(
+  fieldDefs: PublicField[],
+  payload: unknown,
+  formDefaults?: { packageId?: string | null; departureId?: string | null },
+) {
   if (!isPlainObject(payload)) {
     return { valid: false as const, status: 400, message: 'Invalid submission payload' };
   }
@@ -171,31 +177,120 @@ function normalizeFormSubmission(fieldDefs: PublicField[], payload: unknown) {
     }
   }
 
+  // Preserve valid departure_id / package_id if supplied in submission or defaulted by form
+  const rawDep = payload.departureId || payload.departure_id;
+  if (typeof rawDep === 'string' && UUID_REGEX.test(rawDep.trim())) {
+    sanitized.departure_id = rawDep.trim();
+  } else if (formDefaults?.departureId) {
+    sanitized.departure_id = formDefaults.departureId;
+  }
+
+  const rawPkg = payload.packageId || payload.package_id;
+  if (typeof rawPkg === 'string' && UUID_REGEX.test(rawPkg.trim())) {
+    sanitized.package_id = rawPkg.trim();
+  } else if (formDefaults?.packageId) {
+    sanitized.package_id = formDefaults.packageId;
+  }
+
   return { valid: true as const, answers: sanitized };
 }
 
 export async function getPublicForm(req: any, res: Response) {
   const { data, error } = await supabaseAdmin
     .from('public_forms')
-    .select('id, title, description, slug, fields, thank_you_message, active')
+    .select('id, title, description, slug, fields, thank_you_message, active, package_id, departure_id, org_id')
     .eq('slug', req.params.slug)
     .maybeSingle();
 
   if (error || !data) return apiError(res, 404, 'NOT_FOUND', 'Form not found');
   if (!data.active) return apiError(res, 404, 'NOT_FOUND', 'Form not available');
 
+  let packageInfo: any = null;
+  let departureInfo: any = null;
+  let availableDepartures: any[] = [];
+
+  if (data.package_id) {
+    const { data: pkg } = await supabaseAdmin
+      .from('packages')
+      .select('id, name, destination, base_price, currency, duration_days')
+      .eq('id', data.package_id)
+      .eq('org_id', data.org_id)
+      .maybeSingle();
+
+    if (pkg) {
+      packageInfo = {
+        id: pkg.id,
+        name: pkg.name,
+        destination: pkg.destination,
+        basePrice: pkg.base_price,
+        currency: pkg.currency,
+        durationDays: pkg.duration_days,
+      };
+    }
+  }
+
+  if (data.departure_id) {
+    const { data: dep } = await supabaseAdmin
+      .from('departures')
+      .select('id, package_id, depart_at, return_at, capacity, booked, status')
+      .eq('id', data.departure_id)
+      .eq('org_id', data.org_id)
+      .maybeSingle();
+
+    if (dep) {
+      departureInfo = {
+        id: dep.id,
+        packageId: dep.package_id,
+        departAt: dep.depart_at,
+        returnAt: dep.return_at,
+        capacity: dep.capacity,
+        booked: dep.booked,
+        available: Math.max(0, (dep.capacity || 0) - (dep.booked || 0)),
+        status: dep.status,
+      };
+    }
+  } else if (data.package_id) {
+    const { data: deps } = await supabaseAdmin
+      .from('departures')
+      .select('id, package_id, depart_at, return_at, capacity, booked, status')
+      .eq('package_id', data.package_id)
+      .eq('org_id', data.org_id)
+      .eq('status', 'active')
+      .gte('depart_at', new Date().toISOString())
+      .order('depart_at', { ascending: true })
+      .limit(20);
+
+    if (deps) {
+      availableDepartures = deps.map((d: any) => ({
+        id: d.id,
+        packageId: d.package_id,
+        departAt: d.depart_at,
+        returnAt: d.return_at,
+        capacity: d.capacity,
+        booked: d.booked,
+        available: Math.max(0, (d.capacity || 0) - (d.booked || 0)),
+        status: d.status,
+      }));
+    }
+  }
+
   return res.json({
     title: data.title,
     description: data.description,
     fields: data.fields,
     thankYouMessage: data.thank_you_message,
+    packageId: data.package_id || null,
+    departureId: data.departure_id || null,
+    package: packageInfo,
+    departure: departureInfo,
+    availableDepartures,
   });
 }
 
 export async function submitPublicForm(req: any, res: Response) {
   const { data: form } = await supabaseAdmin
     .from('public_forms')
-    .select('id, slug, active, fields, org_id')
+    .select('id, slug, active, fields, org_id, package_id, departure_id')
     .eq('slug', req.params.slug)
     .maybeSingle();
 
@@ -207,7 +302,10 @@ export async function submitPublicForm(req: any, res: Response) {
     return apiError(res, 400, 'VALIDATION_ERROR', parsedFields.message);
   }
 
-  const normalized = normalizeFormSubmission(parsedFields.fields, req.body);
+  const normalized = normalizeFormSubmission(parsedFields.fields, req.body, {
+    packageId: form.package_id,
+    departureId: form.departure_id,
+  });
   if (!normalized.valid) {
     return apiError(res, normalized.status, 'VALIDATION_ERROR', normalized.message);
   }
