@@ -211,6 +211,8 @@ export const en = {
     alertGroupSplit: '{count} passenger groups are split or partial',
     alertRoomingUnassigned: '{count} passengers still need rooming',
     alertRoomingMissingConfig: 'Accommodation is not configured',
+    alertSeatingUnassigned: '{count} passengers need seat assignment',
+    alertCapacityFull: 'Capacity full ({booked}/{capacity})',
     todayQueueClear: 'No urgent work',
     todayQueueClearDetail: 'Reservations and departures are under control.',
     todayQueueError: 'Some operational data could not be loaded. Refresh the page to try again.',
