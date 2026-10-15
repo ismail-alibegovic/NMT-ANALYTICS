@@ -103,4 +103,5 @@ VALUES (
 ROLLBACK;
 SQL
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/supplier-confirmation-atomicity.sql"
+"${PSQL_BASE[@]}" -f "$ROOT/scripts/quotation-approval-integrity.sql"
 echo "Migration Replay PASS: $count migrations executed"

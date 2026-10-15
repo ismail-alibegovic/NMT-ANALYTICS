@@ -12,11 +12,14 @@ const quotationId2 = 'qqq30001-3001-4003-8003-300000000004';
 const itemId1 = 'iii40001-4001-4004-8004-400000000005';
 const itemId2 = 'iii40001-4001-4004-8004-400000000006';
 
+let nextWriteError: { code: string; message: string } | null = null;
 let quotations: any[] = [];
 let quotationItems: any[] = [];
 let itineraryItems: any[] = [];
 
 beforeEach(() => {
+  nextWriteError = null;
+  allowAllRoles = true;
   currentOrgId = 'd9c9c298-9c09-4b0e-a91c-483758431d74';
 
   quotations = [
@@ -217,6 +220,10 @@ vi.mock('../lib/supabase', () => {
           eq: vi.fn((col: string, val: any) => { updateFilters[col] = val; return ub; }),
           select: vi.fn(() => ({
             single: vi.fn(() => {
+              if (nextWriteError) {
+                const error = nextWriteError; nextWriteError = null;
+                return Promise.resolve({ data: null, error });
+              }
               const rows = table === 'quotation_items' ? quotationItems : quotations;
               const idx = rows.findIndex((r: any) =>
                 Object.entries(updateFilters).every(([k, v]) => r[k] === v));
@@ -493,5 +500,83 @@ describe('quotation validity input', () => {
   it.each(['2027-02-30', 'not-a-date'])('rejects invalid validity %s', async validUntil => {
     const res = await request(makeApp()).post('/quotations').send({ title: 'Bad validity', validUntil });
     expect(res.status).toBe(400);
+  });
+});
+
+describe('Accepted quotation protection', () => {
+  it.each(['accepted', 'rejected', 'expired'])('locks all item mutations for ever-accepted %s quotes', async (status) => {
+    quotations[0].status = status;
+    quotations[0].accepted_at = '2026-10-14T12:00:00Z';
+    const original = JSON.stringify(quotationItems);
+    const app = makeApp();
+    const responses = [
+      await request(app).post(`/quotations/${quotationId1}/items`).send({ title: 'New price', netUnitPrice: 999 }),
+      await request(app).patch(`/quotations/${quotationId1}/items/${itemId1}`).send({ title: 'New price', netUnitPrice: 999 }),
+      await request(app).delete(`/quotations/${quotationId1}/items/${itemId1}`),
+    ];
+    for (const response of responses) {
+      expect(response.status).toBe(409);
+      expect(response.body.code).toBe('QUOTATION_LOCKED');
+    }
+    expect(JSON.stringify(quotationItems)).toBe(original);
+  });
+
+  it('locks a legacy accepted quote even without accepted_at', async () => {
+    quotations[0].status = 'accepted';
+    const response = await request(makeApp()).patch(`/quotations/${quotationId1}`).send({ title: 'Changed contract' });
+    expect(response.status).toBe(409);
+    expect(quotations[0].title).toBe('Test itinerary-derived quotation');
+  });
+
+  it.each([
+    { title: 'Changed title' }, { clientNotes: 'Changed terms' }, { validUntil: '2027-05-01' },
+    { status: 'draft' }, { status: 'sent' },
+  ])('rejects changes to approved commercial fields: %j', async (payload) => {
+    quotations[0].status = 'accepted'; quotations[0].accepted_at = '2026-10-14T12:00:00Z';
+    const response = await request(makeApp()).patch(`/quotations/${quotationId1}`).send(payload);
+    expect(response.status).toBe(409);
+    expect(response.body.code).toBe('QUOTATION_LOCKED');
+  });
+
+  it('allows internal notes and rejection while preserving approval time and prices', async () => {
+    quotations[0].status = 'accepted'; quotations[0].accepted_at = '2026-10-14T12:00:00Z';
+    const response = await request(makeApp()).patch(`/quotations/${quotationId1}`)
+      .send({ internalNotes: 'Operations review', status: 'rejected' });
+    expect(response.status).toBe(200);
+    expect(response.body.acceptedAt).toBe('2026-10-14T12:00:00Z');
+    expect(response.body.sellTotal).toBe(200);
+    expect(response.body.internalNotes).toBe('Operations review');
+  });
+
+  it('does not rewrite accepted_at when accepted status is repeated', async () => {
+    quotations[0].status = 'accepted'; quotations[0].accepted_at = '2026-10-14T12:00:00Z';
+    const response = await request(makeApp()).patch(`/quotations/${quotationId1}`).send({ status: 'accepted' });
+    expect(response.status).toBe(200);
+    expect(response.body.acceptedAt).toBe('2026-10-14T12:00:00Z');
+  });
+
+  it.each([{status:'invented'}, {title:''}, {validUntil:'not-a-date'}, {internalNotes: 12}])('validates PATCH: %j', async payload => {
+    await request(makeApp()).patch(`/quotations/${quotationId1}`).send(payload).expect(400);
+  });
+
+  it.each([
+    ['QUOTATION_LOCKED', 409],
+    ['QUOTATION_INVALID_PRICING', 422],
+  ])('maps database %s after the initial lookup to %i', async (message, status) => {
+    nextWriteError = { code: 'P0001', message: message as string };
+    const response = await request(makeApp()).patch(`/quotations/${quotationId1}`).send({ status: 'accepted' });
+    expect(response.status).toBe(status);
+    expect(response.body.code).toBe(message);
+  });
+
+  it('does not expose a different tenant approval state on mutations', async () => {
+    quotations[0].status = 'accepted'; currentOrgId = '99999999-9999-4999-8999-999999999999';
+    await request(makeApp()).patch(`/quotations/${quotationId1}`).send({internalNotes:'No access'}).expect(404);
+    await request(makeApp()).post(`/quotations/${quotationId1}/items`).send({title:'No access'}).expect(404);
+  });
+
+  it('preserves role denial for quotation acceptance', async () => {
+    allowAllRoles = false;
+    await request(makeApp()).patch(`/quotations/${quotationId1}`).send({status:'accepted'}).expect(403);
   });
 });

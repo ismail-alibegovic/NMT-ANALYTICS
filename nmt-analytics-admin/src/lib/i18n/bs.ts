@@ -1082,6 +1082,9 @@ export const bs: Translations = {
     netSnapshot: 'Snimak nabavnih troškova', addItem: 'Dodaj stavku', addItemDescription: 'Izaberite ugovorenu uslugu dobavljača ili unesite ručnu aktivnost. Cijene dobavljača kopiraju se u ovu verziju.', supplierService: 'Usluga dobavljača', manualItem: 'Ručna aktivnost / bez dobavljača', manualTitle: 'Naziv ručne stavke', day: 'Dan', time: 'Vrijeme početka', quantity: 'Količina', location: 'Lokacija', close: 'Zatvori', saveItem: 'Dodaj stavku', itemSaved: 'Stavka je dodana', itemUpdated: 'Stavka je ažurirana', itemRemoved: 'Stavka je uklonjena', editItem: 'Uredi stavku', edit: '✎', itemTitleRequired: 'Izaberite uslugu dobavljača ili unesite naziv', remove: 'Ukloni', noItems: 'Ova verzija je prazna', noItemsDescription: 'Dodajte smještaj, prevoz, letove, vodiče, obroke, aktivnosti, ulaznice ili ručne stavke rasporeda.', notFound: 'Itinerer nije pronađen', notFoundDescription: 'Itinerer ne postoji ili nije dostupan vašoj organizaciji.',
   },
   quotations: {
+    acceptedLocked: 'Prihvaćene cijene i uslovi su zaključani. Za izmjene kreirajte novu ponudu.',
+    acceptancePricingError: 'Dodajte stavke ponude i koristite jednu valutu prije prihvatanja.',
+
     sourceVersion: "Verzija izvora",
     sourceLoading: 'Učitavanje povezanog izvora…', sourceError: 'Povezani izvor nije moguće učitati. Pokušajte ponovo prije kreiranja zapisa.', retrySource: 'Pokušaj ponovo',
     modeLabel: 'Način kreiranja',

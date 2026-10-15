@@ -44,6 +44,26 @@ const quotationSchema = z.object({
   { message: 'both itineraryId and itineraryVersionId are required, or both must be absent for a standalone quotation' }
 );
 
+const quotationPatchSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  clientNotes: z.string().max(4000).optional().nullable(),
+  internalNotes: z.string().max(4000).optional().nullable(),
+  validUntil: z.union([z.string().date(), z.string().datetime()]).optional().nullable(),
+  status: z.enum(['draft', 'sent', 'accepted', 'rejected', 'expired']).optional(),
+});
+
+const quotationLocked = (row: any) => !!row.commercial_locked || row.status === 'accepted' || !!row.accepted_at;
+
+function quotationWriteError(res: Response, error: any, fallback: string) {
+  if (error?.message === 'QUOTATION_LOCKED' || error?.message === 'QUOTATION_ITEM_IDENTITY_LOCKED') {
+    return apiError(res, 409, 'QUOTATION_LOCKED', 'Accepted quotation terms cannot be changed');
+  }
+  if (error?.message === 'QUOTATION_INVALID_PRICING') {
+    return apiError(res, 422, 'QUOTATION_INVALID_PRICING', 'A quotation needs persisted items in one currency before acceptance');
+  }
+  return handleSupabaseError(res, error, fallback);
+}
+
 const quotationOut = (row: any) => ({
   id: row.id,
   itineraryId: row.itinerary_id,
@@ -62,6 +82,7 @@ const quotationOut = (row: any) => ({
   currency: row.currency,
   sentAt: row.sent_at,
   acceptedAt: row.accepted_at,
+  commercialLocked: !!row.commercial_locked,
   rejectedAt: row.rejected_at,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
@@ -391,23 +412,28 @@ router.get('/quotations/:id', authenticateToken, requireOrgContext, requireMinim
 
 // ─── Update ────────────────────────────────────────────────
 router.patch('/quotations/:id', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditLog('UPDATE', 'itinerary', (r) => r.params.id), async (req, res: Response) => {
-  const allowed = ['title', 'clientNotes', 'internalNotes', 'validUntil', 'status'];
+  const parsed = quotationPatchSchema.safeParse(req.body);
+  if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid quotation update', parsed.error.issues);
+  const body = parsed.data;
+  if (Object.keys(body).length === 0) return apiError(res, 400, 'VALIDATION_ERROR', 'No valid fields to update');
+  const { data: current, error: lookupError } = await supabaseAdmin
+    .from('quotations').select('*').eq('id', req.params.id).eq('org_id', req.orgId!).maybeSingle();
+  if (lookupError) return handleSupabaseError(res, lookupError, 'Failed to load quotation');
+  if (!current) return apiError(res, 404, 'NOT_FOUND', 'Quotation not found');
+  if (quotationLocked(current) && Object.entries(body).some(([key, value]) =>
+    key !== 'internalNotes' && !(key === 'status' && (value === current.status || value === 'rejected' || value === 'expired'))
+  )) return apiError(res, 409, 'QUOTATION_LOCKED', 'Accepted quotation terms cannot be changed');
+
   const updates: Record<string, unknown> = {};
-  for (const key of allowed) {
-    if (req.body[key] !== undefined) {
-      const col = key.replace(/[A-Z]/g, (m: string) => `_${m.toLowerCase()}`);
-      updates[col] = req.body[key];
-    }
+  for (const [key, value] of Object.entries(body)) {
+    updates[key.replace(/[A-Z]/g, (m: string) => `_${m.toLowerCase()}`)] = value;
   }
-
-  if (req.body.status) {
+  if (body.status && body.status !== current.status) {
     const ts = new Date().toISOString();
-    if (req.body.status === 'sent') updates.sent_at = ts;
-    if (req.body.status === 'accepted') updates.accepted_at = ts;
-    if (req.body.status === 'rejected') updates.rejected_at = ts;
+    if (body.status === 'sent') updates.sent_at = ts;
+    if (body.status === 'accepted') updates.accepted_at = ts;
+    if (body.status === 'rejected') updates.rejected_at = ts;
   }
-
-  if (Object.keys(updates).length === 0) return apiError(res, 400, 'VALIDATION_ERROR', 'No valid fields to update');
 
   updates.updated_at = new Date().toISOString();
   const { data, error } = await supabaseAdmin
@@ -418,7 +444,7 @@ router.patch('/quotations/:id', authenticateToken, requireOrgContext, requireMin
     .select('*')
     .single();
 
-  if (error) return handleSupabaseError(res, error, 'Failed to update quotation');
+  if (error) return quotationWriteError(res, error, 'Failed to update quotation');
   return res.json(quotationOut(data));
 });
 
@@ -429,11 +455,12 @@ router.post('/quotations/:id/items', authenticateToken, requireOrgContext, requi
 
   const { data: quotation } = await supabaseAdmin
     .from('quotations')
-    .select('id')
+    .select('id,status,accepted_at,commercial_locked')
     .eq('id', req.params.id)
     .eq('org_id', req.orgId!)
     .maybeSingle();
   if (!quotation) return apiError(res, 404, 'NOT_FOUND', 'Quotation not found');
+  if (quotationLocked(quotation)) return apiError(res, 409, 'QUOTATION_LOCKED', 'Accepted quotation terms cannot be changed');
 
   const b = parsed.data;
   const { data: item, error } = await supabaseAdmin
@@ -460,7 +487,7 @@ router.post('/quotations/:id/items', authenticateToken, requireOrgContext, requi
     .select('*')
     .single();
 
-  if (error) return handleSupabaseError(res, error, 'Failed to add item');
+  if (error) return quotationWriteError(res, error, 'Failed to add item');
 
   await recalcQuotationTotals(req.params.id, req.orgId!);
   return res.status(201).json(quotationItemOut(item));
@@ -473,11 +500,12 @@ router.patch('/quotations/:id/items/:itemId', authenticateToken, requireOrgConte
 
   const { data: quotation } = await supabaseAdmin
     .from('quotations')
-    .select('id')
+    .select('id,status,accepted_at,commercial_locked')
     .eq('id', req.params.id)
     .eq('org_id', req.orgId!)
     .maybeSingle();
   if (!quotation) return apiError(res, 404, 'NOT_FOUND', 'Quotation not found');
+  if (quotationLocked(quotation)) return apiError(res, 409, 'QUOTATION_LOCKED', 'Accepted quotation terms cannot be changed');
 
   const b = parsed.data;
   const { data: item, error } = await supabaseAdmin
@@ -506,7 +534,7 @@ router.patch('/quotations/:id/items/:itemId', authenticateToken, requireOrgConte
     .select('*')
     .single();
 
-  if (error) return handleSupabaseError(res, error, 'Item not found');
+  if (error) return quotationWriteError(res, error, 'Item not found');
 
   await recalcQuotationTotals(req.params.id, req.orgId!);
   return res.json(quotationItemOut(item));
@@ -516,11 +544,12 @@ router.patch('/quotations/:id/items/:itemId', authenticateToken, requireOrgConte
 router.delete('/quotations/:id/items/:itemId', authenticateToken, requireOrgContext, requireMinimumRole('agent'), auditLog('UPDATE', 'itinerary', (r) => r.params.id), async (req, res: Response) => {
   const { data: quotation } = await supabaseAdmin
     .from('quotations')
-    .select('id')
+    .select('id,status,accepted_at,commercial_locked')
     .eq('id', req.params.id)
     .eq('org_id', req.orgId!)
     .maybeSingle();
   if (!quotation) return apiError(res, 404, 'NOT_FOUND', 'Quotation not found');
+  if (quotationLocked(quotation)) return apiError(res, 409, 'QUOTATION_LOCKED', 'Accepted quotation terms cannot be changed');
 
   const { error } = await supabaseAdmin
     .from('quotation_items')
@@ -529,7 +558,7 @@ router.delete('/quotations/:id/items/:itemId', authenticateToken, requireOrgCont
     .eq('quotation_id', req.params.id)
     .eq('org_id', req.orgId!);
 
-  if (error) return handleSupabaseError(res, error, 'Failed to delete item');
+  if (error) return quotationWriteError(res, error, 'Failed to delete item');
 
   await recalcQuotationTotals(req.params.id, req.orgId!);
   return res.json({ ok: true });
