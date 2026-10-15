@@ -53,6 +53,33 @@ export function transformPayable(row: any) {
 }
 
 const access = [authenticateToken, requireOrgContext, requireMinimumRole('manager')];
+const overviewQuery = z.object({
+  supplierId: id.optional(), status: z.enum(['all','open','overdue','paid','cancelled']).default('open'),
+  page: z.coerce.number().int().min(1).max(100000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+}).strict();
+const finiteMoney = z.number().nonnegative().finite().refine(value => Number.isSafeInteger(toCents(value)));
+const overviewResult = z.object({
+  orgId: z.string(), asOfDate: date, timezone: z.string().min(1), totalCount: z.number().int().nonnegative(), invalidLedger: z.literal(false),
+  suppliers: z.array(z.object({ id, name: z.string() })),
+  currencies: z.array(z.object({ currency: z.string().regex(/^[A-Z]{3}$/), count: z.number().int().nonnegative(), outstanding: finiteMoney, overdue: finiteMoney, dueToday: finiteMoney })),
+  payables: z.array(z.object({ id, departureId: id, supplierId: id, supplierName: z.string(), label: z.string(), amount: finiteMoney, currency: z.string().regex(/^[A-Z]{3}$/), dueDate: date, paid: finiteMoney, remaining: finiteMoney, status: z.enum(['unpaid','partial','paid','cancelled']), overdue: z.boolean() })),
+});
+router.get('/supplier-payables', ...access, async (req, res: Response) => {
+  const query = overviewQuery.safeParse(req.query);
+  if (!query.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid supplier overview filters');
+  const { supplierId, status, page, pageSize } = query.data;
+  const { data, error } = await supabaseAdmin.rpc('supplier_payables_overview', {
+    p_org_id: req.orgId!, p_supplier_id: supplierId ?? null, p_status: status, p_offset: (page-1)*pageSize, p_limit: pageSize,
+  });
+  if (error) return payableError(res, error);
+  const parsed = overviewResult.safeParse(data);
+  if (!parsed.success || parsed.data.orgId !== req.orgId || parsed.data.payables.length>pageSize)
+    return apiError(res, 500, 'PAYABLE_LEDGER_INVALID', 'Supplier balances could not be confirmed');
+  const { orgId: _org, invalidLedger: _invalid, ...overview } = parsed.data;
+  res.set('Cache-Control','no-store');
+  return res.json({ ...overview, page, pageSize });
+});
 router.get('/departures/:id/supplier-payables', ...access, async (req, res: Response) => {
   const parsed = id.safeParse(req.params.id);
   if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid departure ID');

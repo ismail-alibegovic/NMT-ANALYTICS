@@ -62,6 +62,10 @@ BEGIN
      OR has_table_privilege('anon','public.supplier_payable_entries','select')
      OR has_function_privilege('authenticated','public.record_supplier_payable_entry(uuid,uuid,uuid,uuid,text,jsonb)','execute')
      OR has_function_privilege('anon','public.list_supplier_payables(uuid,uuid)','execute') THEN RAISE EXCEPTION 'Supplier ledger exposed'; END IF;
+  result:=public.supplier_payables_overview(org,supplier,'open',0,1);
+  IF (result->>'totalCount')::int<>1 OR (result->'payables'->0->>'remaining')::numeric<>129.99
+     OR (result->'currencies'->0->>'outstanding')::numeric<>129.99 THEN RAISE EXCEPTION 'Overview truncated long ledger'; END IF;
+  IF (public.supplier_payables_overview(other_org,supplier,'all',0,25)->>'totalCount')::int<>0 THEN RAISE EXCEPTION 'Overview crossed tenant boundary'; END IF;
   RAISE NOTICE 'Supplier payable integrity PASS';
 END; $$;
 ROLLBACK;

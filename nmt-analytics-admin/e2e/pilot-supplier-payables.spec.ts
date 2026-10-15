@@ -37,7 +37,7 @@ for (const scenario of [{ lang: 'bs', width: 1440 }, { lang: 'en', width: 390 }]
     await modal.getByRole('button', { name: copy.common.save, exact: true }).click(); await json(await linking, 200);
     await expect(modal).toBeHidden();
     await panel.getByRole('button', { name: c.issue, exact: true }).click();
-    await modal.getByLabel(c.costItem).selectOption(seeded.cost.id); await modal.getByLabel(c.dueDate).fill('2027-07-01');
+    await modal.getByLabel(c.costItem).selectOption(seeded.cost.id); await modal.getByLabel(c.dueDate).fill('2000-01-01');
     const issuing = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith(`/departures/${seeded.departure.id}/supplier-payables`));
     await modal.getByRole('button', { name: c.confirm, exact: true }).click();
     const issued = await json(await issuing); const payableId = issued.record.id;
@@ -54,6 +54,17 @@ for (const scenario of [{ lang: 'bs', width: 1440 }, { lang: 'en', width: 390 }]
     const payload = (await paying).request().postDataJSON();
     const retry = await json(await request.post(`${api}/api/supplier-payables/${payableId}/entries`, { headers, data: payload }), 200);
     expect(retry.record.id).toBe(payment.record.id);
+    await page.goto('/finance');
+    const overview = page.getByRole('region', { name: copy.supplierPayablesOverview.title });
+    await expect(overview.getByLabel(c.supplier,{exact:true}).locator('option', { hasText: seeded.marker })).toHaveCount(1);
+    await overview.getByLabel(c.supplier,{exact:true}).selectOption(seeded.supplier.id);
+    await overview.getByLabel(copy.supplierPayablesOverview.filter).selectOption('overdue');
+    await expect(overview.locator('[data-currency="BAM"]').getByText(/40[,.]00 BAM/)).toHaveCount(2);
+    await expect(overview.locator(`[data-payable-id="${payableId}"]`)).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await overview.locator(`[data-payable-id="${payableId}"]`).getByRole('link',{name:copy.supplierPayablesOverview.openDeparture}).click();
+    await expect(page).toHaveURL(new RegExp(`/departures/${seeded.departure.id}\\?tab=finance`));
+    await expect(row).toBeVisible();
     const locked = await request.patch(`${api}/api/departures/${seeded.departure.id}/cost-items/${seeded.cost.id}`, { headers, data: { unitCost: 1 } });
     expect(locked.status()).toBe(409); expect((await locked.json()).code).toBe('PAYABLE_COST_LOCKED');
     await page.getByRole('button', { name: copy.departure.finance.edit, exact: true }).click();
@@ -103,6 +114,10 @@ test('supplier ledger serializes payments and rejects foreign roles organization
   expect((await request.post(entriesUrl, { headers: staff, data: bodies[winner] })).status()).toBe(403);
   expect((await request.get(url, { headers: other })).status()).toBe(404);
   const ledger = await json(await request.get(url, { headers }), 200);
+  expect((await request.get(`${api}/api/supplier-payables`, { headers:staff })).status()).toBe(403);
+  const foreignOverview = await json(await request.get(`${api}/api/supplier-payables?supplierId=${seeded.supplier.id}&status=all`,{headers:other}),200);
+  expect(foreignOverview.totalCount).toBe(0); expect(foreignOverview.payables).toEqual([]);
+  expect(foreignOverview.suppliers.some((s:any)=>s.id===seeded.supplier.id)).toBe(false);
   expect(ledger.payables[0]).toMatchObject({ paid: 70, remaining: 30, status: 'partial' }); expect(ledger.payables[0].entries).toHaveLength(1);
   const deleted = await request.delete(`${api}/api/departures/${seeded.departure.id}/cost-items/${seeded.cost.id}`, { headers }); expect(deleted.status()).toBe(409);
   const fractional = await request.post(entriesUrl, { headers, data: { ...bodies[0], requestId: crypto.randomUUID(), amount: 0.001 } }); expect(fractional.status()).toBe(400);
