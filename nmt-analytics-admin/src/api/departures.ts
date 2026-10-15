@@ -677,6 +677,26 @@ export async function updateDeparturePassenger(passengerId: string, data: Update
   return result;
 }
 
+export interface DeparturePassengerSearchResult {
+  id: string;
+  reservation_id: string;
+  departure_id: string;
+  full_name: string;
+  phone?: string | null;
+  email?: string | null;
+  id_document_number?: string | null;
+  id_document_type?: string | null;
+  seat_number?: number | null;
+}
+
+export async function searchDeparturePassengers(params: { search: string; limit?: number }): Promise<DeparturePassengerSearchResult[]> {
+  const q = new URLSearchParams();
+  q.set('search', params.search);
+  if (params.limit) q.set('limit', String(params.limit));
+  const { data } = await get<{ data: DeparturePassengerSearchResult[] }>(`/departure-passengers?${q.toString()}`);
+  return data?.data || [];
+}
+
 
 // ─── Accommodation Rooming API ─────────────────────────────────────────────
 

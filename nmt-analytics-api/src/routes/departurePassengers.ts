@@ -81,7 +81,7 @@ const DOCUMENT_FIELDS = new Set([
 router.get('/departure-passengers', authenticateToken, requireOrgContext, async (req, res) => {
   try {
     const orgId = req.orgId!;
-    const { reservation_id, departure_id, limit, page } = req.query as any;
+    const { reservation_id, departure_id, limit, page, search } = req.query as any;
     const { offset, limit: lim } = getPaginationParams({ page: page ? Number(page) : 1, limit: limit ? Number(limit) : 50 });
 
     let query = supabaseAdmin
@@ -93,6 +93,10 @@ router.get('/departure-passengers', authenticateToken, requireOrgContext, async 
 
     if (reservation_id) query = query.eq('reservation_id', reservation_id);
     if (departure_id) query = query.eq('departure_id', departure_id);
+    if (search && typeof search === 'string' && search.trim()) {
+      const term = search.trim();
+      query = query.or(`full_name.ilike.%${term}%,id_document_number.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`);
+    }
 
     const { data, error, count } = await query;
     if (error) throw error;

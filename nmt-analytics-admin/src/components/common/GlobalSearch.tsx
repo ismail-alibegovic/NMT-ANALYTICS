@@ -3,13 +3,27 @@ import { useNavigate } from "react-router";
 import { getCustomers } from "../../api/customers";
 import { getReservations } from "../../api/reservations";
 import { getPackages } from "../../api/packages";
-import { getDepartures } from "../../api/departures";
+import { getDepartures, searchDeparturePassengers } from "../../api/departures";
 import { getContracts } from "../../api/contracts";
+import { getHotels } from "../../api/operations";
+import { getInquiries } from "../../api/inquiries";
+import { getQuotations } from "../../api/quotations";
+import { getSuppliers } from "../../api/suppliers";
 import { useT } from "../../lib/i18n/context";
 
-type SearchCategory = "customer" | "reservation" | "package" | "departure" | "contract";
+export type SearchCategory =
+  | "customer"
+  | "passenger"
+  | "reservation"
+  | "package"
+  | "departure"
+  | "hotel"
+  | "inquiry"
+  | "quotation"
+  | "supplier"
+  | "contract";
 
-type SearchResult = {
+export type SearchResult = {
   id: string;
   category: SearchCategory;
   title: string;
@@ -19,9 +33,14 @@ type SearchResult = {
 
 const CATEGORY_CONFIG: Record<SearchCategory, { icon: string; color: string }> = {
   customer: { icon: "👤", color: "text-blue-600 dark:text-blue-400" },
+  passenger: { icon: "🪪", color: "text-cyan-600 dark:text-cyan-400" },
   reservation: { icon: "🎫", color: "text-emerald-600 dark:text-emerald-400" },
   package: { icon: "📦", color: "text-amber-600 dark:text-amber-400" },
   departure: { icon: "🚌", color: "text-indigo-600 dark:text-indigo-400" },
+  hotel: { icon: "🏨", color: "text-purple-600 dark:text-purple-400" },
+  inquiry: { icon: "📨", color: "text-sky-600 dark:text-sky-400" },
+  quotation: { icon: "📜", color: "text-teal-600 dark:text-teal-400" },
+  supplier: { icon: "🏢", color: "text-orange-600 dark:text-orange-400" },
   contract: { icon: "📄", color: "text-rose-600 dark:text-rose-400" },
 };
 
@@ -79,17 +98,33 @@ export default function GlobalSearch({
       }
       setLoading(true);
       try {
-        const [customersRes, reservationsRes, packagesRes, departuresRes, contractsRes] =
-          await Promise.allSettled([
-            getCustomers({ search: q, limit: 5 }),
-            getReservations({ search: q, limit: 5 }),
-            getPackages({ search: q, limit: 5 }),
-            getDepartures({ search: q, limit: 5 }),
-            getContracts({ search: q, limit: 5 }),
-          ]);
+        const [
+          customersRes,
+          passengersRes,
+          reservationsRes,
+          packagesRes,
+          departuresRes,
+          hotelsRes,
+          inquiriesRes,
+          quotationsRes,
+          suppliersRes,
+          contractsRes,
+        ] = await Promise.allSettled([
+          getCustomers({ search: q, limit: 5 }),
+          searchDeparturePassengers({ search: q, limit: 5 }),
+          getReservations({ search: q, limit: 5 }),
+          getPackages({ search: q, limit: 5 }),
+          getDepartures({ search: q, limit: 5 }),
+          getHotels({ search: q, limit: 5 }),
+          getInquiries(q),
+          getQuotations({ search: q }),
+          getSuppliers({ search: q }),
+          getContracts({ search: q, limit: 5 }),
+        ]);
 
         const allResults: SearchResult[] = [];
 
+        // 1. Customers
         if (customersRes.status === "fulfilled") {
           for (const c of customersRes.value.data) {
             allResults.push({
@@ -102,6 +137,25 @@ export default function GlobalSearch({
           }
         }
 
+        // 2. Passengers (search by name, passport, phone)
+        if (passengersRes.status === "fulfilled") {
+          for (const p of passengersRes.value) {
+            const passportPart = p.id_document_number
+              ? `${t.globalSearch?.passport || "Passport"}: ${p.id_document_number}`
+              : "";
+            const phonePart = p.phone ? `Tel: ${p.phone}` : "";
+            const sub = [passportPart, phonePart].filter(Boolean).join(" · ");
+            allResults.push({
+              id: p.id,
+              category: "passenger",
+              title: p.full_name,
+              subtitle: sub || (p.seat_number ? `${t.globalSearch?.seats || "Seat"} ${p.seat_number}` : ""),
+              href: p.reservation_id ? `/reservations/${p.reservation_id}` : `/departures/${p.departure_id}`,
+            });
+          }
+        }
+
+        // 3. Reservations (deep-links directly to /reservations/:id)
         if (reservationsRes.status === "fulfilled") {
           for (const r of reservationsRes.value.data) {
             const bal = r.balanceDue > 0 ? ` · ${r.balanceDue} ${r.currency}` : "";
@@ -110,11 +164,12 @@ export default function GlobalSearch({
               category: "reservation",
               title: `${r.customerName} — ${r.packageName}`,
               subtitle: `${r.departureName} · ${r.status}${bal}`,
-              href: `/reservations`,
+              href: `/reservations/${r.id}`,
             });
           }
         }
 
+        // 4. Packages (deep-links directly to /packages/:id)
         if (packagesRes.status === "fulfilled") {
           for (const p of packagesRes.value.data) {
             allResults.push({
@@ -122,11 +177,12 @@ export default function GlobalSearch({
               category: "package",
               title: p.name,
               subtitle: `${p.destination} · ${p.price} ${p.currency}`,
-              href: `/packages`,
+              href: `/packages/${p.id}`,
             });
           }
         }
 
+        // 5. Departures (deep-links directly to /departures/:id)
         if (departuresRes.status === "fulfilled") {
           for (const d of departuresRes.value.data) {
             const date = d.depart_at ? new Date(d.depart_at).toLocaleDateString() : "";
@@ -140,6 +196,62 @@ export default function GlobalSearch({
           }
         }
 
+        // 6. Hotels (/operations/hotels/:id)
+        if (hotelsRes.status === "fulfilled") {
+          for (const h of hotelsRes.value.slice(0, 5)) {
+            const stars = h.stars ? " · " + "★".repeat(h.stars) : "";
+            allResults.push({
+              id: h.id,
+              category: "hotel",
+              title: h.name,
+              subtitle: `${h.destination || ""}${stars}`,
+              href: `/operations/hotels/${h.id}`,
+            });
+          }
+        }
+
+        // 7. Inquiries (/inquiries)
+        if (inquiriesRes.status === "fulfilled") {
+          for (const inq of inquiriesRes.value.slice(0, 5)) {
+            allResults.push({
+              id: inq.id,
+              category: "inquiry",
+              title: inq.contactName,
+              subtitle: `${inq.destination || ""} · ${inq.stage}`,
+              href: "/inquiries",
+            });
+          }
+        }
+
+        // 8. Quotations (/quotations/:id)
+        if (quotationsRes.status === "fulfilled") {
+          for (const qItem of quotationsRes.value.slice(0, 5)) {
+            const refTitle = `${qItem.reference ? qItem.reference + " — " : ""}${qItem.title}`;
+            allResults.push({
+              id: qItem.id,
+              category: "quotation",
+              title: refTitle,
+              subtitle: `${qItem.status} · ${qItem.sellTotal} ${qItem.currency}`,
+              href: `/quotations/${qItem.id}`,
+            });
+          }
+        }
+
+        // 9. Suppliers (/suppliers)
+        if (suppliersRes.status === "fulfilled") {
+          for (const s of suppliersRes.value.slice(0, 5)) {
+            const loc = [s.city, s.country].filter(Boolean).join(", ");
+            allResults.push({
+              id: s.id,
+              category: "supplier",
+              title: s.name,
+              subtitle: `${loc ? loc + " · " : ""}${s.category}`,
+              href: "/suppliers",
+            });
+          }
+        }
+
+        // 10. Contracts (/operations/contracts)
         if (contractsRes.status === "fulfilled") {
           for (const c of contractsRes.value.data) {
             allResults.push({
@@ -152,7 +264,7 @@ export default function GlobalSearch({
           }
         }
 
-        setResults(allResults.slice(0, 20));
+        setResults(allResults.slice(0, 25));
         setActiveIndex(0);
       } catch {
         setResults([]);
@@ -160,7 +272,7 @@ export default function GlobalSearch({
         setLoading(false);
       }
     },
-    []
+    [t]
   );
 
   useEffect(() => {
@@ -176,6 +288,11 @@ export default function GlobalSearch({
   }, [query, search]);
 
   if (!isOpen) return null;
+
+  const noResultsText = (t.globalSearch?.noResults || 'No results for "{query}"').replace(
+    "{query}",
+    query
+  );
 
   return (
     <div
@@ -198,7 +315,7 @@ export default function GlobalSearch({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={t.common?.search || "Search"}
+            placeholder={t.globalSearch?.placeholder || t.common?.search || "Search"}
             className="flex-1 bg-transparent text-base text-gray-900 placeholder:text-gray-400 focus:outline-none dark:text-white dark:placeholder:text-gray-500"
           />
           {loading && (
@@ -216,16 +333,19 @@ export default function GlobalSearch({
         <div className="max-h-[50vh] overflow-y-auto">
           {query.trim().length < 2 ? (
             <div className="px-4 py-10 text-center text-sm text-gray-400">
-              {t.common?.search || "Search"} — {t.nav?.customers}, {t.nav?.reservations}, {t.nav?.packages}, {t.nav?.departures}, {t.nav?.contracts}
+              {t.globalSearch?.emptyPrompt ||
+                `${t.common?.search || "Search"} — ${t.nav?.customers}, ${t.nav?.reservations}, ${t.nav?.packages}, ${t.nav?.departures}, ${t.nav?.contracts}`}
             </div>
           ) : results.length === 0 && !loading ? (
             <div className="px-4 py-10 text-center text-sm text-gray-400">
-              No results for "{query}"
+              {noResultsText}
             </div>
           ) : results.length === 0 && loading ? null : (
             <ul className="py-2">
               {results.map((item, index) => {
                 const cfg = CATEGORY_CONFIG[item.category];
+                const categoryLabel =
+                  t.globalSearch?.categories?.[item.category] || item.category;
                 return (
                   <li key={`${item.category}-${item.id}`}>
                     <button
@@ -250,7 +370,7 @@ export default function GlobalSearch({
                         </p>
                       </div>
                       <span className={`text-xs font-medium uppercase shrink-0 ${cfg.color}`}>
-                        {item.category}
+                        {categoryLabel}
                       </span>
                     </button>
                   </li>
@@ -263,9 +383,15 @@ export default function GlobalSearch({
         {/* Footer hints */}
         <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
           <div className="flex items-center gap-3 text-xs text-gray-400">
-            <span><kbd className="font-mono">↑↓</kbd> navigate</span>
-            <span><kbd className="font-mono">↵</kbd> open</span>
-            <span><kbd className="font-mono">ESC</kbd> close</span>
+            <span>
+              <kbd className="font-mono">↑↓</kbd> {t.globalSearch?.navigate || "navigate"}
+            </span>
+            <span>
+              <kbd className="font-mono">↵</kbd> {t.globalSearch?.open || "open"}
+            </span>
+            <span>
+              <kbd className="font-mono">ESC</kbd> {t.globalSearch?.close || "close"}
+            </span>
           </div>
         </div>
       </div>

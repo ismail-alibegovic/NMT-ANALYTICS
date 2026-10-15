@@ -84,13 +84,14 @@ const AppSidebar: React.FC = () => {
     { icon: <PaperPlaneIcon />, name: t.nav.inquiries, path: "/inquiries", capability: "customer_sales", minRole: "viewer" },
     { icon: <FileIcon />, name: t.nav.publicForms, path: "/settings/public-forms", minRole: "viewer" },
     { icon: <FileIcon />, name: t.nav.itineraries, path: "/itineraries", capability: "tailor_made_itineraries", minRole: "viewer" },
+    { icon: <FileIcon />, name: t.nav.quotations, path: "/quotations", capability: "tailor_made_itineraries", minRole: "viewer" },
     { icon: <UserCircleIcon />, name: t.nav.customers, path: "/customers", module: "customers", minRole: "viewer" },
     { icon: <ShootingStarIcon />, name: t.nav.packages, path: "/packages", module: "packages", minRole: "agent" },
     { icon: <CalenderIcon />, name: t.nav.reservations, path: "/reservations", module: "reservations", minRole: "viewer" },
   ];
 
   const operationsItems: NavItem[] = [
-    { icon: <TimeIcon />, name: t.nav.departures, path: "/departures", module: "departures", minRole: "agent" },
+    { icon: <TimeIcon />, name: t.nav.departures, path: "/departures", module: "departures", capability: "scheduled_departures", minRole: "agent" },
     { icon: <CalenderIcon />, name: t.nav.calendar, path: "/operations/calendar", module: "travel_core", capability: "scheduled_departures", minRole: "viewer" },
     { icon: <GridIcon />, name: t.nav.availability, path: "/operations/availability", module: "travel_core", capability: "inventory_contracting", minRole: "viewer" },
     { icon: <UserCircleIcon />, name: t.nav.suppliers, path: "/suppliers", capability: "supplier_management", minRole: "viewer" },
