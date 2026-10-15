@@ -55,6 +55,7 @@ export type AuditEntity =
   | 'inquiry'
   | 'supplier'
   | 'supplier_service'
+  | 'quotation'
   | 'itinerary'
   | 'itinerary_version'
   | 'itinerary_item'

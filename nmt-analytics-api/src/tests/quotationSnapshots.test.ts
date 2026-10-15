@@ -147,6 +147,27 @@ function resolveRows(table: string, filters: Record<string, any>) {
 
 vi.mock('../lib/supabase', () => {
   const mockSupabase = {
+    rpc: vi.fn(async (_name: string, args: any) => {
+      const p = args.p_payload;
+      const sources = p.itinerary_id ? itineraryItems : p.items;
+      const row = {
+        id: `quote-${Date.now()}-${Math.random()}`, org_id: args.p_org_id, ...p,
+        reference:'QTN-2026-0041', status:'draft', created_at:'2026-10-15T00:00:00Z', updated_at:'2026-10-15T00:00:00Z',
+        currency:p.itinerary_id ? 'BAM' : p.currency || sources[0]?.currency || 'BAM',
+        booking_context:{source:p.itinerary_id ? 'itinerary' : 'standalone'},
+        net_total:0,sell_total:0,margin_total:0,
+      };
+      const copied = sources.map((item: any, index: number) => ({
+        ...item,id:`copied-${row.id}-${index}`,org_id:args.p_org_id,quotation_id:row.id,
+        currency:item.currency || row.currency,
+      }));
+      row.net_total = copied.reduce((sum: number,item: any)=>sum+Number(item.quantity)*Number(item.net_unit_price),0);
+      row.sell_total = copied.reduce((sum: number,item: any)=>sum+Number(item.quantity)*Number(item.net_unit_price)*
+        (1+(p.markup_strategy==='uniform' ? p.global_markup_percent : Number(item.markup_percent))/100),0);
+      row.margin_total=row.sell_total-row.net_total;
+      quotations.push(row); quotationItems.push(...copied);
+      return {data:row,error:null};
+    }),
     from: vi.fn((table: string) => {
       const filters: Record<string, any> = {};
 

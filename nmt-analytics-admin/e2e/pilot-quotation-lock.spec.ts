@@ -79,12 +79,41 @@ test('approval serializes concurrent item editing and rejects empty or mixed-cur
   expect(final.status).toBe('accepted'); expect(final.commercialLocked).toBe(true);
   expect(final.netTotal).toBe(final.items[0].netUnitPrice);
   expect(final.sellTotal).toBeCloseTo(final.items[0].netUnitPrice*1.1,2);
-  for(const items of [[],[{title:'EUR',netUnitPrice:10,currency:'EUR'},{title:'BAM',netUnitPrice:10,currency:'BAM'}]]) {
-    const invalid = await create(request,headers,items);
+  for(const mixed of [false,true]) {
+    const invalid = await create(request,headers,mixed ? [{title:'EUR',netUnitPrice:10,currency:'EUR'}] : []);
+    if(mixed){
+      const added = await request.post(`${apiUrl}/api/quotations/${invalid.id}/items`,{headers,data:{title:'Legacy mixed draft',netUnitPrice:10,currency:'BAM'}});
+      expect(added.status(),await added.text()).toBe(201);
+    }
     const response = await request.patch(`${apiUrl}/api/quotations/${invalid.id}`,{headers,data:{status:'accepted'}});
     expect(response.status(),await response.text()).toBe(422);
     expect((await response.json()).code).toBe('QUOTATION_INVALID_PRICING');
     const stillDraft = await (await request.get(`${apiUrl}/api/quotations/${invalid.id}`,{headers})).json();
     expect(stillDraft.status).toBe('draft'); expect(stillDraft.acceptedAt).toBeNull(); expect(stillDraft.commercialLocked).toBe(false);
   }
+});
+
+test('creates complete unique snapshots concurrently and leaves no record on item failure',async({request})=>{
+  test.skip(!configured,'BLOCKED: isolated Auth/API environment required');
+  const headers=await authenticate(request);
+  const responses=await Promise.all([0,1,2].map(index=>request.post(`${apiUrl}/api/quotations`,{headers,data:{
+    title:`Concurrent quote ${Date.now()}-${index}`,currency:'EUR',
+    items:[{title:'Persisted fractional item',quantity:1.25,netUnitPrice:10.01,markupPercent:10}],
+  }})));
+  const quotes=[];
+  for(const response of responses){expect(response.status(),await response.text()).toBe(201);quotes.push(await response.json());}
+  expect(new Set(quotes.map(q=>q.reference)).size).toBe(3);
+  for(const quote of quotes){
+    const saved=await (await request.get(`${apiUrl}/api/quotations/${quote.id}`,{headers})).json();
+    expect(saved.items).toHaveLength(1);expect(saved.netTotal).toBe(12.51);expect(saved.sellTotal).toBe(13.76);
+    expect(saved.items[0].currency).toBe('EUR');expect(saved.bookingContext.currency).toBe('EUR');
+  }
+  const failedTitle=`Failed snapshot ${Date.now()}`;
+  const failed=await request.post(`${apiUrl}/api/quotations`,{headers,data:{
+    title:failedTitle,currency:'EUR',items:[{title:'Invalid supplier',supplierId:'00000000-0000-4000-8000-000000000099',netUnitPrice:10}],
+  }});
+  expect(failed.status(),await failed.text()).toBe(422);
+  expect((await failed.json()).code).toBe('QUOTATION_INVALID_SNAPSHOT');
+  const list=await (await request.get(`${apiUrl}/api/quotations`,{headers})).json();
+  expect(list.data.some((quote:{title:string})=>quote.title===failedTitle)).toBe(false);
 });

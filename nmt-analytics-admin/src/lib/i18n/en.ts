@@ -1082,6 +1082,11 @@ export const en = {
     netSnapshot: 'Supplier net snapshot', addItem: 'Add itinerary item', addItemDescription: 'Choose a contracted supplier service or enter a manual activity. Supplier prices are copied into this version.', supplierService: 'Supplier service', manualItem: 'Manual activity / no supplier', manualTitle: 'Manual title', day: 'Day', time: 'Start time', quantity: 'Quantity', location: 'Location', close: 'Close', saveItem: 'Add item', itemSaved: 'Item added', itemUpdated: 'Item updated', itemRemoved: 'Item removed', editItem: 'Edit item', edit: '✎', itemTitleRequired: 'Select a supplier service or enter a title', remove: 'Remove', noItems: 'This version is empty', noItemsDescription: 'Add accommodation, transport, flights, guides, meals, activities, tickets, or manual schedule items.', notFound: 'Itinerary not found', notFoundDescription: 'This itinerary does not exist or is not available to your organization.',
   },
   quotations: {
+    bookingContextTitle: 'Trip details saved with this quotation',
+    contactName: 'Client', destination: 'Destination', travelDates: 'Travel dates', travelers: 'Travelers',
+    createCurrencyError: 'All items must use the quotation currency. Align the currencies in the source.',
+    snapshotError: 'The quotation could not be confirmed. Check the source and prices, and check the quotation list before retrying.',
+
     acceptedLocked: 'Accepted prices and terms are locked. Create a new quotation for changes.',
     acceptancePricingError: 'Add quotation items and use one currency before accepting.',
 

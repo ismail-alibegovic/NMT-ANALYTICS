@@ -9,6 +9,15 @@ export interface QuotationItem {
   netLineTotal: number; sellLineTotal: number;
 }
 
+export interface QuotationBookingContext {
+  source?: 'itinerary' | 'standalone';
+  itineraryId?: string; itineraryVersionId?: string; versionNumber?: number;
+  itineraryTitle?: string; tripType?: string; destination?: string | null;
+  travelStart?: string | null; travelEnd?: string | null; travelers?: number;
+  currency?: string; inquiryId?: string | null; contactName?: string | null;
+  phone?: string | null; email?: string | null;
+}
+
 export interface Quotation {
   id: string;
   itineraryId: string | null;
@@ -21,6 +30,7 @@ export interface Quotation {
   validUntil: string | null;
   markupStrategy: 'uniform' | 'per_item'; globalMarkupPercent: number;
   sellTotal: number; netTotal: number; marginTotal: number; currency: string;
+  bookingContext?: QuotationBookingContext;
   commercialLocked?: boolean;
   sentAt: string | null; acceptedAt: string | null; rejectedAt: string | null;
   assignedTo: string | null; createdAt: string; updatedAt: string;

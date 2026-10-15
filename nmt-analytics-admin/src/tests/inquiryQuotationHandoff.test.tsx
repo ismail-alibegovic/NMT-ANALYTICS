@@ -9,12 +9,12 @@ import Quotations from '../pages/Quotations';
 
 const api = vi.hoisted(() => ({
   getInquiry: vi.fn(), getInquiries: vi.fn(), getItinerary: vi.fn(), getItineraries: vi.fn(),
-  createItinerary: vi.fn(), getQuotations: vi.fn(), createQuotation: vi.fn(),
+  createItinerary: vi.fn(), getQuotations: vi.fn(), createQuotation: vi.fn(), toastError: vi.fn(),
 }));
 vi.mock('../api/inquiries', () => ({ getInquiry: api.getInquiry, getInquiries: api.getInquiries }));
 vi.mock('../api/itineraries', () => ({ getItinerary: api.getItinerary, getItineraries: api.getItineraries, createItinerary: api.createItinerary }));
 vi.mock('../api/quotations', () => ({ getQuotations: api.getQuotations, createQuotation: api.createQuotation }));
-vi.mock('../context/ToastContext', () => ({ useToast: () => ({ success: vi.fn(), error: vi.fn() }) }));
+vi.mock('../context/ToastContext', () => ({ useToast: () => ({ success: vi.fn(), error: api.toastError }) }));
 vi.mock('../components/common/PageMeta', () => ({ default: () => null }));
 vi.mock('../components/ui/PageToolbar', () => ({ default: ({ createButton }: any) => <button onClick={createButton.onClick}>{createButton.label}</button> }));
 vi.mock('../components/ui/modal', () => ({ Modal: ({ isOpen, children }: any) => isOpen ? <div data-testid="form">{children}</div> : null }));
@@ -111,4 +111,20 @@ describe('handoff translation compatibility', () => {
   it.each([['en', en], ['bs', bs]] as const)('retains supplier readiness copy in %s', (_lang, locale) => {
     expect(locale.hub.alertSupplierConfirmations.replace('{count}', '2')).toContain('2');
   });
+});
+
+describe('atomic quotation feedback',()=>{
+  for(const [lang,copy]of [['en',en],['bs',bs]] as const){
+    it(`keeps the form and localizes currency rejection in ${lang}`,async()=>{
+      localStorage.setItem('travline_lang',lang);
+      api.createQuotation.mockRejectedValue({code:'QUOTATION_CURRENCY_MISMATCH',message:'Server English'});
+      show(<Quotations/>,'/quotations');
+      fireEvent.click(await screen.findByRole('button',{name:copy.quotations.add}));
+      const form=await screen.findByTestId('form');
+      fireEvent.change(form.querySelector('input')!,{target:{value:'New offer'}});
+      fireEvent.click(screen.getByRole('button',{name:copy.quotations.create}));
+      await waitFor(()=>expect(api.toastError).toHaveBeenCalledWith(copy.quotations.createCurrencyError));
+      expect(screen.getByDisplayValue('New offer')).toBeInTheDocument();
+    });
+  }
 });
