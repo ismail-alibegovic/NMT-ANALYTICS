@@ -107,4 +107,72 @@ describe('departure profitability derivation', () => {
     expect(result.revenue).toBe(0);
     expect(result.marginPct).toBeNull();
   });
+
+  it('calculates supplier obligations, ledger payments with reversals, debt, and realized cash', () => {
+    const result = deriveDepartureFinance({
+      currency,
+      reservations: [
+        { id: 'r1', total_amount: 1000, currency, status: 'confirmed' },
+      ],
+      payments: [
+        { reservation_id: 'r1', amount: 800, currency, status: 'succeeded' },
+      ],
+      costItems: [
+        { category: 'hotel', quantity: 1, unit_cost: 500, currency },
+      ],
+      payables: [
+        {
+          id: 'sp1',
+          amount: 500,
+          currency,
+          cancelled_at: null,
+          entries: [
+            { id: 'e1', kind: 'payment', amount: 300 },
+            { id: 'e2', kind: 'reversal', amount: -50 },
+          ],
+        },
+        {
+          id: 'sp-cancelled',
+          amount: 200,
+          currency,
+          cancelled_at: '2026-10-15T12:00:00Z',
+          entries: [],
+        },
+      ],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.revenue).toBe(1000);
+    expect(result.collected).toBe(800);
+    expect(result.supplierCosts).toBe(500);
+    expect(result.estimatedGrossProfit).toBe(500);
+    expect(result.supplierObligationsIssued).toBe(500);
+    expect(result.supplierPaid).toBe(250);
+    expect(result.supplierOutstanding).toBe(250);
+    expect(result.realizedCashProfit).toBe(550); // 800 collected - 250 paid
+  });
+
+  it('flags supplier payable currency mismatch in warnings', () => {
+    const result = deriveDepartureFinance({
+      currency,
+      reservations: [],
+      payments: [],
+      costItems: [],
+      payables: [
+        {
+          id: 'sp-eur',
+          amount: 100,
+          currency: 'EUR',
+          cancelled_at: null,
+          entries: [],
+        },
+      ],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.warnings.some((w) => w.code === 'SUPPLIER_PAYABLE_CURRENCY_MISMATCH')).toBe(true);
+    expect(result.supplierObligationsIssued).toBe(0);
+    expect(result.supplierOutstanding).toBe(0);
+  });
 });
+

@@ -23,6 +23,10 @@ describe('departure profitability admin API', () => {
         supplierCosts: 250,
         estimatedGrossProfit: 750,
         marginPct: 75,
+        supplierObligationsIssued: 250,
+        supplierPaid: 100,
+        supplierOutstanding: 150,
+        realizedCashProfit: 200,
         reservationCount: 1,
         costItems: [],
         costBreakdown: [],
@@ -36,6 +40,10 @@ describe('departure profitability admin API', () => {
     expect(get).toHaveBeenCalledWith('/departures/departure-1/profitability');
     expect(result.collected).toBe(300);
     expect(result.outstanding).toBe(700);
+    expect(result.supplierObligationsIssued).toBe(250);
+    expect(result.supplierPaid).toBe(100);
+    expect(result.supplierOutstanding).toBe(150);
+    expect(result.realizedCashProfit).toBe(200);
   });
 
   it('creates, updates, and deletes departure cost items through scoped endpoints', async () => {

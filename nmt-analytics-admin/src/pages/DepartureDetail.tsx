@@ -1398,8 +1398,11 @@ export default function DepartureDetail() {
                   <FinanceCard label={t.departure.finance.collected} value={formatCurrency(profitability.collected, profitability.currency)} />
                   <FinanceCard label={t.departure.finance.outstanding} value={formatCurrency(profitability.outstanding, profitability.currency)} attention={profitability.outstanding > 0} />
                   <FinanceCard label={t.departure.finance.supplierCosts} value={formatCurrency(profitability.supplierCosts, profitability.currency)} />
+                  <FinanceCard label={t.departure.finance.supplierPaid} value={formatCurrency(profitability.supplierPaid ?? 0, profitability.currency)} />
+                  <FinanceCard label={t.departure.finance.supplierOutstanding} value={formatCurrency(profitability.supplierOutstanding ?? 0, profitability.currency)} attention={(profitability.supplierOutstanding ?? 0) > 0} />
                   <FinanceCard label={t.departure.finance.grossProfit} value={formatCurrency(profitability.estimatedGrossProfit, profitability.currency)} />
                   <FinanceCard label={t.departure.finance.margin} value={profitability.marginPct === null ? "—" : `${profitability.marginPct.toFixed(2)}%`} />
+                  <FinanceCard label={t.departure.finance.realizedCash} value={formatCurrency(profitability.realizedCashProfit ?? 0, profitability.currency)} />
                 </section>
                 <SupplierPayablesPanel key={id} departureId={id!} costs={profitability.costItems} onChanged={() => { void loadProfitability(); }} />
                 <section className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">

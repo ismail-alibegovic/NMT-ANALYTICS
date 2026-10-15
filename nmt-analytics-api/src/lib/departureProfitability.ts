@@ -27,6 +27,13 @@ export function deriveDepartureFinance(input: {
   reservations: Array<{ id: string; total_amount: unknown; currency?: string | null; status?: string | null }>;
   payments: Array<{ reservation_id: string; amount: unknown; status?: string | null; currency?: string | null }>;
   costItems: Array<{ id?: string; category?: string; quantity: unknown; unit_cost: unknown; currency?: string | null }>;
+  payables?: Array<{
+    id: string;
+    amount: unknown;
+    currency?: string | null;
+    cancelled_at?: string | null;
+    entries?: Array<{ id?: string; kind?: string | null; amount: unknown }>;
+  }>;
   currency: string;
 }) {
   const eligibleReservations = input.reservations.filter((reservation) => isEligibleReservationStatus(reservation.status));
@@ -67,6 +74,19 @@ export function deriveDepartureFinance(input: {
     }
   }
 
+  const payables = input.payables || [];
+  for (const payable of payables) {
+    if (payable.cancelled_at) continue;
+    const payableCurrency = payable.currency || input.currency;
+    if (payableCurrency !== input.currency) {
+      warnings.push({
+        code: 'SUPPLIER_PAYABLE_CURRENCY_MISMATCH',
+        message: 'Supplier payable currency does not match departure currency',
+        details: { payableId: payable.id, payableCurrency, departureCurrency: input.currency },
+      });
+    }
+  }
+
   if (warnings.length > 0) {
     return {
       ok: false as const,
@@ -78,6 +98,10 @@ export function deriveDepartureFinance(input: {
       supplierCosts: 0,
       estimatedGrossProfit: 0,
       marginPct: null,
+      supplierObligationsIssued: 0,
+      supplierPaid: 0,
+      supplierOutstanding: 0,
+      realizedCashProfit: 0,
       costBreakdown: [],
     };
   }
@@ -112,8 +136,22 @@ export function deriveDepartureFinance(input: {
     breakdownByCategory.set(category, (breakdownByCategory.get(category) || 0) + itemCents);
   }
 
+  let supplierObligationsIssuedCents = 0;
+  let supplierPaidCents = 0;
+
+  for (const payable of payables) {
+    if (payable.cancelled_at) continue;
+    supplierObligationsIssuedCents += toCents(payable.amount);
+
+    for (const entry of payable.entries || []) {
+      supplierPaidCents += toCents(entry.amount);
+    }
+  }
+
+  const supplierOutstandingCents = Math.max(supplierObligationsIssuedCents - supplierPaidCents, 0);
   const grossProfitCents = revenueCents - supplierCostCents;
   const marginPct = revenueCents > 0 ? Math.round((grossProfitCents / revenueCents) * 10000) / 100 : null;
+  const realizedCashProfitCents = collectedCents - supplierPaidCents;
 
   return {
     ok: true as const,
@@ -125,6 +163,10 @@ export function deriveDepartureFinance(input: {
     supplierCosts: fromCents(supplierCostCents),
     estimatedGrossProfit: fromCents(grossProfitCents),
     marginPct,
+    supplierObligationsIssued: fromCents(supplierObligationsIssuedCents),
+    supplierPaid: fromCents(supplierPaidCents),
+    supplierOutstanding: fromCents(supplierOutstandingCents),
+    realizedCashProfit: fromCents(realizedCashProfitCents),
     costBreakdown: Array.from(breakdownByCategory.entries()).map(([category, amountCents]) => ({
       category,
       amount: fromCents(amountCents),
