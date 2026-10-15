@@ -19,11 +19,11 @@ export default function AuthLayout({
             {/* <!-- ===== Common Grid Shape Start ===== --> */}
             <GridShape />
             <div className="flex flex-col items-center max-w-sm">
-              <Link to="/" className="block mb-6">
+              <Link to="/landing" className="block mb-6 transition-transform hover:scale-105">
                 <img
                   src="/images/brand/travline-icon.svg"
                   alt="Travline"
-                  className="h-16 w-16 rounded-2xl object-contain"
+                  className="h-16 w-16 rounded-2xl object-contain shadow-md shadow-brand-500/20"
                 />
               </Link>
               <h2 className="mb-2 text-2xl font-bold text-white text-center">

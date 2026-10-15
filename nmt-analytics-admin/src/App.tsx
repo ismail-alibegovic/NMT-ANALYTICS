@@ -8,6 +8,7 @@ import AppLayout from "./layout/AppLayout";
 import PortalGuard from "./components/auth/PortalGuard";
 import "./index.css";
 
+const LandingPage = lazy(() => import("./pages/LandingPage"));
 const SignIn = lazy(() => import("./pages/AuthPages/SignIn"));
 const SignUp = lazy(() => import("./pages/AuthPages/SignUp"));
 const ResetPassword = lazy(() => import("./pages/AuthPages/ResetPassword"));
@@ -65,6 +66,8 @@ const PortalReservations = lazy(() => import("./pages/portal/PortalReservations"
 const PortalCustomers = lazy(() => import("./pages/portal/PortalCustomers"));
 const PortalSettings = lazy(() => import("./pages/portal/PortalSettings"));
 
+import { useApp } from "./context/AppContext";
+
 const NotFoundClientOnly = () => <NotFound />;
 
 const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -73,10 +76,34 @@ const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
   </Suspense>
 );
 
+const RootRoute = () => {
+  const { userContext, loading, profileLoading } = useApp();
+
+  if (loading || profileLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-brand-500" />
+          <p className="text-gray-600 dark:text-gray-400">Loading workspace...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (userContext) {
+    return <Navigate to="/home" replace />;
+  }
+
+  return <LandingPage />;
+};
+
 export default function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/" element={<SuspenseWrapper><RootRoute /></SuspenseWrapper>} />
+        <Route path="/landing" element={<SuspenseWrapper><LandingPage /></SuspenseWrapper>} />
+        <Route path="/welcome" element={<SuspenseWrapper><LandingPage /></SuspenseWrapper>} />
         <Route path="/auth/signin" element={<SuspenseWrapper><SignIn /></SuspenseWrapper>} />
         <Route path="/auth/signup" element={<SuspenseWrapper><SignUp /></SuspenseWrapper>} />
         <Route path="/auth/reset-password" element={<SuspenseWrapper><ResetPassword /></SuspenseWrapper>} />
@@ -99,7 +126,6 @@ export default function App() {
         </Route>
 
         <Route element={<AuthGuard><AppLayout /></AuthGuard>}>
-          <Route path="/" element={<SuspenseWrapper><HomeHub /></SuspenseWrapper>} />
           <Route path="/home" element={<SuspenseWrapper><HomeHub /></SuspenseWrapper>} />
           <Route path="/sales" element={<SuspenseWrapper><SalesScope /></SuspenseWrapper>} />
           <Route path="/operations" element={<SuspenseWrapper><OperationsScope /></SuspenseWrapper>} />
