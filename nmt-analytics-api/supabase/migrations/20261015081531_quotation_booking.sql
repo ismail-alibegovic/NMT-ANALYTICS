@@ -47,7 +47,7 @@ BEGIN
   IF q.status<>'accepted' THEN RAISE EXCEPTION 'QUOTATION_NOT_ACCEPTED'; END IF;
   IF q.booking_context->>'source' IS DISTINCT FROM 'itinerary'
      OR q.booking_context->>'travelStart' IS NULL OR q.booking_context->>'travelEnd' IS NULL
-     OR (q.booking_context->>'travelers')::integer < 1 THEN RAISE EXCEPTION 'QUOTATION_CONTEXT_REQUIRED'; END IF;
+     OR coalesce((q.booking_context->>'travelers')::integer,0) < 1 THEN RAISE EXCEPTION 'QUOTATION_CONTEXT_REQUIRED'; END IF;
   SELECT coalesce(nullif(timezone,''),'UTC') INTO tz FROM public.organizations WHERE id=p_org_id;
   IF NOT EXISTS(SELECT FROM pg_timezone_names WHERE name=tz) THEN RAISE EXCEPTION 'QUOTATION_TIMEZONE_INVALID'; END IF;
   SELECT coalesce(jsonb_agg(jsonb_build_object('id',d.id,'packageName',p.name,

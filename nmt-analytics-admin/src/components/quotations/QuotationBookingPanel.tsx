@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import Button from '../ui/button/Button';
 import { Modal } from '../ui/modal';
@@ -14,14 +14,14 @@ export default function QuotationBookingPanel({quotation:q}:{quotation:Quotation
   const [phone,setPhone]=useState(q.bookingContext?.phone || '');const [email,setEmail]=useState(q.bookingContext?.email || '');
   const [names,setNames]=useState('');const [error,setError]=useState('');
   const travelers=q.bookingContext?.travelers || 0;
-  const message=(code?:string)=>{
+  const message=useCallback((code?:string)=>{
     if(code==='DEPARTURE_CAPACITY_EXCEEDED')return c.bookingCapacity;
     if(code==='QUOTATION_ALREADY_BOOKED')return c.bookingAlready;
     if(code==='INSUFFICIENT_PERMISSIONS')return c.bookingForbidden;
     if(code==='QUOTATION_DEPARTURE_INCOMPATIBLE')return c.bookingIncompatible;
     if(code==='QUOTATION_TRAVELERS_INVALID')return c.bookingNamesMismatch.replace('{count}',String(travelers));
     return c.bookingError;
-  };
+  },[c,travelers]);
   useEffect(()=>{
     if(!open)return;
     let current=true;setLoading(true);setError('');setChoices([]);setDepartureId('');
@@ -29,7 +29,7 @@ export default function QuotationBookingPanel({quotation:q}:{quotation:Quotation
       .catch(e=>{if(current)setError(message(e?.code));})
       .finally(()=>{if(current)setLoading(false);});
     return()=>{current=false;};
-  },[open,q.id]);
+  },[open,q.id,message]);
   async function save(){
     const passengers=names.split('\n').map(n=>n.trim()).filter(Boolean).map(full_name=>({full_name}));
     if(passengers.length!==travelers){setError(c.bookingNamesMismatch.replace('{count}',String(travelers)));return;}
