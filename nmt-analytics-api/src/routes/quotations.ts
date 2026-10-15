@@ -9,7 +9,10 @@ import { apiError } from '../lib/errors';
 import { generateOfferPDF } from '../lib/pdfGenerator';
 import { getOrgBranding } from '../lib/orgBranding';
 
+import quotationBookingRoutes from './quotationBooking';
+
 const router = Router();
+router.use(quotationBookingRoutes);
 
 const quotationItemSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -257,11 +260,15 @@ router.get('/quotations/:id', authenticateToken, requireOrgContext, requireMinim
         .single()
     : Promise.resolve(null);
 
-  const [itemsRes, itineraryRes, versionRes] = await Promise.all([
+  const bookingPromise = supabaseAdmin.from('reservations').select('id,status,creation_state')
+    .eq('org_id',req.orgId!).eq('quotation_id',data.id).maybeSingle();
+  const [itemsRes, itineraryRes, versionRes, bookingRes] = await Promise.all([
     itemsPromise,
     itineraryPromise,
     versionPromise,
+    bookingPromise,
   ]);
+  if (bookingRes.error) return handleSupabaseError(res,bookingRes.error,'Failed to load linked booking');
 
   const items = (itemsRes?.data || []).map(quotationItemOut);
 
@@ -283,6 +290,7 @@ router.get('/quotations/:id', authenticateToken, requireOrgContext, requireMinim
 
   return res.json({
     ...quotationOut(data),
+    booking: bookingRes.data || null,
     itinerary: itineraryRes?.data || null,
     version: versionRes?.data || null,
     items: lineItems,

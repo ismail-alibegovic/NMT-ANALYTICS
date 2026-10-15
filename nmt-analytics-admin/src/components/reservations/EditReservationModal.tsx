@@ -1,3 +1,4 @@
+import { useT } from "../../lib/i18n/context";
 import { useEffect, useMemo, useState } from "react";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
@@ -57,6 +58,9 @@ export default function EditReservationModal({
 }: EditReservationModalProps) {
   const { success: showSuccess, error: showError } = useToast();
 
+  const { t } = useT();
+  const [quotationId,setQuotationId]=useState<string|null>(null);
+  const [quoteCurrency,setQuoteCurrency]=useState("BAM");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -118,6 +122,8 @@ export default function EditReservationModal({
 
     getReservation(reservationId)
       .then(async (res) => {
+        setQuotationId(res.quotationId || null);
+        setQuoteCurrency(res.currency);
         setCustomerName(res.customerName);
         setCustomerPhone(res.customerPhone || "");
         setPartySize(res.participants || res.partySize || 1);
@@ -277,7 +283,7 @@ export default function EditReservationModal({
         customerPhone: customerPhone || undefined,
         partySize,
         departureId: departureId || undefined,
-        totalAmount: totalAmount ? Number(totalAmount) : undefined,
+        totalAmount: quotationId ? undefined : totalAmount ? Number(totalAmount) : undefined,
         status: status as Reservation["status"],
       });
 
@@ -350,8 +356,9 @@ export default function EditReservationModal({
                 <Input type="number" min="1" value={String(partySize)} onChange={(e) => setPartySize(Math.max(1, parseInt(e.target.value) || 1))} />
               </div>
               <div>
-                <Label>Iznos (BAM)</Label>
-                <Input type="number" min="0" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} />
+                <Label>{quotationId ? `${t.quotations.sellTotal} (${quoteCurrency})` : "Iznos (BAM)"}</Label>
+                {quotationId && <p className="mb-2 text-sm text-gray-500">{t.quotations.bookingTermsLocked}</p>}
+                <Input type="number" min="0" disabled={!!quotationId} value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} />
               </div>
               <div>
                 <Label>Status</Label>

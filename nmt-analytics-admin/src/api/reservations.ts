@@ -2,6 +2,7 @@ import { get, post, put, patch, del } from './client';
 
 export interface Reservation {
   id: string;
+  quotationId?: string | null;
   customerId: string;
   customerName: string;
   customerPhone?: string;

@@ -1,5 +1,5 @@
 # M19.3 — Atomic quotation creation and fixed booking context
-**Status:** ACTIVE
+**Status:** COMPLETED
 **Baseline:** 19e8d35e374cbc1b603a244833ed4b2da14e4615
 **Priority:** P0/P1
 **Branch:** fix/atomic-quotation-snapshot
@@ -19,3 +19,6 @@ Actual quote-to-reservation conversion, standalone travel planning, mixed-curren
 
 ## Acceptance
 Concurrent distinct creates produce unique references with complete persisted snapshots; currency/source/supplier validation failure creates no quote and consumes no reference; source mutations cannot change saved context or accepted prices. RPC unavailable/failed never returns 201. No cross-org context or relations. Complete API/admin/migration/Docker CI, direct transaction SQL tests, isolated BS/EN browser scenarios and Vercel Preview before additive production migration/merge.
+
+## Completion record
+PR #86 merged as 3369d657cbf7bd5ff8b155817c5f24a4bbd51581. CI 38661586787 passed (API 703/admin 306), isolated acceptance 38661586938 passed 24/24; 107 migrations and Docker passed. Migration 20261015002914 applied/aligned. Production dpl_3adZaEtAXEE5fbQVtcqKfS3yxjVc READY; health 200/database connected/auth bypass false. Actual conversion deferred to M19.4.

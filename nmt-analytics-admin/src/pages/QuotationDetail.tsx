@@ -1,3 +1,4 @@
+import QuotationBookingPanel from '../components/quotations/QuotationBookingPanel';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import PageMeta from '../components/common/PageMeta';
@@ -148,6 +149,8 @@ export default function QuotationDetail() {
         <Button variant="outline" onClick={() => window.open(quotationPdfUrl(id), '_blank')}>{c.downloadPdf}</Button>
       </div>
     </header>
+
+    <QuotationBookingPanel key={data.id} quotation={data} />
 
     <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
       <Pill label={c.netTotal} value={`${data.netTotal.toLocaleString()} ${data.currency}`} />

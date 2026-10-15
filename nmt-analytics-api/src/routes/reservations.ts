@@ -361,6 +361,7 @@ function transformReservation(reservation: any) {
 
   return {
     id: reservation.id,
+    quotationId: reservation.quotation_id || null,
     orgId: reservation.org_id,
     customerId: reservation.customer_id,
     customerName: reservation.customer_name || customer?.full_name || '-',
@@ -414,6 +415,7 @@ router.get('/reservations', authenticateToken, requireOrgContext, async (req, re
         id,
         org_id,
         customer_id,
+        quotation_id,
         departure_id,
         customer_name,
         customer_phone,
@@ -491,6 +493,7 @@ router.get('/reservations/:id', authenticateToken, requireOrgContext, async (req
         id,
         org_id,
         customer_id,
+        quotation_id,
         departure_id,
         customer_name,
         customer_phone,
@@ -1175,6 +1178,11 @@ router.patch('/reservations/:id', authenticateToken, requireOrgContext, requireM
       return apiError(res, 404, "NOT_FOUND", "Reservation not found");
     }
 
+    if (reservation.quotation_id && (
+      (updates.totalAmount !== undefined && updates.totalAmount !== Number(reservation.total_amount)) ||
+      (updates.currency !== undefined && updates.currency !== reservation.currency)
+    )) return apiError(res,409,'QUOTATION_BOOKING_LOCKED','Approved quotation amount and currency cannot be changed');
+
     const oldStatus = reservation.status;
     const newStatus = updates.status || oldStatus;
     const oldDepId = reservation.departure_id;
@@ -1317,6 +1325,8 @@ router.delete('/reservations/:id', authenticateToken, requireOrgContext, require
     if (fetchErr || !reservation) {
       return apiError(res, 404, "NOT_FOUND", "Reservation not found");
     }
+
+    if (reservation.quotation_id) return apiError(res,409,'QUOTATION_BOOKING_LOCKED','Cancel quotation bookings instead of deleting them');
 
     if (reservation.departure_id && reservationConsumesCapacity(reservation.status)) {
       await releaseReservedCapacity(orgId, reservation.departure_id, Number(reservation.party_size || 0));

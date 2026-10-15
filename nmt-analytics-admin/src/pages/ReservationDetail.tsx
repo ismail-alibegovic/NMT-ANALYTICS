@@ -329,6 +329,10 @@ export default function ReservationDetail() {
     <>
       <PageMeta title={`Rezervacija ${reservationShortId}`} description="" />
       <div className="p-4 sm:p-6 space-y-6">
+        {reservation.quotationId && <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+          <Link className="font-medium text-brand-600 dark:text-brand-400" to={`/quotations/${reservation.quotationId}`}>{copy.quotations.sourceQuotation}</Link>
+          <p className="mt-1 text-sm text-gray-500">{copy.quotations.bookingTermsLocked}</p>
+        </div>}
         {reservation.status !== 'cancelled' && reservation.creationState && reservation.creationState !== 'completed' && (
           <div role="status" className="rounded-xl border border-warning-200 bg-warning-50 p-4 text-sm text-warning-700 dark:border-warning-500/20 dark:bg-warning-500/10 dark:text-warning-300">
             {reservation.creationState === 'in_progress' ? copy.saleRecovery.processing : copy.saleRecovery.manual}
