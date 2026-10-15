@@ -391,25 +391,47 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
 
       {/* VEHICLE HEADER */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-5">
-        <div className="flex flex-wrap items-start gap-6">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{vehicle.vehicle_label}</h3>
-            {vehicle.registration_number && (
-              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{vehicle.registration_number}</p>
-            )}
+        <div className="flex flex-wrap items-center justify-between gap-5">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
+              <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="4" y="3" width="16" height="15" rx="3" />
+                <path d="M4 11h16M8 18v2M16 18v2" />
+                <circle cx="8" cy="14.5" r="0.8" fill="currentColor" />
+                <circle cx="16" cy="14.5" r="0.8" fill="currentColor" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{vehicle.vehicle_label}</h3>
+              {vehicle.registration_number && (
+                <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{vehicle.registration_number}</p>
+              )}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">
+          <div className="flex flex-1 flex-wrap items-center justify-end gap-6 text-xs">
             <div>
               <span className="block text-[10px] uppercase tracking-wider text-gray-400">{bs.capacity || "Capacity"}</span>
-              <span className="font-medium text-gray-900 dark:text-white">{vehicle.capacity}</span>
+              <span className="text-base font-semibold text-gray-900 dark:text-white">{vehicle.capacity}</span>
             </div>
             <div>
               <span className="block text-[10px] uppercase tracking-wider text-gray-400">{bs.assignedPassengers || "Assigned"}</span>
-              <span className="font-medium text-gray-900 dark:text-white">{assignedCount}</span>
+              <span className="text-base font-semibold text-gray-900 dark:text-white">{assignedCount}</span>
             </div>
             <div>
               <span className="block text-[10px] uppercase tracking-wider text-gray-400">{bs.unassignedPassengers || "Unassigned"}</span>
-              <span className="font-medium text-gray-900 dark:text-white">{unassignedPax.length}</span>
+              <span className={`text-base font-semibold ${unassignedPax.length > 0 ? "text-amber-600 dark:text-amber-400" : "text-gray-900 dark:text-white"}`}>{unassignedPax.length}</span>
+            </div>
+            <div className="w-full sm:w-40">
+              <div className="mb-1 flex justify-between text-[10px] text-gray-400">
+                <span>{assignedCount}/{vehicle.capacity}</span>
+                <span>{vehicle.capacity > 0 ? Math.round((assignedCount / vehicle.capacity) * 100) : 0}%</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                <div
+                  className="h-full rounded-full bg-brand-500 transition-all"
+                  style={{ width: `${vehicle.capacity > 0 ? Math.min(100, (assignedCount / vehicle.capacity) * 100) : 0}%` }}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -423,11 +445,26 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
             {mutating && <span className="text-xs text-gray-500 dark:text-gray-400">{bs.savingVehicle || "Updating..."}</span>}
           </div>
 
-          <div className="space-y-1.5">
+          <div className="overflow-x-auto pb-1">
+          <div className="mx-auto w-fit rounded-[2rem] border-2 border-gray-200 bg-gray-50/70 px-4 pb-5 pt-4 dark:border-gray-700 dark:bg-gray-900/40">
+            {/* Bus front: driver + door */}
+            <div className="mb-3 flex items-center justify-between border-b border-dashed border-gray-300 pb-3 dark:border-gray-700">
+              <div className="flex size-9 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-400 dark:border-gray-600 dark:bg-gray-800">
+                <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                  <circle cx="12" cy="12" r="8" />
+                  <circle cx="12" cy="12" r="2" />
+                  <path d="M4 12h6M14 12h6M12 14v6" />
+                </svg>
+              </div>
+              <div className="h-2 w-10 rounded-full bg-gray-200 dark:bg-gray-700" aria-hidden="true" />
+            </div>
+          <div className="space-y-2">
             {rows.map((row, rowIdx) => {
               const leftSeats = row.filter((s) => s.side === "left");
               const rightSeats = row.filter((s) => s.side === "right");
 
+              const seatBase = "relative h-11 w-11 rounded-t-xl rounded-b-md border text-[11px] font-semibold tabular-nums transition-all";
+              const displayLabel = (label: string) => label.replace(/^(seat|sjedi[sš]te|mjesto)\s*/i, "");
               const renderSeatBtn = (seat: VehicleSeat) => {
                 const occupant = getOccupant(seat.seat_number);
                 const isSelected = selectedSeat === seat.seat_number || (!!occupant && selectedPassengerId === occupant.id);
@@ -440,9 +477,9 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
                     <button
                       key={seat.id}
                       disabled
-                      className="size-10 rounded-lg border border-gray-200 bg-gray-100 text-gray-300 dark:border-gray-800 dark:bg-gray-800/40 dark:text-gray-600 cursor-not-allowed"
+                      className={`${seatBase} border-gray-200 bg-gray-100 text-gray-300 line-through dark:border-gray-800 dark:bg-gray-800/40 dark:text-gray-600 cursor-not-allowed`}
                     >
-                      {seat.seat_label}
+                      {displayLabel(seat.seat_label)}
                     </button>
                   );
                 }
@@ -452,18 +489,19 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
                     <button
                       key={seat.id}
                       onClick={() => handleSeatClick(seat)}
-                      className={`size-10 rounded-lg border text-xs font-medium transition-colors ${
+                      className={`${seatBase} ${
                         isSelected
-                          ? "border-brand-500 bg-brand-500/10 text-brand-700 dark:text-brand-300"
+                          ? "border-brand-500 bg-brand-500 text-white shadow-md shadow-brand-500/30 ring-2 ring-brand-500/30"
                           : isLocked
-                            ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200"
+                            ? "border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
                             : isManual
-                              ? "border-dashed border-gray-400 bg-gray-50 text-gray-700 hover:bg-gray-100 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                              : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              ? "border-dashed border-gray-400 bg-slate-200 text-slate-700 hover:bg-slate-300 dark:border-gray-500 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
+                              : "border-slate-300 bg-slate-200 text-slate-700 hover:bg-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
                       }`}
+                      style={occupant.group_color && !isSelected ? { boxShadow: `inset 0 -3px 0 ${occupant.group_color}` } : undefined}
                       title={`${occupant.full_name}${isLocked ? ` (${bs.lockedBadge || "Locked"})` : occupant.seat_is_manual ? ` (${bs.manualBadge || "Manual"})` : ""}`}
                     >
-                      {seat.seat_label}
+                      {displayLabel(seat.seat_label)}
                     </button>
                   );
                 }
@@ -473,50 +511,55 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
                   <button
                     key={seat.id}
                     onClick={() => handleSeatClick(seat)}
-                    className={`size-10 rounded-lg border text-xs font-medium transition-colors ${
+                    className={`${seatBase} ${
                       isSelected
-                        ? "border-brand-500 bg-brand-500/10 text-brand-700 dark:text-brand-300"
+                        ? "border-brand-500 bg-brand-500/10 text-brand-700 ring-2 ring-brand-500/30 dark:text-brand-300"
                         : previewForSeat
-                          ? "border-dashed border-brand-400 bg-brand-50/60 text-brand-600 dark:border-brand-500 dark:bg-brand-950/40 dark:text-brand-300"
-                          : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800"
+                          ? "border-dashed border-brand-400 bg-brand-50 text-brand-600 dark:border-brand-500 dark:bg-brand-950/40 dark:text-brand-300"
+                          : "border-gray-300 bg-white text-gray-500 hover:-translate-y-0.5 hover:border-brand-300 hover:text-brand-600 hover:shadow-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-brand-500"
                     }`}
                     title={previewForSeat ? (bs.previewBadge || "Proposed (preview)") : (bs.free || "Free")}
                   >
-                    {seat.seat_label}
+                    {displayLabel(seat.seat_label)}
                   </button>
                 );
               };
 
+              const rowNumber = row[0]?.row_number ?? rowIdx + 1;
               return (
-                <div key={rowIdx} className="flex items-center gap-1.5">
-                  <div className="flex items-center gap-1">
+                <div key={rowIdx} className="flex items-center gap-2">
+                  <span className="w-5 text-right text-[10px] font-medium tabular-nums text-gray-400">{rowNumber}</span>
+                  <div className="flex min-w-[5.75rem] items-center justify-end gap-1.5">
                     {leftSeats.map(renderSeatBtn)}
                   </div>
-                  {leftSeats.length > 0 && rightSeats.length > 0 && <div className="mx-3" />}
-                  <div className="flex items-center gap-1">
+                  <div className="w-7" aria-hidden="true" />
+                  <div className="flex min-w-[5.75rem] items-center justify-start gap-1.5">
                     {rightSeats.map(renderSeatBtn)}
                   </div>
+                  <span className="w-5 text-[10px] font-medium tabular-nums text-gray-400">{rowNumber}</span>
                 </div>
               );
             })}
           </div>
+          </div>
+          </div>
 
           {/* LEGEND */}
-          <div className="mt-4 flex flex-wrap gap-3 text-[11px] text-gray-500 dark:text-gray-400">
+          <div className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-2 border-t border-gray-100 pt-4 text-[11px] text-gray-500 dark:border-gray-800 dark:text-gray-400">
             <span className="inline-flex items-center gap-1.5">
               <span className="size-3 rounded border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900" /> {bs.legend?.free || "Free"}
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="size-3 rounded border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800" /> {bs.legend?.occupied || "Occupied"}
+              <span className="size-3 rounded border border-slate-300 bg-slate-200 dark:border-slate-600 dark:bg-slate-700" /> {bs.legend?.occupied || "Occupied"}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="size-3 rounded border border-dashed border-gray-400 bg-gray-50 dark:border-gray-500 dark:bg-gray-800" /> {bs.legend?.manual || "Manual"}
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="size-3 rounded border border-brand-500 bg-brand-500/10" /> {bs.legend?.selected || "Selected"}
+              <span className="size-3 rounded border border-brand-500 bg-brand-500" /> {bs.legend?.selected || "Selected"}
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="size-3 rounded border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30" /> {bs.legend?.locked || "Locked"}
+              <span className="size-3 rounded border border-amber-300 bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40" /> {bs.legend?.locked || "Locked"}
             </span>
             {(previewAssignments ?? []).length > 0 && (
               <span className="inline-flex items-center gap-1.5">
