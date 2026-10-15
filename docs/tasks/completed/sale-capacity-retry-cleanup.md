@@ -1,5 +1,5 @@
 # P0 — Release temporary sale capacity on failed creation and concurrent retries
-**Status:** ACTIVE
+**Status:** COMPLETED
 **Priority:** P0
 **Branch:** fix/sale-capacity-retry-cleanup
 **Baseline:** fc4c336f40297dac5709f5b7223d4d2c05ccb9cb
@@ -20,3 +20,6 @@ API-first, existing authenticated agent role and server org scoping. Release use
 
 ## Acceptance and tests
 API tests for duplicate insert winner lookup, conflicting key, failed customer upsert, thrown insert and failed release. Real same-key concurrent sale yields one reservation; remaining departure capacity can still be booked. Different tenant cannot affect holds. Full API/admin CI/build/lint, migration/Docker and isolated acceptance/Preview before merge.
+
+## Release evidence
+PR #84 merged as fac23fa16c781494bae8d1f6afd5e66533f32b26. Exact-head CI 38654857261 passed; isolated acceptance 38654857230 passed 20/20 without skips. Vercel production dpl_C9TQ2GGQXhuWV9RDrQsFYpwzQuX2 READY, health 200/database connected/auth bypass false. No migration.

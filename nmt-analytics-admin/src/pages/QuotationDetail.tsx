@@ -42,10 +42,17 @@ export default function QuotationDetail() {
   };
   useEffect(() => { void load(); }, [id]);
 
+  const mutationError = (e: any) => {
+    const code = e?.code || e?.response?.data?.code;
+    if (code === 'QUOTATION_LOCKED') return c.acceptedLocked;
+    if (code === 'QUOTATION_INVALID_PRICING') return c.acceptancePricingError;
+    return e?.message || c.saveError;
+  };
+
   const changeStatus = async (status: Quotation['status']) => {
     if (!data) return; setSaving(true);
-    try { const updated = await updateQuotation(id, { status }); setData(updated); success(c.statusUpdated); }
-    catch (e: any) { showError(e?.message || c.saveError); }
+    try { await updateQuotation(id, { status }); await load(); success(c.statusUpdated); }
+    catch (e: any) { showError(mutationError(e)); }
     finally { setSaving(false); }
   };
 
@@ -83,7 +90,7 @@ export default function QuotationDetail() {
       await load();
       setItemOpen(false);
       success(editingItem ? c.itemUpdated : c.itemAdded);
-    } catch (e: any) { showError(e?.message || c.saveError); }
+    } catch (e: any) { showError(mutationError(e)); }
     finally { setSaving(false); }
   };
 
@@ -91,7 +98,7 @@ export default function QuotationDetail() {
     if (!confirm(c.confirmDeleteItem)) return;
     setSaving(true);
     try { await deleteQuotationItem(id, itemId); await load(); success(c.itemDeleted); }
-    catch (e: any) { showError(e?.message || c.saveError); }
+    catch (e: any) { showError(mutationError(e)); }
     finally { setSaving(false); }
   };
 
@@ -101,6 +108,8 @@ export default function QuotationDetail() {
   const days = [...new Set(data?.items.map((item) => item.dayNumber) || [])].sort((a, b) => a - b);
   const categoryLabel = (cat: string) => c.categories?.[cat as keyof typeof c.categories] || cat;
   const isStandalone = !data?.itineraryId;
+  const isAccepted = !!data?.commercialLocked || data?.status === 'accepted' || !!data?.acceptedAt;
+  const canEditItems = isStandalone && !isAccepted;
 
   if (loading) return <div className="h-[600px] animate-pulse rounded-xl bg-gray-100 dark:bg-white/[0.04]" />;
   if (!data) return <EmptyState title={c.notFound} description={c.notFoundDescription} />;
@@ -131,8 +140,8 @@ export default function QuotationDetail() {
         )}
       </div>
       <div className="flex flex-wrap gap-2">
-        {data.status === 'draft' && <><Button variant="outline" onClick={() => void changeStatus('sent')} disabled={saving}>{c.markSent}</Button></>}
-        {data.status === 'sent' && <>
+        {!isAccepted && data.status === 'draft' && <><Button variant="outline" onClick={() => void changeStatus('sent')} disabled={saving}>{c.markSent}</Button></>}
+        {!isAccepted && data.status === 'sent' && <>
           <Button variant="outline" color="success" onClick={() => void changeStatus('accepted')} disabled={saving}>{c.markAccepted}</Button>
           <Button variant="outline" color="error" onClick={() => void changeStatus('rejected')} disabled={saving}>{c.markRejected}</Button>
         </>}
@@ -154,9 +163,15 @@ export default function QuotationDetail() {
       </section>
     )}
 
+    {isAccepted && (
+      <div role="status" className="mb-4 rounded-lg border border-gray-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-gray-700 dark:bg-blue-500/10 dark:text-blue-300">
+        {c.acceptedLocked}
+      </div>
+    )}
+
     {!isStandalone && (
       <div className="mb-4 rounded-lg border border-gray-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-gray-700 dark:bg-blue-500/10 dark:text-blue-300">
-        {c.itemsReadOnly}
+        {c.readOnlyItems}
       </div>
     )}
 
@@ -164,7 +179,7 @@ export default function QuotationDetail() {
       <EmptyState
         title={c.noItems}
         description={isStandalone ? c.noItemsDescriptionStandalone : c.noItemsDescription}
-        action={isStandalone ? { label: c.addItem, onClick: openAddItem } : undefined}
+        action={canEditItems ? { label: c.addItem, onClick: openAddItem } : undefined}
       />
     ) : (
       <div className="space-y-5">
@@ -172,7 +187,7 @@ export default function QuotationDetail() {
           <section key={day} className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
             <header className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-5 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{c.day} {day}</h2>
-              {isStandalone && (
+              {canEditItems && (
                 <button
                   onClick={() => { setItemForm({ ...emptyItem, currency: data.currency, dayNumber: day }); setEditingItem(null); setItemOpen(true); }}
                   className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
@@ -207,7 +222,7 @@ export default function QuotationDetail() {
                       {c.net}: {item.netLineTotal.toLocaleString()} {item.currency} · {item.markupPercent}%
                     </p>
                   </div>
-                  {isStandalone && (
+                  {canEditItems && (
                     <div className="flex gap-1">
                       <button onClick={() => openEditItem(item)} className="rounded p-1 text-xs text-gray-400 hover:text-brand-600 hover:bg-gray-100 dark:hover:bg-gray-800">{c.editItem}</button>
                       <button onClick={() => void removeItem(item.id)} className="rounded p-1 text-xs text-gray-400 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-800">{c.deleteItem}</button>
@@ -219,7 +234,7 @@ export default function QuotationDetail() {
           </section>
         ))}
 
-        {isStandalone && (
+        {canEditItems && (
           <div className="flex justify-center">
             <Button variant="outline" onClick={openAddItem}>{c.addItem}</Button>
           </div>

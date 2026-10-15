@@ -21,6 +21,7 @@ export interface Quotation {
   validUntil: string | null;
   markupStrategy: 'uniform' | 'per_item'; globalMarkupPercent: number;
   sellTotal: number; netTotal: number; marginTotal: number; currency: string;
+  commercialLocked?: boolean;
   sentAt: string | null; acceptedAt: string | null; rejectedAt: string | null;
   assignedTo: string | null; createdAt: string; updatedAt: string;
   items: QuotationItem[];
