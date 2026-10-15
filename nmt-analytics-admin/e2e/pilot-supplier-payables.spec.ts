@@ -56,9 +56,9 @@ for (const scenario of [{ lang: 'bs', width: 1440 }, { lang: 'en', width: 390 }]
     expect(retry.record.id).toBe(payment.record.id);
     await page.goto('/finance');
     const overview = page.getByRole('region', { name: copy.supplierPayablesOverview.title });
-    await expect(overview.getByLabel(c.supplier,{exact:true}).locator('option', { hasText: seeded.marker })).toHaveCount(1);
-    await overview.getByLabel(c.supplier,{exact:true}).selectOption(seeded.supplier.id);
-    await overview.getByLabel(copy.supplierPayablesOverview.filter).selectOption('overdue');
+    await expect(overview.getByRole('combobox',{name:c.supplier,exact:true}).locator('option', { hasText: seeded.marker })).toHaveCount(1);
+    await overview.getByRole('combobox',{name:c.supplier,exact:true}).selectOption(seeded.supplier.id);
+    await overview.getByRole('combobox',{name:copy.supplierPayablesOverview.filter,exact:true}).selectOption('overdue');
     await expect(overview.locator('[data-currency="BAM"]').getByText(/40[,.]00 BAM/)).toHaveCount(2);
     await expect(overview.locator(`[data-payable-id="${payableId}"]`)).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
