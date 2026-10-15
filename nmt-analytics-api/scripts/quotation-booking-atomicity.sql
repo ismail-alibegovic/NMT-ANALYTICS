@@ -30,6 +30,14 @@ BEGIN
  full_q:=public.create_quotation_snapshot_atomic(org,actor,jsonb_build_object('title','Full quote','itinerary_id',itinerary,'itinerary_version_id',version));
  UPDATE public.quotations SET status='accepted' WHERE org_id=org;
  payload:=jsonb_build_object('departureId',departure,'customerName','Buyer','customerPhone','+38761111','passengers',jsonb_build_array(jsonb_build_object('full_name','First traveler'),jsonb_build_object('full_name','Second traveler')));
+ IF jsonb_array_length(public.quotation_booking_departures(org,(q->>'id')::uuid))<>1 THEN RAISE EXCEPTION 'Matching departure missing'; END IF;
+ UPDATE public.packages SET currency='BAM' WHERE id=product;
+ IF jsonb_array_length(public.quotation_booking_departures(org,(q->>'id')::uuid))<>0 THEN RAISE EXCEPTION 'Mismatched currency offered'; END IF;
+ UPDATE public.packages SET currency='EUR' WHERE id=product;
+ UPDATE public.departures SET depart_at='2027-04-11T10:00:00Z' WHERE id=departure;
+ IF jsonb_array_length(public.quotation_booking_departures(org,(q->>'id')::uuid))<>0 THEN RAISE EXCEPTION 'Mismatched date offered'; END IF;
+ UPDATE public.departures SET depart_at='2027-04-10T10:00:00Z' WHERE id=departure;
+ PERFORM pg_temp.expect_booking_error(format('SELECT public.book_quotation_atomic(%L,%L,%L,%L::jsonb,%L)',other_org,actor,q->>'id',payload,fingerprint),'QUOTATION_ACTOR_INVALID');
  result:=public.book_quotation_atomic(org,actor,(q->>'id')::uuid,payload,fingerprint);
  retry:=public.book_quotation_atomic(org,actor,(q->>'id')::uuid,payload,fingerprint);
  IF NOT (result->>'created')::boolean OR (retry->>'created')::boolean OR result->'reservation'->>'id'<>retry->'reservation'->>'id' THEN RAISE EXCEPTION 'Booking retry duplicated reservation'; END IF;
