@@ -12,26 +12,31 @@ async function login(request: APIRequestContext, role: 'manager'|'staff'|'other'
   expect(response.status()).toBe(200); return { Authorization: `Bearer ${(await response.json()).access_token}` };
 }
 async function json(response: any, status = 201) { expect(response.status(), await response.text()).toBe(status); return response.json(); }
-async function seed(request: APIRequestContext, headers: Record<string,string>) {
+async function seed(request: APIRequestContext, headers: Record<string,string>, linked = true) {
   const marker = `Supplier ledger ${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
   const supplier = await json(await request.post(`${api}/api/suppliers`, { headers, data: { name: marker, category: 'transport', defaultCurrency: 'BAM' } }));
   const pkg = await json(await request.post(`${api}/api/packages`, { headers, data: { name: marker, destination: 'Mostar', price: 180, currency: 'BAM', active: true, transportType: 'none', maxParticipants: 8 } }));
   const departure = await json(await request.post(`${api}/api/departures`, { headers, data: { packageId: pkg.id, departAt: '2027-07-10T10:00:00Z', returnAt: '2027-07-11T10:00:00Z', capacity: 8, status: 'active', transportType: 'none' } }));
-  const { costItem } = await json(await request.post(`${api}/api/departures/${departure.id}/cost-items`, { headers, data: { category: 'transport', label: marker, supplierId: supplier.id, quantity: 2, unitCost: 50, currency: 'BAM' } }));
+  const { costItem } = await json(await request.post(`${api}/api/departures/${departure.id}/cost-items`, { headers, data: { category: 'transport', label: marker, supplierId: linked ? supplier.id : null, quantity: 2, unitCost: 50, currency: 'BAM' } }));
   return { marker, supplier, departure, cost: costItem };
 }
 for (const scenario of [{ lang: 'bs', width: 1440 }, { lang: 'en', width: 390 }] as const) {
   test(`issues pays reverses and cancels a supplier obligation in ${scenario.lang} at ${scenario.width}px`, async ({ page, request }) => {
     test.skip(!configured, 'BLOCKED: isolated Auth/API required'); test.setTimeout(90_000);
-    const headers = await login(request), seeded = await seed(request, headers), c = (scenario.lang === 'bs' ? bs : en).supplierPayables;
+    const headers = await login(request), seeded = await seed(request, headers, false), copy = scenario.lang === 'bs' ? bs : en, c = copy.supplierPayables;
     await page.setViewportSize({ width: scenario.width, height: 900 }); await page.goto('/auth/signin');
     await page.locator('#signin-email').fill(process.env.E2E_MANAGER_EMAIL!); await page.locator('#signin-password').fill(process.env.E2E_MANAGER_PASSWORD!);
     await page.getByRole('button', { name: /sign in/i }).click(); await expect(page).not.toHaveURL(/\/auth\/signin/);
     await page.evaluate(lang => localStorage.setItem('travline_lang', lang), scenario.lang);
     await page.goto(`/departures/${seeded.departure.id}?tab=finance`);
     const panel = page.getByRole('region', { name: c.title });
-    await panel.getByRole('button', { name: c.issue, exact: true }).click();
     const modal = page.locator('.modal');
+    await page.getByRole('button', { name: copy.departure.finance.edit, exact: true }).click();
+    await modal.getByLabel(c.supplier, { exact: true }).selectOption(seeded.supplier.id);
+    const linking = page.waitForResponse(r => r.request().method() === 'PATCH' && r.url().endsWith(`/cost-items/${seeded.cost.id}`));
+    await modal.getByRole('button', { name: copy.common.save, exact: true }).click(); await json(await linking, 200);
+    await expect(modal).toBeHidden();
+    await panel.getByRole('button', { name: c.issue, exact: true }).click();
     await modal.getByLabel(c.costItem).selectOption(seeded.cost.id); await modal.getByLabel(c.dueDate).fill('2027-07-01');
     const issuing = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith(`/departures/${seeded.departure.id}/supplier-payables`));
     await modal.getByRole('button', { name: c.confirm, exact: true }).click();

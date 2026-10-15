@@ -1726,7 +1726,7 @@ export default function DepartureDetail() {
                 {costForm.supplierId && !costSuppliers.some(s => s.id === costForm.supplierId) && <option value={costForm.supplierId}>{editingCostItem?.supplierName || costForm.supplierId}</option>}
                 {costSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
-              {costSupplierError && <p role="alert" className="mt-1 text-sm text-red-600">{t.supplierPayables.loadError}</p>}
+              {costSupplierError && <p role="alert" className="mt-1 text-sm text-red-600">{t.supplierPayables.supplierLoadError}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
