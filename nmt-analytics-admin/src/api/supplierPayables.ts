@@ -25,3 +25,16 @@ export async function recordSupplierPayableEntry(payableId: string, body: Record
 export async function cancelSupplierPayable(payableId: string) {
   return (await post(`/supplier-payables/${payableId}/cancel`, {})).data;
 }
+
+export type PayableOverviewStatus = 'all' | 'open' | 'overdue' | 'paid' | 'cancelled';
+export interface SupplierPayablesOverview {
+  asOfDate: string; timezone: string; totalCount: number; page: number; pageSize: number;
+  suppliers: { id: string; name: string }[];
+  currencies: { currency: string; count: number; outstanding: number; overdue: number; dueToday: number }[];
+  payables: (Pick<SupplierPayable, 'id'|'departureId'|'supplierId'|'supplierName'|'label'|'amount'|'currency'|'dueDate'|'paid'|'remaining'|'status'> & { overdue: boolean })[];
+}
+export async function getSupplierPayablesOverview(filters: { supplierId?: string; status: PayableOverviewStatus; page: number }) {
+  const query = new URLSearchParams({ status: filters.status, page: String(filters.page), pageSize: '25' });
+  if (filters.supplierId) query.set('supplierId', filters.supplierId);
+  return (await get<SupplierPayablesOverview>(`/supplier-payables?${query}`)).data;
+}

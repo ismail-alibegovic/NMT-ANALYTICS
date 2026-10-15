@@ -7,6 +7,7 @@ import { useApp } from "../../context/AppContext";
 import { useT } from "../../lib/i18n/context";
 import { hasAccess, UserRole } from "../../types/roles";
 import { ScopeHeader, SectionGrid } from "./SalesScope";
+import SupplierPayablesOverview from "../../components/finance/SupplierPayablesOverview";
 
 type Section = {
   href: string;
@@ -56,6 +57,7 @@ export default function FinanceScope() {
         icon={DollarLineIcon}
       />
       <SectionGrid sections={sections} />
+      {hasAccess("manager", role) ? <SupplierPayablesOverview /> : null}
     </>
   );
 }

@@ -16,6 +16,21 @@ const saved = { id: 'entry', org_id: 'org', payable_id: payable, request_id: key
 function app() { const a = express(); a.use(express.json()); a.use(routes); return a; }
 beforeEach(() => { vi.clearAllMocks(); state.allowed = true; state.rpc.mockResolvedValue({ data: { created: true, record: saved }, error: null }); });
 describe('supplier payable API', () => {
+  const overview = { orgId: 'org', asOfDate: '2026-10-15', timezone: 'Europe/Sarajevo', totalCount: 0, invalidLedger: false, suppliers: [], currencies: [], payables: [] };
+  it('scopes the overview to the authenticated org with bounded pagination', async () => {
+    state.rpc.mockResolvedValue({ data: overview });
+    const r = await request(app()).get(`/supplier-payables?supplierId=${cost}&status=overdue&page=2&pageSize=10`).expect(200);
+    expect(state.rpc).toHaveBeenCalledWith('supplier_payables_overview', { p_org_id: 'org', p_supplier_id: cost, p_status: 'overdue', p_offset: 10, p_limit: 10 });
+    expect(r.body).toMatchObject({ totalCount: 0, page: 2, pageSize: 10 }); expect(r.body).not.toHaveProperty('orgId');
+    expect(r.headers['cache-control']).toBe('no-store');
+  });
+  it.each(['page=0','page=1.5','pageSize=101','supplierId=bad','status=wrong','orgId=foreign','page=1&page=2'])('rejects invalid overview query %s', async query => {
+    await request(app()).get(`/supplier-payables?${query}`).expect(400); expect(state.rpc).not.toHaveBeenCalled();
+  });
+  it.each([{ orgId: 'foreign' }, { invalidLedger: true }, { currencies: [{ currency: 'BAM', count: 1, outstanding: -1, overdue: 0, dueToday: 0 }] }])('rejects an unconfirmed overview', async patch => {
+    state.rpc.mockResolvedValue({ data: { ...overview, ...patch } }); await request(app()).get('/supplier-payables').expect(500);
+  });
+  it('gates overview reads at manager level', async () => { state.allowed=false; await request(app()).get('/supplier-payables').expect(403); expect(state.rpc).not.toHaveBeenCalled(); });
   it('normalizes payment data and derives actor/org/fingerprint on the server', async () => {
     const r = await request(app()).post(`/supplier-payables/${payable}/entries`).send({ ...body, orgId: 'foreign', fingerprint: 'client' });
     expect(r.status).toBe(201); const [name, args] = state.rpc.mock.calls[0];

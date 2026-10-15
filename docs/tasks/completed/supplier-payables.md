@@ -1,6 +1,6 @@
 # M20.1 — Departure supplier obligations and payment ledger
 
-**Status:** ACTIVE
+**Status:** COMPLETE
 **Priority:** P1
 **Branch:** feature/supplier-payables
 **Roadmap references:** M20 supplier payables, M24 acceptance
@@ -45,3 +45,7 @@ API/admin npm ci, builds, tests and admin lint. Unit route/RBAC/idempotency/bala
 
 ## 14–15. Completion record
 Report exact files, migration added/applied, security, test/browser evidence, deferred scope, final SHA and PR. Fill acceptance/release evidence only when proven.
+
+## Proven completion — 2026-10-15
+PR #88 merged as `9575ce6f6bb03da2ee798f59d31be694a0001e6b`. Exact head `e2117cc0989bbe71079fc90ccc61602c8804f20a`: API 741/admin 322/browser 30 tests passed; 109 migrations replayed. Migration `20261015142608` applied and aligned in production. Production deployment `dpl_G2VfzVNYur34pHzkYKfJJDDxBE3C` READY on travline-ten.vercel.app; health200/database connected/bypass false at 2026-10-15T15:12:27.465Z. No matching error/fatal logs in the checked five-minute window. Detailed file/security/deferred evidence: https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/88 . M20.2 handles the cross-departure overview separately.
+
