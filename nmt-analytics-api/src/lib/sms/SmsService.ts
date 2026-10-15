@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { logCommunicationHistory } from '../communicationHistory';
 
 export interface SmsOptions {
@@ -11,17 +12,31 @@ export interface SmsProvider {
   sendSms(options: SmsOptions): Promise<void>;
 }
 
-export interface SmsProviderConfig {
-  provider: 'mock';
-}
+export const mockSmsConfigSchema = z.object({
+  provider: z.literal('mock'),
+});
 
-export function createSmsProvider(config: SmsProviderConfig): SmsProvider {
-  if (config.provider === 'mock') {
-    return new MockSmsProvider();
-  }
+export const twilioSmsConfigSchema = z.object({
+  provider: z.literal('twilio'),
+  accountSid: z.string().trim().optional(),
+  authToken: z.string().trim().optional(),
+  fromNumber: z.string().trim().optional(),
+});
 
-  throw new Error(`Unsupported SMS provider: ${(config as { provider?: string }).provider}`);
-}
+export const httpSmsConfigSchema = z.object({
+  provider: z.literal('http'),
+  endpoint: z.string().trim().url().optional(),
+  apiKey: z.string().trim().optional(),
+  headers: z.record(z.string(), z.string()).optional(),
+});
+
+export const smsConfigSchema = z.discriminatedUnion('provider', [
+  mockSmsConfigSchema,
+  twilioSmsConfigSchema,
+  httpSmsConfigSchema,
+]);
+
+export type SmsProviderConfig = z.infer<typeof smsConfigSchema>;
 
 export class MockSmsProvider implements SmsProvider {
   async sendSms(options: SmsOptions): Promise<void> {
@@ -29,7 +44,121 @@ export class MockSmsProvider implements SmsProvider {
     console.log(`[MOCK SMS] From Name: ${options.fromName || ''}`);
     console.log(`[MOCK SMS] From Number: ${options.fromNumber || ''}`);
     console.log(`[MOCK SMS] Message: ${options.message}`);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+export class TwilioSmsProvider implements SmsProvider {
+  private config?: z.infer<typeof twilioSmsConfigSchema>;
+
+  constructor(config?: z.infer<typeof twilioSmsConfigSchema>) {
+    this.config = config;
+  }
+
+  async sendSms(options: SmsOptions): Promise<void> {
+    const accountSid = this.config?.accountSid || process.env.TWILIO_ACCOUNT_SID;
+    const authToken = this.config?.authToken || process.env.TWILIO_AUTH_TOKEN;
+    const fromNumber = options.fromNumber || this.config?.fromNumber || process.env.TWILIO_FROM_NUMBER || process.env.TWILIO_PHONE_NUMBER;
+
+    if (!accountSid || !authToken) {
+      throw new Error('Twilio credentials (accountSid and authToken) are not configured');
+    }
+    if (!fromNumber) {
+      throw new Error('Twilio sender phone number is not configured');
+    }
+
+    const url = `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages.json`;
+    const authHeader = 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+
+    const params = new URLSearchParams();
+    params.append('To', options.to);
+    params.append('From', fromNumber);
+    params.append('Body', options.message);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      let errorMsg = `Twilio SMS failed with status ${response.status}`;
+      try {
+        const parsed = JSON.parse(errText);
+        if (parsed.message) errorMsg = `Twilio: ${parsed.message}`;
+      } catch {
+        if (errText) errorMsg += `: ${errText}`;
+      }
+      throw new Error(errorMsg);
+    }
+  }
+}
+
+export class HttpSmsProvider implements SmsProvider {
+  private config?: z.infer<typeof httpSmsConfigSchema>;
+
+  constructor(config?: z.infer<typeof httpSmsConfigSchema>) {
+    this.config = config;
+  }
+
+  async sendSms(options: SmsOptions): Promise<void> {
+    const endpoint = this.config?.endpoint || process.env.SMS_HTTP_ENDPOINT;
+    const apiKey = this.config?.apiKey || process.env.SMS_HTTP_API_KEY;
+
+    if (!endpoint) {
+      throw new Error('HTTP SMS endpoint is not configured');
+    }
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(this.config?.headers || {}),
+    };
+
+    if (apiKey && !headers['Authorization'] && !headers['authorization']) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
+    const payload = {
+      to: options.to,
+      message: options.message,
+      fromName: options.fromName,
+      fromNumber: options.fromNumber,
+    };
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      let errorMsg = `HTTP SMS gateway failed with status ${response.status}`;
+      try {
+        const parsed = JSON.parse(errText);
+        if (parsed.message || parsed.error) errorMsg = `HTTP SMS: ${parsed.message || parsed.error}`;
+      } catch {
+        if (errText) errorMsg += `: ${errText}`;
+      }
+      throw new Error(errorMsg);
+    }
+  }
+}
+
+export function createSmsProvider(config: SmsProviderConfig): SmsProvider {
+  switch (config.provider) {
+    case 'mock':
+      return new MockSmsProvider();
+    case 'twilio':
+      return new TwilioSmsProvider(config);
+    case 'http':
+      return new HttpSmsProvider(config);
+    default:
+      throw new Error(`Unsupported SMS provider: ${(config as any)?.provider}`);
   }
 }
 
@@ -38,6 +167,10 @@ export class SmsService {
 
   static setProvider(provider: SmsProvider) {
     this.provider = provider;
+  }
+
+  static getProvider(): SmsProvider {
+    return this.provider;
   }
 
   static async sendSms(options: SmsOptions) {

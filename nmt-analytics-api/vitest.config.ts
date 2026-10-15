@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
+    fileParallelism: false,
     include: ['src/tests/**/*.test.ts'],
     env: {
       SUPABASE_URL: 'https://example.supabase.co',

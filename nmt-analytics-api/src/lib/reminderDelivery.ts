@@ -2,7 +2,13 @@ import { z } from 'zod';
 import { supabaseAdmin } from './supabase';
 import { EmailService } from './email/EmailService';
 import { SmtpEmailProvider, type SmtpConfig } from './email/SmtpProvider';
-import { SmsService, createSmsProvider, type SmsOptions, type SmsProviderConfig } from './sms/SmsService';
+import {
+  SmsService,
+  createSmsProvider,
+  smsConfigSchema,
+  type SmsOptions,
+  type SmsProviderConfig,
+} from './sms/SmsService';
 import { logCommunicationHistory, type CommunicationHistoryEntry } from './communicationHistory';
 
 const smtpConfigSchema = z.object({
@@ -13,10 +19,6 @@ const smtpConfigSchema = z.object({
   pass: z.string().min(1),
   fromEmail: z.string().trim().email(),
   fromName: z.string().trim().optional(),
-});
-
-const smsConfigSchema = z.object({
-  provider: z.literal('mock'),
 });
 
 type ReminderNotification = {
@@ -260,6 +262,12 @@ async function deliverReminderChannels(
     }
   }
 
+  const effectiveSenderNumber =
+    context.smsSenderNumber ||
+    (context.smsConfig?.provider === 'twilio' ? context.smsConfig.fromNumber : null) ||
+    process.env.TWILIO_FROM_NUMBER ||
+    process.env.TWILIO_PHONE_NUMBER;
+
   if (!context.smsConfig) {
     result.sms = { status: 'skipped', reason: 'missing_sms_config' };
     deps.logger.log(`[DepartureReminders] SMS skipped for org ${notification.org_id}: missing config`);
@@ -286,7 +294,7 @@ async function deliverReminderChannels(
       errorMessage: 'missing_sms_recipient',
       relatedDepartureId,
     });
-  } else if (!context.smsSenderNumber) {
+  } else if (!effectiveSenderNumber && context.smsConfig.provider !== 'http') {
     result.sms = { status: 'skipped', reason: 'missing_sms_sender' };
     deps.logger.log(`[DepartureReminders] SMS skipped for org ${notification.org_id}: missing sender`);
     await deps.logCommunication({
@@ -305,7 +313,7 @@ async function deliverReminderChannels(
       await deps.sendSms({
         to: context.smsRecipient,
         fromName: context.smsSenderName,
-        fromNumber: context.smsSenderNumber,
+        fromNumber: effectiveSenderNumber || null,
         message: notification.body || notification.title,
       });
       result.sms = { status: 'sent' };

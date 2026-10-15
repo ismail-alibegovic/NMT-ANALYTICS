@@ -64,6 +64,15 @@ interface AgencyProfileResponse {
   configured: boolean;
 }
 
+interface SmsSettingsState {
+  provider: 'mock' | 'twilio' | 'http';
+  accountSid: string;
+  authToken: string;
+  fromNumber: string;
+  endpoint: string;
+  apiKey: string;
+}
+
 interface TemplateFormState {
   id?: string;
   name: string;
@@ -106,6 +115,20 @@ export default function Settings() {
   const [testing, setTesting] = useState(false);
   const smtpPasswordRef = useRef<HTMLInputElement>(null);
 
+  const [showSmsForm, setShowSmsForm] = useState(false);
+  const [smsSettings, setSmsSettings] = useState<SmsSettingsState>({
+    provider: 'mock',
+    accountSid: '',
+    authToken: '',
+    fromNumber: '',
+    endpoint: '',
+    apiKey: '',
+  });
+  const [smsSaving, setSmsSaving] = useState(false);
+  const [smsMessage, setSmsMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [testPhone, setTestPhone] = useState('');
+  const [smsTesting, setSmsTesting] = useState(false);
+
   const [branding, setBranding] = useState<BrandingSettings>({
     display_name: '', logo_url: '', primary_color: '#1D4ED8', accent_color: '#0EA5E9',
   });
@@ -142,12 +165,17 @@ export default function Settings() {
     setTimeout(() => setSmtpMessage(null), 5000);
   };
 
+  const showSmsMessage = (text: string, type: 'success' | 'error') => {
+    setSmsMessage({ type, text });
+    setTimeout(() => setSmsMessage(null), 5000);
+  };
+
   const showTemplateMessage = (text: string, type: 'success' | 'error') => {
     setTemplateMessage({ type, text });
     setTimeout(() => setTemplateMessage(null), 5000);
   };
 
-  useEffect(() => { fetchSettings(); fetchSmtpSettings(); fetchBranding(); fetchPlan(); fetchAgencyProfile(); fetchTemplates(); }, []);
+  useEffect(() => { fetchSettings(); fetchSmtpSettings(); fetchSmsSettings(); fetchBranding(); fetchPlan(); fetchAgencyProfile(); fetchTemplates(); }, []);
 
   const fetchAgencyProfile = async () => {
     try {
@@ -225,6 +253,32 @@ export default function Settings() {
     } catch (error) { console.error('Failed to fetch SMTP settings:', error); }
   };
 
+  const fetchSmsSettings = async () => {
+    try {
+      const { data } = await api.get<{
+        configured: boolean;
+        provider?: 'mock' | 'twilio' | 'http';
+        accountSid?: string;
+        authToken?: string;
+        fromNumber?: string;
+        endpoint?: string;
+        apiKey?: string;
+      }>('/settings/sms');
+      if (data) {
+        setSmsSettings({
+          provider: data.provider || 'mock',
+          accountSid: data.accountSid || '',
+          authToken: '',
+          fromNumber: data.fromNumber || '',
+          endpoint: data.endpoint || '',
+          apiKey: '',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch SMS settings:', error);
+    }
+  };
+
   const fetchBranding = async () => {
     try {
       const { data } = await api.get<BrandingSettings>('/settings/branding');
@@ -282,6 +336,46 @@ export default function Settings() {
     try { await api.post('/settings/email/test', { to: testEmail || undefined }); showSmtpMessage(t.settings.testEmailSent, 'success'); }
     catch (e: any) { showSmtpMessage(e.message || t.errors.generic, 'error'); }
     finally { setTesting(false); }
+  };
+
+  const handleSaveSms = async () => {
+    setSmsSaving(true);
+    try {
+      let payload: any = { provider: smsSettings.provider };
+      if (smsSettings.provider === 'twilio') {
+        payload = {
+          provider: 'twilio',
+          accountSid: smsSettings.accountSid || undefined,
+          authToken: smsSettings.authToken || undefined,
+          fromNumber: smsSettings.fromNumber || undefined,
+        };
+      } else if (smsSettings.provider === 'http') {
+        payload = {
+          provider: 'http',
+          endpoint: smsSettings.endpoint || undefined,
+          apiKey: smsSettings.apiKey || undefined,
+        };
+      }
+      await api.post('/settings/sms', payload);
+      setShowSmsForm(false);
+      showSmsMessage(t.settings.smsSaved, 'success');
+    } catch (e: any) {
+      showSmsMessage(e?.response?.data?.message || e.message || t.errors.generic, 'error');
+    } finally {
+      setSmsSaving(false);
+    }
+  };
+
+  const handleTestSms = async () => {
+    setSmsTesting(true);
+    try {
+      await api.post('/settings/sms/test', { to: testPhone || undefined });
+      showSmsMessage(t.settings.testSmsSent, 'success');
+    } catch (e: any) {
+      showSmsMessage(e?.response?.data?.message || e.message || t.settings.testSmsFailed, 'error');
+    } finally {
+      setSmsTesting(false);
+    }
   };
 
   const handleSave = async () => {
@@ -543,28 +637,152 @@ export default function Settings() {
           )}
         </div>
 
+        {/* SMS Settings */}
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">{t.settings.smsSettings}</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                {t.settings.smsProvider}: <span className="font-medium text-gray-700 dark:text-gray-300">{smsSettings.provider.toUpperCase()}</span>
+              </p>
+            </div>
+            <button onClick={() => setShowSmsForm(!showSmsForm)}
+              className="text-sm text-brand-600 hover:text-brand-700 font-medium">
+              {showSmsForm ? t.settings.hide : t.settings.configureSms}
+            </button>
+          </div>
+
+          {smsMessage && (
+            <div className={`mb-4 p-3 rounded-lg text-sm ${smsMessage.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400'}`}>
+              {smsMessage.text}
+            </div>
+          )}
+
+          {showSmsForm && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.smsProvider}</label>
+                <select
+                  value={smsSettings.provider}
+                  onChange={(e) => setSmsSettings({ ...smsSettings, provider: e.target.value as 'mock' | 'twilio' | 'http' })}
+                  className="w-full md:w-64 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="mock">{t.settings.smsProviderMock}</option>
+                  <option value="twilio">{t.settings.smsProviderTwilio}</option>
+                  <option value="http">{t.settings.smsProviderHttp}</option>
+                </select>
+              </div>
+
+              {smsSettings.provider === 'twilio' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.smsAccountSid}</label>
+                    <input
+                      type="text"
+                      value={smsSettings.accountSid}
+                      onChange={(e) => setSmsSettings({ ...smsSettings, accountSid: e.target.value })}
+                      placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.smsAuthToken}</label>
+                    <input
+                      type="password"
+                      value={smsSettings.authToken}
+                      onChange={(e) => setSmsSettings({ ...smsSettings, authToken: e.target.value })}
+                      placeholder="••••••••"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.smsFromNumber}</label>
+                    <input
+                      type="text"
+                      value={smsSettings.fromNumber}
+                      onChange={(e) => setSmsSettings({ ...smsSettings, fromNumber: e.target.value })}
+                      placeholder="+1234567890"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {smsSettings.provider === 'http' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.smsEndpoint}</label>
+                    <input
+                      type="url"
+                      value={smsSettings.endpoint}
+                      onChange={(e) => setSmsSettings({ ...smsSettings, endpoint: e.target.value })}
+                      placeholder="https://sms.gateway.example.com/api/send"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.smsApiKey}</label>
+                    <input
+                      type="password"
+                      value={smsSettings.apiKey}
+                      onChange={(e) => setSmsSettings({ ...smsSettings, apiKey: e.target.value })}
+                      placeholder="••••••••"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3 items-end">
+                <button
+                  onClick={handleSaveSms}
+                  disabled={smsSaving}
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm"
+                >
+                  {smsSaving ? t.common.saving : t.settings.smsSave}
+                </button>
+                <div className="flex-1" />
+                <input
+                  type="tel"
+                  value={testPhone}
+                  onChange={(e) => setTestPhone(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm w-64"
+                  placeholder={t.settings.testSmsPlaceholder}
+                />
+                <button
+                  onClick={handleTestSms}
+                  disabled={smsTesting || !testPhone}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:border-gray-600 disabled:opacity-50"
+                >
+                  {smsTesting ? t.settings.sending : t.settings.testSms}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Communication Sender Settings */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Komunikacijski pošiljaoci</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Ime i adresa/kontakt koji se prikazuju na mail i SMS porukama.</p>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">{t.settings.senderSettingsTitle}</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t.settings.senderSettingsDesc}</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ime pošiljaoca e-mail</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.emailSenderName}</label>
               <input type="text" value={settings.email_sender_name || ''} onChange={e => setSettings({ ...settings, email_sender_name: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="Travline Travel" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">E-mail adresa pošiljaoca</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.emailSenderAddress}</label>
               <input type="email" value={settings.email_sender_address || ''} onChange={e => setSettings({ ...settings, email_sender_address: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="info@travline.ba" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ime pošiljaoca SMS</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.smsSenderName}</label>
               <input type="text" value={settings.sms_sender_name || ''} onChange={e => setSettings({ ...settings, sms_sender_name: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="Travline" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SMS broj pošiljaoca</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.smsSenderNumber}</label>
               <input type="text" value={settings.sms_sender_number || ''} onChange={e => setSettings({ ...settings, sms_sender_number: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="+38761..." />
             </div>
