@@ -1005,3 +1005,43 @@ export async function getReadinessSummary(dateFrom: string, limit = 12): Promise
   const response = await get<ReadinessSummary>(`/departures/readiness-summary?dateFrom=${encodeURIComponent(dateFrom)}&limit=${limit}`);
   return response.data;
 }
+
+// ---------------------------------------------------------------------------
+// Operational Documents & Exports (M15)
+// ---------------------------------------------------------------------------
+
+export async function downloadDepartureManifestPdf(departureId: string): Promise<Blob> {
+  const { data } = await get(`/departures/${departureId}/manifest.pdf`, { responseType: 'blob' });
+  return data;
+}
+
+export async function downloadDepartureManifestCsv(departureId: string): Promise<Blob> {
+  const { data } = await get(`/departures/${departureId}/manifest.csv`, { responseType: 'blob' });
+  return data;
+}
+
+export async function downloadDepartureRoomingListPdf(departureId: string): Promise<Blob> {
+  const { data } = await get(`/departures/${departureId}/rooming-list.pdf`, { responseType: 'blob' });
+  return data;
+}
+
+export async function downloadDepartureRoomingListCsv(departureId: string): Promise<Blob> {
+  const { data } = await get(`/departures/${departureId}/rooming-list.csv`, { responseType: 'blob' });
+  return data;
+}
+
+export async function downloadDepartureBusSeatingPdf(departureId: string): Promise<Blob> {
+  const { data } = await get(`/departures/${departureId}/bus-seating.pdf`, { responseType: 'blob' });
+  return data;
+}
+
+export async function downloadDepartureBusSeatingCsv(departureId: string): Promise<Blob> {
+  const { data } = await get(`/departures/${departureId}/bus-seating.csv`, { responseType: 'blob' });
+  return data;
+}
+
+export async function downloadDepartureVouchersBatchPdf(departureId: string): Promise<Blob> {
+  const { data } = await get(`/departures/${departureId}/vouchers-batch.pdf`, { responseType: 'blob' });
+  return data;
+}
+

@@ -26,8 +26,11 @@ import {
   BoxIcon,
   CalenderIcon,
   CheckLineIcon,
+  ChevronDownIcon,
   ChevronLeftIcon,
+  DocsIcon,
   DollarLineIcon,
+  DownloadIcon,
   GroupIcon,
   ListIcon,
   PlugInIcon,
@@ -60,6 +63,13 @@ import {
   DepartureManifest,
   DepartureGroup,
   updateDeparturePassenger,
+  downloadDepartureManifestPdf,
+  downloadDepartureManifestCsv,
+  downloadDepartureRoomingListPdf,
+  downloadDepartureRoomingListCsv,
+  downloadDepartureBusSeatingPdf,
+  downloadDepartureBusSeatingCsv,
+  downloadDepartureVouchersBatchPdf,
 } from "../api/departures";
 import { getFlights, getDepartureFlightSegments, linkFlightToDeparture, unlinkFlightFromDeparture, reorderFlightSegments, type Flight, type FlightSegment } from "../api/flights";
 import { getReservations } from "../api/reservations";
@@ -106,10 +116,70 @@ export default function DepartureDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const t = useTranslation();
-  const { error: showError } = useToast();
+  const { error: showError, success: showSuccess } = useToast();
   const { userContext } = useApp();
   const canViewFinance = canAccessFinances(userContext?.role);
   const [departure, setDeparture] = useState<Departure | null>(null);
+  const [docsMenuOpen, setDocsMenuOpen] = useState(false);
+  const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
+
+  const triggerBlobDownload = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
+
+  const handleDownloadDocument = async (type: "manifest-pdf" | "manifest-csv" | "rooming-pdf" | "rooming-csv" | "bus-pdf" | "bus-csv" | "vouchers-pdf") => {
+    if (!id) return;
+    setDownloadingDoc(type);
+    try {
+      let blob: Blob;
+      let filename: string;
+      const short = id.slice(0, 8);
+      switch (type) {
+        case "manifest-pdf":
+          blob = await downloadDepartureManifestPdf(id);
+          filename = `manifest-${short}.pdf`;
+          break;
+        case "manifest-csv":
+          blob = await downloadDepartureManifestCsv(id);
+          filename = `manifest-${short}.csv`;
+          break;
+        case "rooming-pdf":
+          blob = await downloadDepartureRoomingListPdf(id);
+          filename = `rooming-list-${short}.pdf`;
+          break;
+        case "rooming-csv":
+          blob = await downloadDepartureRoomingListCsv(id);
+          filename = `rooming-list-${short}.csv`;
+          break;
+        case "bus-pdf":
+          blob = await downloadDepartureBusSeatingPdf(id);
+          filename = `bus-seating-${short}.pdf`;
+          break;
+        case "bus-csv":
+          blob = await downloadDepartureBusSeatingCsv(id);
+          filename = `bus-seating-${short}.csv`;
+          break;
+        case "vouchers-pdf":
+          blob = await downloadDepartureVouchersBatchPdf(id);
+          filename = `vouchers-${short}.pdf`;
+          break;
+      }
+      triggerBlobDownload(blob, filename);
+      showSuccess(t.departure.documentsMenu.downloadSuccess);
+    } catch {
+      showError(t.departure.documentsMenu.downloadError);
+    } finally {
+      setDownloadingDoc(null);
+      setDocsMenuOpen(false);
+    }
+  };
   const [manifest, setManifest] = useState<DepartureManifest | null>(null);
   const [groups, setGroups] = useState<{ byHotel: DepartureGroup[]; byAgent: DepartureGroup[] } | null>(null);
   const [passengerGroups, setPassengerGroups] = useState<PassengerGroup[]>([]);
@@ -962,6 +1032,99 @@ export default function DepartureDetail() {
               </div>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDocsMenuOpen((prev) => !prev)}
+                  className="w-full justify-center gap-2 sm:w-auto"
+                  aria-expanded={docsMenuOpen}
+                >
+                  <DocsIcon className="size-4 text-brand-600" aria-hidden="true" />
+                  {t.departure.documentsMenu.title}
+                  <ChevronDownIcon className="size-3.5 text-gray-400" aria-hidden="true" />
+                </Button>
+                {docsMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setDocsMenuOpen(false)} />
+                    <div className="absolute right-0 top-full z-30 mt-2 w-72 rounded-xl border border-gray-200 bg-white p-2 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                      <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                        {t.departure.documentsMenu.title}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadDocument("manifest-pdf")}
+                        disabled={!!downloadingDoc}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/[0.06]"
+                      >
+                        <DocsIcon className="size-4 text-brand-600" />
+                        <span>{t.departure.documentsMenu.manifestPdf}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadDocument("manifest-csv")}
+                        disabled={!!downloadingDoc}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/[0.06]"
+                      >
+                        <DownloadIcon className="size-4 text-green-600" />
+                        <span>{t.departure.documentsMenu.manifestCsv}</span>
+                      </button>
+                      <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadDocument("rooming-pdf")}
+                        disabled={!!downloadingDoc}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/[0.06]"
+                      >
+                        <BoxIcon className="size-4 text-indigo-600" />
+                        <span>{t.departure.documentsMenu.roomingPdf}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadDocument("rooming-csv")}
+                        disabled={!!downloadingDoc}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/[0.06]"
+                      >
+                        <DownloadIcon className="size-4 text-green-600" />
+                        <span>{t.departure.documentsMenu.roomingCsv}</span>
+                      </button>
+                      {departure.transport_type === "bus" && (
+                        <>
+                          <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadDocument("bus-pdf")}
+                            disabled={!!downloadingDoc}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/[0.06]"
+                          >
+                            <PlugInIcon className="size-4 text-amber-600" />
+                            <span>{t.departure.documentsMenu.busSeatingPdf}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadDocument("bus-csv")}
+                            disabled={!!downloadingDoc}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/[0.06]"
+                          >
+                            <DownloadIcon className="size-4 text-green-600" />
+                            <span>{t.departure.documentsMenu.busSeatingCsv}</span>
+                          </button>
+                        </>
+                      )}
+                      <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadDocument("vouchers-pdf")}
+                        disabled={!!downloadingDoc}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/[0.06]"
+                      >
+                        <DocsIcon className="size-4 text-purple-600" />
+                        <span>{t.departure.documentsMenu.vouchersBatchPdf}</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
               <Button variant="outline" size="sm" onClick={() => setActiveTab("passengers")} className="justify-center gap-2">
                 <GroupIcon className="size-4" aria-hidden="true" /> {t.departure.passengerList}
               </Button>
@@ -1284,12 +1447,34 @@ export default function DepartureDetail() {
                     </button>
                   ))}
                 </div>
-                <Button size="sm" onClick={openAddModal} className="gap-1.5">
-                  <svg className="size-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                  </svg>
-                  {t.departure.addPassenger}
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownloadDocument("manifest-pdf")}
+                    disabled={!!downloadingDoc}
+                    className="gap-1.5"
+                    title={t.departure.documentsMenu.manifestPdf}
+                  >
+                    <DocsIcon className="size-4 text-brand-600" aria-hidden="true" />
+                    Manifest (PDF)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownloadDocument("manifest-csv")}
+                    disabled={!!downloadingDoc}
+                    className="gap-1.5"
+                    title={t.departure.documentsMenu.manifestCsv}
+                  >
+                    <DownloadIcon className="size-4 text-green-600" aria-hidden="true" />
+                    CSV / Excel
+                  </Button>
+                  <Button size="sm" onClick={openAddModal} className="gap-1.5">
+                    <PlusIcon className="size-4" aria-hidden="true" />
+                    {t.departure.addPassenger}
+                  </Button>
+                </div>
               </div>
               <div className="p-6">
                 {normPax.length > 0 ? (
