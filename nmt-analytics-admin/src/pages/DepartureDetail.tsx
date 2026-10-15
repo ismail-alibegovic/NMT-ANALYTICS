@@ -731,6 +731,7 @@ export default function DepartureDetail() {
   };
 
   const openCostModal = (item?: DepartureCostItem) => {
+    setProfitError(null);
     setEditingCostItem(item || null);
     setCostForm({
       category: item?.category || "other",
@@ -1697,6 +1698,7 @@ export default function DepartureDetail() {
         className="max-w-md"
       >
         <div className="p-6">
+          {profitError && <p role="alert" className="mb-3 text-sm text-red-600">{profitError}</p>}
           <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">
             {editingCostItem ? t.departure.finance.editCost : t.departure.finance.addCost}
           </h2>
@@ -1734,8 +1736,8 @@ export default function DepartureDetail() {
                 <Input type="number" min="0.01" step={0.01} value={costForm.quantity} onChange={(e) => setCostForm((prev) => ({ ...prev, quantity: e.target.value }))} />
               </div>
               <div>
-                <Label>{t.departure.finance.unitCost}</Label>
-                <Input type="number" min="0" step={0.01} value={costForm.unitCost} onChange={(e) => setCostForm((prev) => ({ ...prev, unitCost: e.target.value }))} />
+                <Label htmlFor="cost-unit-cost">{t.departure.finance.unitCost}</Label>
+                <Input id="cost-unit-cost" type="number" min="0" step={0.01} value={costForm.unitCost} onChange={(e) => setCostForm((prev) => ({ ...prev, unitCost: e.target.value }))} />
               </div>
             </div>
             <div>

@@ -27,7 +27,7 @@ function readPending(id: string): Pending | null {
 export default function SupplierPayablesPanel({ departureId, costs, onChanged }: {
   departureId: string; costs: DepartureCostItem[]; onChanged: () => void;
 }) {
-  const { t } = useT(); const c = t.supplierPayables;
+  const { t, lang } = useT(); const c = t.supplierPayables;
   const [rows, setRows] = useState<SupplierPayable[] | null>(null);
   const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -102,7 +102,7 @@ export default function SupplierPayablesPanel({ departureId, costs, onChanged }:
     }
   }
   const eligible = costs.filter(cost => cost.supplierId && cost.totalCost > 0 && !rows?.some(p => p.costItemId === cost.id && !p.cancelledAt));
-  const money = (value: number, currency: string) => `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+  const money = (value: number, currency: string) => `${value.toLocaleString(lang === 'bs' ? 'bs-BA' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
   const classes = 'min-w-0 w-full rounded-lg border border-gray-300 p-2 dark:border-gray-700 dark:bg-gray-900';
   const title = form?.kind === 'issue' ? c.issue : form?.kind === 'payment' ? c.record : form?.kind === 'reversal' ? c.reverse : c.cancel;
   return <section className="min-w-0 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]" aria-label={c.title}>

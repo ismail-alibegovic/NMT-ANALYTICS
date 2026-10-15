@@ -153,8 +153,9 @@ BEGIN
   END IF;
   SELECT * INTO p FROM public.supplier_payables WHERE cost_item_id=c.id AND org_id=p_org_id AND cancelled_at IS NULL;
   IF FOUND THEN
-    IF p.due_date IS DISTINCT FROM p_due_date THEN RAISE EXCEPTION 'PAYABLE_ALREADY_ISSUED'; END IF;
-    RETURN jsonb_build_object('created',false,'record',to_jsonb(p));
+    -- Do not alias an unrecorded request key to another issuer's obligation:
+    -- retrying that key after cancellation must never issue a new obligation.
+    RAISE EXCEPTION 'PAYABLE_ALREADY_ISSUED';
   END IF;
   SELECT name INTO supplier FROM public.suppliers WHERE id=c.supplier_id AND org_id=p_org_id;
   IF supplier IS NULL OR round(c.quantity*c.unit_cost,2)<=0 OR round(c.quantity*c.unit_cost,2)>999999999999.99 THEN RAISE EXCEPTION 'PAYABLE_SOURCE_INVALID'; END IF;

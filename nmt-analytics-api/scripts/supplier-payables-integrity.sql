@@ -23,6 +23,7 @@ BEGIN
   IF (result->'record'->>'amount')::numeric<>100 THEN RAISE EXCEPTION 'Wrong issued total'; END IF;
   retry:=public.issue_supplier_payable(org,actor,departure,cost,'2027-07-01',issue_request,repeat('a',64));
   IF (retry->>'created')::boolean OR retry->'record'->>'id'<>p::text THEN RAISE EXCEPTION 'Duplicate issue'; END IF;
+  PERFORM pg_temp.expect_payable_error(format('SELECT public.issue_supplier_payable(%L,%L,%L,%L,%L,%L,%L)',org,actor,departure,cost,'2027-07-01',gen_random_uuid(),repeat('b',64)),'PAYABLE_ALREADY_ISSUED');
   PERFORM pg_temp.expect_payable_error(format('SELECT public.issue_supplier_payable(%L,%L,%L,%L,%L,%L,%L)',org,actor,departure,cost,'2027-07-02',gen_random_uuid(),repeat('b',64)),'PAYABLE_ALREADY_ISSUED');
   PERFORM pg_temp.expect_payable_error(format('SELECT public.issue_supplier_payable(%L,%L,%L,%L,%L,%L,%L)',other_org,actor,departure,cost,'2027-07-01',gen_random_uuid(),repeat('b',64)),'PAYABLE_ACTOR_INVALID');
   PERFORM pg_temp.expect_payable_error(format('SELECT public.issue_supplier_payable(%L,%L,%L,%L,%L,%L,%L)',org,actor,gen_random_uuid(),cost,'2027-07-01',gen_random_uuid(),repeat('b',64)),'PAYABLE_SOURCE_NOT_FOUND');

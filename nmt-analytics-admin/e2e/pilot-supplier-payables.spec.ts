@@ -56,6 +56,13 @@ for (const scenario of [{ lang: 'bs', width: 1440 }, { lang: 'en', width: 390 }]
     expect(retry.record.id).toBe(payment.record.id);
     const locked = await request.patch(`${api}/api/departures/${seeded.departure.id}/cost-items/${seeded.cost.id}`, { headers, data: { unitCost: 1 } });
     expect(locked.status()).toBe(409); expect((await locked.json()).code).toBe('PAYABLE_COST_LOCKED');
+    await page.getByRole('button', { name: copy.departure.finance.edit, exact: true }).click();
+    await modal.getByLabel(copy.departure.finance.unitCost, { exact: true }).fill('1');
+    const blockedEdit = page.waitForResponse(r => r.request().method() === 'PATCH' && r.url().endsWith(`/cost-items/${seeded.cost.id}`));
+    await modal.getByRole('button', { name: copy.common.save, exact: true }).click(); expect((await blockedEdit).status()).toBe(409);
+    await expect(modal.getByRole('alert')).toHaveText(c.sourceLocked);
+    await modal.getByRole('button', { name: copy.common.cancel, exact: true }).click();
+    await expect(modal).toBeHidden();
     await row.locator('summary').click(); await row.getByRole('button', { name: c.reverse, exact: true }).click();
     await modal.getByLabel(c.paymentDate).fill('2026-10-15'); await modal.getByLabel(c.note).fill('Erroneous test entry');
     const reversing = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith(`/supplier-payables/${payableId}/entries`));
@@ -83,6 +90,7 @@ test('supplier ledger serializes payments and rejects foreign roles organization
   const issued = await json(await request.post(url, { headers, data: { ...issue, amount: 1, currency: 'EUR' } }));
   const p = issued.record; expect(Number(p.amount)).toBe(100); expect(p.currency).toBe('BAM');
   expect((await json(await request.post(url, { headers, data: issue }), 200)).record.id).toBe(p.id);
+  expect((await request.post(url, { headers, data: { ...issue, requestId: crypto.randomUUID() } })).status()).toBe(409);
   const entriesUrl = `${api}/api/supplier-payables/${p.id}/entries`;
   const bodies = [0,1].map(() => ({ requestId: crypto.randomUUID(), currency: 'BAM', kind: 'payment', amount: 70, paymentDate: '2026-10-15', note: '', reference: '' }));
   const responses = await Promise.all(bodies.map(data => request.post(entriesUrl, { headers, data })));
