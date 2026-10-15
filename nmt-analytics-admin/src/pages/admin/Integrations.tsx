@@ -9,8 +9,11 @@ import { analyzeRevenueDrop, RevenueAnalysisResponse } from '../../api/ai';
 import { formatCurrency } from '../../utils/business';
 import { submitETurista, getETuristaHistory } from '../../api/eturista';
 import { useApp } from '../../context/AppContext';
+import { useT } from '../../lib/i18n/context';
 
 const Integrations = () => {
+    const { t } = useT();
+    const w = t.integrations.widget;
     const { success, error: toastError } = useToast();
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
     const [selectedIntegration, setSelectedIntegration] = useState('');
@@ -26,7 +29,8 @@ const Integrations = () => {
   const [eTuristaHistory, setETuristaHistory] = useState<any[]>([]);
   const [copiedWidget, setCopiedWidget] = useState(false);
     const orgId = userContext?.org?.id || '';
-    const widgetUrl = `/api/public/${orgId}/widget`;
+    const publicBase = typeof window !== 'undefined' ? window.location.origin : '';
+    const widgetUrl = `${publicBase}/api/public/${orgId}/widget`;
     const embedCode = orgId
       ? `<!-- Travline Booking Widget -->\n<iframe src="${widgetUrl}" width="100%" height="600" frameborder="0" style="border:none;max-width:400px;margin:0 auto;display:block;"></iframe>`
       : '';
@@ -329,31 +333,31 @@ const Integrations = () => {
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">Booking Widget</h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Ugradite booking formu na svoju web stranicu</p>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">{w.title}</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{w.subtitle}</p>
                 </div>
               </div>
 
               {orgId ? (
                 <div className="space-y-4">
                   <div className="bg-gray-50 dark:bg-white/[0.02] border border-gray-100 dark:border-white/[0.05] rounded-lg p-4">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Embed kod (iframe)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{w.embedCode}</label>
                     <pre className="text-xs bg-gray-800 text-gray-100 p-3 rounded-lg overflow-x-auto whitespace-pre-wrap break-all">{embedCode}</pre>
                     <Button size="sm" variant="outline" className="mt-2" onClick={() => copyToClipboard(embedCode)}>
-                      {copiedWidget ? '✓ Kopirano' : 'Kopiraj kod'}
+                      {copiedWidget ? w.copied : w.copyCode}
                     </Button>
                   </div>
                   <div className="bg-gray-50 dark:bg-white/[0.02] border border-gray-100 dark:border-white/[0.05] rounded-lg p-4">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Direktan link</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{w.directLink}</label>
                     <a href={widgetUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-brand-600 dark:text-brand-400 hover:underline break-all">
                       {widgetUrl}
                     </a>
-                    <p className="text-xs text-gray-400 mt-2">Otvorite link da vidite kako widget izgleda. Zatim ugradite iframe kod na svoj sajt.</p>
+                    <p className="text-xs text-gray-400 mt-2">{w.hint}</p>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-4 text-gray-400 text-sm">
-                  Učitavanje podataka organizacije...
+                  {w.loadingOrg}
                 </div>
               )}
             </div>

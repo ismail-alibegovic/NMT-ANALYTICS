@@ -15,15 +15,24 @@ const formRow = {
 
 const rpcMock = vi.fn()
 const maybeSingleMock = vi.fn()
+const dataResolvedMock = vi.fn().mockResolvedValue({ data: [], error: null })
+
+const createChain = () => {
+  const chain: any = {
+    eq: vi.fn(() => chain),
+    gte: vi.fn(() => chain),
+    order: vi.fn(() => chain),
+    limit: vi.fn(() => chain),
+    maybeSingle: maybeSingleMock,
+    then: (resolve: any, reject: any) => dataResolvedMock().then(resolve, reject),
+  }
+  return chain
+}
 
 vi.mock('../lib/supabase', () => ({
   supabaseAdmin: {
     from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          maybeSingle: maybeSingleMock,
-        })),
-      })),
+      select: vi.fn(() => createChain()),
     })),
     rpc: rpcMock,
   },
@@ -48,6 +57,10 @@ let app: express.Express
 beforeAll(async () => {
   app = express()
   app.use(express.json())
+  app.get('/api/public/forms/:slug', async (req, res) => {
+    const { getPublicForm } = await import('../routes/publicFormsHandlers')
+    return getPublicForm(req, res)
+  })
   app.post('/api/public/forms/:slug', async (req, res) => {
     const { submitPublicForm } = await import('../routes/publicFormsHandlers')
     return submitPublicForm(req, res)
@@ -57,6 +70,7 @@ beforeAll(async () => {
 beforeEach(() => {
   maybeSingleMock.mockReset()
   rpcMock.mockReset()
+  dataResolvedMock.mockReset().mockResolvedValue({ data: [], error: null })
 })
 
 describe('POST /api/public/forms/:slug', () => {
@@ -196,5 +210,117 @@ describe('POST /api/public/forms/:slug', () => {
     expect(res.status).toBe(400)
     expect(res.body.message).toBe('Invalid submission payload')
     expect(rpcMock).not.toHaveBeenCalled()
+  })
+
+  it('preserves valid departure_id and package_id overrides or defaults', async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: {
+        ...formRow,
+        package_id: '11111111-1111-1111-1111-111111111111',
+        departure_id: '22222222-2222-2222-2222-222222222222',
+      },
+      error: null,
+    })
+    rpcMock.mockResolvedValue({
+      data: { inquiry_id: 'inq-999', submission_id: 'sub-999' },
+      error: null,
+    })
+
+    const customDep = '33333333-3333-3333-3333-333333333333'
+    const res = await request(app)
+      .post('/api/public/forms/umrah-interest')
+      .send({
+        full_name: 'Traveler Name',
+        phone: '+38761111222',
+        departureId: customDep,
+      })
+
+    expect(res.status).toBe(201)
+    expect(rpcMock).toHaveBeenCalledWith('submit_public_form', {
+      form_slug: 'umrah-interest',
+      submission_data: {
+        full_name: 'Traveler Name',
+        phone: '+38761111222',
+        departure_id: customDep,
+        package_id: '11111111-1111-1111-1111-111111111111',
+      },
+    })
+  })
+})
+
+describe('GET /api/public/forms/:slug', () => {
+  it('returns form definition with package and departure availability context', async () => {
+    const pkgId = '11111111-1111-1111-1111-111111111111'
+    const depId = '22222222-2222-2222-2222-222222222222'
+
+    // 1st call for form, 2nd call for package, 3rd call for departure
+    maybeSingleMock
+      .mockResolvedValueOnce({
+        data: {
+          ...formRow,
+          title: 'Umra Proljeće 2026',
+          description: 'Prijavite se za polazak',
+          package_id: pkgId,
+          departure_id: depId,
+          thank_you_message: 'Hvala!',
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: pkgId,
+          name: 'Umra 10 dana',
+          destination: 'Mekka & Medina',
+          base_price: 2500,
+          currency: 'BAM',
+          duration_days: 10,
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: depId,
+          package_id: pkgId,
+          depart_at: '2026-04-10T08:00:00Z',
+          return_at: '2026-04-20T18:00:00Z',
+          capacity: 45,
+          booked: 30,
+          status: 'active',
+        },
+        error: null,
+      })
+
+    const res = await request(app).get('/api/public/forms/umrah-interest')
+
+    expect(res.status).toBe(200)
+    expect(res.body.title).toBe('Umra Proljeće 2026')
+    expect(res.body.package).toEqual({
+      id: pkgId,
+      name: 'Umra 10 dana',
+      destination: 'Mekka & Medina',
+      basePrice: 2500,
+      currency: 'BAM',
+      durationDays: 10,
+    })
+    expect(res.body.departure).toEqual({
+      id: depId,
+      packageId: pkgId,
+      departAt: '2026-04-10T08:00:00Z',
+      returnAt: '2026-04-20T18:00:00Z',
+      capacity: 45,
+      booked: 30,
+      available: 15,
+      status: 'active',
+    })
+  })
+
+  it('returns 404 if form not found or inactive', async () => {
+    maybeSingleMock.mockResolvedValueOnce({ data: null, error: null })
+    const res404 = await request(app).get('/api/public/forms/non-existent')
+    expect(res404.status).toBe(404)
+
+    maybeSingleMock.mockResolvedValueOnce({ data: { ...formRow, active: false }, error: null })
+    const resInactive = await request(app).get('/api/public/forms/umrah-interest')
+    expect(resInactive.status).toBe(404)
   })
 })
