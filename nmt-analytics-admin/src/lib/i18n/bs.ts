@@ -239,6 +239,7 @@ export const bs: Translations = {
     total: 'Ukupno', all: 'Sve', yes: 'Da', no: 'Ne', close: 'Zatvori',
     download: 'Preuzmi', upload: 'Pošalji', submit: 'Pošalji', success: 'Uspjeh',
     error: 'Greška', saving: 'Spremanje...', deleting: 'Brisanje...', sending: 'Slanje...', isRequired: 'je obavezno',
+    loadingWorkspace: 'Učitavanje radnog prostora...', user: 'Korisnik', pending: 'na čekanju', view: 'Pregledaj',
   },
   dashboard: {
     title: 'Kontrolna tabla', description: 'Pregled poslovanja vaše agencije',
@@ -302,6 +303,7 @@ export const bs: Translations = {
     noCustomers: 'Nema klijenata', search: 'Traži klijente...',
     hasReservations: 'Ima rezervacije', customerDetails: 'Detalji klijenta',
     editCustomer: 'Uredi klijenta', deleteConfirm: 'Jeste li sigurni da želite obrisati ovog klijenta?',
+    deleteSuccess: 'Klijent uspješno obrisan', deleteError: 'Brisanje klijenta nije uspjelo',
     created: 'Kreiran', reservations: 'Rezervacije',
   },
   packages: {
@@ -311,6 +313,7 @@ export const bs: Translations = {
     duration: 'Trajanje (dani)', maxParticipants: 'Maks. učesnika', isActive: 'Aktivan',
     fieldDescription: 'Opis', noPackages: 'Nema paketa',
     search: 'Traži pakete...', deleteConfirm: 'Jeste li sigurni da želite obrisati ovaj paket?',
+    deleteSuccess: 'Aranžman uspješno obrisan', deleteError: 'Brisanje aranžmana nije uspjelo',
     departures: 'Polasci', reservations: 'Rezervacije',
     active: 'Aktivan', inactive: 'Neaktivan',
     open: 'Otvori',
@@ -1068,6 +1071,7 @@ export const bs: Translations = {
     upload: 'Pošalji dokument', generate: 'Generiši dokument',
     noDocuments: 'Nema dokumenata', name: 'Naziv', type: 'Tip', size: 'Veličina',
     uploadedAt: 'Poslano', deleteConfirm: 'Jeste li sigurni da želite obrisati ovaj dokument?',
+    deleteSuccess: 'Dokument uspješno obrisan', deleteError: 'Brisanje dokumenta nije uspjelo',
   },
   auditLogs: {
     title: 'Audit zapisi', description: 'Praćenje svih sistemskih promjena',
@@ -1077,6 +1081,12 @@ export const bs: Translations = {
   profile: {
     title: 'Profil', description: 'Upravljanje profilom',
     email: 'Email', role: 'Uloga', orgnization: 'Organizacija',
+  },
+  userMenu: {
+    organization: 'Organizacija',
+    viewProfile: 'Pregled profila',
+    support: 'Podrška',
+    signOut: 'Odjava',
   },
   errors: {
     generic: 'Došlo je do greške', notFound: 'Stranica nije pronađena',
@@ -1088,6 +1098,15 @@ export const bs: Translations = {
   notifications: {
     title: 'Notifikacije', markAllRead: 'Označi sve kao pročitano',
     noNotifications: 'Nema notifikacija',
+    unread: 'nepročitanih',
+    allCaughtUp: 'Sve je pregledano',
+    loading: 'Učitavanje notifikacija...',
+    emptyDescription: 'Operativne obavijesti će se prikazati ovdje.',
+    justNow: 'Upravo sada',
+    minAgo: 'prije {min}m',
+    hoursAgo: 'prije {hours}h',
+    daysAgo: 'prije {days}d',
+    close: 'Zatvori notifikacije',
   },
   statusLabels: {
     active: 'Aktivan', completed: 'Završen', cancelled: 'Otkazan',
@@ -1379,6 +1398,7 @@ export const bs: Translations = {
       summaryTotal: 'Ukupno polazaka', summaryAvailable: 'Slobodno',
       summaryFull: 'Popunjeno', summaryCritical: '< 20% slobodno',
       statusGreen: '≥ 20% slobodno', statusAmber: '1–20% slobodno', statusRed: 'Popunjeno',
+      lastRefreshed: 'Zadnje osvježeno',
     },
     rooming: {
       loading: 'Učitavanje smještaja…',

@@ -67,6 +67,7 @@ const PortalCustomers = lazy(() => import("./pages/portal/PortalCustomers"));
 const PortalSettings = lazy(() => import("./pages/portal/PortalSettings"));
 
 import { useApp } from "./context/AppContext";
+import { useT } from "./lib/i18n";
 
 const NotFoundClientOnly = () => <NotFound />;
 
@@ -78,13 +79,14 @@ const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
 
 const RootRoute = () => {
   const { userContext, loading, profileLoading } = useApp();
+  const { t } = useT();
 
   if (loading || profileLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="text-center">
           <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-brand-500" />
-          <p className="text-gray-600 dark:text-gray-400">Loading workspace...</p>
+          <p className="text-gray-600 dark:text-gray-400">{t.common.loadingWorkspace}</p>
         </div>
       </div>
     );

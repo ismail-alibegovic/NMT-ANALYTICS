@@ -196,7 +196,7 @@ export default function Availability() {
 
       {lastFetch && (
         <div className="mt-2 text-xs text-gray-400">
-          {t.common.loading === "Loading..." ? "Last refreshed" : "Zadnje osvježeno"}: {lastFetch.toLocaleTimeString()}
+          {tr.lastRefreshed || "Last refreshed"}: {lastFetch.toLocaleTimeString()}
         </div>
       )}
 
