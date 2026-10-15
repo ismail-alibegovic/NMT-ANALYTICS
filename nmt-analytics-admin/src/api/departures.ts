@@ -42,6 +42,10 @@ export interface DepartureProfitability {
   supplierCosts: number;
   estimatedGrossProfit: number;
   marginPct: number | null;
+  supplierObligationsIssued: number;
+  supplierPaid: number;
+  supplierOutstanding: number;
+  realizedCashProfit: number;
   reservationCount: number;
   costItems: DepartureCostItem[];
   costBreakdown: Array<{ category: string; amount: number }>;

@@ -62,28 +62,37 @@ async function loadProfitability(orgId: string, departureId: string) {
 
   const currency = departure.packages?.currency || 'BAM';
 
-  const [{ data: reservations, error: reservationsError }, { data: payments, error: paymentsError }, { data: costItems, error: costItemsError }] =
-    await Promise.all([
-      supabaseAdmin
-        .from('reservations')
-        .select('id, total_amount, currency, status')
-        .eq('departure_id', departureId)
-        .eq('org_id', orgId),
-      supabaseAdmin
-        .from('payments')
-        .select('id, reservation_id, amount, currency, status')
-        .eq('org_id', orgId),
-      supabaseAdmin
-        .from('departure_cost_items')
-        .select('id, departure_id, category, label, supplier_id, quantity, unit_cost, currency, notes, confirmation_status, created_at, updated_at, suppliers!departure_cost_items_supplier_org_fk(id, name)')
-        .eq('departure_id', departureId)
-        .eq('org_id', orgId)
-        .order('created_at', { ascending: true }),
-    ]);
+  const [
+    { data: reservations, error: reservationsError },
+    { data: payments, error: paymentsError },
+    { data: costItems, error: costItemsError },
+    { data: payablesData, error: payablesError },
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('reservations')
+      .select('id, total_amount, currency, status')
+      .eq('departure_id', departureId)
+      .eq('org_id', orgId),
+    supabaseAdmin
+      .from('payments')
+      .select('id, reservation_id, amount, currency, status')
+      .eq('org_id', orgId),
+    supabaseAdmin
+      .from('departure_cost_items')
+      .select('id, departure_id, category, label, supplier_id, quantity, unit_cost, currency, notes, confirmation_status, created_at, updated_at, suppliers!departure_cost_items_supplier_org_fk(id, name)')
+      .eq('departure_id', departureId)
+      .eq('org_id', orgId)
+      .order('created_at', { ascending: true }),
+    supabaseAdmin.rpc('list_supplier_payables', {
+      p_org_id: orgId,
+      p_departure_id: departureId,
+    }),
+  ]);
 
   if (reservationsError) return { status: 500, body: { code: 'DATABASE_ERROR', message: 'Failed to load reservations', details: reservationsError.message } };
   if (paymentsError) return { status: 500, body: { code: 'DATABASE_ERROR', message: 'Failed to load payments', details: paymentsError.message } };
   if (costItemsError) return { status: 500, body: { code: 'DATABASE_ERROR', message: 'Failed to load departure cost items', details: costItemsError.message } };
+  if (payablesError) return { status: 500, body: { code: 'DATABASE_ERROR', message: 'Failed to load supplier payables', details: payablesError.message } };
 
   const reservationIds = new Set((reservations || []).map((reservation: any) => reservation.id));
   const scopedPayments = (payments || []).filter((payment: any) => reservationIds.has(payment.reservation_id));
@@ -91,6 +100,7 @@ async function loadProfitability(orgId: string, departureId: string) {
     reservations: reservations || [],
     payments: scopedPayments,
     costItems: costItems || [],
+    payables: Array.isArray(payablesData) ? payablesData : [],
     currency,
   });
 
@@ -105,6 +115,10 @@ async function loadProfitability(orgId: string, departureId: string) {
       supplierCosts: finance.supplierCosts,
       estimatedGrossProfit: finance.estimatedGrossProfit,
       marginPct: finance.marginPct,
+      supplierObligationsIssued: finance.supplierObligationsIssued,
+      supplierPaid: finance.supplierPaid,
+      supplierOutstanding: finance.supplierOutstanding,
+      realizedCashProfit: finance.realizedCashProfit,
       reservationCount: finance.reservationCount,
       costItems: (costItems || []).map(transformCostItem),
       costBreakdown: finance.costBreakdown,

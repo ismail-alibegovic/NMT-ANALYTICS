@@ -37,6 +37,15 @@ vi.mock('../middleware/auditLogger', () => ({
 vi.mock('../lib/supabase', () => ({
   supabaseAdmin: {
     from: vi.fn((table: string) => query(table)),
+    rpc: vi.fn(async (fnName: string, args: any) => {
+      if (fnName === 'list_supplier_payables') {
+        const payables = (rows.supplier_payables || []).filter(
+          (p) => p.org_id === args?.p_org_id && p.departure_id === args?.p_departure_id,
+        );
+        return { data: payables, error: null };
+      }
+      return { data: null, error: null };
+    }),
   },
   handleSupabaseError: (res: Response, error: any, message: string) =>
     res.status(500).json({ code: error?.code || 'DATABASE_ERROR', message }),
@@ -119,6 +128,28 @@ beforeEach(() => {
     departure_cost_items: [
       { id: 'c1', org_id: ORG, departure_id: DEPARTURE, category: 'hotel', label: 'Hotel', supplier_id: SUPPLIER, quantity: 2, unit_cost: 100, currency: 'BAM', notes: null, created_at: '2026-09-09T00:00:00.000Z', updated_at: '2026-09-09T00:00:00.000Z', suppliers: { id: SUPPLIER, name: 'Hotel Supplier' } },
     ],
+    supplier_payables: [
+      {
+        id: 'sp-1',
+        org_id: ORG,
+        departure_id: DEPARTURE,
+        amount: 200,
+        currency: 'BAM',
+        cancelled_at: null,
+        entries: [
+          { id: 'spe-1', kind: 'payment', amount: 150 },
+        ],
+      },
+      {
+        id: 'sp-cancelled',
+        org_id: ORG,
+        departure_id: DEPARTURE,
+        amount: 80,
+        currency: 'BAM',
+        cancelled_at: '2026-09-10T00:00:00.000Z',
+        entries: [],
+      },
+    ],
     suppliers: [
       { id: SUPPLIER, org_id: ORG, name: 'Hotel Supplier' },
       { id: OTHER_SUPPLIER, org_id: 'other-org', name: 'Other Supplier' },
@@ -140,6 +171,10 @@ describe('departure profitability route', () => {
       supplierCosts: 200,
       estimatedGrossProfit: 1300,
       marginPct: 86.67,
+      supplierObligationsIssued: 200,
+      supplierPaid: 150,
+      supplierOutstanding: 50,
+      realizedCashProfit: 750,
       reservationCount: 2,
       warnings: [],
     });
