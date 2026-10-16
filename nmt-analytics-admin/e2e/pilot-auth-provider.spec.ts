@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 const auth = process.env.E2E_SUPABASE_URL || '';
 const api = process.env.E2E_API_URL || 'http://127.0.0.1:3001';
-const configured = /^http:\/\/(127\.0\.0\.1|localhost):/.test(auth) && Boolean(process.env.E2E_SUPABASE_ANON_KEY && process.env.E2E_MANAGER_PASSWORD);
+const configured = /^http:\/\/(127\.0\.0\.1|localhost):/.test(auth) && /^http:\/\/(127\.0\.0\.1|localhost):/.test(api) && Boolean(process.env.E2E_SUPABASE_ANON_KEY && process.env.E2E_MANAGER_PASSWORD);
 // Recovery links contain short-lived isolated tokens: never collect traces/videos/screenshots.
 test.use({ trace: 'off', video: 'off', screenshot: 'off' });
 test('isolated Auth signup confirmation and recovery work through captured SMTP', async ({ request, page }) => {
