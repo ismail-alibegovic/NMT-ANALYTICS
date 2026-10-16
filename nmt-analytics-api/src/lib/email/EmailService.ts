@@ -35,6 +35,16 @@ export class MockEmailProvider implements EmailProvider {
 }
 
 /**
+ * Production fallback when no SMTP provider is configured: refuse to send rather than
+ * pretend. The mock provider would log a "sent" history row for an email that never left.
+ */
+export class UnconfiguredEmailProvider implements EmailProvider {
+    async sendEmail(): Promise<void> {
+        throw new Error('EMAIL_PROVIDER_NOT_CONFIGURED');
+    }
+}
+
+/**
  * Singleton EmailService
  */
 export class EmailService {
