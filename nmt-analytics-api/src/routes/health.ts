@@ -2,6 +2,7 @@ import { Router, Response, Request } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
 import { apiError } from "../lib/errors";
 import { sentryEnabled } from '../instrument';
+import { isSmtpProviderConfigured } from '../lib/email/activateSmtpProvider';
 
 const router = Router();
 
@@ -30,7 +31,8 @@ router.get('/health', async (req: Request, res: Response) => {
         supabaseConfigured: true,
         devBypassEnabled: process.env.DEV_BYPASS_AUTH === 'true',
         devOrgIdSet: !!process.env.DEV_ORG_ID,
-        sentryEnabled
+        sentryEnabled,
+        emailProviderConfigured: isSmtpProviderConfigured()
       },
       time: new Date().toISOString()
     });
