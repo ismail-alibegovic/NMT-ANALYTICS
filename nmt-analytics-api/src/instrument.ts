@@ -1,6 +1,7 @@
 // dotenv is loaded here rather than in index.ts because this module reads
 // SENTRY_DSN at import time and must run before express is loaded.
 import 'dotenv/config';
+import { sanitizeSentryEvent } from './lib/sentryPrivacy';
 import * as Sentry from '@sentry/node';
 
 /**
@@ -34,24 +35,7 @@ if (dsn) {
       'request aborted',
       'Request aborted',
     ],
-    beforeSend(event) {
-      // Credentials must never leave the process. Sentry attaches request
-      // headers by default via the express integration.
-      const headers = event.request?.headers;
-      if (headers) {
-        delete headers.authorization;
-        delete headers.Authorization;
-        delete headers.cookie;
-        delete headers.Cookie;
-        delete headers['x-supabase-auth'];
-      }
-      // Request bodies on this API routinely contain customer PII (passport
-      // numbers, addresses, payment amounts). Drop them wholesale.
-      if (event.request) {
-        delete event.request.data;
-      }
-      return event;
-    },
+    beforeSend: sanitizeSentryEvent,
   });
   console.log(
     '[sentry] initialised —',
@@ -62,3 +46,4 @@ if (dsn) {
 }
 
 export default Sentry;
+
