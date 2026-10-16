@@ -1,0 +1,803 @@
+{
+  "observed_date_utc": "2026-10-16",
+  "project_ref": "hacutwknfgufrqlgdiia",
+  "repository": "ismail-alibegovic/NMT-ANALYTICS",
+  "repository_commit": "32fbb2df4b69fe13c048cf357a5287c1e2eb7d59",
+  "comparison_scope": "Migration version identities only. Git blob SHA identifies repository source; it is not a checksum of production SQL. Schema and SQL-body parity remain unverified.",
+  "counts": {
+    "repository_migrations": 111,
+    "production_versions": 110,
+    "matching_versions": 110,
+    "missing_from_production": 1,
+    "unexpected_in_production": 0,
+    "production_versions_with_statements": 66,
+    "production_versions_without_statements": 44
+  },
+  "pending_not_in_main": [
+    {
+      "version": "20261016110719",
+      "pr": 111,
+      "path": "nmt-analytics-api/supabase/migrations/20261016110719_database_function_security.sql",
+      "status": "Open PR; not merged or deployed"
+    }
+  ],
+  "migrations": [
+    {
+      "version": "20260704000000",
+      "path": "nmt-analytics-api/supabase/migrations/20260704000000_legacy_baseline.sql",
+      "repository_git_blob_sha": "fec4d31b316d5e4cb3b4b06441dfd169667ec7d6",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260704000027",
+      "path": "nmt-analytics-api/supabase/migrations/20260704000027_voucher_enhancement.sql",
+      "repository_git_blob_sha": "f247aeba39b94f0098b279539ca02992c840d076",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260704000028",
+      "path": "nmt-analytics-api/supabase/migrations/20260704000028_contracts.sql",
+      "repository_git_blob_sha": "e2f6a1fb9dbc2a59e6699a76e62b0f1d19db9a6c",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260704000029",
+      "path": "nmt-analytics-api/supabase/migrations/20260704000029_receipts.sql",
+      "repository_git_blob_sha": "d8eb9562d00e59b161130a159f7b6acadd737d4a",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260704000030",
+      "path": "nmt-analytics-api/supabase/migrations/20260704000030_installments.sql",
+      "repository_git_blob_sha": "a47cd003aaa47e75cba7500ffeff4cb24f07af87",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260704000031",
+      "path": "nmt-analytics-api/supabase/migrations/20260704000031_sub_agents.sql",
+      "repository_git_blob_sha": "5e4f5f5cc0f0623c014662147a52acdda50ff8c2",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260704000032",
+      "path": "nmt-analytics-api/supabase/migrations/20260704000032_excursions.sql",
+      "repository_git_blob_sha": "7eaf27a7f3c8c5bfa384fa4c49bc939068604b6d",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260704000033",
+      "path": "nmt-analytics-api/supabase/migrations/20260704000033_fix_excursion_org_id.sql",
+      "repository_git_blob_sha": "c48ae7a79a3642bb53544102ef93afab91891368",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260704010000",
+      "path": "nmt-analytics-api/supabase/migrations/20260704010000_package_services.sql",
+      "repository_git_blob_sha": "a0b610019adf955c7af581099057c6a9ed2d78d0",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260704020000",
+      "path": "nmt-analytics-api/supabase/migrations/20260704020000_hotels.sql",
+      "repository_git_blob_sha": "93855822eae66ac2be677f90dc54e72be07a6db9",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260704020001",
+      "path": "nmt-analytics-api/supabase/migrations/20260704020001_fix_hotel_org_id.sql",
+      "repository_git_blob_sha": "e5185b7f78800ecfd5f0a8960bbb8c9461509c81",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260704030000",
+      "path": "nmt-analytics-api/supabase/migrations/20260704030000_fix_package_services_org_id.sql",
+      "repository_git_blob_sha": "1600a2ff900bb41c87bf310615f8e8dc8fd4741c",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260705010000",
+      "path": "nmt-analytics-api/supabase/migrations/20260705010000_eturista.sql",
+      "repository_git_blob_sha": "df66cb1d3667a6eaa473491e2d3e6906cc80f6db",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260706010000",
+      "path": "nmt-analytics-api/supabase/migrations/20260706010000_package_options_and_transport.sql",
+      "repository_git_blob_sha": "0faf1eeb9dee55cf8fb648b0d2ec1e2c92fc5df4",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260706020000",
+      "path": "nmt-analytics-api/supabase/migrations/20260706020000_reservation_options.sql",
+      "repository_git_blob_sha": "ab5ad6747cbf1042dd3833b3106ecd6c2f468ce2",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260710010000",
+      "path": "nmt-analytics-api/supabase/migrations/20260710010000_fiscal_compliance_layer.sql",
+      "repository_git_blob_sha": "b37870f77312c0c4adde62b63684eac49fdc413e",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260711010000",
+      "path": "nmt-analytics-api/supabase/migrations/20260711010000_self_service_signup.sql",
+      "repository_git_blob_sha": "6dad2efd93d92dd163fd82b2362e0ecdb5091e16",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260711020000",
+      "path": "nmt-analytics-api/supabase/migrations/20260711020000_pdf_template_editor.sql",
+      "repository_git_blob_sha": "b5d52f68b71dd24ab763aaaf6b4624b4e393b18a",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260711220000",
+      "path": "nmt-analytics-api/supabase/migrations/20260711220000_passenger_waivers.sql",
+      "repository_git_blob_sha": "9fd8a53e02aeb62f9646418d344d19253b9f2b17",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260712010000",
+      "path": "nmt-analytics-api/supabase/migrations/20260712010000_partner_type_business_rules.sql",
+      "repository_git_blob_sha": "e042e87d99e449cabdcdb6beb513ca0385348a5b",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260712020000",
+      "path": "nmt-analytics-api/supabase/migrations/20260712020000_sub_agent_portal_tokens.sql",
+      "repository_git_blob_sha": "8140f3a3f1cbc325cf4034a37016791cdc685353",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260715010000",
+      "path": "nmt-analytics-api/supabase/migrations/20260715010000_plan_tier_module_gating.sql",
+      "repository_git_blob_sha": "2ee975b8a7387dcd149dfa9bf55419dedf5ed49e",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260715020000",
+      "path": "nmt-analytics-api/supabase/migrations/20260715020000_fix_profiles_rls_recursion.sql",
+      "repository_git_blob_sha": "cc47ef1b2520e72c3be753e7454b9fcf511d8ad9",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260715020001",
+      "path": "nmt-analytics-api/supabase/migrations/20260715020001_fix_get_my_org_id_rls.sql",
+      "repository_git_blob_sha": "e988b5dc0e669a1cfefe6c100dcb064a51a4ed4c",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260715020002",
+      "path": "nmt-analytics-api/supabase/migrations/20260715020002_fix_get_my_org_id_volatile.sql",
+      "repository_git_blob_sha": "dfeb40b454197c08335184d269e9e45e48ba4b8c",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260715020003",
+      "path": "nmt-analytics-api/supabase/migrations/20260715020003_purge_recursive_profiles_orgs_policies.sql",
+      "repository_git_blob_sha": "d280c207aaa938c79e84519fa57de18ab879f0a4",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260809010000",
+      "path": "nmt-analytics-api/supabase/migrations/20260809010000_trip_type_hotel_specs_flights.sql",
+      "repository_git_blob_sha": "ac9c766b73af9f1fd39c8a3623030995004b2239",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260816010000",
+      "path": "nmt-analytics-api/supabase/migrations/20260816010000_organization_settings_columns.sql",
+      "repository_git_blob_sha": "85257794e058fef1785b1ddb2895c3da15f6c79d",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260818010000",
+      "path": "nmt-analytics-api/supabase/migrations/20260818010000_agency_profiles_capabilities.sql",
+      "repository_git_blob_sha": "3e272229bbcca63f3b8f0dd54af7b8bec1820dd1",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260818020000",
+      "path": "nmt-analytics-api/supabase/migrations/20260818020000_inquiry_pipeline.sql",
+      "repository_git_blob_sha": "99762fc50dc62daf870f03a40b2332ed67258139",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260818030000",
+      "path": "nmt-analytics-api/supabase/migrations/20260818030000_supplier_service_catalogue.sql",
+      "repository_git_blob_sha": "b67db07cc4950e4027c84aadfe949dd02bed2814",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260818040000",
+      "path": "nmt-analytics-api/supabase/migrations/20260818040000_versioned_itineraries.sql",
+      "repository_git_blob_sha": "f2a83f72fcf3cb68e20f36db7b510dfcd133f08b",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260818230000",
+      "path": "nmt-analytics-api/supabase/migrations/20260818230000_quotations.sql",
+      "repository_git_blob_sha": "5da00f53cf7b44818dab2e36dc52d095d00a4327",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260819003000",
+      "path": "nmt-analytics-api/supabase/migrations/20260819003000_quotations.sql",
+      "repository_git_blob_sha": "f9198582b4af6251992e8f3a09deecaddc5dbff1",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260819230000",
+      "path": "nmt-analytics-api/supabase/migrations/20260819230000_package_hotels.sql",
+      "repository_git_blob_sha": "e679096aa902ce0c53cf6f6f2ed8ec0870991ae3",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260821020000",
+      "path": "nmt-analytics-api/supabase/migrations/20260821020000_hotel_room_type_free.sql",
+      "repository_git_blob_sha": "33c04bb4a347796c2ab5340ebae2109fe7e69a5f",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260821030000",
+      "path": "nmt-analytics-api/supabase/migrations/20260821030000_add_communication_settings.sql",
+      "repository_git_blob_sha": "8d2ec8a0f8de8e663aa6bcd8661394d3f98a37e4",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260822010000",
+      "path": "nmt-analytics-api/supabase/migrations/20260822010000_bus_seat_categories.sql",
+      "repository_git_blob_sha": "493dcada70077baa1560de81340512c3ca0ce4b1",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260822020000",
+      "path": "nmt-analytics-api/supabase/migrations/20260822020000_passenger_groups.sql",
+      "repository_git_blob_sha": "896f8730635fd38eee426192e169d563a69bc36e",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260822030000",
+      "path": "nmt-analytics-api/supabase/migrations/20260822030000_accommodation_buildings.sql",
+      "repository_git_blob_sha": "49986b5ff18de7613cc8b710b2683a2623f1480b",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260822040000",
+      "path": "nmt-analytics-api/supabase/migrations/20260822040000_departure_passengers.sql",
+      "repository_git_blob_sha": "dfc96b740e0903321f30a5102a4a03442617adcc",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260822150000",
+      "path": "nmt-analytics-api/supabase/migrations/20260822150000_rooming_atomic_apply.sql",
+      "repository_git_blob_sha": "d513d821c3c825732c55e9f00dfd8d3fa8515fbd",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260823000000",
+      "path": "nmt-analytics-api/supabase/migrations/20260823000000_document_readiness.sql",
+      "repository_git_blob_sha": "d94f708cfdc51a67a5b7c25ff3a634c043f6519a",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260824010000",
+      "path": "nmt-analytics-api/supabase/migrations/20260824010000_communication_history.sql",
+      "repository_git_blob_sha": "aa3de6c04ade45ab7d3884072667c716086e8a54",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260824020000",
+      "path": "nmt-analytics-api/supabase/migrations/20260824020000_message_templates.sql",
+      "repository_git_blob_sha": "b28c03446bc5fc5e8a14e0fb8e5f1b8cbb0ee18a",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260824030000",
+      "path": "nmt-analytics-api/supabase/migrations/20260824030000_campaigns.sql",
+      "repository_git_blob_sha": "67f1cf02f3e9f25ecaa7dd2b32c7e311ab04cd73",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260825010000",
+      "path": "nmt-analytics-api/supabase/migrations/20260825010000_packages_itinerary_fk.sql",
+      "repository_git_blob_sha": "4cc01079817d4855e8bb2d23913db9e72099b560",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260825020000",
+      "path": "nmt-analytics-api/supabase/migrations/20260825020000_quotation_snapshots.sql",
+      "repository_git_blob_sha": "3f1e20ba8a797356c10f4a7773ed49ece26bd6d6",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260825100000",
+      "path": "nmt-analytics-api/supabase/migrations/20260825100000_financial_truth_restore.sql",
+      "repository_git_blob_sha": "b1b5dbfb769cfc03ee1c6d996454cbd7272e6d2f",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260825103000",
+      "path": "nmt-analytics-api/supabase/migrations/20260825103000_fix_overdue_index.sql",
+      "repository_git_blob_sha": "211ac95b58b6164f41194c13f10bb0235120d802",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260825120000",
+      "path": "nmt-analytics-api/supabase/migrations/20260825120000_passenger_group_integrity.sql",
+      "repository_git_blob_sha": "db1e60a497f20b353667baa8fb6b89b0cfb145af",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260825130000",
+      "path": "nmt-analytics-api/supabase/migrations/20260825130000_accommodation_integrity.sql",
+      "repository_git_blob_sha": "5906189b12b5838d6c3d540b7c8da6f5c30c166a",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260825140000",
+      "path": "nmt-analytics-api/supabase/migrations/20260825140000_source_fk_set_null.sql",
+      "repository_git_blob_sha": "265d60d9be5fb8ad749662817491975825fd550c",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260825150000",
+      "path": "nmt-analytics-api/supabase/migrations/20260825150000_public_forms.sql",
+      "repository_git_blob_sha": "9e7eac2d62b2c6870ecbd9ea18b62e481f0a2278",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260825160000",
+      "path": "nmt-analytics-api/supabase/migrations/20260825160000_communication_columns_and_view_cleanup.sql",
+      "repository_git_blob_sha": "f6db3a808f27ce258bddb3790fe34276147cdf72",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260826130000",
+      "path": "nmt-analytics-api/supabase/migrations/20260826130000_batch_assign_seats.sql",
+      "repository_git_blob_sha": "cc4db1fe73a99a8c127d470bfe9df2c4f91edb22",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260826155105",
+      "path": "nmt-analytics-api/supabase/migrations/20260826155105_travline_p0_rls_and_rpc_hardening.sql",
+      "repository_git_blob_sha": "28615228bb7c29a6b93176a216f19c95d607c48e",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260826155254",
+      "path": "nmt-analytics-api/supabase/migrations/20260826155254_travline_p0_revoke_anon_public_schema.sql",
+      "repository_git_blob_sha": "bab22c886af5966cad0c44cbe791a45eb0ba28f8",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260826155342",
+      "path": "nmt-analytics-api/supabase/migrations/20260826155342_travline_p1_schema_contract_and_function_hardening.sql",
+      "repository_git_blob_sha": "e10615c0708b170ff00f088591b76c5e216bf766",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260826155408",
+      "path": "nmt-analytics-api/supabase/migrations/20260826155408_travline_p0_server_only_data_api.sql",
+      "repository_git_blob_sha": "300b045837511edee42c1be553d1721af3892305",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260826155657",
+      "path": "nmt-analytics-api/supabase/migrations/20260826155657_travline_p1_operational_integrity_guards.sql",
+      "repository_git_blob_sha": "dba9c523b7bbfc0e6015c0ab71a30924021c9cc7",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260826155720",
+      "path": "nmt-analytics-api/supabase/migrations/20260826155720_travline_p2_fk_indexes_and_duplicate_cleanup.sql",
+      "repository_git_blob_sha": "3fee195d42855c3d6798911db9fb36fc2a2d199c",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260826163412",
+      "path": "nmt-analytics-api/supabase/migrations/20260826163412_p0_rls_and_rpc_hardening.sql",
+      "repository_git_blob_sha": "047d0319bfba990236eacb4c8b797ed9c6cc7081",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260826163517",
+      "path": "nmt-analytics-api/supabase/migrations/20260826163517_restrict_api_only_tables.sql",
+      "repository_git_blob_sha": "a752d7c5c4d27dd3792c1d775c6bc82ffbf5674b",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260826163545",
+      "path": "nmt-analytics-api/supabase/migrations/20260826163545_deduplicate_api_only_rls_policies.sql",
+      "repository_git_blob_sha": "f7421c1ad2212563745f833686d078f115e69a94",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260826163605",
+      "path": "nmt-analytics-api/supabase/migrations/20260826163605_consolidate_core_tenant_rls.sql",
+      "repository_git_blob_sha": "2fc042d6bce183550082aa1c4f980bd864e5aadf",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260827094252",
+      "path": "nmt-analytics-api/supabase/migrations/20260827094252_rpc_audit_reconciliation.sql",
+      "repository_git_blob_sha": "2492be0ef93866fd1e468c52f50978c06f9a9b3e",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260827120000",
+      "path": "nmt-analytics-api/supabase/migrations/20260827120000_fix_passenger_group_accommodation_pref_default.sql",
+      "repository_git_blob_sha": "b5183fc712e50734e095d76a65f4f09ce921db50",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260827120500",
+      "path": "nmt-analytics-api/supabase/migrations/20260827120500_add_primary_passenger_name_to_groups.sql",
+      "repository_git_blob_sha": "a7e4e18dfb0c3b115f5d320df8308278068f1e6a",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260827234551",
+      "path": "nmt-analytics-api/supabase/migrations/20260827234551_cleanup_legacy_reconstructed_policies.sql",
+      "repository_git_blob_sha": "b45c285bd0ee70205c93e29274d1f163265c6a6a",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260828103855",
+      "path": "nmt-analytics-api/supabase/migrations/20260828103855_reconcile_application_schema_contract.sql",
+      "repository_git_blob_sha": "3c763ceb7c90cdfa7ca16139a7c3b7db3b545680",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260828184247",
+      "path": "nmt-analytics-api/supabase/migrations/20260828184247_campaigns_core_extensions.sql",
+      "repository_git_blob_sha": "4c793a8a8b0a585654fdcd978d8d831eb7c8eae2",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260829000000",
+      "path": "nmt-analytics-api/supabase/migrations/20260829000000_campaigns_scheduled_at.sql",
+      "repository_git_blob_sha": "f079ef77c98abddec6bf45a7ac884dbbcc31062d",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260829010000",
+      "path": "nmt-analytics-api/supabase/migrations/20260829010000_automation_rules.sql",
+      "repository_git_blob_sha": "f71ac1a00fc837b2d1998707a83b0e8c2ff1ff56",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260829020000",
+      "path": "nmt-analytics-api/supabase/migrations/20260829020000_automation_executions.sql",
+      "repository_git_blob_sha": "ff5ea5588d16762f83489d2d8642ea3d77d097db",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260829100000",
+      "path": "nmt-analytics-api/supabase/migrations/20260829100000_departure_flights.sql",
+      "repository_git_blob_sha": "bae5a227f6b69dfa24241e57d47b20baa88ca549",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260830170000",
+      "path": "nmt-analytics-api/supabase/migrations/20260830170000_departure_accommodation_allotments.sql",
+      "repository_git_blob_sha": "6076a816b63f93e962f207f1f1ce2499cd158190",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260831090000",
+      "path": "nmt-analytics-api/supabase/migrations/20260831090000_reservation_accommodation_room_slots.sql",
+      "repository_git_blob_sha": "b05eff7b35f556d1c000a7244fba7acbf2380f06",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260831103000",
+      "path": "nmt-analytics-api/supabase/migrations/20260831103000_room_slot_requirement_and_capacity_release.sql",
+      "repository_git_blob_sha": "f4942f596f020aa135be23e54ecf740484718462",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260831120000",
+      "path": "nmt-analytics-api/supabase/migrations/20260831120000_plural_reservation_accommodation_requirements.sql",
+      "repository_git_blob_sha": "7f3d3520980231a370ca3b6951d18044e2852486",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260831200000",
+      "path": "nmt-analytics-api/supabase/migrations/20260831200000_seed_record_registry.sql",
+      "repository_git_blob_sha": "a6ceb812ec2fd2abc668cbeef85823dd02799aca",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260831210000",
+      "path": "nmt-analytics-api/supabase/migrations/20260831210000_security_definer_function_privileges.sql",
+      "repository_git_blob_sha": "1d65033b5a11ca67127183b18207681528036f52",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260831220000",
+      "path": "nmt-analytics-api/supabase/migrations/20260831220000_fix_release_capacity_public_privilege.sql",
+      "repository_git_blob_sha": "291e3aaf51f3922b4d64e48dbdf64e53e67d0261",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260831223011",
+      "path": "nmt-analytics-api/supabase/migrations/20260831223011_enforce_departure_passenger_capacity.sql",
+      "repository_git_blob_sha": "a475946fc3c72358c923dbc4e55b4c180e89df37",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260901171846",
+      "path": "nmt-analytics-api/supabase/migrations/20260901171846_fix_reserve_capacity_atomic_canonical_occupancy.sql",
+      "repository_git_blob_sha": "958be90f17150f7eb54ad65adea8567a919aa8e0",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260901200446",
+      "path": "nmt-analytics-api/supabase/migrations/20260901200446_departure_transport_identity.sql",
+      "repository_git_blob_sha": "452ef22b325c9a0dfc317c6f442e9a7633670120",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260902082357",
+      "path": "nmt-analytics-api/supabase/migrations/20260902082357_traveler_requirements.sql",
+      "repository_git_blob_sha": "92997d81f9608e7f22d1a930b71ba174e9d9e6ab",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260902142841",
+      "path": "nmt-analytics-api/supabase/migrations/20260902142841_replace_passenger_group_members.sql",
+      "repository_git_blob_sha": "b7f95e4cedc248a3072d368027f22ce38a916ac3",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260902153611",
+      "path": "nmt-analytics-api/supabase/migrations/20260902153611_safe_passenger_removal.sql",
+      "repository_git_blob_sha": "689a40465da73cdf114af4a6f8f24f2b26f8f4fa",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260902160600",
+      "path": "nmt-analytics-api/supabase/migrations/20260902160600_safe_passenger_removal_lock_race.sql",
+      "repository_git_blob_sha": "4d7560ca7e58e049f6595d21a86e8be4ea0f2135",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260902210057",
+      "path": "nmt-analytics-api/supabase/migrations/20260902210057_manual_rooming_locks_physical_number.sql",
+      "repository_git_blob_sha": "f66ed9df0e3a5f2019016c5cc554e66080d15728",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260903080000",
+      "path": "nmt-analytics-api/supabase/migrations/20260903080000_apply_rooming_proposal_atomic.sql",
+      "repository_git_blob_sha": "70ae65c272e57eb2444902121cc95dc5a04eb762",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260903131913",
+      "path": "nmt-analytics-api/supabase/migrations/20260903131913_apply_rooming_proposal_lock_race.sql",
+      "repository_git_blob_sha": "b5f56ea94aee0a6de72fd4af6e252756611573f2",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260903135500",
+      "path": "nmt-analytics-api/supabase/migrations/20260903135500_apply_rooming_proposal_atomic_fix.sql",
+      "repository_git_blob_sha": "43ba9b8d53a555a06f2944c69ccb91247af585fd",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260904000000",
+      "path": "nmt-analytics-api/supabase/migrations/20260904000000_bus_vehicle_seating_foundation.sql",
+      "repository_git_blob_sha": "8cde307a46c732e6a2bf15588a38665cdeba25ca",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20260904010000",
+      "path": "nmt-analytics-api/supabase/migrations/20260904010000_m11_manual_seat_atomic_rpcs.sql",
+      "repository_git_blob_sha": "0d18f3c531879c345482959648000a4a6ef335db",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260905000000",
+      "path": "nmt-analytics-api/supabase/migrations/20260905000000_apply_seating_proposal_atomic.sql",
+      "repository_git_blob_sha": "03d8fb1e9606abb0b339cdfff886357e3ecda8fe",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260906000000",
+      "path": "nmt-analytics-api/supabase/migrations/20260906000000_replace_installment_schedule_atomic.sql",
+      "repository_git_blob_sha": "ac7e5bf042923fa8bca8afdb08ba0ea75aa4114e",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260909141847",
+      "path": "nmt-analytics-api/supabase/migrations/20260909141847_m14_3_departure_cost_items.sql",
+      "repository_git_blob_sha": "cfa2da63e3dbf553189e54f554062a36e1bf0009",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20260910123426",
+      "path": "nmt-analytics-api/supabase/migrations/20260910123426_finance_11_5_package_cost_items.sql",
+      "repository_git_blob_sha": "9559909ccef71d17b9f6aa0dfffe059e34773621",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20261008000000",
+      "path": "nmt-analytics-api/supabase/migrations/20261008000000_m16_supplier_confirmation_tracking.sql",
+      "repository_git_blob_sha": "573fc1f200ac8ce933e679feec10bbd7987450b1",
+      "production_recorded": true,
+      "production_statement_archive_available": false
+    },
+    {
+      "version": "20261010190000",
+      "path": "nmt-analytics-api/supabase/migrations/20261010190000_m16_atomic_confirmation_events.sql",
+      "repository_git_blob_sha": "25b0c813a585e77c1517fa14fe4b6814476b5e75",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20261011000000",
+      "path": "nmt-analytics-api/supabase/migrations/20261011000000_close_legacy_financial_writes.sql",
+      "repository_git_blob_sha": "69b5270a717844f82a7ddbfaf31988fe76c38ecd",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20261011200000",
+      "path": "nmt-analytics-api/supabase/migrations/20261011200000_new_sale_idempotency.sql",
+      "repository_git_blob_sha": "dd0b780ee32247b52f57cb042dc5437ddcb790bd",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20261012010000",
+      "path": "nmt-analytics-api/supabase/migrations/20261012010000_fix_vehicle_atomic_return_aggregation.sql",
+      "repository_git_blob_sha": "508d516567ccc7c78c3a6b439d00ac963d274401",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20261015001111",
+      "path": "nmt-analytics-api/supabase/migrations/20261015001111_accepted_quotation_lock.sql",
+      "repository_git_blob_sha": "30b8ad27770d53703b43e54a1fcd32789bc43f5c",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20261015002914",
+      "path": "nmt-analytics-api/supabase/migrations/20261015002914_atomic_quotation_snapshot.sql",
+      "repository_git_blob_sha": "d9d81c4b80f68c22aad46b07d6f71656fd5c7b72",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20261015081531",
+      "path": "nmt-analytics-api/supabase/migrations/20261015081531_quotation_booking.sql",
+      "repository_git_blob_sha": "db83c4b3a08f0d2f36c5466fd60710a044465664",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20261015142608",
+      "path": "nmt-analytics-api/supabase/migrations/20261015142608_supplier_payables.sql",
+      "repository_git_blob_sha": "e4f97bdd3dbc0814d0010c1ea3ea1c1d5c1155b9",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20261015153728",
+      "path": "nmt-analytics-api/supabase/migrations/20261015153728_supplier_payables_overview.sql",
+      "repository_git_blob_sha": "42b0181961bcabc6d6460c942c924641b4f9b3d7",
+      "production_recorded": true,
+      "production_statement_archive_available": true
+    },
+    {
+      "version": "20261016000000",
+      "path": "nmt-analytics-api/supabase/migrations/20261016000000_public_form_context_enrichment.sql",
+      "repository_git_blob_sha": "c90fa8ef9ca3de2967f2164f76328eae10131637",
+      "production_recorded": false,
+      "production_statement_archive_available": null
+    }
+  ]
+}
