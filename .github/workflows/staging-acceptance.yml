@@ -77,6 +77,11 @@ jobs:
             -Atc "select version(), current_setting('server_version_num');" \
             > "$GITHUB_WORKSPACE/$ACCEPTANCE_EVIDENCE_DIR/postgres-version.txt"
 
+      - name: Verify privileged function ACLs and passenger-group triggers
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/database-function-security.sql
+
       - name: Create isolated API and admin environment
         run: |
           cat > nmt-analytics-api/.env <<EOF
@@ -185,3 +190,4 @@ jobs:
         if: always()
         working-directory: nmt-analytics-api
         run: supabase stop --no-backup
+
