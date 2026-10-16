@@ -24,10 +24,11 @@ Compared all migration filenames on `main` at `32fbb2df4b69fe13c048cf357a5287c1e
 | Matching version identities | 110 |
 | Missing from production | `20261016000000_public_form_context_enrichment.sql` only |
 | Unexpected production versions | 0 |
-| Production entries with archived SQL statements | 66 |
-| Production entries without archived SQL statements | 44 |
+| Production entries with nonempty archived SQL statements | 65 |
+| Production entries with NULL SQL archives | 44 |
+| Production entries with an empty SQL archive | 1 (`20260902210057`) |
 
-This completes the version-set comparison, **not** SQL-body or schema equivalence. Git blob SHAs in the inventory identify the exact repository files; they are not production SQL checksums. The 44 missing statement archives prevent claiming historical SQL equality from migration records alone. Reconstructed migrations and schema/ACL state still require review before deployment.
+This completes the version-set comparison, **not** SQL-body or schema equivalence. Git blob SHAs in the inventory identify the exact repository files; they are not production SQL checksums. There are 45 entries without usable archived SQL: 44 NULL archives and one empty array for `20260902210057_manual_rooming_locks_physical_number`. These prevent claiming historical SQL equality from migration records alone. Reconstructed migrations and schema/ACL state still require review before deployment.
 
 PR [#111](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/111) adds `20261016110719_database_function_security.sql`; it remains outside `main` and production while open. If merged, expected repository count becomes 112 and the pending production list must include both `20261016000000` and `20261016110719`. Apply any separately approved deployment in migration-version order; do not mark either version applied without executing and validating the reviewed SQL.
 
@@ -65,7 +66,7 @@ The remaining actual production hardening actions are deployment of reviewed pen
 ## Go/no-go evidence checklist
 
 - [x] Complete version-set comparison recorded: 110 matching, only `20261016000000` missing, zero unexpected versions (snapshot above)
-- [ ] SQL-body/schema/ACL equivalence and pending migration impact reviewed; 44 historical SQL archives are unavailable
+- [ ] SQL-body/schema/ACL equivalence and pending migration impact reviewed; 45 historical SQL archives are unusable (44 NULL, one empty)
 - [ ] Pending public-form migration reviewed for backward compatibility, tenant scoping, and runtime safety
 - [ ] Backup type, latest successful backup, retention and PITR status verified
 - [ ] Authorized isolated restore successfully rehearsed
