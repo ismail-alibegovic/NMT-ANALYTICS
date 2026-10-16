@@ -1,4 +1,5 @@
 import { logCommunicationHistory } from '../communicationHistory';
+import { resolveOrgEmailProvider } from './orgEmailProvider';
 
 export interface EmailOptions {
     to: string;
@@ -50,6 +51,7 @@ export class UnconfiguredEmailProvider implements EmailProvider {
 export class EmailService {
     private static provider: EmailProvider = new MockEmailProvider();
 
+    /** Boot-time platform provider only. Never call this from a tenant-scoped request. */
     static setProvider(provider: EmailProvider) {
         this.provider = provider;
     }
@@ -60,10 +62,16 @@ export class EmailService {
             orgId?: string | null;
             relatedReservationId?: string | null;
             relatedDepartureId?: string | null;
-        } = {}
+        } = {},
+        providerOverride?: EmailProvider
     ) {
         try {
-            await this.provider.sendEmail(options);
+            // Explicit provider (manual/test sends) > the sending org's own SMTP > platform provider.
+            // The platform provider is only ever set at boot from SMTP_CONFIG (or fail-closed in production).
+            const provider = providerOverride
+                ?? (context.orgId ? await resolveOrgEmailProvider(context.orgId) : null)
+                ?? this.provider;
+            await provider.sendEmail(options);
 
             if (context.orgId) {
                 await logCommunicationHistory({
@@ -155,11 +163,11 @@ export class EmailService {
         orgId: string;
         relatedReservationId?: string | null;
         relatedDepartureId?: string | null;
-    }) {
+    }, provider?: EmailProvider) {
         return this.sendAndLog(options, {
             orgId: options.orgId,
             relatedReservationId: options.relatedReservationId ?? null,
             relatedDepartureId: options.relatedDepartureId ?? null,
-        });
+        }, provider);
     }
 }

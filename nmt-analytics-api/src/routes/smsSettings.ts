@@ -138,6 +138,10 @@ router.post('/', auditSmsSettingsUpdate, requireMinimumRole('director'), async (
 
     const config = smsConfigSchema.parse(body);
 
+    if (config.provider === 'mock' && process.env.NODE_ENV === 'production') {
+      return apiError(res, 400, 'SMS_MOCK_NOT_ALLOWED', 'The mock SMS provider cannot be used in production');
+    }
+
     await supabaseAdmin
       .from('org_settings')
       .upsert(
@@ -148,8 +152,6 @@ router.post('/', auditSmsSettingsUpdate, requireMinimumRole('director'), async (
         },
         { onConflict: 'org_id,key' }
       );
-
-    SmsService.setProvider(createSmsProvider(config));
 
     return res.json({ success: true, message: 'SMS configuration saved and activated' });
   } catch (err: any) {
@@ -188,14 +190,13 @@ router.post('/test', auditSmsSettingsTest, requireMinimumRole('director'), async
     }
 
     const provider = createSmsProvider(config);
-    SmsService.setProvider(provider);
 
     await SmsService.sendSms({
       to,
       fromName: sender.sms_sender_name || null,
       fromNumber: effectiveSenderNumber || null,
       message: message || 'Travline SMS configuration is working correctly.',
-    });
+    }, provider);
 
     return res.json({ success: true, message: 'Test SMS sent' });
   } catch (err: any) {

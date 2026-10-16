@@ -37,7 +37,7 @@ vi.mock('../lib/sms/SmsService', async () => {
     createSmsProvider: vi.fn(() => ({ sendSms })),
     SmsService: {
       setProvider: (provider: any) => setProvider(provider),
-      sendSms: (options: any) => sendSms(options),
+      sendSms: (options: any, provider: any) => provider.sendSms(options),
     },
   };
 });
@@ -114,13 +114,27 @@ describe('sms settings route', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(setProvider).toHaveBeenCalledTimes(1);
+    // The test send uses the org's provider explicitly and never installs it process-wide.
+    expect(setProvider).not.toHaveBeenCalled();
     expect(sendSms).toHaveBeenCalledWith({
       to: '+38761123456',
       fromName: 'Travline',
       fromNumber: '+38761111222',
       message: 'Travline SMS configuration is working correctly.',
     });
+  });
+
+  it('rejects saving the mock provider in production', async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const res = await request(app()).post('/settings/sms').send({ provider: 'mock' });
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('SMS_MOCK_NOT_ALLOWED');
+      expect(orgSettings.has('org-1:sms_config')).toBe(false);
+    } finally {
+      process.env.NODE_ENV = original;
+    }
   });
 
   it('returns missing configuration when org sms config is absent and no env fallback', async () => {

@@ -116,7 +116,8 @@ describe('email settings route', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(storedConfig).toEqual(validConfig);
-    expect(setProvider).toHaveBeenCalledTimes(1);
+    // Saving must never install this org's SMTP as the process-wide provider.
+    expect(setProvider).not.toHaveBeenCalled();
   });
 
   it('rejects invalid SMTP config', async () => {
@@ -134,7 +135,7 @@ describe('email settings route', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(setProvider).toHaveBeenCalledTimes(1);
+    expect(setProvider).not.toHaveBeenCalled();
     expect(sendEmail).toHaveBeenCalledWith({
       to: 'qa@example.ba',
       subject: 'Travline — SMTP Test',

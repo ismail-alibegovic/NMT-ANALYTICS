@@ -95,8 +95,6 @@ export async function sendManualEmailForOrg(
     throw new Error('SMTP_NOT_CONFIGURED');
   }
 
-  EmailService.setProvider(new SmtpEmailProvider(config));
-
   await EmailService.sendManualMessage({
     to: payload.recipient,
     subject: payload.subject,
@@ -104,7 +102,7 @@ export async function sendManualEmailForOrg(
     orgId: payload.orgId,
     relatedReservationId: payload.relatedReservationId ?? null,
     relatedDepartureId: payload.relatedDepartureId ?? null,
-  });
+  }, new SmtpEmailProvider(config));
 }
 
 export async function sendManualSmsForOrg(
@@ -136,7 +134,6 @@ export async function sendManualSmsForOrg(
     throw new Error('SMS_SENDER_MISSING');
   }
 
-  SmsService.setProvider(createSmsProvider(config));
   await SmsService.sendManualMessage({
     to: payload.recipient,
     message: payload.body,
@@ -145,5 +142,5 @@ export async function sendManualSmsForOrg(
     orgId: payload.orgId,
     relatedReservationId: payload.relatedReservationId ?? null,
     relatedDepartureId: payload.relatedDepartureId ?? null,
-  });
+  }, createSmsProvider(config));
 }
