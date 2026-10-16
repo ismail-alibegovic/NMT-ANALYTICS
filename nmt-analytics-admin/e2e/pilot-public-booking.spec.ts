@@ -57,8 +57,10 @@ for (const scenario of scenarios) {
 
     const context = await browser.newContext({ locale: scenario.locale, viewport: { width: scenario.width, height: 900 } });
     const page = await context.newPage();
-    // A genuinely different origin than the app, as on an agency's own website.
-    const hostOrigin = 'http://agency-site.test';
+    // A genuinely different origin than the app (localhost vs 127.0.0.1), as on an agency's own website.
+    // It is a loopback origin on purpose: Chromium's Local Network Access checks refuse to let a
+    // "public" host frame the loopback test server, which is a harness limit and not a product one.
+    const hostOrigin = 'http://localhost:4999';
     await page.route(`${hostOrigin}/**`, (route) =>
       route.fulfill({
         contentType: 'text/html',
