@@ -12,8 +12,7 @@ import Button from "../../components/ui/button/Button";
 import DepartureFormModal from "../../components/departures/DepartureFormModal";
 import type { TravelerRequirements } from "../../api/packages";
 import { DEFAULT_TRAVELER_REQUIREMENTS } from "../../components/travelers/TravelerRequirementsFields";
-import ImportModal from "../../components/import/ImportModal";
-import { FileIcon, TableIcon, CalenderIcon } from "../../icons";
+import { TableIcon, CalenderIcon } from "../../icons";
 import DepartureCalendarView from "../../components/departures/DepartureCalendarView";
 import {
   getDepartures,
@@ -44,7 +43,6 @@ export default function Departures() {
   const [totalItems, setTotalItems] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [isImportOpen, setIsImportOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingDeparture, setEditingDeparture] = useState<Departure | null>(null);
@@ -343,16 +341,6 @@ export default function Departures() {
         onSearchChange={(query) => setSearchQuery(query)}
         searchPlaceholder="Traži polaske..."
         createButton={{ label: "Dodaj polazak", onClick: handleCreate }}
-        actions={
-          <Button
-            variant="outline"
-            onClick={() => setIsImportOpen(true)}
-            className="flex items-center gap-2"
-          >
-            <FileIcon className="w-4 h-4" />
-            Import CSV
-          </Button>
-        }
       />
 
       {/* View Toggle + Filters Row */}
@@ -463,16 +451,6 @@ export default function Departures() {
       {viewMode === "calendar" && (
         <DepartureCalendarView departures={departures} loading={loading} />
       )}
-
-      <ImportModal
-        entity="departures"
-        isOpen={isImportOpen}
-        onClose={() => setIsImportOpen(false)}
-        onSuccess={() => {
-          setIsImportOpen(false);
-          fetchDepartures(currentPage);
-        }}
-      />
 
       <DepartureFormModal
         isOpen={modalOpen}
