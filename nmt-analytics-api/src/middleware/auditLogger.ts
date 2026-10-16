@@ -98,7 +98,7 @@ export function auditLog(
     // Override res.json to capture response
     res.json = function(body: unknown): Response {
       // Only log successful operations (2xx status)
-      if (res.statusCode >= 200 && res.statusCode < 300) {
+      if (res.statusCode >= 200 && res.statusCode < 300 && !res.locals.idempotentReplay) {
         const entry: AuditLogEntry = {
           org_id: req.orgId!,
           user_id: req.user?.id || 'unknown',
@@ -231,3 +231,4 @@ export const auditSettingsUpdate = auditLog('UPDATE', 'settings', undefined, und
 
 export const auditUserLogin = auditLog('LOGIN', 'user', undefined, undefined);
 export const auditUserLogout = auditLog('LOGOUT', 'user', undefined, undefined);
+
