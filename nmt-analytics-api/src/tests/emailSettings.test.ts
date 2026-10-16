@@ -6,6 +6,7 @@ let storedConfig: any = null;
 let saveError = false;
 const sendEmail = vi.fn(async () => undefined);
 const setProvider = vi.fn();
+const verifyConfig = vi.fn(async () => ({ ok: true }));
 
 vi.mock('../middleware/authenticateToken', () => ({
   authenticateToken: (req: any, _res: any, next: any) => {
@@ -42,6 +43,7 @@ vi.mock('../lib/email/SmtpProvider', () => ({
       this.config = config;
     }
     sendEmail = sendEmail;
+    static verifyConfig = (...args: any[]) => (verifyConfig as any)(...args);
   },
 }));
 
@@ -93,6 +95,7 @@ describe('email settings route', () => {
     saveError = false;
     sendEmail.mockClear();
     setProvider.mockClear();
+    verifyConfig.mockClear();
   });
 
   it('returns saved email config with masked password', async () => {
@@ -145,6 +148,15 @@ describe('email settings route', () => {
     const res = await request(app()).post('/settings/email/test').send({});
     expect(res.status).toBe(400);
     expect(JSON.stringify(res.body)).not.toContain('smtp-pass');
+  });
+
+  it('verifies saved tenant connectivity without sending a message', async () => {
+    storedConfig = validConfig;
+    const res = await request(app()).post('/settings/email/verify').send({});
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(verifyConfig).toHaveBeenCalledWith(validConfig);
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 
   it('rejects invalid SMTP config', async () => {
