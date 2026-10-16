@@ -1,3 +1,5 @@
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 
 const apiUrl = process.env.E2E_API_URL || 'http://127.0.0.1:3001';
@@ -57,30 +59,37 @@ for (const scenario of scenarios) {
 
     const context = await browser.newContext({ locale: scenario.locale, viewport: { width: scenario.width, height: 900 } });
     const page = await context.newPage();
-    // A genuinely different origin than the app (localhost vs 127.0.0.1), as on an agency's own website.
-    // It is a loopback origin on purpose: Chromium's Local Network Access checks refuse to let a
-    // "public" host frame the loopback test server, which is a harness limit and not a product one.
-    const hostOrigin = 'http://localhost:4999';
-    await page.route(`${hostOrigin}/**`, (route) =>
-      route.fulfill({
-        contentType: 'text/html',
-        body: `<!doctype html><html><body><h1>Agency site</h1><iframe id="travline" title="booking" src="${baseUrl}/public/forms/${slug}?embed=1" width="100%" height="700" style="border:0"></iframe></body></html>`,
-      }),
-    );
-    await page.goto(`${hostOrigin}/trips`);
+    // A real server on a different origin (localhost:<port> vs 127.0.0.1:3001), as on an agency's own
+    // website. It must be a real loopback listener: Playwright-fulfilled pages have no IP and Chromium's
+    // Local Network Access checks then refuse to let them frame the loopback test server.
+    const hostPage = `<!doctype html><html><body><h1>Agency site</h1><iframe id="travline" title="booking" src="${baseUrl}/public/forms/${slug}?embed=1" width="100%" height="700" style="border:0"></iframe></body></html>`;
+    const host: Server = createServer((_req, res) => {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.end(hostPage);
+    });
+    await new Promise<void>((resolve) => host.listen(0, '127.0.0.1', resolve));
+    const hostOrigin = `http://localhost:${(host.address() as AddressInfo).port}`;
+    try {
+      await page.goto(`${hostOrigin}/trips`);
+      await runEmbeddedFlow();
+    } finally {
+      await new Promise<void>((resolve) => host.close(() => resolve()));
+    }
 
-    const frame = page.frameLocator('#travline');
+    async function runEmbeddedFlow() {
+      const frame = page.frameLocator('#travline');
 
-    // Required-field validation runs inside the embed before anything is sent.
-    await frame.locator('button[type="submit"]').click({ timeout: 20_000 });
-    await expect(frame.locator('p.text-red-500').first()).toBeVisible();
+      // Required-field validation runs inside the embed before anything is sent.
+      await frame.locator('button[type="submit"]').click({ timeout: 20_000 });
+      await expect(frame.locator('p.text-red-500').first()).toBeVisible();
 
-    await frame.locator('#contact_name').fill(marker);
-    await frame.locator('#email').fill('embed@example.ba');
-    await frame.locator('#phone').fill('+38761555000');
-    await frame.locator('#destination').fill('Mostar');
-    await frame.locator('button[type="submit"]').click();
-    await expect(frame.getByText(thankYou)).toBeVisible({ timeout: 20_000 });
+      await frame.locator('#contact_name').fill(marker);
+      await frame.locator('#email').fill('embed@example.ba');
+      await frame.locator('#phone').fill('+38761555000');
+      await frame.locator('#destination').fill('Mostar');
+      await frame.locator('button[type="submit"]').click();
+      await expect(frame.getByText(thankYou)).toBeVisible({ timeout: 20_000 });
+    }
     await context.close();
 
     // The submission became an inquiry for the owning tenant only.
