@@ -220,8 +220,10 @@ export class SmsService {
     relatedReservationId?: string | null;
     relatedDepartureId?: string | null;
   }, provider?: SmsProvider) {
+    let accepted = false;
     try {
       await (provider ?? this.provider).sendSms(options);
+      accepted = true;
       await logCommunicationHistory({
         orgId: options.orgId,
         channel: 'sms',
@@ -233,6 +235,7 @@ export class SmsService {
         sentAt: new Date(),
       });
     } catch (error: any) {
+      if (accepted) throw new Error('SMS_ACCEPTED_HISTORY_UNAVAILABLE_DO_NOT_RETRY');
       await logCommunicationHistory({
         orgId: options.orgId,
         channel: 'sms',

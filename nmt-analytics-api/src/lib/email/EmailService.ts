@@ -67,6 +67,7 @@ export class EmailService {
         } = {},
         providerOverride?: EmailProvider
     ) {
+        let accepted = false;
         try {
             // Explicit provider (manual/test sends) > the sending org's own SMTP > platform provider.
             // The platform provider is only ever set at boot from SMTP_CONFIG (or fail-closed in production).
@@ -74,6 +75,7 @@ export class EmailService {
                 ?? (context.orgId ? await resolveOrgEmailProvider(context.orgId) : null)
                 ?? this.provider;
             await provider.sendEmail(options);
+            accepted = true;
 
             if (context.orgId) {
                 await logCommunicationHistory({
@@ -89,6 +91,7 @@ export class EmailService {
                 });
             }
         } catch (error: any) {
+            if (accepted) throw new Error('EMAIL_ACCEPTED_HISTORY_UNAVAILABLE_DO_NOT_RETRY');
             if (context.orgId) {
                 await logCommunicationHistory({
                     orgId: context.orgId,

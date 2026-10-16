@@ -41,13 +41,14 @@ function createSmtpProvider(config: SmtpConfig) {
 // GET /settings/email - Get email config (masked)
 router.get('/', requireMinimumRole('director'), async (req: Request, res: Response) => {
   try {
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from('org_settings')
       .select('value')
       .eq('org_id', req.orgId!)
       .eq('key', 'smtp_config')
       .single();
 
+    if (error && error.code !== 'PGRST116') return apiError(res, 503, 'SMTP_SETTINGS_UNAVAILABLE', 'SMTP settings could not be loaded');
     if (!data) {
       return res.json({ configured: false });
     }
@@ -66,7 +67,7 @@ router.get('/', requireMinimumRole('director'), async (req: Request, res: Respon
       pass: '********',
     });
   } catch {
-    return res.json({ configured: false });
+    return apiError(res, 503, 'SMTP_SETTINGS_UNAVAILABLE', 'SMTP settings could not be loaded');
   }
 });
 
@@ -97,7 +98,7 @@ router.post('/test', auditEmailSettingsTest, requireMinimumRole('director'), asy
     return res.json({ success: true, message: 'Test email sent' });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
-      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid SMTP test request', err.issues);
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid SMTP test request');
     }
     return apiError(res, 400, 'SMTP_TEST_FAILED', 'SMTP provider did not accept the test message');
   }

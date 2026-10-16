@@ -261,6 +261,7 @@ describe('sms settings route', () => {
 
 
 describe('SMS configuration secret boundary', () => {
+  beforeEach(() => { currentOrgId = 'org-1'; saveFailure = false; orgSettings = new Map(); organizations.set('org-1', { sms_sender_name: 'Pilot', sms_sender_number: '+38761111222' }); });
   it('masks every gateway header and preserves masked secrets on update', async () => {
     orgSettings.set('org-1:sms_config', { provider: 'http', endpoint: 'https://sms.example.test/send', headers: { Authorization: 'Bearer private-token', 'X-Custom-Secret': 'private-token' } });
     const read = await request(app()).get('/settings/sms');

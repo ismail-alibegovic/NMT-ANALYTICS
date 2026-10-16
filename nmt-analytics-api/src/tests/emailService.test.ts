@@ -63,3 +63,14 @@ describe('EmailService communication history', () => {
   });
 });
 
+
+it('does not mark provider-accepted email failed or attempt another send when history is unavailable', async () => {
+  EmailService.setProvider({ sendEmail });
+  sendEmail.mockClear(); logCommunicationHistory.mockClear();
+  logCommunicationHistory.mockRejectedValueOnce(new Error('database unavailable'));
+  await expect(EmailService.sendManualMessage({ orgId: 'org-1', to: 'recipient@example.test', subject: 's', body: 'b' }))
+    .rejects.toThrow('EMAIL_ACCEPTED_HISTORY_UNAVAILABLE_DO_NOT_RETRY');
+  expect(sendEmail).toHaveBeenCalledTimes(1);
+  expect(logCommunicationHistory).toHaveBeenCalledTimes(1);
+  expect(logCommunicationHistory).toHaveBeenCalledWith(expect.objectContaining({ status: 'sent' }));
+});
