@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import { supabaseAdmin } from './supabase';
-import { EmailService } from './email/EmailService';
 import { SmtpEmailProvider, type SmtpConfig } from './email/SmtpProvider';
 import {
   SmsService,
   createSmsProvider,
   smsConfigSchema,
   type SmsOptions,
+  type SmsProvider,
   type SmsProviderConfig,
 } from './sms/SmsService';
 import { logCommunicationHistory, type CommunicationHistoryEntry } from './communicationHistory';
@@ -43,11 +43,9 @@ type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
 
 type ReminderDeliveryDeps = {
   supabase: typeof supabaseAdmin;
-  setEmailProvider: typeof EmailService.setProvider;
-  sendEmail: (options: { to: string; subject: string; body: string }) => Promise<void>;
+  sendEmail: (provider: unknown, options: { to: string; subject: string; body: string }) => Promise<void>;
   createEmailProvider: (config: SmtpConfig) => unknown;
-  setSmsProvider: typeof SmsService.setProvider;
-  sendSms: (options: SmsOptions) => Promise<void>;
+  sendSms: (provider: SmsProvider, options: SmsOptions) => Promise<void>;
   createSmsProvider: typeof createSmsProvider;
   logCommunication: (entry: CommunicationHistoryEntry) => Promise<unknown>;
   logger: Logger;
@@ -76,14 +74,10 @@ export type ReminderDeliverySummary = {
 
 const defaultDeps: ReminderDeliveryDeps = {
   supabase: supabaseAdmin,
-  setEmailProvider: EmailService.setProvider.bind(EmailService),
-  sendEmail: (options) => {
-    const provider = (EmailService as unknown as { provider: { sendEmail: (options: { to: string; subject: string; body: string }) => Promise<void> } }).provider;
-    return provider.sendEmail(options);
-  },
+  sendEmail: (provider, options) =>
+    (provider as { sendEmail: (options: { to: string; subject: string; body: string }) => Promise<void> }).sendEmail(options),
   createEmailProvider: (config) => new SmtpEmailProvider(config),
-  setSmsProvider: SmsService.setProvider.bind(SmsService),
-  sendSms: SmsService.sendSms.bind(SmsService),
+  sendSms: (provider, options) => SmsService.sendSms(options, provider),
   createSmsProvider,
   logCommunication: (entry) => logCommunicationHistory(entry),
   logger: console,
@@ -229,8 +223,7 @@ async function deliverReminderChannels(
     });
   } else {
     try {
-      deps.setEmailProvider(deps.createEmailProvider(context.smtpConfig) as never);
-      await deps.sendEmail({
+      await deps.sendEmail(deps.createEmailProvider(context.smtpConfig), {
         to: context.emailRecipient,
         subject: notification.title,
         body: notification.body || 'Upcoming departure reminder',
@@ -309,8 +302,7 @@ async function deliverReminderChannels(
     });
   } else {
     try {
-      deps.setSmsProvider(deps.createSmsProvider(context.smsConfig));
-      await deps.sendSms({
+      await deps.sendSms(deps.createSmsProvider(context.smsConfig), {
         to: context.smsRecipient,
         fromName: context.smsSenderName,
         fromNumber: effectiveSenderNumber || null,

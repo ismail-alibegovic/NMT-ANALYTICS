@@ -7,17 +7,17 @@ let smsFailure: Error | null = null;
 
 const mocks = vi.hoisted(() => ({
   setEmailProvider: vi.fn(),
-  sendManualEmail: vi.fn(async (payload: any) => payload),
+  sendManualEmail: vi.fn(async (payload: any, _provider?: any) => payload),
   setSmsProvider: vi.fn(),
-  sendManualSms: vi.fn(async (payload: any) => payload),
+  sendManualSms: vi.fn(async (payload: any, _provider?: any) => payload),
 }));
 
 vi.mock('../lib/email/EmailService', () => ({
   EmailService: {
     setProvider: mocks.setEmailProvider,
-    sendManualMessage: async (payload: any) => {
+    sendManualMessage: async (payload: any, provider: any) => {
       if (emailFailure) throw emailFailure;
-      return mocks.sendManualEmail(payload);
+      return mocks.sendManualEmail(payload, provider);
     },
   },
 }));
@@ -32,9 +32,9 @@ vi.mock('../lib/sms/SmsService', () => ({
   createSmsProvider: vi.fn((config: any) => ({ config })),
   SmsService: {
     setProvider: mocks.setSmsProvider,
-    sendManualMessage: async (payload: any) => {
+    sendManualMessage: async (payload: any, provider: any) => {
       if (smsFailure) throw smsFailure;
-      return mocks.sendManualSms(payload);
+      return mocks.sendManualSms(payload, provider);
     },
   },
 }));
@@ -102,7 +102,8 @@ describe('manual messaging helpers', () => {
       relatedDepartureId: 'dep-1',
     });
 
-    expect(mocks.setEmailProvider).toHaveBeenCalledTimes(1);
+    expect(mocks.setEmailProvider).not.toHaveBeenCalled();
+    expect(mocks.sendManualEmail.mock.calls[0][1]).toMatchObject({ config: expect.any(Object) });
     expect(mocks.sendManualEmail).toHaveBeenCalledWith(expect.objectContaining({
       to: 'guest@example.ba',
       subject: 'Subject',
@@ -110,7 +111,7 @@ describe('manual messaging helpers', () => {
       orgId: 'org-1',
       relatedReservationId: 'res-1',
       relatedDepartureId: 'dep-1',
-    }));
+    }), expect.anything());
   });
 
   it('sends departure SMS through configured provider with history linkage', async () => {
@@ -128,7 +129,8 @@ describe('manual messaging helpers', () => {
       relatedDepartureId: 'dep-1',
     });
 
-    expect(mocks.setSmsProvider).toHaveBeenCalledTimes(1);
+    expect(mocks.setSmsProvider).not.toHaveBeenCalled();
+    expect(mocks.sendManualSms.mock.calls[0][1]).toMatchObject({ config: expect.any(Object) });
     expect(mocks.sendManualSms).toHaveBeenCalledWith(expect.objectContaining({
       to: '+38761111000',
       message: 'Reminder body',
@@ -136,7 +138,7 @@ describe('manual messaging helpers', () => {
       fromNumber: '+38761123456',
       orgId: 'org-1',
       relatedDepartureId: 'dep-1',
-    }));
+    }), expect.anything());
   });
 
   it('rejects missing email config', async () => {

@@ -70,8 +70,6 @@ const validSmtpConfig = {
 describe('runUpcomingDepartureReminderDelivery', () => {
   const sendEmail = vi.fn(async () => undefined);
   const sendSms = vi.fn(async () => undefined);
-  const setEmailProvider = vi.fn();
-  const setSmsProvider = vi.fn();
   const createEmailProvider = vi.fn((config) => ({ config }));
   const createSmsProvider = vi.fn((config) => ({ config }));
   const logCommunication = vi.fn(async () => undefined);
@@ -80,8 +78,6 @@ describe('runUpcomingDepartureReminderDelivery', () => {
   beforeEach(() => {
     sendEmail.mockClear();
     sendSms.mockClear();
-    setEmailProvider.mockClear();
-    setSmsProvider.mockClear();
     createEmailProvider.mockClear();
     createSmsProvider.mockClear();
     logCommunication.mockClear();
@@ -100,10 +96,8 @@ describe('runUpcomingDepartureReminderDelivery', () => {
 
     const result = await runUpcomingDepartureReminderDelivery({
       supabase: supabase as any,
-      setEmailProvider,
       sendEmail,
       createEmailProvider,
-      setSmsProvider,
       sendSms,
       createSmsProvider: createSmsProvider as any,
       logCommunication,
@@ -127,10 +121,8 @@ describe('runUpcomingDepartureReminderDelivery', () => {
 
     const result = await runUpcomingDepartureReminderDelivery({
       supabase: supabase as any,
-      setEmailProvider,
       sendEmail,
       createEmailProvider,
-      setSmsProvider,
       sendSms,
       createSmsProvider: createSmsProvider as any,
       logCommunication,
@@ -138,7 +130,7 @@ describe('runUpcomingDepartureReminderDelivery', () => {
     });
 
     expect(result.emailSent).toBe(1);
-    expect(sendEmail).toHaveBeenCalledWith({
+    expect(sendEmail).toHaveBeenCalledWith(expect.anything(), {
       to: 'ops@example.ba',
       subject: 'Podsjetnik',
       body: 'Polazak sutra',
@@ -169,10 +161,8 @@ describe('runUpcomingDepartureReminderDelivery', () => {
 
     const result = await runUpcomingDepartureReminderDelivery({
       supabase: supabase as any,
-      setEmailProvider,
       sendEmail,
       createEmailProvider,
-      setSmsProvider,
       sendSms,
       createSmsProvider: createSmsProvider as any,
       logCommunication,
@@ -180,7 +170,7 @@ describe('runUpcomingDepartureReminderDelivery', () => {
     });
 
     expect(result.smsSent).toBe(1);
-    expect(sendSms).toHaveBeenCalledWith({
+    expect(sendSms).toHaveBeenCalledWith(expect.anything(), {
       to: '+38761111222',
       fromName: 'Travline',
       fromNumber: '+38763333444',
@@ -205,10 +195,8 @@ describe('runUpcomingDepartureReminderDelivery', () => {
 
     const result = await runUpcomingDepartureReminderDelivery({
       supabase: supabase as any,
-      setEmailProvider,
       sendEmail,
       createEmailProvider,
-      setSmsProvider,
       sendSms,
       createSmsProvider: createSmsProvider as any,
       logCommunication,
@@ -243,10 +231,8 @@ describe('runUpcomingDepartureReminderDelivery', () => {
 
     const result = await runUpcomingDepartureReminderDelivery({
       supabase: supabase as any,
-      setEmailProvider,
       sendEmail,
       createEmailProvider,
-      setSmsProvider,
       sendSms,
       createSmsProvider: createSmsProvider as any,
       logCommunication,
@@ -277,10 +263,8 @@ describe('runUpcomingDepartureReminderDelivery', () => {
 
     const result = await runUpcomingDepartureReminderDelivery({
       supabase: supabase as any,
-      setEmailProvider,
       sendEmail,
       createEmailProvider,
-      setSmsProvider,
       sendSms,
       createSmsProvider: createSmsProvider as any,
       logCommunication,
@@ -322,22 +306,23 @@ describe('runUpcomingDepartureReminderDelivery', () => {
 
     await runUpcomingDepartureReminderDelivery({
       supabase: supabase as any,
-      setEmailProvider,
       sendEmail,
       createEmailProvider,
-      setSmsProvider,
       sendSms,
       createSmsProvider: createSmsProvider as any,
       logCommunication,
       logger,
     });
 
-    expect(sendEmail).toHaveBeenNthCalledWith(1, {
+    // Each org's reminder is sent through a provider built from that org's own SMTP config.
+    expect(sendEmail).toHaveBeenNthCalledWith(1, expect.objectContaining({ config: validSmtpConfig }), {
       to: 'ops1@example.ba',
       subject: 'Podsjetnik 1',
       body: 'Polazak sutra 1',
     });
-    expect(sendEmail).toHaveBeenNthCalledWith(2, {
+    expect(sendEmail).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      config: expect.objectContaining({ user: 'second-user', fromEmail: 'ops2@example.ba' }),
+    }), {
       to: 'ops2@example.ba',
       subject: 'Podsjetnik 2',
       body: 'Polazak sutra 2',
