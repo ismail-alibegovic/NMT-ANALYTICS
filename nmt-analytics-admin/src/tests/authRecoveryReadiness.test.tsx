@@ -10,6 +10,7 @@ vi.mock('../lib/supabase', () => ({ supabase: { auth: {
 } } }));
 vi.mock('../lib/authSession', () => ({ clearLocalAuthStorage: h.clear }));
 vi.mock('react-router', async importOriginal => ({ ...(await importOriginal<typeof import('react-router')>()), useNavigate: () => h.navigate }));
+vi.mock('../icons', () => ({ ChevronLeftIcon: () => null, EyeCloseIcon: () => null, EyeIcon: () => null }));
 function show() { return render(<MemoryRouter><I18nProvider><ResetPasswordForm /></I18nProvider></MemoryRouter>); }
 beforeEach(() => {
   vi.clearAllMocks(); localStorage.setItem('travline_lang', 'en'); window.history.replaceState(null, '', '/auth/reset-password');
