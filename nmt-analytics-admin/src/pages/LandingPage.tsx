@@ -1,252 +1,223 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useT } from "../lib/i18n/context";
 import PageMeta from "../components/common/PageMeta";
-import ThemeTogglerTwo from "../components/common/ThemeTogglerTwo";
+import LandingNav from "../components/landing/LandingNav";
+import LandingFooter from "../components/landing/LandingFooter";
+import { ArrowRight, Reveal } from "../components/landing/primitives";
 import {
-  ArrowRightIcon,
-  BoxIconLine,
-  CalenderIcon,
-  CheckCircleIcon,
-  DollarLineIcon,
-  LockIcon,
-  TableIcon,
-} from "../icons";
+  BenefitArt,
+  BookingPreview,
+  CommunicationPreview,
+  DeparturePreview,
+  HeroDashboard,
+  OperationsPreview,
+  PassengerPreview,
+  PaymentsPreview,
+  RevenuePreview,
+} from "../components/landing/previews";
+
+const container = "mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8";
+const outlineBtn =
+  "inline-flex items-center gap-1.5 rounded-lg border border-lp-border bg-white px-4 py-2 text-[13px] font-semibold text-lp-text transition-all hover:-translate-y-0.5 hover:border-lp-primary/40 hover:text-lp-primary";
+
+function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className="mx-auto max-w-2xl text-center">
+      <h2 className="text-balance text-3xl font-semibold tracking-tight text-lp-text sm:text-[40px] sm:leading-[1.15]">{title}</h2>
+      {subtitle && <p className="mt-4 text-base leading-relaxed text-lp-muted">{subtitle}</p>}
+    </div>
+  );
+}
+
+function FeatureSplit({
+  id,
+  title,
+  desc,
+  cta,
+  href,
+  preview,
+  previewFirst,
+}: {
+  id?: string;
+  title: string;
+  desc: string;
+  cta: string;
+  href: string;
+  preview: ReactNode;
+  previewFirst: boolean;
+}) {
+  return (
+    <div id={id} className="scroll-mt-24 grid items-center gap-10 lg:grid-cols-2 lg:gap-20">
+      <Reveal className={previewFirst ? "" : "lg:order-2"}>
+        <div className="rounded-3xl border border-lp-border bg-gradient-to-br from-lp-soft to-white p-6 sm:p-10">{preview}</div>
+      </Reveal>
+      <Reveal delay={100} className={previewFirst ? "" : "lg:order-1"}>
+        <h3 className="text-balance text-2xl font-semibold tracking-tight text-lp-text sm:text-[32px] sm:leading-[1.2]">{title}</h3>
+        <p className="mt-4 max-w-md text-[15px] leading-relaxed text-lp-muted">{desc}</p>
+        <a href={href} className={`${outlineBtn} mt-7`}>
+          {cta}
+          <ArrowRight className="size-3.5" />
+        </a>
+      </Reveal>
+    </div>
+  );
+}
 
 export default function LandingPage() {
-  const { t, lang, setLang } = useT();
+  const { t } = useT();
   const l = t.landing;
 
+  const trust = [l.trust1, l.trust2, l.trust3, l.trust4, l.trust5];
   const features = [
-    {
-      title: l.f1Title,
-      desc: l.f1Desc,
-      icon: TableIcon,
-      color: "from-blue-500/10 to-indigo-500/10 text-brand-600 dark:text-brand-400 border-blue-500/20",
-    },
-    {
-      title: l.f2Title,
-      desc: l.f2Desc,
-      icon: CalenderIcon,
-      color: "from-sky-500/10 to-blue-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
-    },
-    {
-      title: l.f3Title,
-      desc: l.f3Desc,
-      icon: BoxIconLine,
-      color: "from-indigo-500/10 to-purple-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
-    },
-    {
-      title: l.f4Title,
-      desc: l.f4Desc,
-      icon: DollarLineIcon,
-      color: "from-emerald-500/10 to-teal-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-    },
-    {
-      title: l.f5Title,
-      desc: l.f5Desc,
-      icon: CheckCircleIcon,
-      color: "from-amber-500/10 to-orange-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
-    },
-    {
-      title: l.f6Title,
-      desc: l.f6Desc,
-      icon: LockIcon,
-      color: "from-purple-500/10 to-pink-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
-    },
+    { id: "feature-bookings", label: l.f1Label, title: l.f1Title, desc: l.f1Desc, preview: <BookingPreview /> },
+    { id: "feature-passengers", label: l.f2Label, title: l.f2Title, desc: l.f2Desc, preview: <PassengerPreview /> },
+    { id: "feature-departures", label: l.f3Label, title: l.f3Title, desc: l.f3Desc, preview: <DeparturePreview /> },
+    { id: "feature-payments", label: l.f4Label, title: l.f4Title, desc: l.f4Desc, preview: <PaymentsPreview /> },
+  ];
+  const benefits = [
+    { title: l.b1Title, desc: l.b1Desc },
+    { title: l.b2Title, desc: l.b2Desc },
+    { title: l.b3Title, desc: l.b3Desc },
   ];
 
   return (
-    <div className="relative min-h-screen bg-slate-50 text-gray-900 selection:bg-brand-500 selection:text-white dark:bg-gray-950 dark:text-white">
-      <PageMeta
-        title={`Travline — ${t.app.tagline}`}
-        description={l.heroSubtitle}
-      />
+    <div className="lp-root relative overflow-x-clip bg-white font-outfit text-lp-text antialiased selection:bg-lp-primary selection:text-white">
+      <PageMeta title={`Travline — ${l.heroTitle}`} description={l.heroSubtitle} />
+      <LandingNav />
 
-      {/* Decorative ambient background gradients */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 flex justify-center overflow-hidden">
-        <div className="h-[500px] w-[800px] -translate-y-1/2 rounded-full bg-gradient-to-tr from-brand-500/20 via-sky-400/15 to-transparent blur-3xl dark:from-brand-600/25 dark:via-indigo-500/15" />
-      </div>
-
-      {/* ── Navigation bar ── */}
-      <header className="sticky top-0 z-40 border-b border-gray-200/70 bg-white/80 backdrop-blur-md dark:border-gray-800/80 dark:bg-gray-950/80">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link to="/" className="flex items-center gap-3">
-            <img
-              src="/images/brand/travline-icon.svg"
-              alt="Travline"
-              className="size-9 rounded-xl shadow-xs"
-            />
-            <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
-              Travline
-            </span>
-          </Link>
-
-          <div className="flex items-center gap-3">
-            {/* Language switch button */}
-            <button
-              onClick={() => setLang(lang === "bs" ? "en" : "bs")}
-              className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              {lang === "bs" ? "EN" : "BS"}
-            </button>
-
-            <Link
-              to="/auth/signin"
-              className="rounded-xl border border-gray-200/80 bg-white px-4 py-2 text-xs font-semibold text-gray-700 shadow-2xs transition-all hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
-            >
-              {l.signIn}
-            </Link>
-
-            <Link
-              to="/auth/signin"
-              className="hidden rounded-xl bg-brand-500 px-4 py-2 text-xs font-semibold text-white shadow-xs shadow-brand-500/30 transition-all hover:bg-brand-600 sm:inline-block"
-            >
-              {l.getStarted}
-            </Link>
-
-            <div className="pl-1">
-              <ThemeTogglerTwo />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* ── Hero Section ── */}
-      <section className="relative overflow-hidden px-4 pb-20 pt-16 sm:px-6 sm:pb-28 sm:pt-24 lg:px-8">
-        <div className="mx-auto max-w-4xl text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand-500/20 bg-brand-50/80 px-3.5 py-1.5 text-xs font-bold text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
-            <span className="size-1.5 rounded-full bg-brand-500 animate-pulse" />
-            {l.badge}
-          </div>
-
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">
-            <span className="block text-gray-900 dark:text-white">{l.heroTitle1}</span>
-            <span className="mt-1 block bg-gradient-to-r from-brand-500 via-indigo-500 to-sky-500 bg-clip-text text-transparent">
-              {l.heroTitle2}
-            </span>
-          </h1>
-
-          <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-gray-600 dark:text-gray-300 sm:text-lg">
-            {l.heroSubtitle}
-          </p>
-
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
-            <Link
-              to="/auth/signin"
-              className="group inline-flex items-center gap-2.5 rounded-2xl bg-brand-500 px-6 py-3.5 text-sm font-bold text-white shadow-md shadow-brand-500/30 transition-all hover:bg-brand-600 hover:shadow-lg hover:shadow-brand-500/40 active:scale-[0.98]"
-            >
-              <span>{l.getStarted}</span>
-              <ArrowRightIcon className="size-4 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-
-            <a
-              href="#features"
-              className="inline-flex items-center gap-2 rounded-2xl border border-gray-200/80 bg-white/90 px-6 py-3.5 text-sm font-bold text-gray-700 shadow-2xs transition-all hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
-            >
-              {l.explorePlatform}
-            </a>
-          </div>
-
-          {/* Quick Stats Strip */}
-          <div className="mt-14 grid grid-cols-3 gap-4 border-y border-gray-200/80 py-6 dark:border-gray-800">
-            <div>
-              <div className="text-2xl font-extrabold tabular-nums text-gray-900 dark:text-white sm:text-3xl">
-                100%
-              </div>
-              <div className="mt-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
-                {l.statsOrganizers}
-              </div>
-            </div>
-            <div>
-              <div className="text-2xl font-extrabold tabular-nums text-brand-600 dark:text-brand-400 sm:text-3xl">
-                Real-Time
-              </div>
-              <div className="mt-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
-                {l.statsReservations}
-              </div>
-            </div>
-            <div>
-              <div className="text-2xl font-extrabold tabular-nums text-emerald-600 dark:text-emerald-400 sm:text-3xl">
-                99.9%
-              </div>
-              <div className="mt-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
-                {l.statsUptime}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Features Section ── */}
-      <section id="features" className="relative px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
-              {l.featuresTitle}
-            </h2>
-            <p className="mt-3 text-base text-gray-600 dark:text-gray-400">
-              {l.featuresSubtitle}
-            </p>
-          </div>
-
-          <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {features.map((f, i) => (
-              <div
-                key={i}
-                className="group relative rounded-2xl border border-gray-200/80 bg-white/95 p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-brand-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900/80 dark:hover:border-brand-500"
-              >
-                <div
-                  className={`mb-5 inline-flex size-12 items-center justify-center rounded-2xl border bg-gradient-to-br ${f.color}`}
+      <main>
+        {/* Hero */}
+        <section id="top" className="relative scroll-mt-24">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-16 -z-0 h-[720px] bg-[radial-gradient(60%_60%_at_20%_0%,#EFEDFF_0%,transparent_70%),radial-gradient(50%_50%_at_90%_10%,#F4F2FF_0%,transparent_70%)]" />
+          <div className={`${container} relative grid items-center gap-14 pb-20 pt-10 sm:pt-16 lg:grid-cols-[0.85fr_1.15fr] lg:gap-10 lg:pb-36 lg:pt-20`}>
+            <Reveal>
+              <h1 className="text-balance text-[40px] font-semibold leading-[1.08] tracking-tight text-lp-text sm:text-5xl lg:text-[46px] xl:text-6xl">
+                {l.heroTitle}
+              </h1>
+              <p className="mt-6 max-w-md text-base leading-relaxed text-lp-muted sm:text-lg">{l.heroSubtitle}</p>
+              <div className="mt-9 flex flex-wrap items-center gap-3">
+                <Link
+                  to="/auth/signup"
+                  className="group inline-flex items-center gap-2 rounded-lg bg-lp-primary px-6 py-3 text-sm font-semibold text-white shadow-md shadow-lp-primary/25 transition-all hover:-translate-y-0.5 hover:bg-lp-primary-hover active:scale-[0.98]"
                 >
-                  <f.icon className="size-6" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  {f.title}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
-                  {f.desc}
-                </p>
+                  {l.getStarted}
+                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                </Link>
+                <a href="#features" className={`${outlineBtn} !px-6 !py-3 !text-sm`}>
+                  {l.exploreFeatures}
+                </a>
               </div>
-            ))}
+              <p className="mt-6 text-xs text-lp-muted/80">{l.previewNote}</p>
+            </Reveal>
+            <Reveal delay={150}>
+              <HeroDashboard />
+            </Reveal>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── CTA Banner ── */}
-      <section className="px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-5xl overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 via-brand-700 to-indigo-800 p-8 text-center text-white shadow-xl sm:p-14">
-          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
-            {l.ctaTitle}
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-base text-brand-100 sm:text-lg">
-            {l.ctaSubtitle}
-          </p>
-          <div className="mt-8 flex justify-center">
-            <Link
-              to="/auth/signin"
-              className="inline-flex items-center gap-2 rounded-2xl bg-white px-7 py-3.5 text-sm font-bold text-brand-700 shadow-md transition-all hover:bg-brand-50 hover:shadow-lg active:scale-[0.98]"
-            >
-              <span>{l.ctaAction}</span>
-              <ArrowRightIcon className="size-4" />
-            </Link>
+        {/* Trust */}
+        <section className="pb-20 sm:pb-28">
+          <div className={container}>
+            <Reveal>
+              <p className="text-center text-sm font-medium text-lp-muted">{l.trustTitle}</p>
+              <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-2 gap-y-3">
+                {trust.map((item, i) => (
+                  <li key={item} className="flex items-center gap-2">
+                    {i > 0 && <span aria-hidden="true" className="hidden size-1 rounded-full bg-lp-primary/40 sm:block" />}
+                    <span className="px-3 text-lg font-semibold tracking-tight text-lp-text/70 sm:text-xl">{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </Reveal>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── Footer ── */}
-      <footer className="border-t border-gray-200/80 bg-white/50 py-8 text-center text-xs text-gray-500 dark:border-gray-800/80 dark:bg-gray-950 dark:text-gray-400">
-        <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <img
-              src="/images/brand/travline-icon.svg"
-              alt="Travline"
-              className="size-5 rounded"
-            />
-            <span className="font-semibold text-gray-700 dark:text-gray-300">Travline</span>
+        {/* Features */}
+        <section id="features" className="scroll-mt-20 pb-24 sm:pb-32">
+          <div className={container}>
+            <Reveal>
+              <SectionHeading title={l.featuresTitle} subtitle={l.featuresSubtitle} />
+            </Reveal>
+            <div className="mt-14 grid gap-5 md:grid-cols-2">
+              {features.map((f, i) => (
+                <Reveal key={f.id} delay={(i % 2) * 100}>
+                  <article
+                    id={f.id}
+                    className="group h-full scroll-mt-24 rounded-3xl border border-lp-border bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_-20px_rgba(98,88,232,0.25)] sm:p-7"
+                  >
+                    <div className="flex items-center rounded-2xl bg-gradient-to-br from-lp-soft to-white p-4 sm:min-h-[310px] sm:p-6"><div className="w-full">{f.preview}</div></div>
+                    <p className="mt-6 text-xs font-semibold uppercase tracking-wider text-lp-primary">{f.label}</p>
+                    <h3 className="mt-2 text-xl font-semibold tracking-tight text-lp-text">{f.title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-lp-muted">{f.desc}</p>
+                  </article>
+                </Reveal>
+              ))}
+            </div>
           </div>
-          <p>{l.copyright}</p>
-        </div>
-      </footer>
+        </section>
+
+        {/* Benefits */}
+        <section id="how-it-works" className="scroll-mt-20 pb-24 sm:pb-32">
+          <div className={container}>
+            <Reveal>
+              <SectionHeading title={l.benefitsTitle} />
+            </Reveal>
+            <Reveal delay={100}>
+              <div className="mt-12 rounded-[32px] bg-lp-soft p-4 sm:p-8">
+                <div className="grid gap-4 md:grid-cols-3">
+                  {benefits.map((b, i) => (
+                    <div key={b.title} className="rounded-2xl border border-lp-border bg-white p-5 transition-shadow hover:shadow-[0_16px_40px_-20px_rgba(98,88,232,0.3)]">
+                      <BenefitArt kind={i as 0 | 1 | 2} />
+                      <h3 className="mt-5 text-lg font-semibold tracking-tight text-lp-text">{b.title}</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-lp-muted">{b.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* Alternating sections */}
+        <section id="solutions" className="scroll-mt-20 pb-24 sm:pb-32">
+          <div className={`${container} space-y-24 sm:space-y-32`}>
+            <FeatureSplit title={l.s1Title} desc={l.s1Desc} cta={l.s1Cta} href="#features" preview={<CommunicationPreview />} previewFirst />
+            <FeatureSplit title={l.s2Title} desc={l.s2Desc} cta={l.s2Cta} href="#feature-payments" preview={<RevenuePreview />} previewFirst={false} />
+            <FeatureSplit title={l.s3Title} desc={l.s3Desc} cta={l.s3Cta} href="#feature-departures" preview={<OperationsPreview />} previewFirst />
+          </div>
+        </section>
+
+        {/* Final CTA */}
+        <section className="relative bg-gradient-to-b from-white via-lp-soft to-lp-soft py-24 sm:py-32">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="lp-float absolute left-[6%] top-[22%] hidden h-16 w-36 rounded-xl border border-lp-border bg-white/80 shadow-sm lg:block" />
+            <div className="lp-float absolute bottom-[18%] right-[7%] hidden h-20 w-40 rounded-xl border border-lp-border bg-white/80 shadow-sm [--lp-delay:1.6s] lg:block" />
+          </div>
+          <div className={`${container} relative`}>
+            <Reveal>
+              <div className="mx-auto max-w-3xl text-center">
+                <h2 className="text-balance text-4xl font-semibold leading-[1.1] tracking-tight text-lp-text sm:text-6xl">{l.ctaTitle}</h2>
+                <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-lp-muted sm:text-lg">{l.ctaSubtitle}</p>
+                <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
+                  <Link
+                    to="/auth/signup"
+                    className="inline-flex items-center gap-2 rounded-lg bg-lp-primary px-7 py-3.5 text-sm font-semibold text-white shadow-md shadow-lp-primary/25 transition-all hover:-translate-y-0.5 hover:bg-lp-primary-hover active:scale-[0.98]"
+                  >
+                    {l.ctaPrimary}
+                    <ArrowRight className="size-4" />
+                  </Link>
+                  <a href="#features" className="text-sm font-semibold text-lp-text underline-offset-4 transition-colors hover:text-lp-primary hover:underline">
+                    {l.ctaSecondary}
+                  </a>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+      </main>
+
+      <LandingFooter />
     </div>
   );
 }
