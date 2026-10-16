@@ -115,7 +115,7 @@ describe('SmsService and Providers', () => {
 
       await expect(
         provider.sendSms({ to: '+000', message: 'Fail' })
-      ).rejects.toThrow('Twilio: Invalid phone number');
+      ).rejects.toThrow('SMS_PROVIDER_REJECTED_400');
     });
 
     it('uses environment variables when options are omitted', async () => {
@@ -193,7 +193,7 @@ describe('SmsService and Providers', () => {
 
       await expect(
         provider.sendSms({ to: '+38761123456', message: 'Test' })
-      ).rejects.toThrow('HTTP SMS: Gateway unavailable');
+      ).rejects.toThrow('SMS_PROVIDER_REJECTED_502');
     });
   });
 
@@ -214,3 +214,4 @@ describe('SmsService and Providers', () => {
     });
   });
 });
+

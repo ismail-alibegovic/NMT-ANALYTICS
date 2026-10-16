@@ -1,3 +1,4 @@
+vi.mock('../lib/email/orgEmailProvider', () => ({ resolveOrgEmailProvider: vi.fn(async () => null) }));
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sendEmail = vi.fn(async () => undefined);
@@ -56,8 +57,9 @@ describe('EmailService communication history', () => {
       channel: 'email',
       recipient: 'payer@example.ba',
       status: 'failed',
-      errorMessage: 'SMTP unavailable',
+      errorMessage: 'EMAIL_SEND_FAILED',
       relatedReservationId: 'res-2',
     }));
   });
 });
+

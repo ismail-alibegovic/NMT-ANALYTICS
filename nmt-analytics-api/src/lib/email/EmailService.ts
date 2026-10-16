@@ -21,6 +21,7 @@ export interface EmailProvider {
  */
 export class MockEmailProvider implements EmailProvider {
     async sendEmail(options: EmailOptions): Promise<void> {
+        if (process.env.NODE_ENV === 'production') throw new Error('EMAIL_MOCK_PROVIDER_DISABLED_IN_PRODUCTION');
         console.log(`[MOCK EMAIL] To: ${options.to}`);
         console.log(`[MOCK EMAIL] Subject: ${options.subject}`);
         console.log(`[MOCK EMAIL] Body: ${options.body.substring(0, 100)}...`);
@@ -49,7 +50,8 @@ export class UnconfiguredEmailProvider implements EmailProvider {
  * Singleton EmailService
  */
 export class EmailService {
-    private static provider: EmailProvider = new MockEmailProvider();
+    private static provider: EmailProvider = process.env.NODE_ENV === 'production'
+        ? new UnconfiguredEmailProvider() : new MockEmailProvider();
 
     /** Boot-time platform provider only. Never call this from a tenant-scoped request. */
     static setProvider(provider: EmailProvider) {
@@ -95,7 +97,7 @@ export class EmailService {
                     subject: options.subject,
                     bodyPreview: options.body,
                     status: 'failed',
-                    errorMessage: error?.message || 'email_send_failed',
+                    errorMessage: 'EMAIL_SEND_FAILED',
                     relatedReservationId: context.relatedReservationId ?? null,
                     relatedDepartureId: context.relatedDepartureId ?? null,
                 });
@@ -106,7 +108,8 @@ export class EmailService {
     }
 
     static async sendBookingConfirmation(reservation: any, pdfBuffer: Buffer) {
-        const customerEmail = reservation.customers?.email || reservation.customer_email || 'customer@example.com';
+        const customerEmail = reservation.customers?.email || reservation.customer_email;
+        if (!customerEmail) throw new Error('EMAIL_RECIPIENT_MISSING');
         const customerName = reservation.customers?.full_name || reservation.customer_name || 'Customer';
         const orgId = reservation.org_id || reservation.organizations?.id || null;
         const departureId = reservation.departure_id || reservation.departures?.id || null;
@@ -171,3 +174,4 @@ export class EmailService {
         }, provider);
     }
 }
+
