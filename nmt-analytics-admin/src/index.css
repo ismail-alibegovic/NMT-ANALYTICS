@@ -181,6 +181,13 @@ layer(base);
      These map to the TailAdmin v4 (Hunter) design language so dark variant
      utilities (e.g. dark:bg-boxdark, dark:border-strokedark) work as intended. */
   --color-primary: #465fff;            /* == brand-500 */
+  /* Public landing page tokens (scoped by usage to src/components/landing) */
+  --color-lp-primary: #6258e8;
+  --color-lp-primary-hover: #5146d8;
+  --color-lp-text: #292933;
+  --color-lp-muted: #858594;
+  --color-lp-soft: #f7f6ff;
+  --color-lp-border: #ececf2;
   --color-body: #667085;               /* == gray-500 body text */
   --color-stroke: #eaecf0;             /* light-mode borders */
   --color-strokedark: #2a3142;         /* dark-mode borders */
@@ -912,4 +919,32 @@ span.flatpickr-weekday,
 
 .simplebar-scrollbar.simplebar-visible:before {
   @apply opacity-100;
+}
+
+/* ── Public landing page motion ── */
+.lp-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--lp-delay, 0ms);
+}
+.lp-reveal.lp-in {
+  opacity: 1;
+  transform: none;
+}
+@keyframes lp-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.lp-float {
+  animation: lp-float 6s ease-in-out infinite;
+  animation-delay: var(--lp-delay, 0ms);
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.lp-root) { scroll-behavior: smooth; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-reveal { opacity: 1; transform: none; transition: none; }
+  .lp-float { animation: none; }
 }
