@@ -4,7 +4,8 @@ import Button from '../ui/button/Button';
 import { post } from '../../lib/apiClient';
 
 interface ImportModalProps {
-    entity: 'customers' | 'packages' | 'departures' | 'reservations' | 'transactions';
+    // Departures and reservations are intentionally not importable: they must go through their canonical workflows.
+    entity: 'customers' | 'packages';
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
@@ -68,7 +69,13 @@ export default function ImportModal({ entity, isOpen, onClose, onSuccess }: Impo
                 onSuccess();
             }
         } catch (err: any) {
-            setError(err.response?.data?.error || 'Import failed');
+            const data = err.response?.data;
+            // A rejected file reports the offending rows and nothing was imported.
+            if (data?.results?.invalidRows) {
+                setResult({ ...data.results, importedCount: 0 });
+            } else {
+                setError(data?.message || data?.error || 'Import failed');
+            }
         } finally {
             setImporting(false);
         }

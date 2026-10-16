@@ -3,11 +3,10 @@ import { useNavigate } from "react-router";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
-import ImportModal from "../components/import/ImportModal";
 import PaymentsModal from "../components/payments/PaymentsModal";
 import PageToolbar from "../components/ui/PageToolbar";
 import { DataTable, Column, Pagination } from "../components/ui/DataTable";
-import { FileIcon, CloseIcon } from "../icons";
+import { CloseIcon } from "../icons";
 import { useToast } from "../context/ToastContext";
 import { useQueryParams } from "../hooks/useQueryParams";
 import { useDataInvalidation } from "../hooks/useDataInvalidation";
@@ -55,7 +54,6 @@ export default function Reservations() {
   const departureFilter = getParam('departureId', '');
   const [contextDeparture, setContextDeparture] = useState<Departure | null>(null);
 
-  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
@@ -514,14 +512,6 @@ export default function Reservations() {
             >
               {departureFilter && !contextDeparture ? 'Učitavanje polaska…' : contextDeparture && contextDeparture.status !== 'active' ? 'Polazak nije aktivan' : '+ Nova rezervacija'}
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => setIsImportOpen(true)}
-              className="flex items-center gap-2"
-            >
-              <FileIcon className="w-4 h-4" />
-              Import CSV
-            </Button>
           </div>
         }
       />
@@ -687,16 +677,6 @@ export default function Reservations() {
           )}
         </>
       )}
-
-      <ImportModal
-        entity="reservations"
-        isOpen={isImportOpen}
-        onClose={() => setIsImportOpen(false)}
-        onSuccess={() => {
-          setIsImportOpen(false);
-          fetchReservations(currentPage, statusFilter, dateFrom, dateTo);
-        }}
-      />
 
       {selectedReservation && (
         <PaymentsModal
