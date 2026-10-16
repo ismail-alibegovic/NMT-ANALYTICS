@@ -25,7 +25,13 @@ export const twilioSmsConfigSchema = z.object({
 
 export const httpSmsConfigSchema = z.object({
   provider: z.literal('http'),
-  endpoint: z.string().trim().url().optional(),
+  endpoint: z.string().trim().url().refine(value => {
+    try {
+    const url = new URL(value);
+    return !url.username && !url.password && !url.search && !url.hash
+      && (process.env.NODE_ENV !== 'production' || url.protocol === 'https:');
+    } catch { return false; }
+  }, 'Use an HTTPS gateway URL without embedded credentials or query parameters').optional(),
   apiKey: z.string().trim().optional(),
   headers: z.record(z.string(), z.string()).optional(),
 });
@@ -106,6 +112,12 @@ export class TwilioSmsProvider implements SmsProvider {
     if (!response.ok) {
       throw new Error(`SMS_PROVIDER_REJECTED_${response.status}`);
     }
+    let receipt: { sid?: string; status?: string; error_code?: unknown };
+    try { receipt = JSON.parse(await response.text()); }
+    catch { throw new Error('SMS_PROVIDER_CONFIRMATION_INVALID'); }
+    if (!receipt.sid || receipt.error_code || ['failed', 'undelivered', 'canceled'].includes(receipt.status || '')) {
+      throw new Error('SMS_PROVIDER_CONFIRMATION_INVALID');
+    }
   }
 }
 
@@ -125,7 +137,7 @@ export class HttpSmsProvider implements SmsProvider {
     }
 
     const target = new URL(endpoint);
-    if (target.username || target.password || (isProduction() && target.protocol !== 'https:')) {
+    if (target.username || target.password || target.search || target.hash || (isProduction() && target.protocol !== 'https:')) {
       throw new Error('SMS_ENDPOINT_INVALID');
     }
     const headers: Record<string, string> = {
@@ -155,10 +167,21 @@ export class HttpSmsProvider implements SmsProvider {
     if (!response.ok) {
       throw new Error(`SMS_PROVIDER_REJECTED_${response.status}`);
     }
+    const body = await response.text().catch(() => { throw new Error('SMS_TRANSPORT_FAILED'); });
+    if (body.trim().startsWith('{')) {
+      let receipt: { error?: unknown; success?: boolean; accepted?: boolean; status?: string };
+      try { receipt = JSON.parse(body); } catch { throw new Error('SMS_PROVIDER_CONFIRMATION_INVALID'); }
+      if (receipt.error || receipt.success === false || receipt.accepted === false || ['failed', 'rejected', 'undelivered'].includes(receipt.status || '')) {
+        throw new Error('SMS_PROVIDER_CONFIRMATION_INVALID');
+      }
+    }
   }
 }
 
 export function createSmsProvider(config: SmsProviderConfig): SmsProvider {
+  const parsed = smsConfigSchema.safeParse(config);
+  if (!parsed.success) throw new Error('SMS_CONFIGURATION_INVALID');
+  config = parsed.data;
   switch (config.provider) {
     case 'mock':
       return isProduction()
