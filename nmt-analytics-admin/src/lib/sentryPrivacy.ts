@@ -33,3 +33,12 @@ export function sanitizeSentryEvent<T>(event: T): T {
   }
   return event;
 }
+
+export function isValidSentryDsn(value: string | undefined): boolean {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && Boolean(url.username) && !url.password
+      && !url.search && !url.hash && /\/\d+$/.test(url.pathname);
+  } catch { return false; }
+}

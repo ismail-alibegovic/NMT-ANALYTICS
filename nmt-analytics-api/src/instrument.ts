@@ -1,7 +1,7 @@
 // dotenv is loaded here rather than in index.ts because this module reads
 // SENTRY_DSN at import time and must run before express is loaded.
 import 'dotenv/config';
-import { sanitizeSentryEvent } from './lib/sentryPrivacy';
+import { sanitizeSentryEvent, isValidSentryDsn } from './lib/sentryPrivacy';
 import * as Sentry from '@sentry/node';
 
 /**
@@ -18,9 +18,9 @@ import * as Sentry from '@sentry/node';
  */
 const dsn = process.env.SENTRY_DSN;
 
-export const sentryEnabled = Boolean(dsn);
+export const sentryEnabled = isValidSentryDsn(dsn);
 
-if (dsn) {
+if (sentryEnabled) {
   Sentry.init({
     dsn,
     environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development',
@@ -42,7 +42,7 @@ if (dsn) {
     process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development'
   );
 } else {
-  console.log('[sentry] SENTRY_DSN not set — error capture disabled.');
+  console.log('[sentry] SENTRY_DSN absent or invalid — error capture disabled.');
 }
 
 export default Sentry;

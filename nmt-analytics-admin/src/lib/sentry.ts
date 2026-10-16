@@ -1,4 +1,4 @@
-import { sanitizeSentryEvent } from './sentryPrivacy';
+import { sanitizeSentryEvent, isValidSentryDsn } from './sentryPrivacy';
 import * as Sentry from '@sentry/react';
 
 /**
@@ -26,8 +26,8 @@ export function isSentryEnabled(): boolean {
  */
 export function initSentry(): void {
   const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
-  if (!dsn) {
-    console.info('[sentry] VITE_SENTRY_DSN not set — frontend error capture disabled.');
+  if (!isValidSentryDsn(dsn)) {
+    console.info('[sentry] VITE_SENTRY_DSN absent or invalid — frontend error capture disabled.');
     return;
   }
 
