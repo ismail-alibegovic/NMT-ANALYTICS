@@ -94,7 +94,6 @@ router.post('/test', auditEmailSettingsTest, requireMinimumRole('director'), asy
 
     const config = smtpConfigSchema.parse(data.value);
     const provider = createSmtpProvider(config);
-    EmailService.setProvider(provider);
 
     await provider.sendEmail({
       to: to || req.user!.email || config.fromEmail,
@@ -124,10 +123,7 @@ router.post('/', requireMinimumRole('director'), async (req: Request, res: Respo
         value: config,
       }, { onConflict: 'org_id,key' });
 
-    // Activate live
-    const provider = createSmtpProvider(config);
-    EmailService.setProvider(provider);
-
+    // Providers are resolved per organisation at send time; never installed process-wide.
     return res.json({ success: true, message: 'SMTP configuration saved and activated' });
   } catch (err: any) {
     return apiError(res, 400, 'VALIDATION_ERROR', err.message || 'Invalid SMTP configuration');

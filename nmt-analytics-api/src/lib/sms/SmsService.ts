@@ -48,6 +48,22 @@ export class MockSmsProvider implements SmsProvider {
   }
 }
 
+/**
+ * Stand-in used in production wherever a mock would otherwise be selected. Throwing keeps
+ * communication history honest: a mock must never record a delivery that did not happen.
+ */
+export class DisabledSmsProvider implements SmsProvider {
+  constructor(private readonly reason: string) {}
+
+  async sendSms(): Promise<void> {
+    throw new Error(this.reason);
+  }
+}
+
+function isProduction(): boolean {
+  return process.env.NODE_ENV === 'production';
+}
+
 export class TwilioSmsProvider implements SmsProvider {
   private config?: z.infer<typeof twilioSmsConfigSchema>;
 
@@ -152,7 +168,9 @@ export class HttpSmsProvider implements SmsProvider {
 export function createSmsProvider(config: SmsProviderConfig): SmsProvider {
   switch (config.provider) {
     case 'mock':
-      return new MockSmsProvider();
+      return isProduction()
+        ? new DisabledSmsProvider('SMS_MOCK_PROVIDER_DISABLED_IN_PRODUCTION')
+        : new MockSmsProvider();
     case 'twilio':
       return new TwilioSmsProvider(config);
     case 'http':
@@ -163,8 +181,12 @@ export function createSmsProvider(config: SmsProviderConfig): SmsProvider {
 }
 
 export class SmsService {
-  private static provider: SmsProvider = new MockSmsProvider();
+  // Platform default. Only a real provider chosen per send (or at boot) may deliver in production.
+  private static provider: SmsProvider = isProduction()
+    ? new DisabledSmsProvider('SMS_PROVIDER_NOT_CONFIGURED')
+    : new MockSmsProvider();
 
+  /** Boot-time platform provider only. Never call this from a tenant-scoped request. */
   static setProvider(provider: SmsProvider) {
     this.provider = provider;
   }
@@ -173,17 +195,17 @@ export class SmsService {
     return this.provider;
   }
 
-  static async sendSms(options: SmsOptions) {
-    return this.provider.sendSms(options);
+  static async sendSms(options: SmsOptions, provider?: SmsProvider) {
+    return (provider ?? this.provider).sendSms(options);
   }
 
   static async sendManualMessage(options: SmsOptions & {
     orgId: string;
     relatedReservationId?: string | null;
     relatedDepartureId?: string | null;
-  }) {
+  }, provider?: SmsProvider) {
     try {
-      await this.provider.sendSms(options);
+      await (provider ?? this.provider).sendSms(options);
       await logCommunicationHistory({
         orgId: options.orgId,
         channel: 'sms',
