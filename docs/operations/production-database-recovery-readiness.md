@@ -8,9 +8,9 @@ This is a runbook and read-only findings report, **not** evidence that backup or
 
 - Supabase project reports `ACTIVE_HEALTHY`, PostgreSQL 17.6.
 - Production `supabase_migrations.schema_migrations`: **110 rows**; latest version `20261015153728` (`supplier_payables_overview`).
-- Earlier repository audit counted **111 migrations**, latest cited `20261016000000_public_form_context_enrichment.sql`. **The exact repo-versus-production set difference still needs independent confirmation; a count mismatch alone is not proof a migration is pending.**
+- Earlier repository audit counted **111 migrations**, latest cited `20261016000000_public_form_context_enrichment.sql`. The repository file `nmt-analytics-api/supabase/migrations/20261016000000_public_form_context_enrichment.sql` is present on `main` but version `20261016000000` is absent from the 110 recorded production migrations. This is the identified pending migration **subject to a complete set comparison**. It replaces `public.submit_public_form(text,jsonb)` (SECURITY DEFINER), enriches inquiry metadata, and explicitly restricts execution to `service_role`. Review application and security impact before deployment.
 - Production public-schema tables: **74**, with RLS enabled on all **74** (does not establish policy correctness).
-- Supabase security advisory: `public.recompute_group_member_count()` is SECURITY DEFINER executable by `anon` and `authenticated`; verified via `has_function_privilege`. Do not revoke until its legitimate callers are traced and tests prepared.
+- Supabase security advisory: `public.recompute_group_member_count()` is SECURITY DEFINER executable by `anon` and `authenticated`; verified via `has_function_privilege`. Its repository definition in `20260902153611_safe_passenger_removal.sql` shows a trigger function returning `TRIGGER`, called by `trg_group_member_count` on membership inserts/deletes. Direct client execution should not be required for trigger invocation; review production trigger/function definitions and validate an append-only privilege-hardening migration in isolated CI before any production change.
 - Backup availability, PITR entitlement/status, restore verification, database migration rollback compatibility and Auth email configuration: **NOT VERIFIED**.
 
 ## Operator preflight — no production writes
@@ -38,7 +38,8 @@ This is a runbook and read-only findings report, **not** evidence that backup or
 
 ## Go/no-go evidence checklist
 
-- [ ] Exact 111-vs-110 migration comparison completed and reviewed
+- [ ] Full version-by-version repository-versus-production reconciliation completed and reviewed (known missing candidate: `20261016000000`)
+- [ ] Pending public-form migration reviewed for backward compatibility, tenant scoping, and runtime safety
 - [ ] Backup type, latest successful backup, retention and PITR status verified
 - [ ] Authorized isolated restore successfully rehearsed
 - [ ] RPO/RTO measured; rollback and forward-fix paths documented for current deployment
