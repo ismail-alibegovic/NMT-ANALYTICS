@@ -5,8 +5,8 @@ BEGIN;
 DO $$
 DECLARE fn record; client_role text; statement text;
 BEGIN
-  -- Audit every public SECURITY DEFINER, including future additions. Only the
-  -- two identity-bound RLS helpers may be executable by authenticated clients.
+  -- Audit every public SECURITY DEFINER, including future additions. Browser
+  -- Supabase access is Auth-only; business data and helpers are API-only.
   FOR fn IN
     SELECT p.*, p.oid::regprocedure AS signature
     FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
@@ -20,8 +20,7 @@ BEGIN
       RAISE EXCEPTION 'PUBLIC can execute SECURITY DEFINER: %', fn.signature;
     END IF;
     IF has_function_privilege('anon',fn.oid,'EXECUTE') OR
-       (fn.signature::text NOT IN ('get_my_org_id()','get_my_role()') AND
-        has_function_privilege('authenticated',fn.oid,'EXECUTE')) THEN
+       has_function_privilege('authenticated',fn.oid,'EXECUTE') THEN
       RAISE EXCEPTION 'Client can execute privileged function: %', fn.signature;
     END IF;
   END LOOP;
@@ -44,6 +43,8 @@ BEGIN
   FOREACH client_role IN ARRAY ARRAY['anon','authenticated'] LOOP
     FOREACH statement IN ARRAY ARRAY[
       'SELECT public.recompute_group_member_count()',
+      'SELECT public.get_my_org_id()',
+      'SELECT public.get_my_role()',
       'SELECT public.prevent_supplier_confirmation_event_mutation()',
       'SELECT public.guard_reservation_financial_cache()',
       'SELECT public.replace_passenger_group_members(NULL::uuid,NULL::uuid,NULL::uuid[],NULL::uuid)',
