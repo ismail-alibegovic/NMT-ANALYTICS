@@ -15,8 +15,8 @@ export async function resolveOrgEmailProvider(orgId: string): Promise<EmailProvi
     .eq('key', 'smtp_config')
     .maybeSingle();
 
-  if (error || !data?.value) return null;
-  const config = data.value as Partial<SmtpConfig>;
-  if (!config.host || !config.user || !config.pass) return null;
-  return new SmtpEmailProvider(config as SmtpConfig);
+  if (error) throw new Error('SMTP_SETTINGS_LOOKUP_FAILED');
+  if (!data?.value) return null;
+  return new SmtpEmailProvider(data.value as SmtpConfig);
 }
+

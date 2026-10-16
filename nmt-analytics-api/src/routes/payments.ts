@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
@@ -35,6 +36,7 @@ const getPaymentsQuerySchema = z.object({
 });
 
 const createPaymentSchema = z.object({
+    idempotency_key: z.string().uuid().optional(),
     reservation_id: z.string().uuid('Invalid reservation_id UUID'),
     installment_id: z.string().uuid('Invalid installment_id UUID').optional(),
     amount: z.number().positive('Amount must be > 0'),
@@ -108,6 +110,40 @@ function transformReservationFinance(reservation: any) {
         ...finance,
         status: reservation.status,
     };
+}
+
+// A namespaced request UUID reuses the payment primary key's atomic uniqueness.
+// No new table/RPC or change to financial triggers/RLS is required.
+function paymentRequestId(orgId: string, key: string): string {
+    const bytes = createHash('sha256').update(`travline:payment:v1:${orgId}:${key}`).digest().subarray(0, 16);
+    bytes[6] = (bytes[6] & 0x0f) | 0x80; // UUIDv8, application-defined namespaced value
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = bytes.toString('hex');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+async function replayPayment(req: Request, res: Response, id: string | undefined, input: CreatePaymentInput): Promise<boolean> {
+    if (!id) return false;
+    const { data: existing, error } = await supabaseAdmin.from('payments').select('*')
+        .eq('org_id', req.orgId!).eq('id', id).single();
+    if (error && error.code !== 'PGRST116') throw new Error('PAYMENT_REPLAY_LOOKUP_FAILED');
+    if (!existing) return false;
+    const matches = existing.reservation_id === input.reservation_id
+        && toCents(existing.amount) === toCents(input.amount)
+        && existing.status === input.status
+        && (existing.payment_method || null) === (input.payment_method || null)
+        && (!input.currency || existing.currency === input.currency)
+        && (!input.payment_date || existing.payment_date === input.payment_date);
+    if (!matches) {
+        apiError(res, 409, 'PAYMENT_IDEMPOTENCY_CONFLICT', 'This payment request key has already been used. Refresh before recording a different payment.');
+        return true;
+    }
+    const { data: reservation, error: reservationError } = await supabaseAdmin.from('reservations')
+        .select('id,total_amount,paid_amount,status').eq('org_id', req.orgId!).eq('id', existing.reservation_id).single();
+    if (reservationError || !reservation) throw new Error('PAYMENT_REPLAY_LOOKUP_FAILED');
+    res.locals.idempotentReplay = true;
+    res.status(200).json({ payment: transformPayment(existing), reservation: transformReservationFinance(reservation), replayed: true });
+    return true;
 }
 
 // ============================================================================
@@ -272,6 +308,10 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
 
         const { reservation_id, installment_id, amount, currency, status, payment_method, payment_date } = validationResult.data;
         const orgId = req.orgId!;
+        // Installments already have a canonical row ID and a status compare-and-set guard.
+        const requestPaymentId = validationResult.data.idempotency_key && !installment_id
+            ? paymentRequestId(orgId, validationResult.data.idempotency_key) : undefined;
+        if (await replayPayment(req, res, requestPaymentId, validationResult.data)) return;
 
         // Verify reservation exists and belongs to this org
         // ALSO fetch currency to use as source of truth
@@ -302,6 +342,7 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
         if (status === 'succeeded') {
             const outstandingCents = toCents(reservation.total_amount) - toCents(reservation.paid_amount);
             if (toCents(amount) > outstandingCents) {
+                if (await replayPayment(req, res, requestPaymentId, validationResult.data)) return;
                 return apiError(res, 422, 'PAYMENT_EXCEEDS_TOTAL', `Payment exceeds the outstanding balance of ${(outstandingCents / 100).toFixed(2)} ${effectiveCurrency}`);
             }
         }
@@ -385,6 +426,7 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
             const { data: insertedPayment, error: insertError } = await supabaseAdmin
                 .from('payments')
                 .insert({
+                    ...(requestPaymentId ? { id: requestPaymentId } : {}),
                     reservation_id,
                     org_id: orgId,
                     amount,
@@ -409,6 +451,8 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
                 .single();
 
             if (insertError) {
+                // Primary-key conflicts and ledger-trigger conflicts may both follow a concurrent winner.
+                if (await replayPayment(req, res, requestPaymentId, validationResult.data)) return;
                 return handlePaymentWriteError(res, insertError, 'Failed to create payment');
             }
 
@@ -438,6 +482,7 @@ router.post('/payments', auditPaymentCreate, async (req: Request, res: Response)
                             .from('customers')
                             .select('email, full_name')
                             .eq('id', reservation.customer_id)
+                            .eq('org_id', orgId)
                             .single();
                         if (customer?.email) {
                             await EmailService.sendPaymentConfirmation({
@@ -1142,3 +1187,4 @@ curl -X POST "http://localhost:3001/api/payments/abc123-uuid/void" \
 # }
 
 */
+

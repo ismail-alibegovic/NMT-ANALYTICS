@@ -1,3 +1,4 @@
+vi.mock('../lib/email/orgEmailProvider', () => ({ resolveOrgEmailProvider: vi.fn(async () => null) }));
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sendEmail = vi.fn(async () => undefined);
@@ -56,8 +57,20 @@ describe('EmailService communication history', () => {
       channel: 'email',
       recipient: 'payer@example.ba',
       status: 'failed',
-      errorMessage: 'SMTP unavailable',
+      errorMessage: 'EMAIL_SEND_FAILED',
       relatedReservationId: 'res-2',
     }));
   });
+});
+
+
+it('does not mark provider-accepted email failed or attempt another send when history is unavailable', async () => {
+  EmailService.setProvider({ sendEmail });
+  sendEmail.mockClear(); logCommunicationHistory.mockClear();
+  logCommunicationHistory.mockRejectedValueOnce(new Error('database unavailable'));
+  await expect(EmailService.sendManualMessage({ orgId: 'org-1', to: 'recipient@example.test', subject: 's', body: 'b' }))
+    .rejects.toThrow('EMAIL_ACCEPTED_HISTORY_UNAVAILABLE_DO_NOT_RETRY');
+  expect(sendEmail).toHaveBeenCalledTimes(1);
+  expect(logCommunicationHistory).toHaveBeenCalledTimes(1);
+  expect(logCommunicationHistory).toHaveBeenCalledWith(expect.objectContaining({ status: 'sent' }));
 });
