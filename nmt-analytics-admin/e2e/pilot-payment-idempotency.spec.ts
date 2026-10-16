@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 const api = process.env.E2E_API_URL || 'http://127.0.0.1:3001';
 const auth = process.env.E2E_SUPABASE_URL || 'http://127.0.0.1:54321';
-const enabled = Boolean(process.env.E2E_SUPABASE_ANON_KEY && process.env.E2E_MANAGER_EMAIL && process.env.E2E_MANAGER_PASSWORD && process.env.E2E_DEPARTURE_ID && process.env.E2E_CUSTOMER_ID);
+const enabled = /^http:\/\/(127\.0\.0\.1|localhost):/.test(api) && /^http:\/\/(127\.0\.0\.1|localhost):/.test(auth) && Boolean(process.env.E2E_SUPABASE_ANON_KEY && process.env.E2E_MANAGER_EMAIL && process.env.E2E_MANAGER_PASSWORD && process.env.E2E_DEPARTURE_ID && process.env.E2E_CUSTOMER_ID);
 test('concurrent payment retries create one ledger entry and preserve tenant isolation', async ({ request }) => {
   test.skip(!enabled, 'Requires disposable seeded Supabase');
   const login = async (email: string, password: string) => {
