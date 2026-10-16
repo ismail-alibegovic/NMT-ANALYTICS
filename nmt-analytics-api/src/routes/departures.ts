@@ -941,7 +941,7 @@ router.get('/departures/:id', authenticateToken, requireOrgContext, async (req, 
     {
       const { data: bldg, error: bldgErr } = await supabaseAdmin
         .from('accommodation_buildings')
-        .select('*, floors:accommodation_floors(*, rooms:accommodation_rooms(*))')
+        .select('*, floors:accommodation_floors!accommodation_floors_building_id_fkey(*, rooms:accommodation_rooms!accommodation_rooms_floor_id_fkey(*))')
         .eq('departure_id', id)
         .eq('org_id', orgId);
       if (bldgErr) console.error('accommodation_buildings fetch (non-fatal):', bldgErr);
