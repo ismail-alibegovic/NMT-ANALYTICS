@@ -19,10 +19,10 @@ function SidebarMock() {
 
 function Kpi({ label, value, delta }: { label: string; value: string; delta: string }) {
   return (
-    <div className="rounded-xl border border-lp-border bg-white p-2.5">
-      <div className="text-[9px] font-medium text-lp-muted">{label}</div>
-      <div className="mt-0.5 text-sm font-bold tabular-nums text-lp-text">{value}</div>
-      <div className="text-[9px] font-semibold text-emerald-500">{delta}</div>
+    <div className="rounded-xl border border-lp-border bg-white p-2.5 shadow-[0_6px_20px_-12px_rgba(98,88,232,0.35)] lg:p-3.5">
+      <div className="text-[9px] font-medium text-lp-muted lg:text-[11px]">{label}</div>
+      <div className="mt-0.5 text-sm font-bold tabular-nums text-lp-text lg:text-xl">{value}</div>
+      <div className="text-[9px] font-semibold text-emerald-500 lg:text-[11px]">{delta}</div>
     </div>
   );
 }
@@ -37,41 +37,44 @@ export function HeroDashboard() {
     ["Rome", "40 / 40", "green", l.pvConfirmed],
   ];
   return (
-    <div className="relative mx-auto w-full max-w-[640px] lg:mx-0 lg:-mr-24 lg:max-w-none xl:-mr-40">
+    <div className="relative mx-auto w-full max-w-[640px] lg:mx-0 lg:max-w-none lg:-mr-[max(2rem,calc((100vw-1200px)/2+2rem))] ">
+      {/* Ghost cards behind the main window for depth */}
+      <div aria-hidden="true" className="absolute inset-x-6 -bottom-5 top-10 -z-10 rounded-2xl border border-lp-border bg-white/70 shadow-[0_12px_40px_-12px_rgba(98,88,232,0.15)]" />
+      <div aria-hidden="true" className="absolute inset-x-12 -bottom-9 top-16 -z-20 rounded-2xl border border-lp-border bg-white/50" />
       <Surface className="relative overflow-hidden">
         <div className="flex">
           <SidebarMock />
           <div className="min-w-0 flex-1">
             {/* Accent header band */}
-            <div className="bg-gradient-to-br from-lp-primary to-[#7b72f0] px-3 pb-8 pt-3 text-white sm:px-5 sm:pt-4">
+            <div className="bg-gradient-to-br from-lp-primary to-[#7b72f0] px-3 pb-8 pt-3 text-white sm:px-5 sm:pt-4 lg:px-7 lg:pb-12 lg:pt-5">
               <div className="flex items-center justify-between text-[10px] font-medium text-white/80">
                 <span className="font-bold text-white">{l.pvDashboard}</span>
                 <span className="size-4 rounded-full bg-white/25" />
               </div>
-              <div className="mt-3 text-[10px] text-white/70">{l.pvRevenue}</div>
-              <div className="text-xl font-bold tabular-nums sm:text-2xl">€128,450.38</div>
+              <div className="mt-3 text-[10px] text-white/70 lg:mt-5 lg:text-xs">{l.pvRevenue}</div>
+              <div className="text-xl font-bold tabular-nums sm:text-2xl lg:text-3xl">€128,450.38</div>
             </div>
-            <div className="-mt-5 space-y-3 px-3 pb-3 sm:px-5 sm:pb-5">
+            <div className="-mt-5 space-y-3 px-3 pb-3 sm:px-5 sm:pb-5 lg:-mt-8 lg:space-y-3 lg:px-7 lg:pb-6">
               <div className="grid grid-cols-3 gap-2">
                 <Kpi label={l.pvRevenue} value="€128,450" delta="+12.4%" />
                 <Kpi label={l.pvBookings} value="342" delta="+8.1%" />
                 <Kpi label={l.pvPassengers} value="1,286" delta="+15.3%" />
               </div>
-              <div className="rounded-xl border border-lp-border bg-white p-3">
+              <div className="rounded-xl border border-lp-border bg-white p-3 lg:p-4">
                 <div className="mb-1 flex items-center justify-between">
-                  <span className="text-[10px] font-semibold text-lp-text">{l.pvRevenueOverview}</span>
-                  <span className="text-[9px] text-lp-muted">2026</span>
+                  <span className="text-[10px] font-semibold text-lp-text lg:text-xs">{l.pvRevenueOverview}</span>
+                  <span className="text-[9px] text-lp-muted lg:text-[11px]">2026</span>
                 </div>
-                <div className="h-24 sm:h-32">
+                <div className="h-24 sm:h-32 lg:h-36">
                   <AreaChart values={REVENUE} second={PASSENGERS} height={130} id="hero" />
                 </div>
               </div>
               <div className="rounded-xl border border-lp-border bg-white p-3">
-                <div className="mb-1 text-[10px] font-semibold text-lp-text">{l.pvDepartures}</div>
+                <div className="mb-1 text-[10px] font-semibold text-lp-text lg:mb-2 lg:text-xs">{l.pvDepartures}</div>
                 {deps.map(([name, seats, tone, label]) => (
-                  <div key={name} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-t border-lp-border py-1.5 first:border-t-0">
-                    <span className="text-[10px] font-medium text-lp-text">{name}</span>
-                    <span className="text-[10px] tabular-nums text-lp-muted">{seats}</span>
+                  <div key={name} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-t border-lp-border py-1.5 first:border-t-0 lg:py-2">
+                    <span className="text-[10px] font-medium text-lp-text lg:text-xs">{name}</span>
+                    <span className="text-[10px] tabular-nums text-lp-muted lg:text-xs">{seats}</span>
                     <span className="w-20 text-right"><Pill tone={tone}>{label}</Pill></span>
                   </div>
                 ))}
@@ -90,6 +93,18 @@ export function HeroDashboard() {
         </div>
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
           <div className="h-full w-[72%] rounded-full bg-lp-primary" />
+        </div>
+      </Surface>
+      <Surface className="lp-float absolute -bottom-[84px] right-16 hidden w-44 p-3 xl:block [--lp-delay:2.6s]">
+        <div className="flex items-center justify-between">
+          <span className="text-[9px] font-medium text-lp-muted">{l.pvBookings}</span>
+          <Pill tone="green">+18</Pill>
+        </div>
+        <div className="mt-1 text-base font-bold tabular-nums text-lp-text">342</div>
+        <div className="mt-2 flex h-8 items-end gap-1">
+          {[40, 55, 35, 70, 60, 85, 100].map((h, i) => (
+            <span key={i} className="flex-1 rounded-sm bg-lp-primary" style={{ height: `${h}%`, opacity: 0.35 + i * 0.1 }} />
+          ))}
         </div>
       </Surface>
       <Surface className="lp-float absolute -top-6 right-6 hidden w-44 p-3 sm:block lg:right-16 [--lp-delay:1.4s]">

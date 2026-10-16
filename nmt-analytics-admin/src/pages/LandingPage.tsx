@@ -90,7 +90,7 @@ export default function LandingPage() {
         {/* Hero */}
         <section id="top" className="relative scroll-mt-24">
           <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-16 -z-0 h-[720px] bg-[radial-gradient(60%_60%_at_20%_0%,#EFEDFF_0%,transparent_70%),radial-gradient(50%_50%_at_90%_10%,#F4F2FF_0%,transparent_70%)]" />
-          <div className={`${container} relative grid items-center gap-14 pb-20 pt-10 sm:pt-16 lg:grid-cols-[0.9fr_1.1fr] lg:gap-8 lg:pb-28 lg:pt-20`}>
+          <div className={`${container} relative grid items-center gap-14 pb-20 pt-10 sm:pt-16 lg:grid-cols-[0.85fr_1.15fr] lg:gap-10 lg:pb-36 lg:pt-20`}>
             <Reveal>
               <h1 className="text-balance text-[40px] font-semibold leading-[1.08] tracking-tight text-lp-text sm:text-5xl lg:text-[46px] xl:text-6xl">
                 {l.heroTitle}
