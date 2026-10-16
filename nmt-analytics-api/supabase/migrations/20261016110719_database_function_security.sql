@@ -16,4 +16,9 @@ REVOKE EXECUTE ON FUNCTION public.prevent_supplier_confirmation_event_mutation()
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.prevent_supplier_confirmation_event_mutation() TO service_role;
 
+-- The latest public-form replacement omits SET and clears the old function
+-- configuration on clean replay. Keep this server-only definer pinned too.
+ALTER FUNCTION public.submit_public_form(text, jsonb)
+  SET search_path = pg_catalog, public, pg_temp;
+
 COMMIT;
