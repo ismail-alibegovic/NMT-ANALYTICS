@@ -4,7 +4,7 @@ import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
-import { supabase } from "../../lib/supabase";
+import { supabase, getRecoveryRedirectState } from "../../lib/supabase";
 import { clearLocalAuthStorage } from "../../lib/authSession";
 import { useT } from "../../lib/i18n/context";
 
@@ -29,7 +29,8 @@ export default function ResetPasswordForm() {
   useEffect(() => {
     const hash = new URLSearchParams(window.location.hash.slice(1));
     const query = new URLSearchParams(window.location.search);
-    const invalidLink = hash.has('error') || query.has('error') || hash.has('error_code') || query.has('error_code');
+    const remembered = getRecoveryRedirectState();
+    const invalidLink = remembered.error || hash.has('error') || query.has('error') || hash.has('error_code') || query.has('error_code');
     let active = true;
     if (invalidLink) {
       setError(t.auth.recoveryLinkInvalid);
@@ -39,7 +40,7 @@ export default function ResetPasswordForm() {
       if (event === "PASSWORD_RECOVERY" && session && !invalidLink) setMode("update");
     });
     // Handle initialization that completed before this component subscribed.
-    if (hash.get('type') === 'recovery' && !invalidLink) {
+    if ((remembered.requested || hash.get('type') === 'recovery') && !invalidLink) {
       void supabase.auth.getSession().then(({ data: sessionData }) => {
         if (!active) return;
         if (sessionData.session) setMode('update');

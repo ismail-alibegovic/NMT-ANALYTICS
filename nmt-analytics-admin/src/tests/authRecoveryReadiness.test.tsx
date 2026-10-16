@@ -3,8 +3,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router';
 import { I18nProvider } from '../lib/i18n/context';
 import ResetPasswordForm from '../components/auth/ResetPasswordForm';
-const h = vi.hoisted(() => ({ reset: vi.fn(), update: vi.fn(), signOut: vi.fn(), getSession: vi.fn(), callback: null as any, clear: vi.fn(), navigate: vi.fn() }));
-vi.mock('../lib/supabase', () => ({ supabase: { auth: {
+const h = vi.hoisted(() => ({ reset: vi.fn(), update: vi.fn(), signOut: vi.fn(), getSession: vi.fn(), callback: null as any, remembered: false, clear: vi.fn(), navigate: vi.fn() }));
+vi.mock('../lib/supabase', () => ({ getRecoveryRedirectState: () => ({ requested: h.remembered, error: false }), supabase: { auth: {
   resetPasswordForEmail: h.reset, updateUser: h.update, signOut: h.signOut, getSession: h.getSession,
   onAuthStateChange: (cb: any) => { h.callback = cb; return { data: { subscription: { unsubscribe: vi.fn() } } }; },
 } } }));
@@ -13,7 +13,7 @@ vi.mock('react-router', async importOriginal => ({ ...(await importOriginal<type
 vi.mock('../icons', () => ({ ChevronLeftIcon: () => null, EyeCloseIcon: () => null, EyeIcon: () => null }));
 function show() { return render(<MemoryRouter><I18nProvider><ResetPasswordForm /></I18nProvider></MemoryRouter>); }
 beforeEach(() => {
-  vi.clearAllMocks(); localStorage.setItem('travline_lang', 'en'); window.history.replaceState(null, '', '/auth/reset-password');
+  h.remembered = false; vi.clearAllMocks(); localStorage.setItem('travline_lang', 'en'); window.history.replaceState(null, '', '/auth/reset-password');
   h.getSession.mockResolvedValue({ data: { session: null } });
   h.reset.mockResolvedValue({ error: null }); h.update.mockResolvedValue({ error: null }); h.signOut.mockResolvedValue({ error: null });
 });
@@ -37,6 +37,11 @@ describe('recovery provider readiness', () => {
     expect(screen.queryByText(/secret-token/)).not.toBeInTheDocument();
     expect(window.location.hash).toBe('');
     expect(h.update).not.toHaveBeenCalled();
+  });
+  it('recovers when Auth consumed the URL before the lazy form mounted', async () => {
+    h.remembered = true;
+    h.getSession.mockResolvedValue({ data: { session: { access_token: 'isolated' } } }); show();
+    expect(await screen.findByLabelText(/^New password/)).toBeInTheDocument();
   });
   it('signs out and clears local auth after a verified recovery password update', async () => {
     window.history.replaceState(null, '', '/auth/reset-password#type=recovery');
