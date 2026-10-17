@@ -424,3 +424,32 @@ describe('M14.2 payment recording', () => {
     expect(relationshipRes.body.code).toBe('INSTALLMENT_AMOUNT_MISMATCH');
   });
 });
+
+
+describe('standalone payment request replay', () => {
+  const key = '55555555-5555-4555-8555-555555555555';
+  it('replays a fully paid reservation without a second ledger row or notification', async () => {
+    const payload = { reservation_id: RESERVATION, amount: 1000, idempotency_key: key };
+    const first = await request(app).post('/api/payments').send(payload);
+    expect(first.status).toBe(201);
+    const retry = await request(app).post('/api/payments').send(payload);
+    expect(retry.status).toBe(200);
+    expect(retry.body.payment.id).toBe(first.body.payment.id);
+    expect(retry.body.replayed).toBe(true);
+    expect(payments.filter(row => row.id === first.body.payment.id)).toHaveLength(1);
+    expect(reservations[0].paid_amount).toBe(1000);
+  });
+  it('rejects reuse of a request key with different financial terms', async () => {
+    const payload = { reservation_id: RESERVATION, amount: 100, idempotency_key: key };
+    expect((await request(app).post('/api/payments').send(payload)).status).toBe(201);
+    const retry = await request(app).post('/api/payments').send({ ...payload, amount: 101 });
+    expect(retry.status).toBe(409);
+    expect(retry.body.code).toBe('PAYMENT_IDEMPOTENCY_CONFLICT');
+    expect(reservations[0].paid_amount).toBe(100);
+  });
+  it('does not use a request key to access a reservation from another tenant', async () => {
+    const res = await request(app).post('/api/payments').send({ reservation_id: OTHER_RESERVATION, amount: 10, idempotency_key: key });
+    expect(res.status).toBe(404);
+    expect(payments.every(row => row.status !== 'succeeded')).toBe(true);
+  });
+});

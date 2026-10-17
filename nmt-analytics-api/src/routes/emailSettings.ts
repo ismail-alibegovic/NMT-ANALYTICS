@@ -6,27 +6,18 @@ import { requireMinimumRole } from '../middleware/requireRole';
 import { supabaseAdmin } from '../lib/supabase';
 import { apiError } from '../lib/errors';
 import { z } from 'zod';
-import { EmailService } from '../lib/email/EmailService';
+import { smtpConfigSchema } from '../lib/email/smtpConfig';
 import { SmtpEmailProvider } from '../lib/email/SmtpProvider';
 
 const router = Router();
 
 // Audit wrappers for email_settings
-const auditEmailSettingsCreate = auditLog('UPDATE', 'email_settings', undefined, undefined);
 const auditEmailSettingsTest = auditLog('VIEW', 'email_settings', undefined, undefined);
 
 router.use(authenticateToken);
 router.use(requireOrgContext);
 
-const smtpConfigSchema = z.object({
-  host: z.string().trim().min(1),
-  port: z.coerce.number().int().min(1).max(65535).default(587),
-  secure: z.boolean().optional(),
-  user: z.string().trim().min(1),
-  pass: z.string().min(1),
-  fromEmail: z.string().trim().email(),
-  fromName: z.string().trim().optional(),
-});
+const settingsSchema = smtpConfigSchema.extend({ fromEmail: z.string().trim().email() });
 
 const smtpTestSchema = z.object({
   to: z.string().trim().email().optional(),
@@ -39,6 +30,7 @@ function createSmtpProvider(config: SmtpConfig) {
     host: config.host,
     port: config.port,
     secure: config.secure,
+    requireTLS: config.requireTLS,
     user: config.user,
     pass: config.pass,
     fromEmail: config.fromEmail,
@@ -49,13 +41,14 @@ function createSmtpProvider(config: SmtpConfig) {
 // GET /settings/email - Get email config (masked)
 router.get('/', requireMinimumRole('director'), async (req: Request, res: Response) => {
   try {
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from('org_settings')
       .select('value')
       .eq('org_id', req.orgId!)
       .eq('key', 'smtp_config')
       .single();
 
+    if (error && error.code !== 'PGRST116') return apiError(res, 503, 'SMTP_SETTINGS_UNAVAILABLE', 'SMTP settings could not be loaded');
     if (!data) {
       return res.json({ configured: false });
     }
@@ -68,12 +61,13 @@ router.get('/', requireMinimumRole('director'), async (req: Request, res: Respon
       port: config.port,
       user: config.user,
       secure: config.secure ?? config.port === 465,
+      requireTLS: config.requireTLS ?? config.port === 587,
       fromEmail: config.fromEmail,
       fromName: config.fromName || '',
       pass: '********',
     });
   } catch {
-    return res.json({ configured: false });
+    return apiError(res, 503, 'SMTP_SETTINGS_UNAVAILABLE', 'SMTP settings could not be loaded');
   }
 });
 
@@ -92,7 +86,7 @@ router.post('/test', auditEmailSettingsTest, requireMinimumRole('director'), asy
       return apiError(res, 400, 'SMTP_NOT_CONFIGURED', 'SMTP configuration is not saved');
     }
 
-    const config = smtpConfigSchema.parse(data.value);
+    const config = settingsSchema.parse(data.value);
     const provider = createSmtpProvider(config);
 
     await provider.sendEmail({
@@ -104,18 +98,38 @@ router.post('/test', auditEmailSettingsTest, requireMinimumRole('director'), asy
     return res.json({ success: true, message: 'Test email sent' });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
-      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid SMTP test request', err.issues);
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid SMTP test request');
     }
-    return apiError(res, 400, 'SMTP_TEST_FAILED', err.message || 'Failed to send test email');
+    return apiError(res, 400, 'SMTP_TEST_FAILED', 'SMTP provider did not accept the test message');
   }
+});
+
+// Verify SMTP connectivity/authentication without sending a message.
+router.post('/verify', requireMinimumRole('director'), async (req: Request, res: Response) => {
+  const { data, error } = await supabaseAdmin.from('org_settings').select('value')
+    .eq('org_id', req.orgId!).eq('key', 'smtp_config').single();
+  if (error || !data?.value) return apiError(res, 400, 'SMTP_NOT_CONFIGURED', 'SMTP configuration is not saved');
+  const parsed = settingsSchema.safeParse(data.value);
+  if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid SMTP configuration');
+  const result = await SmtpEmailProvider.verifyConfig(parsed.data);
+  return res.status(result.ok ? 200 : 400).json(result);
 });
 
 // POST /settings/email - Save SMTP config
 router.post('/', requireMinimumRole('director'), async (req: Request, res: Response) => {
   try {
-    const config = smtpConfigSchema.parse(req.body);
+    const input = { ...req.body };
+    if (input.pass === '********') {
+      const { data, error } = await supabaseAdmin.from('org_settings').select('value')
+        .eq('org_id', req.orgId!).eq('key', 'smtp_config').single();
+      if (error || !data?.value?.pass) {
+        return apiError(res, 400, 'SMTP_PASSWORD_REQUIRED', 'Enter the SMTP password');
+      }
+      input.pass = data.value.pass;
+    }
+    const config = settingsSchema.parse(input);
 
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('org_settings')
       .upsert({
         org_id: req.orgId!,
@@ -123,11 +137,14 @@ router.post('/', requireMinimumRole('director'), async (req: Request, res: Respo
         value: config,
       }, { onConflict: 'org_id,key' });
 
+    if (error) return apiError(res, 503, 'SMTP_SAVE_FAILED', 'SMTP settings could not be saved');
+
     // Providers are resolved per organisation at send time; never installed process-wide.
-    return res.json({ success: true, message: 'SMTP configuration saved and activated' });
+    return res.json({ success: true, message: 'SMTP configuration saved; delivery has not been verified' });
   } catch (err: any) {
-    return apiError(res, 400, 'VALIDATION_ERROR', err.message || 'Invalid SMTP configuration');
+    return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid SMTP configuration');
   }
 });
 
 export default router;
+

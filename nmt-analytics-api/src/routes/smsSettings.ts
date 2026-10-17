@@ -38,9 +38,8 @@ async function getSavedSmsConfig(orgId: string): Promise<SmsProviderConfig | nul
     .eq('key', 'sms_config')
     .single();
 
-  if (error || !data?.value) {
-    return null;
-  }
+  if (error && error.code !== 'PGRST116') throw new Error('SMS_SETTINGS_LOOKUP_FAILED');
+  if (!data?.value) return null;
 
   return smsConfigSchema.parse(data.value);
 }
@@ -99,7 +98,7 @@ router.get('/', requireMinimumRole('director'), async (req: Request, res: Respon
         senderNumber: sender.sms_sender_number || '',
         endpoint: config.endpoint || '',
         apiKey: config.apiKey ? '********' : '',
-        headers: config.headers,
+        headers: config.headers ? Object.fromEntries(Object.keys(config.headers).map(key => [key, '********'])) : undefined,
       });
     }
 
@@ -111,9 +110,9 @@ router.get('/', requireMinimumRole('director'), async (req: Request, res: Respon
     });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
-      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid SMS configuration', err.issues);
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid SMS configuration');
     }
-    return apiError(res, 500, 'INTERNAL_ERROR', err.message || 'Failed to load SMS settings');
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to load SMS settings');
   }
 });
 
@@ -136,13 +135,20 @@ router.post('/', auditSmsSettingsUpdate, requireMinimumRole('director'), async (
       }
     }
 
+    if (body?.provider === 'http' && body.headers && typeof body.headers === 'object') {
+      const existing = await getSavedSmsConfig(req.orgId!);
+      const saved = existing?.provider === 'http' ? existing.headers : undefined;
+      body = { ...body, headers: Object.fromEntries(Object.entries(body.headers).map(([key, value]) => [
+        key, value === '********' ? (saved?.[key] || '') : value,
+      ])) };
+    }
     const config = smsConfigSchema.parse(body);
 
     if (config.provider === 'mock' && process.env.NODE_ENV === 'production') {
       return apiError(res, 400, 'SMS_MOCK_NOT_ALLOWED', 'The mock SMS provider cannot be used in production');
     }
 
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('org_settings')
       .upsert(
         {
@@ -153,12 +159,13 @@ router.post('/', auditSmsSettingsUpdate, requireMinimumRole('director'), async (
         { onConflict: 'org_id,key' }
       );
 
-    return res.json({ success: true, message: 'SMS configuration saved and activated' });
+    if (error) return apiError(res, 503, 'SMS_SAVE_FAILED', 'SMS settings could not be saved');
+    return res.json({ success: true, message: 'SMS configuration saved; delivery has not been verified' });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
-      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid SMS configuration', err.issues);
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid SMS configuration');
     }
-    return apiError(res, 400, 'SMS_CONFIG_FAILED', err.message || 'Failed to save SMS configuration');
+    return apiError(res, 400, 'SMS_CONFIG_FAILED', 'Failed to save SMS configuration');
   }
 });
 
@@ -201,10 +208,11 @@ router.post('/test', auditSmsSettingsTest, requireMinimumRole('director'), async
     return res.json({ success: true, message: 'Test SMS sent' });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
-      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid SMS test request', err.issues);
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid SMS test request');
     }
-    return apiError(res, 400, 'SMS_TEST_FAILED', err.message || 'Failed to send test SMS');
+    return apiError(res, 400, 'SMS_TEST_FAILED', 'SMS provider did not accept the test message');
   }
 });
 
 export default router;
+

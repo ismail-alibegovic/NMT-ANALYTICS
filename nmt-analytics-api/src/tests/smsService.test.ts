@@ -115,7 +115,7 @@ describe('SmsService and Providers', () => {
 
       await expect(
         provider.sendSms({ to: '+000', message: 'Fail' })
-      ).rejects.toThrow('Twilio: Invalid phone number');
+      ).rejects.toThrow('SMS_PROVIDER_REJECTED_400');
     });
 
     it('uses environment variables when options are omitted', async () => {
@@ -126,7 +126,7 @@ describe('SmsService and Providers', () => {
       let requestedUrl = '';
       global.fetch = vi.fn(async (url: any) => {
         requestedUrl = String(url);
-        return { ok: true, status: 201, text: async () => '{}' } as any;
+        return { ok: true, status: 201, text: async () => JSON.stringify({ sid: 'SM_ENV' }) } as any;
       });
 
       const provider = new TwilioSmsProvider({ provider: 'twilio' });
@@ -193,8 +193,20 @@ describe('SmsService and Providers', () => {
 
       await expect(
         provider.sendSms({ to: '+38761123456', message: 'Test' })
-      ).rejects.toThrow('HTTP SMS: Gateway unavailable');
+      ).rejects.toThrow('SMS_PROVIDER_REJECTED_502');
     });
+  });
+
+  it('rejects a successful HTTP response that explicitly reports application failure', async () => {
+    global.fetch = vi.fn(async () => ({ ok: true, status: 200, text: async () => JSON.stringify({ accepted: false, error: 'secret-token' }) } as any));
+    const provider = new HttpSmsProvider({ provider: 'http', endpoint: 'https://gateway.example.test/send' });
+    await expect(provider.sendSms({ to: '+38761123456', message: 'test' })).rejects.toThrow(/^SMS_PROVIDER_CONFIRMATION_INVALID$/);
+  });
+
+  it('does not accept an empty Twilio receipt as a sent SMS', async () => {
+    global.fetch = vi.fn(async () => ({ ok: true, status: 201, text: async () => '{}' } as any));
+    const provider = new TwilioSmsProvider({ provider: 'twilio', accountSid: 'AC_test', authToken: 'secret', fromNumber: '+1234567890' });
+    await expect(provider.sendSms({ to: '+38761123456', message: 'test' })).rejects.toThrow(/^SMS_PROVIDER_CONFIRMATION_INVALID$/);
   });
 
   describe('createSmsProvider factory', () => {
@@ -214,3 +226,4 @@ describe('SmsService and Providers', () => {
     });
   });
 });
+
