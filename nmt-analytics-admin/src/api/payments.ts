@@ -1,3 +1,4 @@
+import { paymentRequest } from '../lib/paymentRequest';
 import { get, post, patch } from './client';
 
 // ============================================================================
@@ -46,6 +47,7 @@ export interface PaymentListResponse {
 }
 
 export interface CreatePaymentInput {
+    idempotency_key?: string;
     reservation_id: string;
     installment_id?: string;
     amount: number;
@@ -154,7 +156,13 @@ export async function createPayment(paymentData: CreatePaymentInput): Promise<Cr
             : paymentData.amount
     };
 
-    const { data } = await post<CreatePaymentResponse>('/payments', normalizedData);
+    const pending = !normalizedData.installment_id && !normalizedData.idempotency_key ? paymentRequest(normalizedData) : null;
+    const { data } = await post<CreatePaymentResponse>('/payments', {
+        ...normalizedData,
+        ...(pending ? { idempotency_key: pending.key } : {}),
+    });
+    // Keep the key after errors/timeouts; a lost response must not become a second payment.
+    pending?.complete();
     return data;
 }
 
@@ -236,3 +244,4 @@ export async function getPaymentDashboard(): Promise<PaymentDashboardResponse> {
     const { data } = await get<PaymentDashboardResponse>('/payments/dashboard');
     return data;
 }
+
