@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 
+let saveFailure = false;
 let orgSettings = new Map<string, any>();
 let organizations = new Map<string, { sms_sender_name?: string | null; sms_sender_number?: string | null }>();
 let currentOrgId = 'org-1';
@@ -74,6 +75,7 @@ vi.mock('../lib/supabase', () => ({
           if (table !== 'org_settings') {
             throw new Error(`Unhandled upsert table: ${table}`);
           }
+          if (saveFailure) return { data: null, error: { message: 'secret-token' } };
           orgSettings.set(`${row.org_id}:${row.key}`, row.value);
           return { data: row, error: null };
         }),
@@ -94,6 +96,7 @@ function app() {
 
 describe('sms settings route', () => {
   beforeEach(() => {
+    saveFailure = false;
     currentOrgId = 'org-1';
     orgSettings = new Map();
     organizations = new Map([
@@ -253,5 +256,27 @@ describe('sms settings route', () => {
     expect(getRes.body.provider).toBe('http');
     expect(getRes.body.endpoint).toBe('https://sms.example.com/webhook');
     expect(getRes.body.apiKey).toBe('********');
+  });
+});
+
+
+describe('SMS configuration secret boundary', () => {
+  beforeEach(() => { currentOrgId = 'org-1'; saveFailure = false; orgSettings = new Map(); organizations.set('org-1', { sms_sender_name: 'Pilot', sms_sender_number: '+38761111222' }); });
+  it('masks every gateway header and preserves masked secrets on update', async () => {
+    orgSettings.set('org-1:sms_config', { provider: 'http', endpoint: 'https://sms.example.test/send', headers: { Authorization: 'Bearer private-token', 'X-Custom-Secret': 'private-token' } });
+    const read = await request(app()).get('/settings/sms');
+    expect(JSON.stringify(read.body)).not.toContain('private-token');
+    expect(read.body.headers.Authorization).toBe('********');
+    const save = await request(app()).post('/settings/sms').send({ provider: 'http', endpoint: 'https://sms.example.test/send', headers: read.body.headers });
+    expect(save.status).toBe(200);
+    expect(orgSettings.get('org-1:sms_config').headers.Authorization).toBe('Bearer private-token');
+  });
+  it('does not report a successful save after a database failure', async () => {
+    saveFailure = true;
+    const save = await request(app()).post('/settings/sms').send({ provider: 'twilio', accountSid: 'AC-test', authToken: 'private-token' });
+    expect(save.status).toBe(503);
+    expect(save.body.code).toBe('SMS_SAVE_FAILED');
+    expect(JSON.stringify(save.body)).not.toContain('private-token');
+    saveFailure = false;
   });
 });

@@ -1,3 +1,4 @@
+vi.mock('../lib/email/orgEmailProvider', () => ({ resolveOrgEmailProvider: vi.fn(async () => null) }));
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 vi.mock('../lib/communicationHistory', () => ({ logCommunicationHistory: vi.fn(async () => {}) }));
 import { EmailService } from '../lib/email/EmailService';
@@ -42,3 +43,4 @@ describe('activateSmtpProvider fallback', () => {
     ).resolves.not.toThrow();
   });
 });
+

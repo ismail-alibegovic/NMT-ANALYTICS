@@ -45,13 +45,21 @@ function requireCronSecret(req: Request, res: Response): boolean {
     return false;
   }
 
+  if (process.env.COMMUNICATION_JOBS_ENABLED !== 'true') {
+    res.status(503).json({ error: 'scheduler_disabled' });
+    return false;
+  }
+  // Cron GET responses must never be cached or replayed by an intermediary.
+  res.set('Cache-Control', 'no-store');
   return true;
 }
 
-router.post('/internal/jobs/process-scheduled-campaigns', async (req: Request, res: Response) => {
+router.route('/internal/jobs/process-scheduled-campaigns').all(async (req: Request, res: Response) => {
+  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).set('Allow', 'GET, POST').end();
   if (!requireCronSecret(req, res)) return;
 
-  const result = await processDueScheduledCampaigns();
+  const result = await processDueScheduledCampaigns().catch(() => null);
+  if (!result) return res.status(503).json({ error: 'scheduler_execution_failed' });
 
   return res.json({
     processed: result.processed,
@@ -61,10 +69,12 @@ router.post('/internal/jobs/process-scheduled-campaigns', async (req: Request, r
   });
 });
 
-router.post('/internal/jobs/process-departure-reminders', async (req: Request, res: Response) => {
+router.route('/internal/jobs/process-departure-reminders').all(async (req: Request, res: Response) => {
+  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).set('Allow', 'GET, POST').end();
   if (!requireCronSecret(req, res)) return;
 
-  const result = await runUpcomingDepartureReminderDelivery();
+  const result = await runUpcomingDepartureReminderDelivery().catch(() => null);
+  if (!result) return res.status(503).json({ error: 'scheduler_execution_failed' });
 
   return res.json({
     created: result.createdCount,
@@ -78,28 +88,17 @@ router.post('/internal/jobs/process-departure-reminders', async (req: Request, r
   });
 });
 
-router.post('/internal/jobs/process-communication-jobs', async (req: Request, res: Response) => {
+router.route('/internal/jobs/process-communication-jobs').all(async (req: Request, res: Response) => {
+  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).set('Allow', 'GET, POST').end();
   if (!requireCronSecret(req, res)) return;
 
-  const [campaignResult, automationResult, reminderResult] = await Promise.all([
+  const results = await Promise.all([
     processDueScheduledCampaigns(),
     processDueAutomationRules(),
-    runUpcomingDepartureReminderDelivery().catch((err) => {
-      console.error('[InternalJob] Departure reminder delivery failed:', err);
-      return {
-        createdCount: 0,
-        processedCount: 0,
-        emailSent: 0,
-        emailSkipped: 0,
-        emailFailed: 0,
-        smsSent: 0,
-        smsSkipped: 0,
-        smsFailed: 0,
-        results: [],
-        error: err?.message || 'reminder_delivery_failed',
-      };
-    }),
-  ]);
+    runUpcomingDepartureReminderDelivery(),
+  ]).catch(() => null);
+  if (!results) return res.status(503).json({ error: 'scheduler_execution_failed' });
+  const [campaignResult, automationResult, reminderResult] = results;
 
   return res.json({
     campaigns: {
@@ -128,9 +127,9 @@ router.post('/internal/jobs/process-communication-jobs', async (req: Request, re
       smsSent: reminderResult.smsSent,
       smsSkipped: reminderResult.smsSkipped,
       smsFailed: reminderResult.smsFailed,
-      ...('error' in reminderResult ? { error: (reminderResult as any).error } : {}),
     },
   });
 });
 
 export default router;
+
