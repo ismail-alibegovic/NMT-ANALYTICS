@@ -1,3 +1,4 @@
+import { sanitizeSentryEvent, isValidSentryDsn } from './sentryPrivacy';
 import * as Sentry from '@sentry/react';
 
 /**
@@ -25,7 +26,8 @@ export function isSentryEnabled(): boolean {
  */
 export function initSentry(): void {
   const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
-  if (!dsn) {
+  if (!isValidSentryDsn(dsn)) {
+    console.info('[sentry] VITE_SENTRY_DSN absent or invalid — frontend error capture disabled.');
     return;
   }
 
@@ -52,17 +54,7 @@ export function initSentry(): void {
       'AbortError',
       'Load failed',
     ],
-    beforeSend(event) {
-      // Defensive scrub: never let a bearer token or Supabase session ride
-      // along in a captured request payload.
-      if (event.request?.headers) {
-        delete event.request.headers.Authorization;
-        delete event.request.headers.authorization;
-        delete event.request.headers.Cookie;
-        delete event.request.headers.cookie;
-      }
-      return event;
-    },
+    beforeSend: sanitizeSentryEvent,
   });
   enabled = true;
 }
@@ -89,9 +81,9 @@ export function setSentryUser(ctx: {
     return;
   }
 
-  Sentry.setUser(ctx.userId ? { id: ctx.userId, email: ctx.email || undefined } : null);
+  Sentry.setUser(ctx.userId ? { id: ctx.userId } : null);
   if (ctx.orgId) Sentry.setTag('tenant.org_id', ctx.orgId);
-  if (ctx.orgName) Sentry.setTag('tenant.org_name', ctx.orgName);
+
   if (ctx.role) Sentry.setTag('user.role', ctx.role);
 }
 
@@ -129,3 +121,4 @@ export function captureError(err: unknown, context?: Record<string, unknown>): v
 }
 
 export default Sentry;
+

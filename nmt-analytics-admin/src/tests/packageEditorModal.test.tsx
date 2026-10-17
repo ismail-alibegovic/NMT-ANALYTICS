@@ -163,8 +163,10 @@ vi.mock('../icons', () => {
   };
 });
 
-function getHotelSelect() {
-  return screen.getAllByRole('combobox')[5];
+async function getHotelSelect() {
+  // A catalog API call can finish before React replaces the loading state.
+  const placeholder = await screen.findByRole('option', { name: 'Select an existing hotel' });
+  return placeholder.closest('select') as HTMLSelectElement;
 }
 
 function getHotelCard(name: string) {
@@ -210,7 +212,7 @@ describe('PackageEditorModal', () => {
   ];
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     getHotels.mockResolvedValue(catalogHotels);
     createHotel.mockResolvedValue({
       id: 'hotel-3',
@@ -266,7 +268,7 @@ describe('PackageEditorModal', () => {
     await waitFor(() => expect(getHotels).toHaveBeenCalledTimes(1));
     expect(getPackageHotels).not.toHaveBeenCalled();
 
-    fireEvent.change(getHotelSelect(), { target: { value: 'hotel-2' } });
+    fireEvent.change(await getHotelSelect(), { target: { value: 'hotel-2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Attach hotel' }));
 
     expect(await screen.findByText('Hotel Medine')).toBeInTheDocument();
@@ -323,7 +325,7 @@ describe('PackageEditorModal', () => {
     );
 
     await waitFor(() => expect(getHotels).toHaveBeenCalledTimes(1));
-    fireEvent.change(getHotelSelect(), { target: { value: 'hotel-2' } });
+    fireEvent.change(await getHotelSelect(), { target: { value: 'hotel-2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Attach hotel' }));
 
     const medineCard = await screen.findByText('Hotel Medine');
@@ -350,6 +352,7 @@ describe('PackageEditorModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create package' }));
 
     await waitFor(() => expect(createPackage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(linkHotelToPackage).toHaveBeenCalledWith('pkg-new', expect.objectContaining({
       hotelId: 'hotel-2',
       roomOptions: [
@@ -415,6 +418,7 @@ describe('PackageEditorModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create package' }));
 
     await waitFor(() => expect(createPackage).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(createHotel).toHaveBeenCalledTimes(1);
     expect(linkHotelToPackage).toHaveBeenCalledWith('pkg-new', expect.objectContaining({
       hotelId: 'hotel-3',
@@ -493,7 +497,7 @@ describe('PackageEditorModal', () => {
     );
 
     await waitFor(() => expect(getHotels).toHaveBeenCalledTimes(1));
-    fireEvent.change(getHotelSelect(), { target: { value: 'hotel-2' } });
+    fireEvent.change(await getHotelSelect(), { target: { value: 'hotel-2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Attach hotel' }));
 
     const medineCard = await screen.findByText('Hotel Medine');
@@ -520,6 +524,7 @@ describe('PackageEditorModal', () => {
       name: 'New package',
       destination: 'Medina',
     })));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(createPackage).toHaveBeenCalledTimes(1);
     expect(linkHotelToPackage).toHaveBeenCalledTimes(2);
     expect(toastSuccess).toHaveBeenCalledWith('Package created.');
@@ -560,7 +565,7 @@ describe('PackageEditorModal', () => {
 
     await screen.findByText('Hotel Bosna');
 
-    fireEvent.change(getHotelSelect(), { target: { value: 'hotel-2' } });
+    fireEvent.change(await getHotelSelect(), { target: { value: 'hotel-2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Attach hotel' }));
 
     expect(await screen.findByText('Hotel Medine')).toBeInTheDocument();
@@ -583,6 +588,7 @@ describe('PackageEditorModal', () => {
       transportType: 'none',
     })));
 
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(updatePackageHotel).toHaveBeenCalledWith('link-1', expect.objectContaining({
       hotelId: 'hotel-1',
       roomOptions: [
@@ -619,7 +625,7 @@ describe('PackageEditorModal', () => {
     );
 
     await screen.findByText('Hotel Bosna');
-    fireEvent.change(getHotelSelect(), { target: { value: 'hotel-2' } });
+    fireEvent.change(await getHotelSelect(), { target: { value: 'hotel-2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Attach hotel' }));
     const medineCard = await screen.findByText('Hotel Medine');
     const hotelCard = medineCard.closest('.rounded-xl.border') as HTMLElement;
