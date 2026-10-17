@@ -1,7 +1,8 @@
 import { auditLog } from "../middleware/auditLogger";
 import { Router, Request, Response } from 'express';
-import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
+import { supabaseAdmin } from '../lib/supabase';
 import { z } from 'zod';
+import { createSignupClient, signupRedirectUrl } from '../lib/authSignup';
 import { apiError } from '../lib/errors';
 
 const router = Router();
@@ -39,20 +40,27 @@ router.post('/auth/signup', auditOrganizationCreate, async (req: Request, res: R
 
     const { email, password, full_name } = parsed.data;
 
-    // Create auth user — trigger fires automatically
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    // Fresh anonymous client: signup must send Auth confirmation, never mutate the admin session.
+    const { data, error } = await createSignupClient().auth.signUp({
       email,
       password,
-      email_confirm: false,
-      user_metadata: full_name ? { full_name } : {},
+      options: {
+        emailRedirectTo: signupRedirectUrl(),
+        data: full_name ? { full_name } : {},
+      },
     });
 
     if (error) {
       if (error.message.includes('already') || error.message.includes('exists')) {
         return apiError(res, 409, 'USER_EXISTS', 'Korisnik sa ovim emailom već postoji');
       }
-      return apiError(res, 400, 'SIGNUP_FAILED', error.message);
+      return apiError(res, 400, 'SIGNUP_FAILED', 'Registration could not be completed. Try again later.');
     }
+
+    if (!data.user) return apiError(res, 400, 'SIGNUP_FAILED', 'Registration could not be completed');
+    // Supabase may return an obfuscated user for existing confirmed addresses.
+    // Never use that response to mutate an existing organization.
+    if (data.user.identities?.length === 0) return res.status(201).json({ confirmationRequired: true });
 
     // If org_name was provided, update the auto-created org name
     if (parsed.data.org_name) {
@@ -76,11 +84,12 @@ router.post('/auth/signup', auditOrganizationCreate, async (req: Request, res: R
     }
 
     res.status(201).json({
-      message: 'Račun uspješno kreiran. Provjerite email za potvrdu.',
+      message: 'Registration accepted. Check your email if confirmation is required.',
+      confirmationRequired: !data.session,
       user: { id: data.user.id, email: data.user.email },
     });
   } catch (err: any) {
-    console.error('Signup error:', err);
+    console.error('Signup failed');
     apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error');
   }
 });
@@ -114,3 +123,4 @@ router.get('/auth/check-org', async (req: Request, res: Response) => {
 });
 
 export default router;
+

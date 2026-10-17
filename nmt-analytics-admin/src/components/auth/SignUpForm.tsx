@@ -32,8 +32,8 @@ export default function SignUpForm() {
       setError(t.auth.termsPrefix);
       return;
     }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (password.length < 8) {
+      setError(t.auth.passwordTooShort);
       return;
     }
 
@@ -58,7 +58,7 @@ export default function SignUpForm() {
         return;
       }
 
-      navigate("/auth/signin?registered=1", { replace: true });
+      navigate(data.confirmationRequired ? "/auth/signin?verify=1" : "/auth/signin?registered=1", { replace: true });
     } catch {
       setError(t.errors.generic);
     } finally {
@@ -216,3 +216,4 @@ export default function SignUpForm() {
     </div>
   );
 }
+
