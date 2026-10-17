@@ -11,7 +11,7 @@ vi.mock('nodemailer', () => ({
     createTransport: (opts: any) => {
       const t = { user: opts.auth?.user as string, sent: [] as any[] };
       mocks.transports.push(t);
-      return { sendMail: async (mail: any) => { t.sent.push(mail); } };
+      return { sendMail: async (mail: any) => { t.sent.push(mail); return { accepted: [mail.to], rejected: [] }; } };
     },
   },
 }));
