@@ -32,8 +32,9 @@ export function activateSmtpProvider(): void {
     const provider = new SmtpEmailProvider(config);
     EmailService.setProvider(provider);
     smtpProviderConfigured = true;
-    console.log(`[SMTP] Provider activated: ${config.host}:${config.port}`);
+    console.log('[SMTP] Provider configured (delivery not verified)');
   } catch {
-    useFallback('Invalid SMTP_CONFIG JSON');
+    useFallback('Invalid SMTP_CONFIG');
   }
 }
+

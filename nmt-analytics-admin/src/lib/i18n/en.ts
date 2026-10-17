@@ -656,6 +656,8 @@ export const en = {
     goToStep: 'Go to',
   },
   auth: {
+    verificationRequired: 'Check your email to verify your account before signing in.',
+    recoveryLinkInvalid: 'This recovery link is invalid or expired. Request a new link.',
     signIn: 'Sign In', signUp: 'Sign Up', email: 'Email', password: 'Password',
     forgotPassword: 'Forgot Password?', noAccount: "Don't have an account?",
     hasAccount: 'Already have an account?', signInTitle: 'Welcome back',
@@ -2186,3 +2188,4 @@ applyProposal: 'Apply Proposal',
   },
 };
 export type Translations = typeof en;
+

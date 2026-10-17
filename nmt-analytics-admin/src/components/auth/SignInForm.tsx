@@ -20,6 +20,7 @@ export default function SignInForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const justRegistered = searchParams.get("registered") === "1";
+  const needsVerification = searchParams.get("verify") === "1";
   const justReset = searchParams.get("reset") === "1";
 
   const handleDevLogin = async () => {
@@ -80,6 +81,7 @@ export default function SignInForm() {
             </p>
           </div>
           <div>
+            {needsVerification && <div role="status" className="mb-4 text-sm text-gray-600 dark:text-gray-300">{t.auth.verificationRequired}</div>}
             {justRegistered && (
               <div className="mb-4 p-3 bg-success-50 border border-success-200 text-success-700 rounded-lg dark:bg-success-900/30 dark:border-success-800 dark:text-success-400">
                 {t.auth.accountCreated}
@@ -244,3 +246,4 @@ export default function SignInForm() {
     </div>
   );
 }
+
