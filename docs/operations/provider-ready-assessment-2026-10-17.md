@@ -65,7 +65,7 @@ Target verified through the Supabase connection: `hacutwknfgufrqlgdiia` (Travlin
 | Public-table RLS/browser grants | PASS for inspected metadata | All 74 public tables have RLS; zero public base tables expose SELECT/INSERT/UPDATE/DELETE to anon or authenticated |
 | Trigger/function ACL hardening | BLOCKED for production parity | `recompute_group_member_count` is still executable by anon/authenticated; supplier mutation guard has no pinned search_path; pending security migration addresses these |
 | Public-form execution boundary | PASS for existing ACL | anon/authenticated EXECUTE false, service_role true; final replacement/search_path still requires the ordered deployment |
-| Backup availability, retention and PITR | NOT VERIFIED | Available connector has no backup management read; signed-in browser session cannot access the target project; database health is not backup evidence |
+| Backup availability, retention and PITR | BLOCKED: managed backups unavailable on current plan | Browser access resolved at 2026-10-17 19:20 Europe/Sarajevo; exact Travline project is on Free. Scheduled-backup page states backups are not included; PITR page offers a Pro add-on. Any independent manual backup remains NOT VERIFIED |
 | Restore rehearsal and RPO/RTO | NOT VERIFIED | No approved isolated production-backup restore was performed |
 | Other runtime compatibility | NOT VERIFIED | Zo/other deployed runtime SHAs and their configuration were not verified |
 
@@ -94,14 +94,16 @@ Status: **BLOCKED** until a recent restorable backup, successful isolated restor
 
 A second read-only check confirmed the release main is still `21ce102733e817638f71d545a96fadd87cd0221d`, the target is ACTIVE_HEALTHY, and production still records 110 migrations through `20261015153728`, with neither pending version recorded. No new application test run is claimed.
 
-Browser access recovered, but opening the exact Travline project redirected to organization `dimkdjxfdbaxnkvugmhv`; its organization selector lists only that organization and its project list contains Estateline and Riverina Residence. It does not establish access to Travline organization `zbpxetyyeqjwjchkupuh`. The connected Supabase tools can inspect Travline but expose no backup-list operation. Backup/PITR availability and restore coverage therefore remain NOT VERIFIED. The next access step is for the owner to sign the browser into the Supabase account with access to the exact Travline project; do not send credentials or backup contents through the PR.
+Browser access was initially blocked by a different signed-in account. The owner switched sessions, and at 2026-10-17 19:20 Europe/Sarajevo the browser successfully accessed the exact Travline project in organization `zbpxetyyeqjwjchkupuh`. This resolves the browser-access blocker. The [scheduled-backup page](https://supabase.com/dashboard/project/hacutwknfgufrqlgdiia/database/backups/scheduled) states **Free Plan does not include project backups**. The [PITR page](https://supabase.com/dashboard/project/hacutwknfgufrqlgdiia/database/backups/pitr) offers a Pro add-on rather than an active recovery window. No managed backup ID, successful backup timestamp or PITR recovery bounds are available from these pages. An independent manual backup, if one exists, has not been verified. No plan upgrade or recovery action was performed.
+
+Next: prepare a manual logical backup through an authorized secure database connection, store it in an owner-controlled encrypted destination, and restore it into an approved isolated PostgreSQL 17/Supabase environment. Preserve required schema/data/roles and migration history, and establish separate Auth/settings and Storage recovery coverage. Discover current CLI flags before execution, keep credentials and backup contents out of the repository, and record checksums and restore evidence. Do not infer that a paid upgrade alone proves an existing recovery point or successful restoration.
 
 Before beginning a restore rehearsal, complete this evidence record without secrets or customer records:
 
 | Required record | Current state / evidence needed |
 | --- | --- |
 | Source identity | Travline, `hacutwknfgufrqlgdiia`, organization `zbpxetyyeqjwjchkupuh`, eu-north-1 |
-| Available recovery source | NOT VERIFIED: backup ID/type, successful status, timestamp and timezone; or earliest/latest PITR recovery bounds and retention |
+| Available recovery source | BLOCKED for managed backups on Free; manual backup NOT VERIFIED. Record an actual successful backup, timestamp/timezone, integrity checksum and secure location, then prove restoration |
 | Isolated destination | NOT SELECTED: approved target reference, region, access restrictions and any approved cost |
 | Side-effect controls | Record outbound integration/worker isolation before attaching an application or performing test writes; inspect copied database schedules, webhook triggers and external-operation extensions |
 | Coverage | Record database/Auth-data coverage separately from Storage object bytes, Auth settings/API keys and other project configuration |
