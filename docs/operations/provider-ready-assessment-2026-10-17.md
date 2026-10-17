@@ -90,6 +90,29 @@ Status: **BLOCKED** until a recent restorable backup, successful isolated restor
 5. Restore the chosen backup to an authorized isolated target. Do not create a paid target or restore over production. Use authorized sanitized data for workflow checks. Record measured RPO/RTO, restore job ID, ACL/schema checks and tenant/finance/public-form results. Apply the two pending migrations there in order and repeat the checks.
 6. Stop unless the isolated upgrade rehearsal passes and the owner explicitly approves the production action and release window. Assign a named release operator and incident contact before beginning.
 
+### Recovery continuation checkpoint — 2026-10-17
+
+A second read-only check confirmed the release main is still `21ce102733e817638f71d545a96fadd87cd0221d`, the target is ACTIVE_HEALTHY, and production still records 110 migrations through `20261015153728`, with neither pending version recorded. No new application test run is claimed.
+
+Browser access recovered, but opening the exact Travline project redirected to organization `dimkdjxfdbaxnkvugmhv`; its organization selector lists only that organization and its project list contains Estateline and Riverina Residence. It does not establish access to Travline organization `zbpxetyyeqjwjchkupuh`. The connected Supabase tools can inspect Travline but expose no backup-list operation. Backup/PITR availability and restore coverage therefore remain NOT VERIFIED. The next access step is for the owner to sign the browser into the Supabase account with access to the exact Travline project; do not send credentials or backup contents through the PR.
+
+Before beginning a restore rehearsal, complete this evidence record without secrets or customer records:
+
+| Required record | Current state / evidence needed |
+| --- | --- |
+| Source identity | Travline, `hacutwknfgufrqlgdiia`, organization `zbpxetyyeqjwjchkupuh`, eu-north-1 |
+| Available recovery source | NOT VERIFIED: backup ID/type, successful status, timestamp and timezone; or earliest/latest PITR recovery bounds and retention |
+| Isolated destination | NOT SELECTED: approved target reference, region, access restrictions and any approved cost |
+| Side-effect controls | Record outbound integration/worker isolation before attaching an application or performing test writes; inspect copied database schedules, webhook triggers and external-operation extensions |
+| Coverage | Record database/Auth-data coverage separately from Storage object bytes, Auth settings/API keys and other project configuration |
+| Restore execution | NOT RUN: recovery point, job ID, start/finish UTC, observed data-loss interval and restore duration, compared with owner-approved RPO/RTO |
+| Upgrade rehearsal | NOT RUN: 110-version baseline; apply exactly the two reviewed migrations in order on the isolated copy; verify 112 versions, function ACL/search paths, tenant and finance checks |
+| Decision | NO-GO until evidence is complete; separate approval remains required for production deployment |
+
+A narrow catalog inspection found no installed `pg_cron`, `pg_net`, `wrappers` or `http` extensions, zero foreign servers and zero triggers using `supabase_functions.http_request`; `supabase_vault` is installed. Vault contents were not read. This does not certify every custom function, application worker or external integration as inert; repeat the inspection on the restored target.
+
+Current official [restore-to-new-project guidance](https://supabase.com/docs/guides/platform/clone-project) describes a database copy that includes Auth user data but requires separate configuration and Storage recovery work. It also calls out copied extensions capable of external operations and additional project costs. Check eligibility and the actual cost before choosing this path; no clone, upgrade, purchase or restore has been started. See also [database backup coverage](https://supabase.com/docs/guides/platform/backups). The tool named `restore_project` is not evidence that an isolated backup restore is supported; do not invoke it as a substitute.
+
 ### Preflight and exact deployment order
 
 Work from a clean checkout of the approved final release SHA, in `nmt-analytics-api/`. Use the reviewed CLI version and discover its flags with `--help`; the runbook follows the official [db push reference](https://supabase.com/docs/reference/cli/supabase-db-push). No passwords or tokens belong in command arguments, logs or PRs.
