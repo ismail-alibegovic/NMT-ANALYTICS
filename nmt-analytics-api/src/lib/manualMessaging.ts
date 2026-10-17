@@ -42,9 +42,8 @@ async function getSavedOrgSetting<T>(orgId: string, key: string): Promise<T | nu
     .eq('key', key)
     .single();
 
-  if (error || !data?.value) {
-    return null;
-  }
+  if (error && error.code !== 'PGRST116') throw new Error('COMMUNICATION_SETTINGS_LOOKUP_FAILED');
+  if (!data?.value) return null;
 
   return data.value as T;
 }
@@ -144,3 +143,4 @@ export async function sendManualSmsForOrg(
     relatedDepartureId: payload.relatedDepartureId ?? null,
   }, createSmsProvider(config));
 }
+

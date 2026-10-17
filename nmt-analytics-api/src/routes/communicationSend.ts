@@ -39,6 +39,9 @@ const sendSchema = targetSchema.extend({
 
 function mapDeliveryError(message: string | undefined): { status: number; code: string } | null {
   if (
+    message === 'SMTP_CONFIGURATION_INVALID' ||
+    message === 'SMS_CONFIGURATION_INVALID' ||
+    message === 'SMS_MOCK_PROVIDER_DISABLED_IN_PRODUCTION' ||
     message === 'SMTP_NOT_CONFIGURED' ||
     message === 'SMS_NOT_CONFIGURED' ||
     message === 'SMS_SENDER_MISSING'
@@ -236,3 +239,4 @@ router.post(
 );
 
 export default router;
+
