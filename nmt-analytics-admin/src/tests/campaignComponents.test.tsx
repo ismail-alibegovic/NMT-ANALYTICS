@@ -57,6 +57,7 @@ vi.mock('../icons', () => {
 
 vi.mock('../lib/i18n/context', () => {
   const t = {
+    common: { close: 'Close' },
     communication: {
       templates: {
         channelEmail: 'Email',

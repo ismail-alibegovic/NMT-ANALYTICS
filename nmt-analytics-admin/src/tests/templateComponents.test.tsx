@@ -12,6 +12,7 @@ vi.mock('../api/messageTemplates', () => ({
 
 vi.mock('../lib/i18n/context', () => {
   const t = {
+    common: { close: 'Close' },
     communication: {
       templates: {
         title: 'Templates',
