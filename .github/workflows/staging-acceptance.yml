@@ -1,6 +1,8 @@
 name: Travline Staging Acceptance
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
   pull_request:
     branches: [main]

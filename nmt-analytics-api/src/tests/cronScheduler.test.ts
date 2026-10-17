@@ -64,6 +64,7 @@ function app() {
 
 describe('Internal Cron Schedulers', () => {
   beforeEach(() => {
+    vi.stubEnv('COMMUNICATION_JOBS_ENABLED', 'true');
     processed = [];
     processorCalled = 0;
     reminderResult = {
@@ -79,6 +80,32 @@ describe('Internal Cron Schedulers', () => {
     };
     vi.stubEnv('SCHEDULED_CAMPAIGNS_CRON_SECRET', undefined);
     vi.stubEnv('CRON_SECRET', undefined);
+  });
+
+  it.each(['get', 'post'] as const)('keeps %s jobs inactive until explicitly enabled', async method => {
+    vi.stubEnv('CRON_SECRET', 'test-secret');
+    vi.stubEnv('COMMUNICATION_JOBS_ENABLED', undefined);
+    const res = await request(app())[method]('/internal/jobs/process-communication-jobs')
+      .set('Authorization', 'Bearer test-secret');
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe('scheduler_disabled');
+    expect(processorCalled).toBe(0);
+  });
+
+  it('supports an authenticated Vercel GET without caching', async () => {
+    vi.stubEnv('CRON_SECRET', 'test-secret');
+    const res = await request(app()).get('/internal/jobs/process-communication-jobs')
+      .set('Authorization', 'Bearer test-secret');
+    expect(res.status).toBe(200);
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(processorCalled).toBe(1);
+  });
+
+  it('rejects unauthenticated Vercel GET before running workers', async () => {
+    vi.stubEnv('CRON_SECRET', 'test-secret');
+    const res = await request(app()).get('/internal/jobs/process-communication-jobs');
+    expect(res.status).toBe(401);
+    expect(processorCalled).toBe(0);
   });
 
   describe('POST /internal/jobs/process-scheduled-campaigns', () => {
@@ -211,7 +238,7 @@ describe('Internal Cron Schedulers', () => {
       expect(res.body.reminders.smsSent).toBe(2);
     });
 
-    it('gracefully handles departure reminder failure without failing whole job', async () => {
+    it('reports worker failure without exposing raw errors', async () => {
       vi.stubEnv('CRON_SECRET', 'vercel-cron-secret-2026');
       reminderResult = new Error('Database connection timeout during reminder generation');
 
@@ -219,11 +246,10 @@ describe('Internal Cron Schedulers', () => {
         .post('/internal/jobs/process-communication-jobs')
         .set('Authorization', 'Bearer vercel-cron-secret-2026');
 
-      expect(res.status).toBe(200);
-      expect(res.body.campaigns).toBeDefined();
-      expect(res.body.automation).toBeDefined();
-      expect(res.body.reminders.created).toBe(0);
-      expect(res.body.reminders.error).toContain('timeout');
+      expect(res.status).toBe(503);
+      expect(res.body.error).toBe('scheduler_execution_failed');
+      expect(JSON.stringify(res.body)).not.toContain('timeout');
     });
   });
 });
+

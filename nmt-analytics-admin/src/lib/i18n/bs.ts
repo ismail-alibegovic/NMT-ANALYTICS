@@ -656,6 +656,8 @@ export const bs: Translations = {
     goToStep: 'Idi na',
   },
   auth: {
+    verificationRequired: 'Provjerite email i potvrdite nalog prije prijave.',
+    recoveryLinkInvalid: 'Link za oporavak je neispravan ili je istekao. Zatražite novi link.',
     signIn: 'Prijava', signUp: 'Registracija', email: 'Email', password: 'Lozinka',
     forgotPassword: 'Zaboravili ste lozinku?', noAccount: 'Nemate nalog?',
     hasAccount: 'Već imate nalog?', signInTitle: 'Dobrodošli nazad',
@@ -2185,3 +2187,4 @@ applyProposal: 'Primijeni prijedlog',
     pvDashboard: 'Kontrolna tabla',
   },
 };
+

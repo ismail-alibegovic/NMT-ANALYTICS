@@ -4,7 +4,8 @@ import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
-import { supabase } from "../../lib/supabase";
+import { supabase, getRecoveryRedirectState } from "../../lib/supabase";
+import { clearLocalAuthStorage } from "../../lib/authSession";
 import { useT } from "../../lib/i18n/context";
 
 type Mode = "request" | "update";
@@ -26,15 +27,29 @@ export default function ResetPasswordForm() {
   // `detectSessionInUrl` consumes it and emits PASSWORD_RECOVERY, which flips
   // this form into "set a new password" mode.
   useEffect(() => {
-    const hash = window.location.hash || "";
-    if (hash.includes("type=recovery")) setMode("update");
-
-    const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") setMode("update");
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const query = new URLSearchParams(window.location.search);
+    const remembered = getRecoveryRedirectState();
+    const invalidLink = remembered.error || hash.has('error') || query.has('error') || hash.has('error_code') || query.has('error_code');
+    let active = true;
+    if (invalidLink) {
+      setError(t.auth.recoveryLinkInvalid);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" && session && !invalidLink) setMode("update");
     });
+    // Handle initialization that completed before this component subscribed.
+    if ((remembered.requested || hash.get('type') === 'recovery') && !invalidLink) {
+      void supabase.auth.getSession().then(({ data: sessionData }) => {
+        if (!active) return;
+        if (sessionData.session) setMode('update');
+        else setError(t.auth.recoveryLinkInvalid);
+      }).catch(() => { if (active) setError(t.auth.recoveryLinkInvalid); });
+    }
 
-    return () => data.subscription.unsubscribe();
-  }, []);
+    return () => { active = false; data.subscription.unsubscribe(); };
+  }, [t.auth.recoveryLinkInvalid]);
 
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,15 +66,15 @@ export default function ResetPasswordForm() {
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         email.trim(),
-        { redirectTo: `${window.location.origin}/reset-password` },
+        { redirectTo: `${window.location.origin}/auth/reset-password` },
       );
       if (resetError) {
-        setError(resetError.message);
+        setError(t.errors.generic);
         return;
       }
       setSent(true);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t.errors.generic);
+    } catch {
+      setError(t.errors.generic);
     } finally {
       setLoading(false);
     }
@@ -84,12 +99,14 @@ export default function ResetPasswordForm() {
     try {
       const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) {
-        setError(updateError.message);
+        setError(t.errors.generic);
         return;
       }
+      await supabase.auth.signOut({ scope: 'local' });
+      clearLocalAuthStorage();
       navigate("/auth/signin?reset=1", { replace: true });
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t.errors.generic);
+    } catch {
+      setError(t.errors.generic);
     } finally {
       setLoading(false);
     }
@@ -209,3 +226,4 @@ export default function ResetPasswordForm() {
     </div>
   );
 }
+

@@ -25,7 +25,13 @@ export const twilioSmsConfigSchema = z.object({
 
 export const httpSmsConfigSchema = z.object({
   provider: z.literal('http'),
-  endpoint: z.string().trim().url().optional(),
+  endpoint: z.string().trim().url().refine(value => {
+    try {
+    const url = new URL(value);
+    return !url.username && !url.password && !url.search && !url.hash
+      && (process.env.NODE_ENV !== 'production' || url.protocol === 'https:');
+    } catch { return false; }
+  }, 'Use an HTTPS gateway URL without embedded credentials or query parameters').optional(),
   apiKey: z.string().trim().optional(),
   headers: z.record(z.string(), z.string()).optional(),
 });
@@ -40,6 +46,7 @@ export type SmsProviderConfig = z.infer<typeof smsConfigSchema>;
 
 export class MockSmsProvider implements SmsProvider {
   async sendSms(options: SmsOptions): Promise<void> {
+    if (isProduction()) throw new Error('SMS_MOCK_PROVIDER_DISABLED_IN_PRODUCTION');
     console.log(`[MOCK SMS] To: ${options.to}`);
     console.log(`[MOCK SMS] From Name: ${options.fromName || ''}`);
     console.log(`[MOCK SMS] From Number: ${options.fromNumber || ''}`);
@@ -93,23 +100,23 @@ export class TwilioSmsProvider implements SmsProvider {
 
     const response = await fetch(url, {
       method: 'POST',
+      redirect: 'error',
+      signal: AbortSignal.timeout(20000),
       headers: {
         'Authorization': authHeader,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: params.toString(),
-    });
+    }).catch(() => { throw new Error('SMS_TRANSPORT_FAILED'); });
 
     if (!response.ok) {
-      const errText = await response.text();
-      let errorMsg = `Twilio SMS failed with status ${response.status}`;
-      try {
-        const parsed = JSON.parse(errText);
-        if (parsed.message) errorMsg = `Twilio: ${parsed.message}`;
-      } catch {
-        if (errText) errorMsg += `: ${errText}`;
-      }
-      throw new Error(errorMsg);
+      throw new Error(`SMS_PROVIDER_REJECTED_${response.status}`);
+    }
+    let receipt: { sid?: string; status?: string; error_code?: unknown };
+    try { receipt = JSON.parse(await response.text()); }
+    catch { throw new Error('SMS_PROVIDER_CONFIRMATION_INVALID'); }
+    if (!receipt.sid || receipt.error_code || ['failed', 'undelivered', 'canceled'].includes(receipt.status || '')) {
+      throw new Error('SMS_PROVIDER_CONFIRMATION_INVALID');
     }
   }
 }
@@ -129,6 +136,10 @@ export class HttpSmsProvider implements SmsProvider {
       throw new Error('HTTP SMS endpoint is not configured');
     }
 
+    const target = new URL(endpoint);
+    if (target.username || target.password || target.search || target.hash || (isProduction() && target.protocol !== 'https:')) {
+      throw new Error('SMS_ENDPOINT_INVALID');
+    }
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(this.config?.headers || {}),
@@ -147,25 +158,30 @@ export class HttpSmsProvider implements SmsProvider {
 
     const response = await fetch(endpoint, {
       method: 'POST',
+      redirect: 'error',
+      signal: AbortSignal.timeout(20000),
       headers,
       body: JSON.stringify(payload),
-    });
+    }).catch(() => { throw new Error('SMS_TRANSPORT_FAILED'); });
 
     if (!response.ok) {
-      const errText = await response.text();
-      let errorMsg = `HTTP SMS gateway failed with status ${response.status}`;
-      try {
-        const parsed = JSON.parse(errText);
-        if (parsed.message || parsed.error) errorMsg = `HTTP SMS: ${parsed.message || parsed.error}`;
-      } catch {
-        if (errText) errorMsg += `: ${errText}`;
+      throw new Error(`SMS_PROVIDER_REJECTED_${response.status}`);
+    }
+    const body = await response.text().catch(() => { throw new Error('SMS_TRANSPORT_FAILED'); });
+    if (body.trim().startsWith('{')) {
+      let receipt: { error?: unknown; success?: boolean; accepted?: boolean; status?: string };
+      try { receipt = JSON.parse(body); } catch { throw new Error('SMS_PROVIDER_CONFIRMATION_INVALID'); }
+      if (receipt.error || receipt.success === false || receipt.accepted === false || ['failed', 'rejected', 'undelivered'].includes(receipt.status || '')) {
+        throw new Error('SMS_PROVIDER_CONFIRMATION_INVALID');
       }
-      throw new Error(errorMsg);
     }
   }
 }
 
 export function createSmsProvider(config: SmsProviderConfig): SmsProvider {
+  const parsed = smsConfigSchema.safeParse(config);
+  if (!parsed.success) throw new Error('SMS_CONFIGURATION_INVALID');
+  config = parsed.data;
   switch (config.provider) {
     case 'mock':
       return isProduction()
@@ -204,8 +220,10 @@ export class SmsService {
     relatedReservationId?: string | null;
     relatedDepartureId?: string | null;
   }, provider?: SmsProvider) {
+    let accepted = false;
     try {
       await (provider ?? this.provider).sendSms(options);
+      accepted = true;
       await logCommunicationHistory({
         orgId: options.orgId,
         channel: 'sms',
@@ -217,13 +235,14 @@ export class SmsService {
         sentAt: new Date(),
       });
     } catch (error: any) {
+      if (accepted) throw new Error('SMS_ACCEPTED_HISTORY_UNAVAILABLE_DO_NOT_RETRY');
       await logCommunicationHistory({
         orgId: options.orgId,
         channel: 'sms',
         recipient: options.to,
         bodyPreview: options.message,
         status: 'failed',
-        errorMessage: error?.message || 'sms_send_failed',
+        errorMessage: 'SMS_SEND_FAILED',
         relatedReservationId: options.relatedReservationId ?? null,
         relatedDepartureId: options.relatedDepartureId ?? null,
       });
@@ -231,3 +250,4 @@ export class SmsService {
     }
   }
 }
+
