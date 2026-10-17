@@ -280,5 +280,5 @@ Branch: `docs/provider-ready-assessment-2026-10-17` ([#118](https://github.com/i
 
 - `docs/operations/provider-ready-assessment-2026-10-17.md`
 
-No migration was added or applied. No other application files were changed beyond the implementation diffs above.
+No new migration was added to the repository and no production migration was applied. No other application files were changed beyond the implementation diffs above.
 
