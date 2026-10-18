@@ -136,7 +136,7 @@ export default function Customers() {
   const handleSubmit = async (data: any) => {
     try {
       if (editingCustomer) {
-        await updateCustomer(editingCustomer.id, { ...data, email: data.email || null, phone: data.phone || null });
+        await updateCustomer(editingCustomer.id, { ...data, email: data.email || null, phone: data.phone });
       } else {
         await createCustomer({ ...data, email: data.email || undefined, phone: data.phone || undefined });
       }
@@ -198,7 +198,7 @@ export default function Customers() {
   const formFields = [
     { name: 'full_name', label: t.customers.fullName, type: 'text' as const, required: true },
     { name: 'email', label: t.customers.email, type: 'email' as const },
-    { name: 'phone', label: t.customers.phone, type: 'tel' as const },
+    { name: 'phone', label: t.customers.phone, type: 'tel' as const, required: true },
     {
       name: 'status',
       label: t.common.status,

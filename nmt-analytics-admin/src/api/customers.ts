@@ -18,9 +18,8 @@ export interface CreateCustomerData {
   notes?: string;
 }
 
-export type UpdateCustomerData = Partial<Omit<CreateCustomerData, 'email' | 'phone'>> & {
+export type UpdateCustomerData = Partial<Omit<CreateCustomerData, 'email'>> & {
   email?: string | null;
-  phone?: string | null;
 };
 
 export interface CustomerFilters {
