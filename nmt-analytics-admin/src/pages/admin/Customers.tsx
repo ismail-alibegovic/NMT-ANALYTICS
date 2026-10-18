@@ -40,7 +40,6 @@ export default function Customers() {
   const [modalOpen, setModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const [packages, setPackages] = useState<Package[]>([]);
   const [packageFilter, setPackageFilter] = useState<string>('');
 
@@ -135,37 +134,16 @@ export default function Customers() {
   };
 
   const handleSubmit = async (data: any) => {
-    console.log('Submitting customer data:', data);
-    setSubmitting(true);
     try {
-      // Ensure empty strings are treated as null/undefined if desired, or let backend handle it
-      const payload = {
-        ...data,
-        email: data.email || undefined,
-        phone: data.phone || undefined
-      };
-
       if (editingCustomer) {
-        await updateCustomer(editingCustomer.id, payload);
-        showSuccess('Customer updated successfully');
+        await updateCustomer(editingCustomer.id, { ...data, email: data.email || null, phone: data.phone || null });
       } else {
-        await createCustomer(payload);
-        showSuccess('Customer created successfully');
+        await createCustomer({ ...data, email: data.email || undefined, phone: data.phone || undefined });
       }
-      setModalOpen(false);
-      fetchCustomers(currentPage, searchTerm, packageFilter);
+      void fetchCustomers(currentPage, searchTerm, packageFilter);
     } catch (err: any) {
-      console.error('Customer submission error:', err);
-      // Use backend error message if available
-      const errorMessage = err.message || (editingCustomer ? 'Failed to update customer' : 'Failed to create customer');
-
-      if (err.status === 409) {
-        showError('Customer with this phone already exists');
-      } else {
-        showError(errorMessage);
-      }
-    } finally {
-      setSubmitting(false);
+      // Propagate failure: FormModal owns successful feedback and closing.
+      throw new Error(err.status === 409 ? t.customers.duplicatePhone : err.message || t.common.error);
     }
   };
 
@@ -181,7 +159,7 @@ export default function Customers() {
   const columns: Column<Customer>[] = [
     {
       key: 'fullName',
-      header: t.customers.name,
+      header: t.customers.fullName,
       render: (_, customer) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
@@ -207,7 +185,7 @@ export default function Customers() {
       )
     },
     {
-      key: 'actions', header: t.customers.actions, render: (_, customer) => (
+      key: 'actions', header: t.common.actions, render: (_, customer) => (
         <div className="flex gap-2 justify-end">
           <Button size="sm" variant="outline" onClick={() => navigate(`/customers/${customer.id}`)} className="p-2">{t.common.view}</Button>
           <Button size="sm" variant="outline" onClick={() => handleEdit(customer)} className="p-2">{t.common.edit}</Button>
@@ -218,21 +196,21 @@ export default function Customers() {
   ];
 
   const formFields = [
-    { name: 'full_name', label: 'Full Name', type: 'text' as const, required: true },
-    { name: 'email', label: 'Email', type: 'email' as const },
-    { name: 'phone', label: 'Phone', type: 'tel' as const },
+    { name: 'full_name', label: t.customers.fullName, type: 'text' as const, required: true },
+    { name: 'email', label: t.customers.email, type: 'email' as const },
+    { name: 'phone', label: t.customers.phone, type: 'tel' as const },
     {
       name: 'status',
-      label: 'Status',
+      label: t.common.status,
       type: 'select' as const,
       options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Lead', value: 'lead' },
-        { label: 'Archived', value: 'archived' }
+        { label: t.customers.active, value: 'active' },
+        { label: t.customers.lead, value: 'lead' },
+        { label: t.customers.archived, value: 'archived' }
       ],
       required: true
     },
-    { name: 'notes', label: 'Notes', type: 'text' as const },
+    { name: 'notes', label: t.customers.notes, type: 'text' as const },
   ];
 
   if (!authLoading && !user) return <div className="p-6"><EmptyState title="Auth Required" description="Please sign in" /></div>;
@@ -246,7 +224,7 @@ export default function Customers() {
         searchPlaceholder={t.customers.search}
         searchValue={searchTerm}
         onSearchChange={handleSearch}
-        createButton={{ label: t.customers.addCustomer, onClick: handleCreate }}
+        createButton={{ label: t.customers.add, onClick: handleCreate }}
         actions={
           <Button
             variant="outline"
@@ -254,7 +232,7 @@ export default function Customers() {
             className="flex items-center gap-2"
           >
             <FileIcon className="w-4 h-4" />
-            {t.customers.importCustomers}
+            {t.common.import}
           </Button>
         }
       />
@@ -322,7 +300,7 @@ export default function Customers() {
       <FormModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editingCustomer ? 'Edit Customer' : 'Add Customer'}
+        title={editingCustomer ? t.customers.edit : t.customers.add}
         fields={formFields}
         onSubmit={handleSubmit}
         initialData={editingCustomer ? {
@@ -332,8 +310,7 @@ export default function Customers() {
           status: editingCustomer.status || 'active',
           notes: editingCustomer.notes || '',
         } : { status: 'active' }}
-        submitButtonText={editingCustomer ? 'Update' : 'Create'}
-        loading={submitting}
+        submitButtonText={editingCustomer ? t.common.save : t.common.create}
       />
     </>
   );

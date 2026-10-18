@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Modal } from './modal';
 import Button from './button/Button';
 import Input from '../form/input/InputField';
@@ -40,24 +40,27 @@ export function FormModal({
   const { success, error } = useToast();
   const { t } = useT();
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const wasOpen = useRef(false);
   const [formData, setFormData] = useState<Record<string, any>>(initialData);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !wasOpen.current) {
       setFormData(initialData);
       setFormErrors({});
     }
+    wasOpen.current = isOpen;
   }, [isOpen, initialData]);
 
   const validateField = (field: FormField, value: any): string => {
-    if (field.required && field.type !== 'checkbox' && !value) {
-      return `${field.label} je obavezno polje`;
+    if (field.required && (field.type === 'checkbox' ? value !== true : value == null || (typeof value === 'string' && !value.trim()))) {
+      return `${field.label} ${t.common.isRequired}`;
     }
     if (field.type === 'email' && value) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(value)) {
-        return 'Neispravna email adresa';
+        return t.common.invalidEmail;
       }
     }
     return '';
@@ -81,10 +84,12 @@ export function FormModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (submittingRef.current || loading) return;
     if (!validateForm()) {
       return;
     }
 
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       await onSubmit(formData);
@@ -95,8 +100,13 @@ export function FormModal({
       // Let the parent component handle specific errors if needed, but show generic error here if not handled
       error(err.message || t.common.error);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
+  };
+
+  const requestClose = () => {
+    if (!submittingRef.current && !loading) onClose();
   };
 
   const handleInputChange = (name: string, value: any) => {
@@ -121,11 +131,16 @@ export function FormModal({
             <Select
               options={field.options || []}
               placeholder={field.placeholder}
-              defaultValue={formData[field.name] || ''}
+              id={field.name}
+              name={field.name}
+              value={formData[field.name] ?? ''}
               onChange={(value) => handleInputChange(field.name, value)}
               error={!!fieldError}
+              required={field.required}
+              aria-invalid={!!fieldError}
+              aria-describedby={fieldError ? `${field.name}-error` : undefined}
             />
-            {fieldError && <p className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
+            {fieldError && <p id={`${field.name}-error`} className="mt-1.5 text-xs text-error-500 dark:text-error-400">{fieldError}</p>}
           </div>
         );
 
@@ -138,8 +153,11 @@ export function FormModal({
             </Label>
             <textarea
               id={field.name}
+              required={field.required}
+              aria-invalid={!!fieldError}
+              aria-describedby={fieldError ? `${field.name}-error` : undefined}
               placeholder={field.placeholder}
-              value={formData[field.name] || ''}
+              value={formData[field.name] ?? ''}
               onChange={(e) => {
                 handleInputChange(field.name, e.target.value);
                 e.target.style.height = 'auto';
@@ -153,7 +171,7 @@ export function FormModal({
               }`}
               rows={4}
             />
-            {fieldError && <p className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
+            {fieldError && <p id={`${field.name}-error`} className="mt-1.5 text-xs text-error-500 dark:text-error-400">{fieldError}</p>}
           </div>
         );
 
@@ -167,13 +185,16 @@ export function FormModal({
               <input
                 type="checkbox"
                 id={field.name}
+                required={field.required}
+                aria-invalid={!!fieldError}
+                aria-describedby={fieldError ? `${field.name}-error` : undefined}
                 checked={!!formData[field.name]}
                 onChange={(e) => handleInputChange(field.name, e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-600 dark:bg-gray-900"
               />
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{field.label}</span>
             </label>
-            {fieldError && <p className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
+            {fieldError && <p id={`${field.name}-error`} className="mt-1.5 text-xs text-error-500 dark:text-error-400">{fieldError}</p>}
           </div>
         );
 
@@ -188,32 +209,35 @@ export function FormModal({
               type={field.type}
               id={field.name}
               placeholder={field.placeholder}
-              value={formData[field.name] || ''}
+              value={formData[field.name] ?? ''}
               onChange={(e) => handleInputChange(field.name, e.target.value)}
               onBlur={() => handleBlur(field)}
               error={!!fieldError}
+              required={field.required}
+              aria-invalid={!!fieldError}
+              aria-describedby={fieldError ? `${field.name}-error` : undefined}
             />
-            {fieldError && <p className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
+            {fieldError && <p id={`${field.name}-error`} className="mt-1.5 text-xs text-error-500 dark:text-error-400">{fieldError}</p>}
           </div>
         );
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-2xl">
+    <Modal isOpen={isOpen} onClose={requestClose} className="max-w-2xl">
       <div className="p-6">
         <h2 className="mb-6 text-xl font-semibold text-gray-800 dark:text-white/90">
           {title}
         </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form noValidate onSubmit={handleSubmit} className="space-y-4">
           {fields.map(renderField)}
 
           <div className="flex justify-end gap-3 pt-4">
             <Button
               type="button"
               variant="outline"
-              onClick={onClose}
+              onClick={requestClose}
               disabled={submitting}
             >
               {t.common.cancel}

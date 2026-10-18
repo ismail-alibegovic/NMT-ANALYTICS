@@ -1,0 +1,13 @@
+# Customer and shared form audit
+
+Base main: 21ce102733e817638f71d545a96fadd87cd0221d. Branch: fix/audit-customer-form-state.
+
+Browser reproduction: all eight baseline fixture cases failed. After a parent rerender caused by a rejected submit, FormModal reset entered values to initialData. Select lacked the id referenced by its visible label. Whitespace-only required text submitted. These failures were reproduced using actual shared components and synthetic HTTP responses, without production access.
+
+Fixes: snapshot initial data when opening a form; preserve drafts through rerenders and failed requests; guard submission synchronously; prevent closing while saving; connect select labels and validation descriptions; reject blank/whitespace input, preserve numeric zero, validate required checkboxes and localize validation messages. Input/Select accept optional native validation/accessibility props.
+
+Customer integration: propagate API failures so FormModal retains the draft and does not emit false success; send explicit nulls when clearing existing optional email/phone; reuse existing BS/EN labels instead of missing translation keys that rendered blank actions/table headers. Generic FormModal owns pending state and success feedback.
+
+Local verification: 10 Chromium component regressions pass, light/dark at 390/768/1440 plus pending-submit, duplicate submission, cancellation and reopen checks. Admin build passed; admin lint/unit results recorded in PR after completion. These synthetic component tests do not establish database persistence. A new isolated-API customer browser workflow covers required/email validation, real duplicate-phone rejection, preserved retry state, create/edit/reload and clearing optional contact fields, across BS/EN, both themes and all three widths. CI execution pending.
+
+No API implementation or migrations changed/applied; tenant scoping remains in existing APIs. No production data or demo generation. Full route/form audit remains incomplete.
