@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import DepartureFormModal from '../../src/components/departures/DepartureFormModal';
 import type {Departure} from '../../src/api/departures';
 import type {Package,TravelerRequirements} from '../../src/api/packages';
+import {I18nProvider} from '../../src/lib/i18n';
 import {ThemeProvider} from '../../src/context/ThemeContext';
 import '../../src/index.css';
 const winter=new URLSearchParams(location.search).has('winter');
@@ -13,4 +14,4 @@ export function Fixture(){
  <DepartureFormModal isOpen onClose={()=>{}} title="Edit synthetic departure" packages={[{id:'synthetic-package',name:'Synthetic package',destination:'Mostar'} as Package]} editingDeparture={record} loading={false} travelerMode={mode} setTravelerMode={setMode} travelerReq={req} setTravelerReq={setReq} onSubmit={async data=>setSaved(data.departAt)} />
  </main>;
 }
-createRoot(document.getElementById('root')!).render(<ThemeProvider><Fixture/></ThemeProvider>);
+createRoot(document.getElementById('root')!).render(<I18nProvider><ThemeProvider><Fixture/></ThemeProvider></I18nProvider>);
