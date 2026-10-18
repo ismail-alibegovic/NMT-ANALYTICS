@@ -11,3 +11,5 @@ Fix: explicit one-column grid with shrinkable cards, wrapped commission controls
 Admin build/lint and isolated browser results recorded in PR after completion. API code and migrations unchanged/not run locally. No production data modified, no demo generation or merge. Other screens and full form workflows remain outside this focused fix; blocked audit routes must not be counted as PASS.
 
 Files: nmt-analytics-admin/src/pages/Itineraries.tsx, Quotations.tsx, operations/CommissionRules.tsx, ReservationDetail.tsx; nmt-analytics-admin/e2e/pilot-mobile-layout.spec.ts; this report; docs/tasks/active/mobile-overflow-audit.md.
+
+Initial fix verification: CI 39121852315 and isolated acceptance 39121852397 passed all 43 scenarios, including six populated layout variants. Visual follow-up found that bare labels could separate from controls when wrapping; related controls are now grouped responsively and have explicit label associations. The regression selects partner/service and edits amount before previewing. Updated-head CI pending.
