@@ -2,6 +2,9 @@ import type React from "react";
 import type { FC } from "react";
 
 interface InputProps {
+  required?: boolean;
+  'aria-invalid'?: React.AriaAttributes['aria-invalid'];
+  'aria-describedby'?: string;
   type?: "text" | "number" | "email" | "password" | "date" | "time" | string;
   id?: string;
   name?: string;
@@ -22,6 +25,9 @@ interface InputProps {
 
 const Input: FC<InputProps> = ({
   type = "text",
+  required,
+  'aria-invalid': ariaInvalid,
+  'aria-describedby': ariaDescribedBy,
   id,
   name,
   placeholder,
@@ -54,6 +60,9 @@ const Input: FC<InputProps> = ({
     <div className="relative">
       <input
         type={type}
+        required={required}
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedBy}
         id={id}
         name={name}
         placeholder={placeholder}

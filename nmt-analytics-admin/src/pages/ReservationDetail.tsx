@@ -348,7 +348,7 @@ export default function ReservationDetail() {
           <Badge color={reservation.status === "confirmed" ? "success" : reservation.status === "cancelled" ? "error" : reservation.status === "completed" ? "info" : "warning"} size="sm">
             {reservation.status.toUpperCase()}
           </Badge>
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => setEditModalOpen(true)}>
               <PencilIcon className="size-4" /> Uredi rezervaciju
             </Button>
@@ -361,12 +361,12 @@ export default function ReservationDetail() {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 dark:border-gray-800 gap-0">
+        <div className="flex overflow-x-auto border-b border-gray-200 dark:border-gray-800 gap-0">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
                 activeTab === t.key
                   ? "border-brand-500 text-brand-600 dark:text-brand-400"
                   : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"

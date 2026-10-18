@@ -118,7 +118,7 @@ jobs:
           const seedPath = process.env.RUNNER_TEMP + '/seed.json';
           const seed = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
           const required = [
-            'password', 'managerId', 'staffId', 'otherTenantId', 'orgA', 'orgB',
+            'password', 'directorId', 'managerId', 'staffId', 'otherTenantId', 'orgA', 'orgB',
             'packageId', 'departureId', 'customerId', 'hotelAllocationId', 'recoveryReservationId',
           ];
           if (!seed || typeof seed !== 'object' || required.some((key) => typeof seed[key] !== 'string' || seed[key] === '')) {
@@ -129,6 +129,8 @@ jobs:
             ['E2E_API_URL', 'http://127.0.0.1:3001'],
             ['E2E_SUPABASE_URL', process.env.TRAVLINE_SUPABASE_URL],
             ['E2E_SUPABASE_ANON_KEY', process.env.TRAVLINE_SUPABASE_ANON_KEY],
+            ['E2E_DIRECTOR_EMAIL', 'director@audit.test'],
+            ['E2E_DIRECTOR_PASSWORD', seed.password],
             ['E2E_MANAGER_EMAIL', 'manager@pilot-a.test'],
             ['E2E_MANAGER_PASSWORD', seed.password],
             ['E2E_STAFF_EMAIL', 'staff@pilot-a.test'],
