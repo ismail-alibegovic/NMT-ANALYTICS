@@ -293,6 +293,9 @@ layer(base);
   color utility to any element that depends on these defaults.
 */
 @layer base {
+  :root { color-scheme: light; }
+  :root.dark { color-scheme: dark; }
+
   *,
   ::after,
   ::before,
@@ -425,14 +428,9 @@ layer(base);
     color: var(--color-gray-200);
   }
 
-  /* For Remove Date Icon */
-  input[type="date"]::-webkit-inner-spin-button,
-  input[type="time"]::-webkit-inner-spin-button,
-  input[type="date"]::-webkit-calendar-picker-indicator,
-  input[type="time"]::-webkit-calendar-picker-indicator {
-    display: none;
-    -webkit-appearance: none;
-  }
+  /* Keep the browser's date/time picker affordance available. Its colors
+     follow the explicit root color-scheme in both application themes. */
+
 }
 
 .tableCheckbox:checked ~ span span {

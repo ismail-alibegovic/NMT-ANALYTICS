@@ -1,3 +1,4 @@
+import { MODULE_KEYS } from '../lib/planModules';
 import { supabaseAdmin } from '../lib/supabase';
 import { createReservationSchema } from '../routes/reservations';
 import { saleRequestFingerprint } from '../lib/saleIdempotency';
@@ -6,8 +7,9 @@ const LOCAL_URL_PATTERN = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
 const PASSWORD = process.env.E2E_SEED_PASSWORD || 'TravlinePilot!2026-local';
 const ORG_A = '00000000-0000-4000-8000-0000000000a1';
 const ORG_B = '00000000-0000-4000-8000-0000000000b1';
+const ORG_C = '00000000-0000-4000-8000-0000000000c1';
 
-type SeedUser = { email: string; role: 'manager' | 'agent'; orgId: string; fullName: string };
+type SeedUser = { email: string; role: 'director' | 'manager' | 'agent'; orgId: string; fullName: string };
 
 function assertLocalOnly() {
   const url = process.env.TRAVLINE_SUPABASE_URL;
@@ -72,6 +74,22 @@ async function seed() {
   }
   await ensureOrg(ORG_A, 'Pilot A Travel', 'pilot-a-travel');
   await ensureOrg(ORG_B, 'Pilot B Travel', 'pilot-b-travel');
+
+  // Separate fully entitled synthetic organization: preserve the original
+  // trial/role fixtures used by authorization and tenant-isolation tests.
+  await ensureOrg(ORG_C, 'Audit Director Travel', 'audit-director-travel');
+  const { error: planError } = await supabaseAdmin.from('organizations').update({ plan: 'enterprise' }).eq('id', ORG_C);
+  if (planError) throw planError;
+  const { error: modulesError } = await supabaseAdmin.from('org_modules').upsert(
+    MODULE_KEYS.map(module_key => ({ org_id: ORG_C, module_key, enabled: true })),
+    { onConflict: 'org_id,module_key' },
+  );
+  if (modulesError) throw modulesError;
+  const directorId = await ensureUser({ email: 'director@audit.test', role: 'director', orgId: ORG_C, fullName: 'Synthetic Audit Director' });
+  const { data: verifiedDirector, error: directorError } = await supabaseAdmin.from('profiles').select('role,org_id').eq('id', directorId).single();
+  if (directorError || verifiedDirector?.role !== 'director' || verifiedDirector?.org_id !== ORG_C) {
+    throw directorError || new Error('Director audit fixture verification failed');
+  }
 
   const managerId = await ensureUser({
     email: 'manager@pilot-a.test', role: 'manager', orgId: ORG_A, fullName: 'Pilot A Manager',
@@ -249,6 +267,7 @@ async function seed() {
 
   console.log(JSON.stringify({
     password: PASSWORD,
+    directorId,
     managerId,
     staffId,
     otherTenantId,

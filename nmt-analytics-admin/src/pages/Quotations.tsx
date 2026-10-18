@@ -120,18 +120,18 @@ export default function Quotations() {
       }}
     />
     {loading ? (
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {[1,2,3].map((n) => <div key={n} className="h-48 animate-pulse rounded-xl bg-gray-100 dark:bg-white/[0.04]" />)}
       </div>
     ) : rows.length === 0 ? (
       <EmptyState title={c.emptyTitle} description={c.emptyDescription} action={{ label: c.add, onClick: () => setOpen(true) }} />
     ) : (
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {rows.map((row) => (
           <button
             key={row.id}
             onClick={() => navigate(`/quotations/${row.id}`)}
-            className="rounded-xl border border-gray-200 bg-white p-5 text-left transition-colors hover:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-700"
+            className="min-w-0 rounded-xl border border-gray-200 bg-white p-5 text-left transition-colors hover:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-700"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">

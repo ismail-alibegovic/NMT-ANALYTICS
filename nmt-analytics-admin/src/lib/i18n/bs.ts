@@ -231,6 +231,7 @@ export const bs: Translations = {
     notEnabled: 'Nije omogućeno',
   },
   common: {
+    invalidEmail: 'Unesite ispravnu email adresu.',
     save: 'Sačuvaj', cancel: 'Odustani', delete: 'Obriši', edit: 'Uredi',
     create: 'Kreiraj', add: 'Dodaj', search: 'Pretraži', filter: 'Filter',
     clear: 'Očisti', confirm: 'Potvrdi', loading: 'Učitavanje...', noData: 'Nema podataka',
@@ -295,6 +296,7 @@ export const bs: Translations = {
     web: 'Web', phone: 'Telefon', agent: 'Agent', walkIn: 'Direktno',
   },
   customers: {
+    allPackages: 'Svi aranžmani', active: 'Aktivan', lead: 'Potencijalni klijent', archived: 'Arhiviran', duplicatePhone: 'Klijent s ovim telefonom već postoji',
     title: 'Klijenti', description: 'Upravljanje klijentima',
     add: 'Dodaj klijenta', edit: 'Uredi klijenta',     fullName: 'Ime i prezime',
     partySize: 'Broj osoba',

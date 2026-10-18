@@ -234,6 +234,7 @@ export const en = {
     notEnabled: 'Not enabled',
   },
   common: {
+    invalidEmail: 'Enter a valid email address.',
     save: 'Save', cancel: 'Cancel', delete: 'Delete', edit: 'Edit',
     create: 'Create', add: 'Add', search: 'Search', filter: 'Filter',
     clear: 'Clear', confirm: 'Confirm', loading: 'Loading...', noData: 'No data found',
@@ -295,6 +296,7 @@ export const en = {
     web: 'Web', phone: 'Phone', agent: 'Agent', walkIn: 'Walk-in',
   },
   customers: {
+    allPackages: 'All packages', active: 'Active', lead: 'Lead', archived: 'Archived', duplicatePhone: 'Customer with this phone already exists',
     title: 'Clients', description: 'Manage your clients',
     add: 'Add Client', edit: 'Edit Client',     fullName: 'Full Name',
     partySize: 'Party Size',
