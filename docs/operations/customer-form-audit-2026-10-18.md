@@ -13,3 +13,5 @@ Local verification: 10 Chromium component regressions pass, light/dark at 390/76
 No API implementation or migrations changed/applied; tenant scoping remains in existing APIs. No production data or demo generation. Full route/form audit remains incomplete.
 
 The first isolated execution reached the edit stage in all 12 BS/EN/theme/width variants, then exposed the existing non-null phone constraint. The form now requires phone; the regression explicitly checks that clearing it fails validation while clearing email succeeds. This preserves schema/domain constraints rather than introducing a migration. Updated CI pending.
+
+Second isolated run failed at a test selector that expected the exact optional-phone label after the required indicator was added. The selector now includes the required label, with bounded action timeout for prompt failures. No application behavior was weakened to satisfy the test. Persistence verification is rerunning.
