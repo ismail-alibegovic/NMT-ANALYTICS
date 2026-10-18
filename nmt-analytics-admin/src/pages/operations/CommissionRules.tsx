@@ -199,12 +199,12 @@ export default function CommissionRules() {
 
       {/* Live preview panel */}
       <div className="mx-6 mb-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-        <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700">
           <span className="text-sm text-gray-600 dark:text-gray-400">Partner</span>
           <select
             value={preview.partnerType}
             onChange={(e) => setPreview({ ...preview, partnerType: e.target.value })}
-            className="bg-transparent text-sm outline-none dark:bg-gray-800"
+            className="max-w-full bg-transparent text-sm outline-none dark:bg-gray-800"
           >
             {PARTNER_TYPES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
@@ -212,7 +212,7 @@ export default function CommissionRules() {
           <select
             value={preview.serviceType}
             onChange={(e) => setPreview({ ...preview, serviceType: e.target.value })}
-            className="bg-transparent text-sm outline-none dark:bg-gray-800"
+            className="max-w-full bg-transparent text-sm outline-none dark:bg-gray-800"
           >
             {SERVICE_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
