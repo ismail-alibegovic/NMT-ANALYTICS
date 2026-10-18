@@ -7,6 +7,9 @@ interface Option {
 }
 
 interface SelectProps {
+  required?: boolean;
+  'aria-invalid'?: React.AriaAttributes['aria-invalid'];
+  'aria-describedby'?: string;
   options: Option[];
   placeholder?: string;
   onChange: (value: string) => void;
@@ -23,6 +26,9 @@ interface SelectProps {
 
 const Select: React.FC<SelectProps> = ({
   options,
+  required,
+  'aria-invalid': ariaInvalid,
+  'aria-describedby': ariaDescribedBy,
   placeholder = "Select an option",
   onChange,
   className = "",
@@ -64,6 +70,9 @@ const Select: React.FC<SelectProps> = ({
         id={id}
         name={name}
         data-select-styled
+        required={required}
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedBy}
         disabled={disabled}
         className={`h-11 w-full appearance-none rounded-lg border bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs transition-colors focus:outline-hidden focus:ring-2 dark:bg-gray-900 ${stateClasses} ${
           selectedValue

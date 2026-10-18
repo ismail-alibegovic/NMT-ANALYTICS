@@ -1,0 +1,28 @@
+name: Customer form browser regressions
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  customer-forms:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nmt-analytics-admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: nmt-analytics-admin/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test -c playwright.forms.config.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: customer-form-browser-evidence
+          path: nmt-analytics-admin/test-results/
+          retention-days: 14
