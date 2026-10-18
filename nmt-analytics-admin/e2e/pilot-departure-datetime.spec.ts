@@ -12,6 +12,6 @@ for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`depa
  await page.goto('/departures');await page.getByPlaceholder('Traži polaske...').fill(marker);await page.getByRole('row').filter({hasText:marker}).getByRole('button',{name:'Uredi',exact:true}).click();
  const modal=page.locator('.modal');await expect(modal.locator('input[type="datetime-local"]').first()).toHaveValue('2027-07-15T09:00');
  const saved=page.waitForResponse(r=>r.url().endsWith(`/api/departures/${id}`)&&r.request().method()==='PATCH');await modal.getByRole('button',{name:'Sačuvaj',exact:true}).click();expect((await saved).status()).toBe(200);await expect(modal).toBeHidden();
- await page.reload();await page.getByRole('row').filter({hasText:marker}).getByRole('button',{name:'Uredi',exact:true}).click();await expect(modal.locator('input[type="datetime-local"]').first()).toHaveValue('2027-07-15T09:00');
+ await page.reload();await page.getByPlaceholder('Traži polaske...').fill(marker);await page.getByRole('row').filter({hasText:marker}).getByRole('button',{name:'Uredi',exact:true}).click();await expect(modal.locator('input[type="datetime-local"]').first()).toHaveValue('2027-07-15T09:00');
  const persisted=await request.get(`${api}/api/departures/${id}`,{headers});expect(persisted.status()).toBe(200);const body=await persisted.json();expect(new Date(body.depart_at??body.departAt).toISOString()).toBe('2027-07-15T07:00:00.000Z');
 });

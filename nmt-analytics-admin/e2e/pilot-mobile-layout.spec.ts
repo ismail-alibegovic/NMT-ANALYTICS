@@ -13,6 +13,7 @@ for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`card
   if(route==='/itineraries'||route==='/quotations')await expect(page.getByRole('heading',{name:marker,exact:true})).toBeVisible();
   if(route==='/operations/commission-rules'){
    const button=page.getByRole('button',{name:'Izračunaj',exact:true});const box=await button.boundingBox();expect(box!.x).toBeGreaterThanOrEqual(0);expect(box!.x+box!.width).toBeLessThanOrEqual(width);
+   await page.getByLabel('Partner',{exact:true}).selectOption('gold');await page.getByLabel('Usluga',{exact:true}).selectOption('transport');await page.getByLabel('Iznos',{exact:true}).fill('2500');
    await button.click();await expect(page.getByText('Finalni iznos',{exact:true})).toBeVisible();
   }
   if(route.startsWith('/reservations/')){
