@@ -205,7 +205,7 @@
       "pages/operations/Receipts.tsx",
       "pages/operations/SubAgents.tsx"
     ],
-    "changed": false
+    "changed": true
   },
   {
     "component": "components/form/input/Radio.tsx",

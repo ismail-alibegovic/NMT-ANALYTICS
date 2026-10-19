@@ -1203,6 +1203,7 @@ export const en = {
     categories: { accommodation: 'Accommodation', transport: 'Transport', flight: 'Flight', guide: 'Guide', activity: 'Activity', meal: 'Meal', insurance: 'Insurance', visa: 'Visa', ticket: 'Ticket', venue: 'Venue', equipment: 'Equipment', other: 'Other' },
   },
   suppliers: {
+    basicDetails: 'Basic details', locationBilling: 'Location and billing',
 
     title: 'Suppliers', description: 'Shared supplier directory and reusable service cost catalogue', search: 'Search supplier, city, or contact…',
     addSupplier: 'Add supplier', suppliersCount: 'suppliers', servicesCount: 'services', allCategories: 'All categories',

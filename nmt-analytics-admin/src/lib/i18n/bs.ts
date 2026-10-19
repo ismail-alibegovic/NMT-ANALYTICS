@@ -1203,6 +1203,7 @@ export const bs: Translations = {
     categories: { accommodation: 'Smještaj', transport: 'Prevoz', flight: 'Let', guide: 'Vodič', activity: 'Aktivnost', meal: 'Obrok', insurance: 'Osiguranje', visa: 'Viza', ticket: 'Ulaznica', venue: 'Prostor', equipment: 'Oprema', other: 'Ostalo' },
   },
   suppliers: {
+    basicDetails: 'Osnovni podaci', locationBilling: 'Lokacija i fakturisanje',
 
     title: 'Dobavljači', description: 'Jedinstven imenik dobavljača i katalog usluga sa nabavnim cijenama', search: 'Dobavljač, grad ili kontakt…',
     addSupplier: 'Dodaj dobavljača', suppliersCount: 'dobavljača', servicesCount: 'usluga', allCategories: 'Sve kategorije',
