@@ -641,11 +641,11 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
       </div>
 
       {assignTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setAssignTarget(null)}>
-          <div className="mx-4 max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { if (!saving) setAssignTarget(null); }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="rooming-select-title" className="mx-4 max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === "Escape" && !saving) { e.stopPropagation(); setAssignTarget(null); } }}>
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
-              <h3 className="font-semibold text-gray-900 dark:text-white">{rm.selectRoomHint} {assignTarget.passengerName}</h3>
-              <button type="button" className="text-gray-400 hover:text-gray-600" onClick={() => setAssignTarget(null)}>×</button>
+              <h3 id="rooming-select-title" className="font-semibold text-gray-900 dark:text-white">{rm.selectRoomHint} {assignTarget.passengerName}</h3>
+              <button type="button" aria-label={t?.common?.close || "Close"} disabled={saving} className="text-gray-400 hover:text-gray-600 disabled:opacity-50" onClick={() => setAssignTarget(null)}>×</button>
             </div>
             <div className="space-y-3 px-6 py-4">
               {compatibleSlots.map(({ slot, occupied, isFull, matchesRequirement }) => (
