@@ -10,9 +10,9 @@ function open(){const onSuccess=vi.fn();render(<I18nProvider><ImportModal entity
 beforeEach(()=>{post.mockReset();localStorage.setItem('travline_lang','en');});
 describe('ImportModal rejected file',()=>{
  it('shows invalid preview rows and never enables a write',async()=>{
-  post.mockResolvedValueOnce({data:{success:true,dryRun:true,results:invalid}});const onSuccess=open();await screen.findByText(/Row 2:.*email is invalid/);expect(screen.getByRole('button',{name:'Import',exact:true})).toBeDisabled();expect(post).toHaveBeenCalledTimes(1);expect(onSuccess).not.toHaveBeenCalled();
+  post.mockResolvedValueOnce({data:{success:true,dryRun:true,results:invalid}});const onSuccess=open();await screen.findByText(/Row 2:.*email is invalid/);expect(screen.getByRole('button',{name:/^Import$/})).toBeDisabled();expect(post).toHaveBeenCalledTimes(1);expect(onSuccess).not.toHaveBeenCalled();
  });
  it('retains rejected save details and never reports success',async()=>{
-  post.mockResolvedValueOnce({data:{success:true,dryRun:true,results:valid}}).mockRejectedValueOnce({response:{data:{code:'IMPORT_VALIDATION_FAILED',message:'Nothing was imported',results:invalid}}});const onSuccess=open();const submit=screen.getByRole('button',{name:'Import',exact:true});await waitFor(()=>expect(submit).toBeEnabled());fireEvent.click(submit);await screen.findByText(/Row 2:.*email is invalid/);expect(screen.getByRole('alert')).toHaveTextContent('Nothing was imported');expect(onSuccess).not.toHaveBeenCalled();expect(submit).toBeDisabled();
+  post.mockResolvedValueOnce({data:{success:true,dryRun:true,results:valid}}).mockRejectedValueOnce({response:{data:{code:'IMPORT_VALIDATION_FAILED',message:'Nothing was imported',results:invalid}}});const onSuccess=open();const submit=screen.getByRole('button',{name:/^Import$/});await waitFor(()=>expect(submit).toBeEnabled());fireEvent.click(submit);await screen.findByText(/Row 2:.*email is invalid/);expect(screen.getByRole('alert')).toHaveTextContent('Nothing was imported');expect(onSuccess).not.toHaveBeenCalled();expect(submit).toBeDisabled();
  });
 });
