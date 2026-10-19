@@ -8,6 +8,8 @@ interface ModalProps {
   showCloseButton?: boolean; // New prop to control close button visibility
   isFullscreen?: boolean; // Default to false for backwards compatibility
   title?: string; // Optional title for the modal
+  scrollable?: boolean;
+  closeLabel?: string;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -18,8 +20,39 @@ export const Modal: React.FC<ModalProps> = ({
   showCloseButton = true, // Default to true for backwards compatibility
   isFullscreen = false,
   title,
+  scrollable = false,
+  closeLabel,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // Opt-in form dialogs keep keyboard focus inside their scrollable surface.
+  useEffect(() => {
+    if (!isOpen || !scrollable) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const dialog = modalRef.current;
+    if (!dialog) return;
+    const focusable = () => Array.from(dialog.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]',
+    )).filter(el => el.getClientRects().length > 0);
+    focusable()[0]?.focus();
+    const trap = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const elements = focusable();
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (!first) { event.preventDefault(); return; }
+      if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+        event.preventDefault(); first.focus();
+      }
+    };
+    document.addEventListener("keydown", trap);
+    return () => {
+      document.removeEventListener("keydown", trap);
+      previous?.focus();
+    };
+  }, [isOpen, scrollable]);
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -65,11 +98,16 @@ export const Modal: React.FC<ModalProps> = ({
       )}
       <div
         ref={modalRef}
-        className={`${contentClasses}  ${className}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={`${contentClasses} ${scrollable ? "mx-3 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain" : ""} ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {showCloseButton && (
           <button
+            type="button"
+            aria-label={closeLabel || (document.documentElement.lang === "bs" ? "Zatvori" : "Close")}
             onClick={onClose}
             className="absolute right-3 top-3 z-999 flex h-9.5 w-9.5 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white sm:right-6 sm:top-6 sm:h-11 sm:w-11"
           >
@@ -90,7 +128,7 @@ export const Modal: React.FC<ModalProps> = ({
           </button>
         )}
         {title && (
-          <div className="p-6 pb-2 border-b border-gray-100 dark:border-gray-800">
+          <div className="p-6 pb-4 pr-16 sm:pr-20 border-b border-gray-100 dark:border-gray-800">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white">{title}</h3>
           </div>
         )}

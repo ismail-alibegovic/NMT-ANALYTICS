@@ -54,6 +54,10 @@ jobs:
         working-directory: nmt-analytics-admin
         run: npx playwright install --with-deps chromium
 
+      - name: Browser form contract regressions (isolated fixture transport)
+        working-directory: nmt-analytics-admin
+        run: npm run test:forms
+
       - name: Start isolated Supabase PostgreSQL 17, Auth, Storage and SMTP
         working-directory: nmt-analytics-api
         run: |

@@ -1,0 +1,123 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> travline-admin@2.0.2 build
+> tsc -b && vite build
+
+vite v6.4.3 building for production...
+transforming...
+node_modules/@supabase/supabase-js/dist/esm/wrapper.mjs (46:10): "default" is not exported by "node_modules/@supabase/supabase-js/dist/module/index.js", imported by "node_modules/@supabase/supabase-js/dist/esm/wrapper.mjs".
+node_modules/@supabase/supabase-js/dist/esm/wrapper.mjs (94:21): "default" is not exported by "node_modules/@supabase/supabase-js/dist/module/index.js", imported by "node_modules/@supabase/supabase-js/dist/esm/wrapper.mjs".
+✓ 813 modules transformed.
+rendering chunks...
+[plugin vite:reporter]
+(!) /workspace/repos/travline-forms/nmt-analytics-admin/src/lib/apiClient.ts is dynamically imported by /workspace/repos/travline-forms/nmt-analytics-admin/src/api/contracts.ts, /workspace/repos/travline-forms/nmt-analytics-admin/src/api/operations.ts, /workspace/repos/travline-forms/nmt-analytics-admin/src/api/operations.ts, /workspace/repos/travline-forms/nmt-analytics-admin/src/api/receipts.ts, /workspace/repos/travline-forms/nmt-analytics-admin/src/pages/PublicSignWaiver.tsx, /workspace/repos/travline-forms/nmt-analytics-admin/src/pages/PublicSignWaiver.tsx, /workspace/repos/travline-forms/nmt-analytics-admin/src/pages/PublicSubAgentPortal.tsx but also statically imported by /workspace/repos/travline-forms/nmt-analytics-admin/src/api/client.ts, /workspace/repos/travline-forms/nmt-analytics-admin/src/components/common/OnboardingChecklist.tsx, /workspace/repos/travline-forms/nmt-analytics-admin/src/components/import/ImportModal.tsx, /workspace/repos/travline-forms/nmt-analytics-admin/src/pages/admin/PdfTemplateEditor.tsx, /workspace/repos/travline-forms/nmt-analytics-admin/src/pages/admin/Settings.tsx, dynamic import will not move module into another chunk.
+
+computing gzip size...
+dist/index.html                                       0.81 kB │ gzip:   0.42 kB
+dist/assets/index-LN1HNpG1.css                      182.05 kB │ gzip:  27.36 kB
+dist/assets/react-apexcharts.min-DhIhyn4V.js          0.13 kB │ gzip:   0.13 kB
+dist/assets/chevron-left-D_CZ_-bw.js                  0.35 kB │ gzip:   0.27 kB
+dist/assets/check-line-CWzc26Cp.js                    0.36 kB │ gzip:   0.28 kB
+dist/assets/useDataInvalidation-D5FiFfR7.js           0.36 kB │ gzip:   0.28 kB
+dist/assets/GridShape-BIKtp2Pr.js                     0.44 kB │ gzip:   0.26 kB
+dist/assets/EmptyState-C3TZTc6c.js                    0.59 kB │ gzip:   0.35 kB
+dist/assets/supplierPayables-CotR08wh.js              0.62 kB │ gzip:   0.30 kB
+dist/assets/useQueryParams-COCVmzAu.js                0.64 kB │ gzip:   0.37 kB
+dist/assets/itineraries-CK92PgJN.js                   0.67 kB │ gzip:   0.28 kB
+dist/assets/messageTemplates-CAsV83dw.js              0.68 kB │ gzip:   0.27 kB
+dist/assets/flights-CDjjtdAa.js                       0.81 kB │ gzip:   0.33 kB
+dist/assets/arrow-down-CwRGOII6.js                    0.83 kB │ gzip:   0.48 kB
+dist/assets/arrow-up-DzrTGDRq.js                      0.83 kB │ gzip:   0.48 kB
+dist/assets/business-DQ6tBnpE.js                      0.88 kB │ gzip:   0.48 kB
+dist/assets/Button-CM5_M-eu.js                        0.99 kB │ gzip:   0.52 kB
+dist/assets/analytics-CwycZdC_.js                     0.99 kB │ gzip:   0.35 kB
+dist/assets/eye-Dv_0G_9z.js                           1.00 kB │ gzip:   0.52 kB
+dist/assets/pencil-kTXcCg3y.js                        1.03 kB │ gzip:   0.62 kB
+dist/assets/check-circle-wsDITbnt.js                  1.08 kB │ gzip:   0.53 kB
+dist/assets/list-DK-VHNCd.js                          1.09 kB │ gzip:   0.51 kB
+dist/assets/BrandingProvider-C08GE8ni.js              1.12 kB │ gzip:   0.61 kB
+dist/assets/alert-Bh1SfoNN.js                         1.15 kB │ gzip:   0.51 kB
+dist/assets/download-BGpKB_VC.js                      1.15 kB │ gzip:   0.61 kB
+dist/assets/copy-B1ADQkSB.js                          1.18 kB │ gzip:   0.55 kB
+dist/assets/payments-SAFtFz03.js                      1.22 kB │ gzip:   0.61 kB
+dist/assets/Badge-K0UXkER9.js                         1.41 kB │ gzip:   0.54 kB
+dist/assets/Checkbox-BdcZy2WG.js                      1.42 kB │ gzip:   0.64 kB
+dist/assets/PageToolbar-BiTdkS2s.js                   1.48 kB │ gzip:   0.69 kB
+dist/assets/NotFound-CZDx0yeW.js                      1.53 kB │ gzip:   0.77 kB
+dist/assets/trash-CMISWKj9.js                         1.57 kB │ gzip:   0.70 kB
+dist/assets/InputField-CDT0d-pD.js                    1.63 kB │ gzip:   0.74 kB
+dist/assets/Select-Caih5FVb.js                        1.66 kB │ gzip:   0.81 kB
+dist/assets/OperationsScope-C88TLRDp.js               1.87 kB │ gzip:   0.63 kB
+dist/assets/group-BowVs5g6.js                         2.46 kB │ gzip:   1.09 kB
+dist/assets/PortalCustomers-DlrqCWPl.js               2.62 kB │ gzip:   0.96 kB
+dist/assets/PortalPackages-CS_QNS6V.js                2.91 kB │ gzip:   1.05 kB
+dist/assets/PortalReservations-Da_I3TjF.js            3.03 kB │ gzip:   1.06 kB
+dist/assets/manualMessaging-DCbb1dOB.js               3.35 kB │ gzip:   1.40 kB
+dist/assets/PortalDepartures-BaWB-Lv4.js              3.52 kB │ gzip:   1.19 kB
+dist/assets/SalesScope-Crp6iXlT.js                    4.00 kB │ gzip:   1.39 kB
+dist/assets/TravelerRequirementsFields-D8egMBrf.js    4.06 kB │ gzip:   1.06 kB
+dist/assets/DataTable-DvULzgvM.js                     4.48 kB │ gzip:   1.53 kB
+dist/assets/SignIn-DY52U7XS.js                        4.99 kB │ gzip:   1.79 kB
+dist/assets/SignUp-COpAfltE.js                        5.03 kB │ gzip:   1.65 kB
+dist/assets/ResetPassword-Dfa-AtFN.js                 5.36 kB │ gzip:   1.93 kB
+dist/assets/Profile-DW9AIKkM.js                       5.39 kB │ gzip:   1.91 kB
+dist/assets/PortalDashboard-CqgdnNQf.js               5.70 kB │ gzip:   1.67 kB
+dist/assets/ImportModal-TlzjlUFr.js                   5.88 kB │ gzip:   1.97 kB
+dist/assets/Contracts-0xEeKsce.js                     5.96 kB │ gzip:   2.42 kB
+dist/assets/Calendar-CnQcKJgO.js                      6.12 kB │ gzip:   2.33 kB
+dist/assets/FinanceScope-BU90HqpD.js                  6.13 kB │ gzip:   2.03 kB
+dist/assets/PortalSettings-pgu_AVks.js                6.14 kB │ gzip:   1.96 kB
+dist/assets/Packages-BQTySaj5.js                      6.42 kB │ gzip:   2.78 kB
+dist/assets/AuthPageLayout-DrwWo_cu.js                6.55 kB │ gzip:   2.66 kB
+dist/assets/Itineraries-CyNpzqdq.js                   6.78 kB │ gzip:   2.58 kB
+dist/assets/HotelDetail-LW65YCeH.js                   7.35 kB │ gzip:   2.30 kB
+dist/assets/CommunicationHistoryPanel-Cgmt3Mdt.js     7.36 kB │ gzip:   2.39 kB
+dist/assets/CustomerDetail-EHUsScCA.js                7.41 kB │ gzip:   2.38 kB
+dist/assets/Receipts-DSSqZkpx.js                      7.88 kB │ gzip:   2.79 kB
+dist/assets/PublicSignWaiver-BzA3MWSD.js              8.09 kB │ gzip:   2.94 kB
+dist/assets/SubAgents-Dlnyh_rD.js                     8.20 kB │ gzip:   2.64 kB
+dist/assets/Documents-BfGJ35OG.js                     8.41 kB │ gzip:   3.60 kB
+dist/assets/Availability-Bgjcx2K9.js                  8.88 kB │ gzip:   3.03 kB
+dist/assets/PublicSubAgentPortal-DFCQ_VeV.js          8.97 kB │ gzip:   2.45 kB
+dist/assets/CommissionRules-BS5Aqoge.js               9.21 kB │ gzip:   2.62 kB
+dist/assets/Excursions-CyVCY4tB.js                    9.22 kB │ gzip:   3.01 kB
+dist/assets/Quotations-DbEJElae.js                    9.44 kB │ gzip:   3.13 kB
+dist/assets/Inquiries-DCUddgLP.js                     9.57 kB │ gzip:   2.96 kB
+dist/assets/AuditLogs-DMVVuT8H.js                     9.82 kB │ gzip:   3.23 kB
+dist/assets/PortalLayout-er9LOsVn.js                  9.95 kB │ gzip:   3.02 kB
+dist/assets/PdfTemplateEditor-DJFtEhBW.js            10.61 kB │ gzip:   3.33 kB
+dist/assets/Customers-CrTUB26B.js                    11.05 kB │ gzip:   4.08 kB
+dist/assets/ItineraryDetail-DFAq5Et6.js              11.63 kB │ gzip:   3.31 kB
+dist/assets/Hotels-CWr5IlqT.js                       11.87 kB │ gzip:   3.68 kB
+dist/assets/PublicFormRenderer-BeuhZMV1.js           12.07 kB │ gzip:   3.47 kB
+dist/assets/Flights-Dvlop-NT.js                      12.16 kB │ gzip:   4.13 kB
+dist/assets/EditReservationModal-CvY7aj2j.js         13.10 kB │ gzip:   4.27 kB
+dist/assets/Suppliers-XzW3XJ1Q.js                    15.86 kB │ gzip:   4.05 kB
+dist/assets/Home-BWvJ1j4t.js                         16.25 kB │ gzip:   5.27 kB
+dist/assets/Reports-DPUZDUeo.js                      16.76 kB │ gzip:   4.27 kB
+dist/assets/UnifiedPayments-DXQmXh6V.js              16.86 kB │ gzip:   4.61 kB
+dist/assets/Departures-DZbZsC5f.js                   17.16 kB │ gzip:   5.23 kB
+dist/assets/Integrations-BR-gkOWb.js                 18.12 kB │ gzip:   5.15 kB
+dist/assets/QuotationDetail-ByCiZTtL.js              18.48 kB │ gzip:   5.15 kB
+dist/assets/vendor-data-CpJM9g8Q.js                  19.40 kB │ gzip:   7.18 kB
+dist/assets/PackageDetail-Cigw0ou_.js                21.48 kB │ gzip:   5.03 kB
+dist/assets/Label-DD5Csahi.js                        22.14 kB │ gzip:   7.49 kB
+dist/assets/PublicForms-DRjOCtep.js                  23.07 kB │ gzip:   6.07 kB
+dist/assets/PackageEditorModal-CePGwtu1.js           24.25 kB │ gzip:   5.96 kB
+dist/assets/ReservationDetail-BBEIY2yR.js            24.77 kB │ gzip:   6.60 kB
+dist/assets/LandingPage-1QPRJsg_.js                  29.71 kB │ gzip:   7.51 kB
+dist/assets/HomeHub-Cl1TR3Ie.js                      33.45 kB │ gzip:   8.41 kB
+dist/assets/Settings-DyHVkmGc.js                     42.38 kB │ gzip:   7.08 kB
+dist/assets/vendor-react-D4FgKxYT.js                 47.13 kB │ gzip:  16.90 kB
+dist/assets/CommunicationCenter-CV6sdOKi.js          60.52 kB │ gzip:  13.57 kB
+dist/assets/Reservations-Ct2uKrNd.js                 69.11 kB │ gzip:  18.11 kB
+dist/assets/DepartureDetail-DpLSXIqK.js             149.86 kB │ gzip:  32.85 kB
+dist/assets/vendor-calendar-TzA1b8bd.js             269.99 kB │ gzip:  79.09 kB
+dist/assets/vendor-charts-Dc2EvTVt.js               578.33 kB │ gzip: 157.38 kB
+dist/assets/index-BookSy5O.js                       844.94 kB │ gzip: 258.90 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 8.80s

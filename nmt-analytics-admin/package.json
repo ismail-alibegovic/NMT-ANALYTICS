@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:forms": "playwright test --config playwright.forms.config.ts",
     "test:watch": "vitest",
     "preview": "vite preview"
   },

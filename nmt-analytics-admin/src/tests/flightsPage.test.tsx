@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import Flights from '../pages/operations/Flights'
+import { toDateTimeInput as flightLocalTime } from '../utils/dateTimeInput'
 
 const { mockFlights } = vi.hoisted(() => ({
   mockFlights: [
@@ -66,8 +67,9 @@ vi.mock('../context/ToastContext', () => ({
 }))
 
 vi.mock('../components/ui/PageToolbar', () => ({
-  default: ({ searchValue, onSearchChange }: { searchValue?: string; onSearchChange?: (v: string) => void }) => (
+  default: ({ searchValue, onSearchChange, createButton }: { searchValue?: string; onSearchChange?: (v: string) => void; createButton: { label: string; onClick: () => void } }) => (
     <div>
+      <button onClick={createButton.onClick}>{createButton.label}</button>
       <input aria-label="search" value={searchValue} onChange={(e) => onSearchChange?.(e.target.value)} />
     </div>
   ),
@@ -132,5 +134,77 @@ describe('Flights page', () => {
     await waitFor(() => expect(screen.getByTestId('row-f1')).toBeTruthy())
     fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0])
     await waitFor(() => expect(screen.getByTestId('modal')).toBeTruthy())
+  })
+})
+async function fillFlight() {
+  fireEvent.change(screen.getByLabelText(/^Airline/), { target: { value: 'Test Air' } })
+  fireEvent.change(screen.getByLabelText(/^Flight number/), { target: { value: 'TA12' } })
+  fireEvent.change(screen.getByLabelText(/^Departure airport/), { target: { value: 'sjj' } })
+  fireEvent.change(screen.getByLabelText(/^Arrival airport/), { target: { value: 'ist' } })
+  fireEvent.change(screen.getByLabelText(/^Departure time/), { target: { value: '2027-07-15T10:00' } })
+  fireEvent.change(screen.getByLabelText(/^Arrival time/), { target: { value: '2027-07-15T12:00' } })
+}
+
+describe('Flight form regression', () => {
+  beforeEach(() => vi.clearAllMocks())
+  it('labels fields, validates required values and focuses the first error without a write', async () => {
+    const { createFlight } = await import('../api/flights')
+    render(<MemoryRouter><Flights /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: 'New flight' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+    expect(createFlight).not.toHaveBeenCalled()
+    expect(screen.getByLabelText(/^Airline/)).toHaveFocus()
+    expect(screen.getByLabelText(/^Airline/)).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText(/^Departure time/)).toHaveAttribute('aria-describedby')
+  })
+  it('blocks invalid airports, chronology, capacity and price', async () => {
+    const { createFlight } = await import('../api/flights')
+    render(<MemoryRouter><Flights /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: 'New flight' }))
+    await fillFlight()
+    fireEvent.change(screen.getByLabelText(/^Arrival airport/), { target: { value: 'sjj' } })
+    fireEvent.change(screen.getByLabelText(/^Arrival time/), { target: { value: '2027-07-15T09:00' } })
+    fireEvent.change(screen.getByLabelText(/^Capacity/), { target: { value: '1.5' } })
+    fireEvent.change(screen.getByLabelText('Base price'), { target: { value: '-1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+    expect(createFlight).not.toHaveBeenCalled()
+    for (const label of [/^Arrival airport/, /^Arrival time/, /^Capacity/, 'Base price']) expect(screen.getByLabelText(label)).toHaveAttribute('aria-invalid', 'true')
+  })
+  it('preserves failed drafts, retries once, normalizes IATA and sends ISO dates', async () => {
+    const { createFlight } = await import('../api/flights')
+    vi.mocked(createFlight).mockRejectedValueOnce(new Error('Isolated save failed'))
+    render(<MemoryRouter><Flights /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: 'New flight' }))
+    await fillFlight()
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+    await screen.findByText('Isolated save failed')
+    expect(screen.getByLabelText(/^Airline/)).toHaveValue('Test Air')
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+    await waitFor(() => expect(screen.queryByTestId('modal')).not.toBeInTheDocument())
+    expect(createFlight).toHaveBeenLastCalledWith(expect.objectContaining({ departureAirport: 'SJJ', arrivalAirport: 'IST', departureTime: new Date('2027-07-15T10:00').toISOString(), notes: null }))
+    expect(createFlight).toHaveBeenCalledTimes(2)
+  })
+  it('cancel discards the draft and opening create resets validation', async () => {
+    render(<MemoryRouter><Flights /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: 'New flight' }))
+    await fillFlight()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New flight' }))
+    expect(screen.getByLabelText(/^Airline/)).toHaveValue('')
+    expect(screen.queryAllByRole('alert')).toHaveLength(0)
+  })
+  it('round-trips local wall time without shifting the instant and keeps zero prices', async () => {
+    const { updateFlight } = await import('../api/flights')
+    mockFlights[0].basePrice = 0
+    render(<MemoryRouter><Flights /></MemoryRouter>)
+    await screen.findByTestId('row-f1')
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0])
+    await screen.findByTestId('modal')
+    expect(screen.getByLabelText(/^Departure time/)).toHaveValue(flightLocalTime(mockFlights[0].departureTime))
+    expect(screen.getByLabelText('Base price')).toHaveValue(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(updateFlight).toHaveBeenCalled())
+    expect(updateFlight).toHaveBeenCalledWith('f1', expect.objectContaining({departureTime: '2026-09-10T08:00:00.000Z', basePrice: 0}))
+    mockFlights[0].basePrice = 250
   })
 })
