@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useT } from "../../lib/i18n/context";
 import Button from "../ui/button/Button";
 import Badge from "../ui/badge/Badge";
@@ -105,6 +105,8 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
   const [proposalError, setProposalError] = useState<string | null>(null);
   const [assignTarget, setAssignTarget] = useState<AssignTarget | null>(null);
   const [saving, setSaving] = useState(false);
+  // Guards against same-tick duplicate mutations before React updates disabled states.
+  const assignmentMutationLock = useRef(false);
   const [savingAssignmentId, setSavingAssignmentId] = useState<string | null>(null);
   const [roomNumberDrafts, setRoomNumberDrafts] = useState<Record<string, string>>({});
   const [editingRoomNumberSlotId, setEditingRoomNumberSlotId] = useState<string | null>(null);
@@ -242,6 +244,8 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
 
   async function assignToSlot(slotId: string) {
     if (!assignTarget) return;
+    if (assignmentMutationLock.current) return;
+    assignmentMutationLock.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -256,11 +260,14 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     } catch (err: any) {
       setError(err?.message || rm.assignFailed);
     } finally {
+      assignmentMutationLock.current = false;
       setSaving(false);
     }
   }
 
   async function unassign(assignmentId: string) {
+    if (assignmentMutationLock.current) return;
+    assignmentMutationLock.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -270,6 +277,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     } catch (err: any) {
       setError(err?.message || rm.unassignFailed);
     } finally {
+      assignmentMutationLock.current = false;
       setSaving(false);
     }
   }
@@ -289,6 +297,8 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
   }
 
   async function savePhysicalRoomNumber(slotId: string) {
+    if (assignmentMutationLock.current) return;
+    assignmentMutationLock.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -299,6 +309,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     } catch (err: any) {
       setError(err?.message || rm.roomNumberUpdateFailed);
     } finally {
+      assignmentMutationLock.current = false;
       setSaving(false);
     }
   }
