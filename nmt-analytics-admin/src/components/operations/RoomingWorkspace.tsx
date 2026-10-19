@@ -283,6 +283,8 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
   }
 
   async function setAssignmentLock(assignmentId: string, locked: boolean) {
+    if (assignmentMutationLock.current) return;
+    assignmentMutationLock.current = true;
     setSavingAssignmentId(assignmentId);
     setError(null);
     try {
@@ -292,6 +294,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     } catch (err: any) {
       setError(err?.message || rm.lockFailed);
     } finally {
+      assignmentMutationLock.current = false;
       setSavingAssignmentId(null);
     }
   }
@@ -315,7 +318,8 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
   }
 
   async function handleApply() {
-    if (!proposal) return;
+    if (!proposal || assignmentMutationLock.current) return;
+    assignmentMutationLock.current = true;
     setApplyLoading(true);
     setApplyError(null);
     setApplyResult(null);
@@ -342,6 +346,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
         setApplyError((err as any)?.message || rm.applyFailed);
       }
     } finally {
+      assignmentMutationLock.current = false;
       setApplyLoading(false);
     }
   }
