@@ -601,7 +601,6 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
                           <p className="text-xs text-gray-400">{rm.noPassengers}</p>
                         ) : slot.assignments.map((assignment) => {
                           const passenger = passengerById.get(assignment.passengerId);
-                          const assignmentSaving = savingAssignmentId === assignment.id;
                           return (
                             <div key={assignment.id} className="flex items-center gap-2 rounded-md bg-gray-50 px-2.5 py-1.5 dark:bg-white/[0.04]">
                               <span className="size-2.5 rounded-full" style={{ background: passenger?.groupColor || "#9ca3af" }} />
