@@ -571,4 +571,30 @@ describe('RoomingWorkspace room slots', () => {
     expect(screen.getByText('Proposal is stale. Generate a new proposal.')).toBeInTheDocument();
   });
 
+  it('keeps the room selector open during an in-flight save and prevents duplicate assignment', async () => {
+    let finishSave!: (value: unknown) => void;
+    assignPassengerToRoomSlot.mockImplementationOnce(
+      () => new Promise((resolve) => { finishSave = resolve; }),
+    );
+    render(<RoomingWorkspace departureId="departure-1" passengers={passengers as any} />);
+    await screen.findByText('Triple 01');
+
+    fireEvent.click(within(screen.getAllByText('Amina Hadžić')[0].closest('.rounded-lg.border') as HTMLElement)
+      .getByRole('button', { name: 'Select Room' }));
+    const target = screen.getByRole('button', { name: /Hotel Azure Antalya · Double 01/ });
+    fireEvent.click(target);
+    fireEvent.click(target);
+
+    expect(assignPassengerToRoomSlot).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('dialog').parentElement as HTMLElement);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    finishSave({});
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(assignPassengerToRoomSlot).toHaveBeenCalledTimes(1);
+  });
+
 });
