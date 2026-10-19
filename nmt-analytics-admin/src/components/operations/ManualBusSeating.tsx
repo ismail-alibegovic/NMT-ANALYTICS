@@ -506,7 +506,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
                       onClick={() => handleSeatClick(seat)}
                       disabled={mutating}
                       aria-pressed={isSelected}
-                      aria-label={`${bs.seat || "Seat"} ${displayLabel(seat.seat_label)} — ${occupant ? occupant.full_name : (isPreviewSeat(seat.seat_number) ? (bs.previewBadge || "Proposed") : (bs.free || "Free"))}`}
+                      aria-label={`${bs.seat || "Seat"} ${displayLabel(seat.seat_label)} — ${occupant.full_name}`}
                       className={`${seatBase} ${
                         isSelected
                           ? "border-brand-500 bg-brand-500 text-white shadow-md shadow-brand-500/30 ring-2 ring-brand-500/30"
@@ -531,7 +531,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
                     onClick={() => handleSeatClick(seat)}
                       disabled={mutating}
                       aria-pressed={isSelected}
-                      aria-label={`${bs.seat || "Seat"} ${displayLabel(seat.seat_label)} — ${occupant ? occupant.full_name : (previewForSeat ? (bs.previewBadge || "Proposed") : (bs.free || "Free"))}`}
+                      aria-label={`${bs.seat || "Seat"} ${displayLabel(seat.seat_label)} — ${previewForSeat ? (bs.previewBadge || "Proposed") : (bs.free || "Free")}`}
                     className={`${seatBase} ${
                       isSelected
                         ? "border-brand-500 bg-brand-500/10 text-brand-700 ring-2 ring-brand-500/30 dark:text-brand-300"
