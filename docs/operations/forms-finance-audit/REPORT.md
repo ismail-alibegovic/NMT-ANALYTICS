@@ -1,0 +1,67 @@
+# Forms and finance audit — OPEN
+
+Branch: `fix/forms-finance-audit`. Base: `21ce102733e817638f71d545a96fadd87cd0221d` (latest origin/main checked again before PR preparation). No production records, broad demo seed, migrations or automatic merge.
+
+This PR continues the audit with payment, expense, supplier-payable and financial-report workflows. It does **not** complete the remaining application-wide form audit. [COVERAGE.md](COVERAGE.md) explicitly records every inventoried source surface. The current PR body records the final exact-head CI/acceptance outcome; this report starts with local evidence and pending isolated workflows.
+
+## Existing work reviewed
+
+All nine PRs were open drafts and unmerged when reviewed. Their fixes were not cherry-picked into this PR.
+
+| PR | Existing scope | Treatment here |
+|---|---|---|
+| #120 | Shared modal reachability, focus, nested locks | Keep separate. Payment/expense wrappers bound their own content; global modal implementation unchanged. Full focus trapping still depends on that work. |
+| #121 | New Sale theme matrix and route scan | Reuse existing acceptance, do not duplicate route-render certification. |
+| #122 | Native picker affordances and dark scheme | Keep separate; global hidden native indicators remain a known main gap. |
+| #123 | Customer/FormModal draft and failure handling | Customer workflow not reimplemented here. |
+| #124 | Departure date/time conversion | Departure date editor not changed here. |
+| #125 | Four mobile overflows | Not cherry-picked or recertified. |
+| #126 | Separate entitled director fixture | Reuse the pattern in a distinct finance-only test organization; original two security tenants unchanged. |
+| #127 | Combined verification only, do not merge | Reviewed as evidence, not used as a base. |
+| #128 | Flight and shared form contracts | Keep separate. Flight before/after and actual persistence evidence live in [PR #128](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/128). This PR does not imply Flight fixes are in main. |
+
+## Confirmed defects and exact fixes
+
+- Add Payment retained the selected method after cancellation. Six Chromium baseline cases failed with expected empty / received `cash`. Add/Edit and the embedded reservation payment form now share `PaymentForm`: associated labels, unique IDs, 44px fields, mobile stacking, local calendar dates, finite positive cent validation, semantic form submission, complete reset on reopen, disabled fields and inline error recovery. Editing an undated historical payment preserves its missing date.
+- Payment create/edit submission guards previously depended on React repainting disabled buttons. A synchronous ref now guards the full request lifetime and prevents closing while saving. Create retries retain the existing API idempotency key. Parent rerenders preserve the draft.
+- Payment history load failures appeared as an empty ledger. They now block new payments until retry succeeds; stale responses cannot replace a newer reservation's list. Void/refund/status actions share a synchronous mutation lock. Copy is BS/EN.
+- Expense forms lacked category/description/quantity/notes associations; blank unit cost became zero; cleared notes were omitted from PATCH. Fields are associated, blank cost is rejected, clear sends an empty string (API normalizes null), all fields lock during save, same-tick saves serialize, pending close is blocked, and mobile content scrolls/stacks. Zero is still allowed when explicitly entered.
+- Supplier payable same-tick submissions generated two different request IDs. The new synchronous lock serializes issue/payment/reversal/cancel/retry; existing persisted-intent recovery is preserved. The regression produced two API calls before the fix and one afterward.
+- `/payments/:id/refund` refunded pending/failed/cancelled payments. It now rejects these with 409, and the tenant-scoped update also compares `status = succeeded`. Competing stale refunds cannot both mutate or produce a successful refund audit. Already-refunded remains 400; missing/foreign payment remains 404.
+- `/reports/summary` fabricated successful zero totals for invalid queries and database failures. It now returns 400 for invalid input and 503 for unavailable data, while genuine empty data remains 200 with zero totals.
+- Reports retained stale monetary figures after failed refresh and allowed export. Failed loads now clear figures, display a localized retry state and disable exports. Request versioning rejects stale responses. Dates have associated labels and mobile widths; report/legend text follows BS/EN.
+- CSV exports read `travline_auth_token`, whereas the established API client reads the real session keys. Both exports now use the authenticated API client and configured API base, including selected dates/currency and blob handling.
+- The header-only API test unnecessarily contacted the external example Supabase host. It now mocks database access; unit defaults point to localhost. Real database connectivity is asserted by disposable acceptance, not by a header unit test.
+
+No shared global Input, Select, Modal or FormModal implementation is modified: their overlapping fixes are already owned by #120/#122/#123/#128. Domain-specific repeated payment controls were consolidated at their source.
+
+## Evidence and workflow status
+
+Local final checks: **384 admin tests, 888 API tests, admin/API builds and admin lint PASS**. Lint reports 0 errors and 51 existing warnings; existing bundle-size/Supabase packaging warnings remain. The separate Chromium contract matrix passes **25/25** checks. These totals are not whole-application workflow certification.
+
+`checks/` contains local command output. `e2e/finance-forms/` is an explicitly separate Vite contract harness: real components/CSS and Chromium, intercepted HTTP, no Auth/database. It cannot certify persistence. `e2e/pilot-finance-audit.spec.ts` and the expanded supplier test run against actual Auth → Express → PostgreSQL in the localhost-only disposable stack.
+
+| Workflow | Local result | Real isolated result at report creation |
+|---|---|---|
+| Add payment / edit payment / embedded payment form, light/dark × 390/768/1440 | PASS: validation, cancel/reset, failed save, retained draft/retry/key, same-tick submit, disabled controls, bounds | NOT TESTED until CI |
+| Bosnian payment labels/cancel | PASS | NOT TESTED until CI |
+| Reports refresh error/retry, six theme/width variants | PASS: stale money hidden, exports disabled, retry | NOT TESTED until CI |
+| Expense create/edit/clear/delete and save recovery | Unit regressions PASS | NOT TESTED until CI |
+| Supplier issue/payment/reversal/cancel/overdue filters/reload and duplicate submit | Unit regressions PASS | NOT TESTED until CI |
+| Refund eligibility, competing writes and tenant scoping | Six API regressions PASS | NOT TESTED until CI |
+| Financial report error honesty / legitimate empty totals | Four API regressions PASS | NOT TESTED until CI |
+| Installment payment, correction, refund, reload, cached balance vs successful ledger | Existing/new tests prepared | NOT TESTED until CI |
+| Real report totals and authenticated CSV | Test prepared | NOT TESTED until CI |
+| Other forms, roles, drawers, uploads, native OS pickers | NOT TESTED in this slice | NOT TESTED |
+
+Reproduce: `npm test` and `npm run build` in API; admin `npm test -- --maxWorkers=2`, `npm run lint`, `npm run build`; `npx playwright test --config playwright.finance-forms.config.ts`. Real workflows run through `.github/workflows/staging-acceptance.yml`, which provisions and tears down isolated PostgreSQL 17/Auth/Storage/Mailpit and replays existing migrations. It does not contact production.
+
+## Screenshots
+
+[Before mobile dark Add Payment](before-add-dark-390.png) · [After mobile dark Add Payment, failed-save draft](after-add-dark-390.png) · [After mobile dark Edit Payment](after-edit-dark-390.png) · [After desktop light embedded payment](after-list-light-1440.png) · [After mobile dark report error state](after-reports-dark-390.png). All six before Add captures and all 24 after form/report captures are adjacent. Real authenticated captures and traces are attached to the acceptance artifact.
+
+## Remaining gaps
+
+The full form audit remains open. The inventory includes unrelated form/control components as well as business screens, and is not a count of 80 verified forms. Uninspected workflows include authentication/onboarding/password reset, customers, suppliers/catalog services, inquiries/itineraries/quotations, packages/services/costing, departure operational editors, passenger documents/groups, seating/rooming, receipts/contracts/waivers, public/portal intake, communication forms, integration/settings/imports and file uploads. Existing acceptance tests cover some representative API paths but do not certify all form transitions or theme/device/role combinations.
+
+Safari/iOS/Firefox and native OS picker dialogs are not tested. Focus trapping and global picker affordances remain pending in existing unmerged PRs. Ambiguous-response recovery for expense creation, conflicting generic payment edits, partial refunds, historical financial reconciliation and every report currency/role permutation are not certified by this slice. No new broad seed was generated. Synthetic acceptance records exist only in the disposable stack and are removed when it is stopped.

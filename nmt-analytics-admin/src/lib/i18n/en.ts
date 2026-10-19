@@ -491,6 +491,10 @@ export const en = {
     },
   },
   reports: {
+    selectCurrency: 'Select currency', mixedCurrencies: 'Mixed currencies', selectForChart: 'Select a currency to view the revenue chart.', selectForRanking: 'Select a currency to view monetary package rankings.', unknownPackage: 'Unknown Package', authRequired: 'Authentication required', pleaseSignIn: 'Please sign in', perReservation: 'Per reservation', noData: 'No data', noReservations: 'No reservations for the selected period.',
+
+    loadError: 'Report data could not be loaded. Previous figures are hidden to avoid showing stale balances.', retry: 'Retry', exportError: 'Report export failed. Please retry.',
+
     title: 'Reports', description: 'Financial reports and analytics',
     exportOverview: 'Export Overview CSV', exportPackage: 'Export Package CSV',
     totalRevenue: 'Total Revenue', totalPaid: 'Total Paid', balance: 'Balance',
@@ -508,6 +512,19 @@ export const en = {
     retry: 'Your reservation is saved. Retry to finish it without creating another reservation.',
     manual: 'Your reservation is saved but needs review. Open it before making further changes.',
     open: 'Open saved reservation',
+  },
+  paymentForm: {
+    title: 'Reservation payments', total: 'Reservation total', paid: 'Total paid', totalRefunded: 'Total refunded', remaining: 'Remaining', history: 'Payment history', createdAt: 'Created',
+    loadError: 'Payments could not be loaded. Retry before recording another payment.', retryLoad: 'Retry loading',
+    void: 'Void', refund: 'Refund', voidConfirm: 'Void this payment?', refundReason: 'Refund reason (optional):', voided: 'Payment voided', refunded: 'Payment refunded',
+
+    statuses: { succeeded: 'Succeeded', pending: 'Pending', failed: 'Failed', refunded: 'Refunded', cancelled: 'Cancelled' },
+    methods: { cash: 'Cash', card: 'Card', bank_transfer: 'Bank transfer', credit: 'Credit', other: 'Other' },
+    selectMethod: 'Select method', unchangedMethod: 'Keep existing method', saving: 'Saving…',
+    invalidAmount: 'Enter a positive amount with at most two decimal places.',
+    saveError: 'Payment could not be saved. Your entries are preserved. Retry with the same details to avoid recording a second payment.',
+    balanceWarning: 'Changes automatically update the reservation balance.',
+    created: 'Payment added', updated: 'Payment updated',
   },
   payments: {
     retryFailed: 'Retry payment',

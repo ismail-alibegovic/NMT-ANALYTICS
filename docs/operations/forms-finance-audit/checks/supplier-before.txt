@@ -1,0 +1,31 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> travline-admin@2.0.2 test
+> vitest run supplierPayables.test.tsx
+
+
+ RUN  v4.1.10 /workspace/repos/travline-forms/nmt-analytics-admin
+
+ ❯ src/tests/supplierPayables.test.tsx (10 tests | 1 failed) 512ms
+     × does not generate two financial requests from same-tick submits 31ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/supplierPayables.test.tsx > supplier obligation workspace > does not generate two financial requests from same-tick submits
+AssertionError: expected "vi.fn()" to be called 1 times, but got 2 times
+ ❯ src/tests/supplierPayables.test.tsx:95:24
+     93|     const form=screen.getByTestId('pay-form').querySelector('form')!;
+     94|     act(() => { form.dispatchEvent(new Event('submit', { bubbles:true,…
+     95|     expect(api.record).toHaveBeenCalledTimes(1); resolve();
+       |                        ^
+     96|     await waitFor(() => expect(screen.queryByTestId('pay-form')).not.t…
+     97|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)
+   Start at  01:55:40
+   Duration  2.00s (transform 322ms, setup 84ms, import 407ms, tests 512ms, environment 824ms)
+

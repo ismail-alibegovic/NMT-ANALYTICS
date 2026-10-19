@@ -491,6 +491,10 @@ export const bs: Translations = {
     },
   },
   reports: {
+    selectCurrency: 'Odaberite valutu', mixedCurrencies: 'Različite valute', selectForChart: 'Odaberite valutu za prikaz grafikona prihoda.', selectForRanking: 'Odaberite valutu za prikaz rangiranja paketa.', unknownPackage: 'Nepoznat paket', authRequired: 'Potrebna prijava', pleaseSignIn: 'Molimo prijavite se', perReservation: 'Po rezervaciji', noData: 'Nema podataka', noReservations: 'Nema rezervacija za odabrani period.',
+
+    loadError: 'Izvještaj nije moguće učitati. Prethodni iznosi su skriveni kako se ne bi prikazivali zastarjeli saldi.', retry: 'Pokušaj ponovo', exportError: 'Izvoz izvještaja nije uspio. Pokušajte ponovo.',
+
     title: 'Izvještaji', description: 'Finansijski izvještaji i analitika',
     exportOverview: 'Izvezi pregled CSV', exportPackage: 'Izvezi pakete CSV',
     totalRevenue: 'Ukupan prihod', totalPaid: 'Plaćeno', balance: 'Saldo',
@@ -508,6 +512,19 @@ export const bs: Translations = {
     retry: 'Rezervacija je sačuvana. Ponovite pokušaj da je dovršite bez kreiranja nove rezervacije.',
     manual: 'Rezervacija je sačuvana, ali zahtijeva pregled. Otvorite je prije daljnjih izmjena.',
     open: 'Otvori sačuvanu rezervaciju',
+  },
+  paymentForm: {
+    title: 'Plaćanja za rezervaciju', total: 'Ukupno rezervacija', paid: 'Ukupno plaćeno', totalRefunded: 'Ukupno refundirano', remaining: 'Preostalo', history: 'Povijest plaćanja', createdAt: 'Kreirano',
+    loadError: 'Plaćanja nije moguće učitati. Pokušajte ponovo prije evidentiranja nove uplate.', retryLoad: 'Ponovi učitavanje',
+    void: 'Otkaži', refund: 'Refundiraj', voidConfirm: 'Otkazati ovo plaćanje?', refundReason: 'Razlog za refundaciju (opcionalno):', voided: 'Plaćanje otkazano', refunded: 'Plaćanje refundirano',
+
+    statuses: { succeeded: 'Uspješno', pending: 'Na čekanju', failed: 'Neuspješno', refunded: 'Refundirano', cancelled: 'Otkazano' },
+    methods: { cash: 'Gotovina', card: 'Kartica', bank_transfer: 'Bankovni transfer', credit: 'Kredit', other: 'Ostalo' },
+    selectMethod: 'Odaberite način', unchangedMethod: 'Zadrži postojeći način', saving: 'Spremanje…',
+    invalidAmount: 'Unesite pozitivan iznos s najviše dvije decimale.',
+    saveError: 'Plaćanje nije spremljeno. Unosi su sačuvani. Ponovite s istim podacima kako ne biste evidentirali drugu uplatu.',
+    balanceWarning: 'Promjene automatski ažuriraju saldo rezervacije.',
+    created: 'Plaćanje dodano', updated: 'Plaćanje ažurirano',
   },
   payments: {
     retryFailed: 'Ponovi uplatu',

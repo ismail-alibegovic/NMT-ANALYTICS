@@ -129,6 +129,8 @@ jobs:
             ['E2E_API_URL', 'http://127.0.0.1:3001'],
             ['E2E_SUPABASE_URL', process.env.TRAVLINE_SUPABASE_URL],
             ['E2E_SUPABASE_ANON_KEY', process.env.TRAVLINE_SUPABASE_ANON_KEY],
+            ['E2E_FINANCE_DIRECTOR_EMAIL', 'director@finance-audit.test'],
+            ['E2E_FINANCE_DIRECTOR_PASSWORD', seed.password],
             ['E2E_MANAGER_EMAIL', 'manager@pilot-a.test'],
             ['E2E_MANAGER_PASSWORD', seed.password],
             ['E2E_STAFF_EMAIL', 'staff@pilot-a.test'],
@@ -151,6 +153,10 @@ jobs:
             sleep 2
           done
           curl --fail --silent http://127.0.0.1:3001/api/health > "$ACCEPTANCE_EVIDENCE_DIR/api-health.json"
+
+      - name: Run isolated finance form browser regressions
+        working-directory: nmt-analytics-admin
+        run: npx playwright test --config playwright.finance-forms.config.ts
 
       - name: Run authenticated Playwright acceptance
         working-directory: nmt-analytics-admin
@@ -185,6 +191,7 @@ jobs:
             acceptance-evidence/
             nmt-analytics-admin/playwright-report/
             nmt-analytics-admin/test-results/
+            nmt-analytics-admin/finance-form-results/
           if-no-files-found: warn
           retention-days: 14
 

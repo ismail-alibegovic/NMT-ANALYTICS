@@ -1,0 +1,394 @@
+[
+  {
+    "component": "components/analytics/RevenueChart.tsx",
+    "direct_consumers": [
+      "pages/Reports.tsx"
+    ],
+    "page_consumers": [
+      "pages/Reports.tsx"
+    ],
+    "changed": true
+  },
+  {
+    "component": "components/departures/SupplierPayablesPanel.tsx",
+    "direct_consumers": [
+      "pages/DepartureDetail.tsx"
+    ],
+    "page_consumers": [
+      "pages/DepartureDetail.tsx"
+    ],
+    "changed": true
+  },
+  {
+    "component": "components/form/Form.tsx",
+    "direct_consumers": [],
+    "page_consumers": [],
+    "changed": false
+  },
+  {
+    "component": "components/form/Label.tsx",
+    "direct_consumers": [
+      "components/auth/ResetPasswordForm.tsx",
+      "components/auth/SignInForm.tsx",
+      "components/auth/SignUpForm.tsx",
+      "components/communications/AutomationEditorModal.tsx",
+      "components/communications/CampaignEditorModal.tsx",
+      "components/communications/ManualMessageComposer.tsx",
+      "components/communications/SendMessage.tsx",
+      "components/communications/TemplateEditorModal.tsx",
+      "components/form/date-picker.tsx",
+      "components/integrations/ConfigureIntegrationModal.tsx",
+      "components/packages/PackageEditorModal.tsx",
+      "components/reservations/CreateReservationModal.tsx",
+      "components/reservations/EditReservationModal.tsx",
+      "components/reservations/NewSaleWizard.tsx",
+      "components/travelers/TravelerRequirementsFields.tsx",
+      "components/ui/FormModal.tsx",
+      "pages/DepartureDetail.tsx",
+      "pages/Inquiries.tsx",
+      "pages/Itineraries.tsx",
+      "pages/ItineraryDetail.tsx",
+      "pages/QuotationDetail.tsx",
+      "pages/Quotations.tsx",
+      "pages/Suppliers.tsx",
+      "pages/admin/PublicForms.tsx",
+      "pages/operations/Hotels.tsx"
+    ],
+    "page_consumers": [
+      "pages/AuthPages/ResetPassword.tsx",
+      "pages/AuthPages/SignIn.tsx",
+      "pages/AuthPages/SignUp.tsx",
+      "pages/DepartureDetail.tsx",
+      "pages/Inquiries.tsx",
+      "pages/Itineraries.tsx",
+      "pages/ItineraryDetail.tsx",
+      "pages/PackageDetail.tsx",
+      "pages/QuotationDetail.tsx",
+      "pages/Quotations.tsx",
+      "pages/ReservationDetail.tsx",
+      "pages/Reservations.tsx",
+      "pages/Suppliers.tsx",
+      "pages/admin/Customers.tsx",
+      "pages/admin/Departures.tsx",
+      "pages/admin/Integrations.tsx",
+      "pages/admin/Packages.tsx",
+      "pages/admin/PublicForms.tsx",
+      "pages/communication/CommunicationCenter.tsx",
+      "pages/operations/Hotels.tsx"
+    ],
+    "changed": false
+  },
+  {
+    "component": "components/form/MultiSelect.tsx",
+    "direct_consumers": [],
+    "page_consumers": [],
+    "changed": false
+  },
+  {
+    "component": "components/form/Select.tsx",
+    "direct_consumers": [
+      "components/communications/AutomationEditorModal.tsx",
+      "components/communications/CampaignEditorModal.tsx",
+      "components/communications/CommunicationHistoryPanel.tsx",
+      "components/communications/ManualMessageComposer.tsx",
+      "components/communications/SendMessage.tsx",
+      "components/communications/TemplateEditorModal.tsx",
+      "components/departures/DepartureFormModal.tsx",
+      "components/integrations/ConfigureIntegrationModal.tsx",
+      "components/packages/PackageEditorModal.tsx",
+      "components/reservations/EditReservationModal.tsx",
+      "components/travelers/TravelerRequirementsFields.tsx",
+      "components/ui/FormModal.tsx",
+      "pages/DepartureDetail.tsx"
+    ],
+    "page_consumers": [
+      "pages/DepartureDetail.tsx",
+      "pages/PackageDetail.tsx",
+      "pages/ReservationDetail.tsx",
+      "pages/Reservations.tsx",
+      "pages/admin/Customers.tsx",
+      "pages/admin/Departures.tsx",
+      "pages/admin/Integrations.tsx",
+      "pages/admin/Packages.tsx",
+      "pages/communication/CommunicationCenter.tsx"
+    ],
+    "changed": false
+  },
+  {
+    "component": "components/form/date-picker.tsx",
+    "direct_consumers": [],
+    "page_consumers": [],
+    "changed": false
+  },
+  {
+    "component": "components/form/group-input/PhoneInput.tsx",
+    "direct_consumers": [],
+    "page_consumers": [],
+    "changed": false
+  },
+  {
+    "component": "components/form/input/Checkbox.tsx",
+    "direct_consumers": [
+      "components/auth/SignInForm.tsx",
+      "components/auth/SignUpForm.tsx"
+    ],
+    "page_consumers": [
+      "pages/AuthPages/SignIn.tsx",
+      "pages/AuthPages/SignUp.tsx"
+    ],
+    "changed": false
+  },
+  {
+    "component": "components/form/input/FileInput.tsx",
+    "direct_consumers": [],
+    "page_consumers": [],
+    "changed": false
+  },
+  {
+    "component": "components/form/input/InputField.tsx",
+    "direct_consumers": [
+      "components/auth/ResetPasswordForm.tsx",
+      "components/auth/SignInForm.tsx",
+      "components/auth/SignUpForm.tsx",
+      "components/communications/AutomationEditorModal.tsx",
+      "components/communications/ManualMessageComposer.tsx",
+      "components/communications/SendMessage.tsx",
+      "components/departures/DepartureAccommodationAllotment.tsx",
+      "components/departures/DepartureFormModal.tsx",
+      "components/integrations/ConfigureIntegrationModal.tsx",
+      "components/packages/PackageEditorModal.tsx",
+      "components/reservations/CreateReservationModal.tsx",
+      "components/reservations/EditReservationModal.tsx",
+      "components/reservations/NewSaleWizard.tsx",
+      "components/ui/FormModal.tsx",
+      "components/ui/PageToolbar.tsx",
+      "pages/DepartureDetail.tsx",
+      "pages/Inquiries.tsx",
+      "pages/Itineraries.tsx",
+      "pages/ItineraryDetail.tsx",
+      "pages/QuotationDetail.tsx",
+      "pages/Quotations.tsx",
+      "pages/Suppliers.tsx",
+      "pages/admin/PublicForms.tsx",
+      "pages/operations/Hotels.tsx"
+    ],
+    "page_consumers": [
+      "pages/AuthPages/ResetPassword.tsx",
+      "pages/AuthPages/SignIn.tsx",
+      "pages/AuthPages/SignUp.tsx",
+      "pages/DepartureDetail.tsx",
+      "pages/HotelDetail.tsx",
+      "pages/Inquiries.tsx",
+      "pages/Itineraries.tsx",
+      "pages/ItineraryDetail.tsx",
+      "pages/PackageDetail.tsx",
+      "pages/Profile.tsx",
+      "pages/QuotationDetail.tsx",
+      "pages/Quotations.tsx",
+      "pages/ReservationDetail.tsx",
+      "pages/Reservations.tsx",
+      "pages/Suppliers.tsx",
+      "pages/admin/Customers.tsx",
+      "pages/admin/Departures.tsx",
+      "pages/admin/Documents.tsx",
+      "pages/admin/Integrations.tsx",
+      "pages/admin/Packages.tsx",
+      "pages/admin/PublicForms.tsx",
+      "pages/communication/CommunicationCenter.tsx",
+      "pages/operations/Availability.tsx",
+      "pages/operations/Calendar.tsx",
+      "pages/operations/CommissionRules.tsx",
+      "pages/operations/Contracts.tsx",
+      "pages/operations/Excursions.tsx",
+      "pages/operations/Flights.tsx",
+      "pages/operations/Hotels.tsx",
+      "pages/operations/Receipts.tsx",
+      "pages/operations/SubAgents.tsx"
+    ],
+    "changed": false
+  },
+  {
+    "component": "components/form/input/Radio.tsx",
+    "direct_consumers": [],
+    "page_consumers": [],
+    "changed": false
+  },
+  {
+    "component": "components/form/input/RadioSm.tsx",
+    "direct_consumers": [],
+    "page_consumers": [],
+    "changed": false
+  },
+  {
+    "component": "components/form/input/TextArea.tsx",
+    "direct_consumers": [],
+    "page_consumers": [],
+    "changed": false
+  },
+  {
+    "component": "components/form/switch/Switch.tsx",
+    "direct_consumers": [
+      "components/communications/AutomationEditorModal.tsx"
+    ],
+    "page_consumers": [
+      "pages/communication/CommunicationCenter.tsx"
+    ],
+    "changed": false
+  },
+  {
+    "component": "components/payments/PaymentForm.tsx",
+    "direct_consumers": [
+      "components/payments/AddPaymentModal.tsx",
+      "components/payments/EditPaymentModal.tsx",
+      "components/payments/PaymentsModal.tsx"
+    ],
+    "page_consumers": [
+      "pages/ReservationDetail.tsx",
+      "pages/Reservations.tsx"
+    ],
+    "changed": true
+  },
+  {
+    "component": "components/ui/FormModal.tsx",
+    "direct_consumers": [
+      "pages/admin/Customers.tsx"
+    ],
+    "page_consumers": [
+      "pages/admin/Customers.tsx"
+    ],
+    "changed": false
+  },
+  {
+    "component": "components/ui/PageToolbar.tsx",
+    "direct_consumers": [
+      "pages/HotelDetail.tsx",
+      "pages/Inquiries.tsx",
+      "pages/Itineraries.tsx",
+      "pages/PackageDetail.tsx",
+      "pages/Profile.tsx",
+      "pages/Quotations.tsx",
+      "pages/Reservations.tsx",
+      "pages/Suppliers.tsx",
+      "pages/admin/Customers.tsx",
+      "pages/admin/Departures.tsx",
+      "pages/admin/Documents.tsx",
+      "pages/admin/Integrations.tsx",
+      "pages/admin/Packages.tsx",
+      "pages/admin/PublicForms.tsx",
+      "pages/operations/Availability.tsx",
+      "pages/operations/Calendar.tsx",
+      "pages/operations/CommissionRules.tsx",
+      "pages/operations/Contracts.tsx",
+      "pages/operations/Excursions.tsx",
+      "pages/operations/Flights.tsx",
+      "pages/operations/Hotels.tsx",
+      "pages/operations/Receipts.tsx",
+      "pages/operations/SubAgents.tsx"
+    ],
+    "page_consumers": [
+      "pages/HotelDetail.tsx",
+      "pages/Inquiries.tsx",
+      "pages/Itineraries.tsx",
+      "pages/PackageDetail.tsx",
+      "pages/Profile.tsx",
+      "pages/Quotations.tsx",
+      "pages/Reservations.tsx",
+      "pages/Suppliers.tsx",
+      "pages/admin/Customers.tsx",
+      "pages/admin/Departures.tsx",
+      "pages/admin/Documents.tsx",
+      "pages/admin/Integrations.tsx",
+      "pages/admin/Packages.tsx",
+      "pages/admin/PublicForms.tsx",
+      "pages/operations/Availability.tsx",
+      "pages/operations/Calendar.tsx",
+      "pages/operations/CommissionRules.tsx",
+      "pages/operations/Contracts.tsx",
+      "pages/operations/Excursions.tsx",
+      "pages/operations/Flights.tsx",
+      "pages/operations/Hotels.tsx",
+      "pages/operations/Receipts.tsx",
+      "pages/operations/SubAgents.tsx"
+    ],
+    "changed": false
+  },
+  {
+    "component": "components/ui/dropdown/Dropdown.tsx",
+    "direct_consumers": [
+      "components/header/NotificationDropdown.tsx",
+      "components/header/UserDropdown.tsx"
+    ],
+    "page_consumers": [],
+    "changed": false
+  },
+  {
+    "component": "components/ui/modal/index.tsx",
+    "direct_consumers": [
+      "components/common/QuickCreateModal.tsx",
+      "components/communications/AutomationEditorModal.tsx",
+      "components/communications/AutomationTab.tsx",
+      "components/communications/CampaignEditorModal.tsx",
+      "components/communications/CampaignsTab.tsx",
+      "components/communications/CommunicationHistoryPanel.tsx",
+      "components/communications/SendMessage.tsx",
+      "components/communications/TemplateEditorModal.tsx",
+      "components/communications/TemplatesTab.tsx",
+      "components/departures/DepartureFormModal.tsx",
+      "components/departures/SupplierPayablesPanel.tsx",
+      "components/integrations/ConfigureIntegrationModal.tsx",
+      "components/packages/PackageEditorModal.tsx",
+      "components/payments/AddPaymentModal.tsx",
+      "components/payments/EditPaymentModal.tsx",
+      "components/payments/PaymentsModal.tsx",
+      "components/quotations/QuotationBookingPanel.tsx",
+      "components/reservations/CreateReservationModal.tsx",
+      "components/reservations/EditReservationModal.tsx",
+      "components/reservations/NewSaleWizard.tsx",
+      "components/ui/FormModal.tsx",
+      "pages/DepartureDetail.tsx",
+      "pages/Inquiries.tsx",
+      "pages/Itineraries.tsx",
+      "pages/PackageDetail.tsx",
+      "pages/QuotationDetail.tsx",
+      "pages/Quotations.tsx",
+      "pages/ReservationDetail.tsx",
+      "pages/Suppliers.tsx",
+      "pages/admin/AuditLogs.tsx",
+      "pages/admin/PublicForms.tsx",
+      "pages/operations/CommissionRules.tsx",
+      "pages/operations/Contracts.tsx",
+      "pages/operations/Excursions.tsx",
+      "pages/operations/Flights.tsx",
+      "pages/operations/Hotels.tsx",
+      "pages/operations/Receipts.tsx",
+      "pages/operations/SubAgents.tsx"
+    ],
+    "page_consumers": [
+      "pages/DepartureDetail.tsx",
+      "pages/Hub/HomeHub.tsx",
+      "pages/Inquiries.tsx",
+      "pages/Itineraries.tsx",
+      "pages/PackageDetail.tsx",
+      "pages/QuotationDetail.tsx",
+      "pages/Quotations.tsx",
+      "pages/ReservationDetail.tsx",
+      "pages/Reservations.tsx",
+      "pages/Suppliers.tsx",
+      "pages/admin/AuditLogs.tsx",
+      "pages/admin/Customers.tsx",
+      "pages/admin/Departures.tsx",
+      "pages/admin/Integrations.tsx",
+      "pages/admin/Packages.tsx",
+      "pages/admin/PublicForms.tsx",
+      "pages/communication/CommunicationCenter.tsx",
+      "pages/operations/CommissionRules.tsx",
+      "pages/operations/Contracts.tsx",
+      "pages/operations/Excursions.tsx",
+      "pages/operations/Flights.tsx",
+      "pages/operations/Hotels.tsx",
+      "pages/operations/Receipts.tsx",
+      "pages/operations/SubAgents.tsx"
+    ],
+    "changed": false
+  }
+]

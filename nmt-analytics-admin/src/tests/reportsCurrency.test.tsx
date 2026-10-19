@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider } from '../lib/i18n/context';
 import Reports from '../pages/Reports';
 
 let overviewResponse: any;
@@ -10,6 +11,9 @@ const getAnalyticsOverviewV2 = vi.fn(async (_filters?: any) => overviewResponse)
 const getPackageAnalyticsV2 = vi.fn(async (_filters?: any) => packagesResponse);
 const getRevenueSeries = vi.fn(async (_filters?: any) => seriesResponse);
 const showError = vi.fn();
+const exportGet = vi.fn();
+vi.mock('../api/client', () => ({ get: (...args: unknown[]) => exportGet(...args) }));
+const user = { id: 'user-1' };
 
 vi.mock('../api/analytics', () => ({
   getAnalyticsOverviewV2: (filters?: any) => getAnalyticsOverviewV2(filters),
@@ -18,7 +22,7 @@ vi.mock('../api/analytics', () => ({
 }));
 
 vi.mock('../context/AppContext', () => ({
-  useApp: () => ({ user: { id: 'user-1' }, loading: false }),
+  useApp: () => ({ user, loading: false }),
 }));
 
 vi.mock('../context/ToastContext', () => ({
@@ -99,7 +103,7 @@ beforeEach(() => {
 describe('Reports currency handling', () => {
   it('renders single BAM reports normally', async () => {
     seedSingle('BAM');
-    render(<Reports />);
+    render(<I18nProvider><Reports /></I18nProvider>);
 
     await waitFor(() => {
       expect(screen.getByTestId('revenue-chart')).toHaveAttribute('data-currency', 'BAM');
@@ -109,7 +113,7 @@ describe('Reports currency handling', () => {
 
   it('renders single EUR reports as EUR and not KM', async () => {
     seedSingle('EUR');
-    render(<Reports />);
+    render(<I18nProvider><Reports /></I18nProvider>);
 
     await waitFor(() => {
       expect(screen.getByTestId('revenue-chart')).toHaveAttribute('data-currency', 'EUR');
@@ -120,7 +124,7 @@ describe('Reports currency handling', () => {
 
   it('shows selector and blocks mixed money chart/ranking until currency is selected', async () => {
     seedMixed();
-    render(<Reports />);
+    render(<I18nProvider><Reports /></I18nProvider>);
 
     expect(await screen.findByRole('button', { name: 'BAM' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'EUR' })).toBeInTheDocument();
@@ -131,7 +135,7 @@ describe('Reports currency handling', () => {
 
   it('refetches monetary report APIs with EUR and charts only EUR rows after selection', async () => {
     seedMixed();
-    render(<Reports />);
+    render(<I18nProvider><Reports /></I18nProvider>);
 
     const eurButton = await screen.findByRole('button', { name: 'EUR' });
     seedSingle('EUR');
@@ -149,4 +153,24 @@ describe('Reports currency handling', () => {
       expect(chart.textContent).not.toContain('BAM');
     });
   });
+  it('hides failed reports and disables exports until retry succeeds', async () => {
+    getAnalyticsOverviewV2.mockRejectedValueOnce(new Error('Synthetic failure'));
+    render(<I18nProvider><Reports /></I18nProvider>);
+    await screen.findByRole('alert');
+    expect(screen.getByRole('button', { name: 'Export Overview CSV' })).toBeDisabled();
+    expect(screen.queryByText(/100,00\s*KM/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await screen.findAllByText(/100,00\s*KM/);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+  it('exports through the authenticated API client with the current filters', async () => {
+    exportGet.mockResolvedValue({ data: new Blob(['Metric,Value,Currency']) });
+    URL.createObjectURL = vi.fn(() => 'blob:isolated-csv'); URL.revokeObjectURL = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    render(<I18nProvider><Reports /></I18nProvider>);
+    await screen.findAllByText(/100,00\s*KM/);
+    fireEvent.click(screen.getByRole('button', { name: 'Export Overview CSV' }));
+    await waitFor(() => expect(exportGet).toHaveBeenCalledWith('/analytics/overview.csv', expect.objectContaining({ responseType: 'blob', params: expect.objectContaining({ from: expect.any(String), to: expect.any(String) }) })));
+  });
+
 });

@@ -1,0 +1,548 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> travline-admin@2.0.2 test
+> vitest run departureFinancePayables
+
+
+ RUN  v4.1.10 /workspace/repos/travline-forms/nmt-analytics-admin
+
+stderr | src/tests/departureFinancePayables.test.tsx > DepartureDetail finance supplier payables integration > associates all expense fields and serializes pending submissions
+An update to DepartureDetail inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ❯ src/tests/departureFinancePayables.test.tsx (4 tests | 2 failed) 1443ms
+     × does not silently record an empty unit cost as a zero expense 1100ms
+     × associates all expense fields and serializes pending submissions 63ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/departureFinancePayables.test.tsx > DepartureDetail finance supplier payables integration > does not silently record an empty unit cost as a zero expense
+TestingLibraryElementError: Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"p-4 sm:p-6"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"mb-5 inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-gray-400 dark:hover:text-white"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<svg />[39m
+        [0mAll departures[0m
+      [36m</button>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"mb-6 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mb-3 flex flex-wrap items-center gap-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-xs font-semibold uppercase tracking-[0.14em] text-brand-600 dark:text-brand-400"[39m
+              [36m>[39m
+                [0mTravel workspace[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center px-2.5 py-0.5 justify-center gap-1 rounded-full font-medium text-theme-xs bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-white/80 "[39m
+              [36m>[39m
+                [0mSCHEDULED[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-2xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-3xl"[39m
+            [36m>[39m
+              [0mAntalya Summer[0m
+            [36m</h1>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-1 text-sm text-gray-500 dark:text-gray-400"[39m
+            [36m>[39m
+              [0mAntalya[0m
+            [36m</p>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-5 flex flex-col gap-2 text-sm text-gray-600 dark:text-gray-300 sm:flex-row sm:flex-wrap sm:gap-x-6"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-2"[39m
+              [36m>[39m
+                [36m<svg />[39m
+                [0m20. 10. 2026. u 13:00[0m
+                [0m — [0m
+                [0m27. 10. 2026. u 13:00[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-2"[39m
+              [36m>[39m
+                [36m<svg />[39m
+                [0mTransport not defined[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-2 sm:flex-row lg:shrink-0"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"relative"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex items-center justify-center gap-2 rounded-lg transition w-full justify-center gap-2 sm:w-auto px-4 py-3 text-sm bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03] dark:hover:text-gray-300 "[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg />[39m
+                [0mDocuments & Printing[0m
+                [36m<svg />[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex items-center justify-center gap-2 rounded-lg transition justify-center gap-2 px-4 py-3 text-sm bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03] dark:hover:text-gray-300 "[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg />[39m
+              [0m [0m
+              [0mPassenger list[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex items-center justify-center gap-2 rounded-lg transition justify-center gap-2 px-4 py-3 text-sm bg-brand-500 text-white shadow-theme-xs hover:bg-brand-600 disabled:bg-brand-300 "[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg />[39m
+              [0m [0m
+              [0mReservations[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"grid border-t border-gray-200 dark:border-gray-800 sm:grid-cols-2 xl:grid-cols-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex min-w-0 items-start gap-3 border-gray-200 p-4 dark:border-gray-800 sm:[&:nth-child(even)]:border-l xl:border-l xl:first:border-l-0"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-white/[0.05] dark:text-gray-400"[39m
+            [36m>[39m
+              [36m<svg />[39m
+            [36m</span>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-xs font-medium text-gray-500 dark:text-gray-400"[39m
+              [36m>[39m
+                [0mPassengers[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"mt-1 truncate text-lg font-semibold text-gray-950 dark:text-white"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400"[39m
+              [36m>[39m
+                [0m0 confirmed[0m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex min-w-0 items-start gap-3 border-gray-200 p-4 dark:border-gray-800 sm:[&:nth-child(even)]:border-l xl:border-l xl:first:border-l-0"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-white/[0.05] dark:text-gray-400"[39m
+            [36m>[39m
+              [36m<svg />[39m
+            [36m</span>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0"[39m
+            [36m...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"p-4 sm:p-6"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"mb-5 inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-gray-400 dark:hover:text-white"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<svg />[39m
+        [0mAll departures[0m
+      [36m</button>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"mb-6 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mb-3 flex flex-wrap items-center gap-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-xs font-semibold uppercase tracking-[0.14em] text-brand-600 dark:text-brand-400"[39m
+              [36m>[39m
+                [0mTravel workspace[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center px-2.5 py-0.5 justify-center gap-1 rounded-full font-medium text-theme-xs bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-white/80 "[39m
+              [36m>[39m
+                [0mSCHEDULED[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-2xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-3xl"[39m
+            [36m>[39m
+              [0mAntalya Summer[0m
+            [36m</h1>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-1 text-sm text-gray-500 dark:text-gray-400"[39m
+            [36m>[39m
+              [0mAntalya[0m
+            [36m</p>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-5 flex flex-col gap-2 text-sm text-gray-600 dark:text-gray-300 sm:flex-row sm:flex-wrap sm:gap-x-6"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-2"[39m
+              [36m>[39m
+                [36m<svg />[39m
+                [0m20. 10. 2026. u 13:00[0m
+                [0m — [0m
+                [0m27. 10. 2026. u 13:00[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"inline-flex items-center gap-2"[39m
+              [36m>[39m
+                [36m<svg />[39m
+                [0mTransport not defined[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-2 sm:flex-row lg:shrink-0"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"relative"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"inline-flex items-center justify-center gap-2 rounded-lg transition w-full justify-center gap-2 sm:w-auto px-4 py-3 text-sm bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03] dark:hover:text-gray-300 "[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg />[39m
+                [0mDocuments & Printing[0m
+                [36m<svg />[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex items-center justify-center gap-2 rounded-lg transition justify-center gap-2 px-4 py-3 text-sm bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03] dark:hover:text-gray-300 "[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg />[39m
+              [0m [0m
+              [0mPassenger list[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex items-center justify-center gap-2 rounded-lg transition justify-center gap-2 px-4 py-3 text-sm bg-brand-500 text-white shadow-theme-xs hover:bg-brand-600 disabled:bg-brand-300 "[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg />[39m
+              [0m [0m
+              [0mReservations[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"grid border-t border-gray-200 dark:border-gray-800 sm:grid-cols-2 xl:grid-cols-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex min-w-0 items-start gap-3 border-gray-200 p-4 dark:border-gray-800 sm:[&:nth-child(even)]:border-l xl:border-l xl:first:border-l-0"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-white/[0.05] dark:text-gray-400"[39m
+            [36m>[39m
+              [36m<svg />[39m
+            [36m</span>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-xs font-medium text-gray-500 dark:text-gray-400"[39m
+              [36m>[39m
+                [0mPassengers[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"mt-1 truncate text-lg font-semibold text-gray-950 dark:text-white"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400"[39m
+              [36m>[39m
+                [0m0 confirmed[0m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex min-w-0 items-start gap-3 border-gray-200 p-4 dark:border-gray-800 sm:[&:nth-child(even)]:border-l xl:border-l xl:first:border-l-0"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-white/[0.05] dark:text-gray-400"[39m
+            [36m>[39m
+              [36m<svg />[39m
+            [36m</span>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0"[39m
+            [36m...
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/tests/departureFinancePayables.test.tsx:193:18
+    191|     fireEvent.change(within(modal).getAllByRole('textbox')[0], { targe…
+    192|     fireEvent.click(within(modal).getByRole('button', { name: en.commo…
+    193|     await screen.findByRole('alert'); expect(mockCreateCost).not.toHav…
+       |                  ^
+    194|   });
+    195|   it('associates all expense fields and serializes pending submissions…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/tests/departureFinancePayables.test.tsx > DepartureDetail finance supplier payables integration > associates all expense fields and serializes pending submissions
+TestingLibraryElementError: Found a label with the text of: Label, however no form control was found associated to that label. Make sure you're using the "for" attribute or "aria-labelledby" attribute correctly.
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33mdata-testid[39m=[32m"modal"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"p-6"[39m
+  [36m>[39m
+    [36m<h2[39m
+      [33mclass[39m=[32m"mb-1 text-xl font-semibold text-gray-800 dark:text-white"[39m
+    [36m>[39m
+      [0mAdd cost[0m
+    [36m</h2>[39m
+    [36m<p[39m
+      [33mclass[39m=[32m"mb-6 text-sm text-gray-500 dark:text-gray-400"[39m
+    [36m>[39m
+      [0mAdd a real supplier cost for this departure. Currency must match the departure currency.[0m
+    [36m</p>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-4"[39m
+    [36m>[39m
+      [36m<div>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"[39m
+        [36m>[39m
+          [0mCategory[0m
+        [36m</label>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative"[39m
+        [36m>[39m
+          [36m<select[39m
+            [33mclass[39m=[32m"h-11 w-full appearance-none rounded-lg border bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs transition-colors focus:outline-hidden focus:ring-2 dark:bg-gray-900 border-gray-300 focus:border-brand-400 focus:ring-brand-500/15 dark:border-gray-700 dark:focus:border-brand-500 text-gray-800 dark:text-white/90 "[39m
+            [33mdata-select-styled[39m=[32m"true"[39m
+          [36m>[39m
+            [36m<option[39m
+              [33mclass[39m=[32m"text-gray-400 dark:bg-gray-900 dark:text-gray-500"[39m
+              [33mdisabled[39m=[32m""[39m
+              [33mvalue[39m=[32m""[39m
+            [36m>[39m
+              [0mSelect an option[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mclass[39m=[32m"text-gray-700 dark:bg-gray-900 dark:text-gray-300"[39m
+              [33mvalue[39m=[32m"hotel"[39m
+            [36m>[39m
+              [0mHotel[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mclass[39m=[32m"text-gray-700 dark:bg-gray-900 dark:text-gray-300"[39m
+              [33mvalue[39m=[32m"transport"[39m
+            [36m>[39m
+              [0mTransport[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mclass[39m=[32m"text-gray-700 dark:bg-gray-900 dark:text-gray-300"[39m
+              [33mvalue[39m=[32m"flight"[39m
+            [36m>[39m
+              [0mFlight[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mclass[39m=[32m"text-gray-700 dark:bg-gray-900 dark:text-gray-300"[39m
+              [33mvalue[39m=[32m"tour"[39m
+            [36m>[39m
+              [0mTour[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mclass[39m=[32m"text-gray-700 dark:bg-gray-900 dark:text-gray-300"[39m
+              [33mvalue[39m=[32m"insurance"[39m
+            [36m>[39m
+              [0mInsurance[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mclass[39m=[32m"text-gray-700 dark:bg-gray-900 dark:text-gray-300"[39m
+              [33mvalue[39m=[32m"supplier"[39m
+            [36m>[39m
+              [0mSupplier[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mclass[39m=[32m"text-gray-700 dark:bg-gray-900 dark:text-gray-300"[39m
+              [33mvalue[39m=[32m"extra_service"[39m
+            [36m>[39m
+              [0mExtra service[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mclass[39m=[32m"text-gray-700 dark:bg-gray-900 dark:text-gray-300"[39m
+              [33mvalue[39m=[32m"other"[39m
+            [36m>[39m
+              [0mOther[0m
+            [36m</option>[39m
+          [36m</select>[39m
+          [36m<svg />[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"[39m
+        [36m>[39m
+          [0mLabel[0m
+        [36m</label>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative"[39m
+        [36m>[39m
+          [36m<input[39m
+            [33mclass[39m=[32m" h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs transition-colors placeholder:text-gray-400 focus:outline-hidden focus:ring-2  dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30  bg-transparent text-gray-800 border-gray-300 focus:border-brand-400 focus:ring-brand-500/15 dark:border-gray-700 dark:text-white/90  dark:focus:border-brand-500"[39m
+            [33mtype[39m=[32m"text"[39m
+            [33mvalue[39m=[32m""[39m
+          [36m/>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"mb-1 block text-sm"[39m
+          [33mfor[39m=[32m"cost-supplier"[39m
+        [36m>[39m
+          [0mSupplier[0m
+        [36m</label>[39m
+        [36m<select[39m
+          [33mclass[39m=[32m"w-full min-w-0 rounded-lg border border-gray-300 p-2 dark:border-gray-700 dark:bg-gray-900"[39m
+          [33mid[39m=[32m"cost-supplier"[39m
+        [36m>[39m
+          [36m<option[39m
+            [33mvalue[39m=[32m""[39m
+          [36m>[39m
+            [0mNo supplier linked[0m
+          [36m</option>[39m
+        [36m</select>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid grid-cols-2 gap-3"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"[39m
+          [36m>[39m
+            [0mQuantity[0m
+          [36m</label>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"relative"[39m
+          [36m>[39m
+            [36m<input[39m
+              [33mclass[39m=[32m" h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs transition-colors placeholder:text-gray-400 focus:outline-hidden focus:ring-2  dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30  bg-transparent text-gray-800 border-gray-300 focus:border-brand-400 focus:ring-brand-500/15 dark:border-gray-700 dark:text-white/90  dark:focus:border-brand-500"[39m
+              [33mmin[39m=[32m"0.01"[39m
+              [33mstep[39m=[32m"0.01"[39m
+              [33mtype[39m=[32m"number"[39m
+              [33mvalue[39m=[32m"1"[39m
+            [36m/>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"[39m
+            [33mfor[39m=[32m"cost-unit-cost"[39m
+          [36m>[39m
+            [0mUnit cost[0m
+          [36m</label>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"relative"[39m
+          [36m>[39m
+            [36m<input[39m
+              [33mclass[39m=[32m" h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs transition-colors placeholder:text-gray-400 focus:outline-hidden focus:ring-2  dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30  bg-transparent text-gray-800 border-gray-300 focus:border-brand-400 focus:ring-brand-500/15 dark:border-gray-700 dark:text-white/90  dark:focus:border-brand-500"[39m
+              [33mid[39m=[32m"cost-unit-cost"[39m
+              [33mmin[39m=[32m"0"[39m
+              [33mstep[39m=[32m"0.01"[39m
+              [33mtype[39m=[32m"number"[39m
+              [33mvalue[39m=[32m""[39m
+            [36m/>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"[39m
+        [36m>[39m
+          [0mNotes[0m
+        [36m</label>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative"[39m
+        [36m>[39m
+          [36m<input[39m
+            [33mclass[39m=[32m" h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs transition-colors placeholder:text-gray-400 focus:outline-hidden focus:ring-2  dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30  bg-transparent text-gray-800 border-gray-300 focus:border-brand-400 focus:ring-brand-500/15 dark:border-gray-700 dark:text-white/90  dark:focus:border-brand-500"[39m
+            [33mtype[39m=[32m"text"[39m
+            [33mvalue[39m=[32m""[39m
+          [36m/>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-6 flex justify-end gap-3"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex items-center justify-center gap-2 rounded-lg transition  px-5 py-3.5 text-sm bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03] dark:hover:text-gray-300 "[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [0mCancel[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex items-center justify-center gap-2 rounded-lg transition  px-5 py-3.5 text-sm bg-brand-500 text-white shadow-theme-xs hover:bg-brand-600 disabled:bg-brand-300 "[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [0mSave[0m
+      [36m</button>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</div>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ getAllByLabelText node_modules/@testing-library/dom/dist/queries/label-text.js:108:40
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/tests/departureFinancePayables.test.tsx:203:36
+    201|     fireEvent.click(screen.getByRole('button', { name: en.departure.fi…
+    202|     const modal = screen.getByTestId('modal');
+    203|     fireEvent.change(within(modal).getByLabelText(en.departure.finance…
+       |                                    ^
+    204|     fireEvent.change(within(modal).getByLabelText(en.departure.finance…
+    205|     expect(within(modal).getByLabelText(en.departure.finance.category)…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  01:54:24
+   Duration  2.66s (transform 387ms, setup 93ms, import 502ms, tests 1.44s, environment 493ms)
+

@@ -1,3 +1,4 @@
+import { useT } from '../../lib/i18n/context';
 import { formatCurrency } from '../../utils/business';
 
 interface RevenueChartProps {
@@ -12,6 +13,7 @@ interface RevenueChartProps {
 }
 
 export default function RevenueChart({ data, loading, currency = 'BAM' }: RevenueChartProps) {
+    const { t, lang } = useT();
     if (loading) {
         return (
             <div className="flex items-center justify-center p-20">
@@ -23,7 +25,7 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
     if (data.length === 0) {
         return (
             <div className="flex items-center justify-center p-20 text-gray-500 dark:text-gray-400">
-                Nema podataka za prikaz
+                {t.reports.noData}
             </div>
         );
     }
@@ -140,7 +142,7 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
                                 textAnchor="middle"
                                 className="text-xs fill-gray-600 dark:fill-gray-400"
                             >
-                                {new Date(point.date).toLocaleDateString('bs-BA', { month: 'short', day: 'numeric' })}
+                                {new Date(point.date).toLocaleDateString(lang === 'bs' ? 'bs-BA' : 'en-GB', { month: 'short', day: 'numeric' })}
                             </text>
                         </g>
                     );
@@ -150,11 +152,11 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
                 <g transform={`translate(${chartPadding.left}, ${chartPadding.top - 10})`}>
                     <circle cx="0" cy="0" r="4" fill="#3b82f6" />
                     <text x="10" y="4" className="text-xs fill-gray-700 dark:fill-gray-300">
-                        Ukupan prihod
+                        {t.reports.totalRevenue}
                     </text>
                     <circle cx="120" cy="0" r="4" fill="#10b981" />
                     <text x="130" y="4" className="text-xs fill-gray-700 dark:fill-gray-300">
-                        Plaćeno
+                        {t.reports.totalPaid}
                     </text>
                 </g>
             </svg>
