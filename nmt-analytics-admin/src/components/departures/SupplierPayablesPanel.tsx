@@ -108,7 +108,7 @@ export default function SupplierPayablesPanel({ departureId, costs, onChanged }:
   const money = (value: number, currency: string) => `${value.toLocaleString(lang === 'bs' ? 'bs-BA' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
   const classes = 'min-w-0 w-full rounded-lg border border-gray-300 p-2 dark:border-gray-700 dark:bg-gray-900';
   const title = form?.kind === 'issue' ? c.issue : form?.kind === 'payment' ? c.record : form?.kind === 'reversal' ? c.reverse : c.cancel;
-  return <section className="min-w-0 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]" aria-label={c.title}>
+  return <section className="min-w-0 text-gray-900 dark:text-gray-100 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]" aria-label={c.title}>
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold dark:text-white">{c.title}</h2>
       <Button onClick={() => open({ kind: 'issue' })} disabled={loading || saving || !!pending || !rows || !eligible.length}>{c.issue}</Button></div>
     <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{c.description}</p>

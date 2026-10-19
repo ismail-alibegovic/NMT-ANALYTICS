@@ -65,7 +65,7 @@ export const Modal: React.FC<ModalProps> = ({
       )}
       <div
         ref={modalRef}
-        className={`${contentClasses}  ${className}`}
+        className={`${contentClasses} text-gray-900 dark:text-gray-100 ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {showCloseButton && (

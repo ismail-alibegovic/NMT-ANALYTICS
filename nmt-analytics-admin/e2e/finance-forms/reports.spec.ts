@@ -8,7 +8,8 @@ for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`repo
   const path=new URL(route.request().url()).pathname;
   await route.fulfill({json:path.endsWith('overview-v2')?{total_amount_sum:180,total_paid_sum:60,total_balance_sum:120,reservations_count:1,payments_count:1,currency:'BAM',availableCurrencies:['BAM']}:path.endsWith('by-package')?[]:[]});
  });
- await page.goto('/e2e/finance-forms/index.html?surface=reports');await expect(page.getByText(/180[,.]00/).first()).toBeVisible();fail=true;
+ await page.goto('/e2e/finance-forms/index.html?surface=reports');
+ if(theme==='dark')expect(await page.locator('input[type=date]').evaluateAll(nodes=>nodes.every(e=>Number(getComputedStyle(e).color.match(/\d+/)?.[0])>=150))).toBe(true);await expect(page.getByText(/180[,.]00/).first()).toBeVisible();fail=true;
  await page.locator('input[type=date]').first().fill('2041-04-23');
  await expect(page.getByRole('alert')).toBeVisible();await expect(page.getByText(/180[,.]00/)).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Export Overview CSV',exact:true})).toBeDisabled();

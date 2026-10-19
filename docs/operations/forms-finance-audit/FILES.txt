@@ -32,6 +32,8 @@ docs/operations/forms-finance-audit/before-add-dark-768.png
 docs/operations/forms-finance-audit/before-add-light-1440.png
 docs/operations/forms-finance-audit/before-add-light-390.png
 docs/operations/forms-finance-audit/before-add-light-768.png
+docs/operations/forms-finance-audit/before-real-add-form-dark-390.png
+docs/operations/forms-finance-audit/before-real-payable-form-dark-390.png
 docs/operations/forms-finance-audit/checks/admin-build.txt
 docs/operations/forms-finance-audit/checks/admin-integration.txt
 docs/operations/forms-finance-audit/checks/admin-lint.txt
@@ -42,6 +44,7 @@ docs/operations/forms-finance-audit/checks/api-tests.txt
 docs/operations/forms-finance-audit/checks/browser-contracts.txt
 docs/operations/forms-finance-audit/checks/browser-inventory.txt
 docs/operations/forms-finance-audit/checks/cost-before.txt
+docs/operations/forms-finance-audit/checks/modal-contrast-before.txt
 docs/operations/forms-finance-audit/checks/report-date-before.txt
 docs/operations/forms-finance-audit/checks/supplier-after.txt
 docs/operations/forms-finance-audit/checks/supplier-before.txt
@@ -66,6 +69,7 @@ nmt-analytics-admin/src/components/payments/AddPaymentModal.tsx
 nmt-analytics-admin/src/components/payments/EditPaymentModal.tsx
 nmt-analytics-admin/src/components/payments/PaymentForm.tsx
 nmt-analytics-admin/src/components/payments/PaymentsModal.tsx
+nmt-analytics-admin/src/components/ui/modal/index.tsx
 nmt-analytics-admin/src/lib/i18n/bs.ts
 nmt-analytics-admin/src/lib/i18n/en.ts
 nmt-analytics-admin/src/pages/DepartureDetail.tsx

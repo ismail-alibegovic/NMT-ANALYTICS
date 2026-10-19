@@ -88,6 +88,7 @@ for (const theme of ['light','dark']) for (const width of [390,768,1440]) for (c
     await modal.getByLabel(c.amount, { exact: true }).fill('60'); await modal.getByLabel(c.paymentDate).fill('2026-10-15');
     await modal.getByLabel(c.reference).fill('Recorded test transfer');
     let entryRequests=0;await page.route(`**/api/supplier-payables/${payableId}/entries`,async route=>{entryRequests++;await new Promise(resolve=>setTimeout(resolve,250));await route.continue();});
+    if(theme==='dark')expect(await modal.locator('label').evaluateAll(nodes=>nodes.every(e=>Number(getComputedStyle(e).color.match(/\d+/)?.[0])>=150))).toBe(true);
     await testInfo.attach(`payable-form-${theme}-${scenario.width}`,{body:await page.screenshot(),contentType:'image/png'});
     const paying = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith(`/supplier-payables/${payableId}/entries`));
     await modal.locator('form').evaluate(e=>{e.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));e.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));}); const payment = await json(await paying);expect(entryRequests).toBe(1);

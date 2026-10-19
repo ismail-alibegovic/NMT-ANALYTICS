@@ -17,6 +17,8 @@ for (const surface of ['add','edit','list']) for (const theme of ['light','dark'
   const open=async()=>{await page.getByRole('button',{name:'Open form'}).click();if(surface==='list')await page.getByRole('button',{name:'+ Add Payment',exact:true}).click();};
   await open();const form=page.getByRole('form',{name:surface==='edit'?'Edit Payment':'Add Payment',exact:true});
   await expect(form.getByLabel('Status',{exact:true})).toHaveValue('succeeded');
+  const labelColors=await form.locator('label').evaluateAll(nodes=>nodes.map(e=>Number(getComputedStyle(e).color.match(/\d+/)?.[0])));
+  expect(labelColors.every(red=>theme==='dark'?red>=150:red<=80),'Modal labels must remain legible with the app default inherited text color').toBe(true);
   await form.getByLabel('Method',{exact:true}).selectOption('bank_transfer');await form.getByRole('button',{name:'Cancel',exact:true}).click();
   if(surface==='list')await page.getByRole('button',{name:'+ Add Payment',exact:true}).click();else await open();
   await expect(form.getByLabel('Method',{exact:true})).toHaveValue(surface==='edit'?'cash':'');

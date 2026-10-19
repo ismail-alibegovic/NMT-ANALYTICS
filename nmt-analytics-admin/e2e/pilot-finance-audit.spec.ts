@@ -19,7 +19,8 @@ for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`real
  await page.evaluate(theme=>{localStorage.setItem('travline_lang','en');localStorage.setItem('theme',theme);},theme);
  await page.goto(`/reservations/${res.id}`);await page.evaluate(theme=>document.documentElement.classList.toggle('dark',theme==='dark'),theme);
  await page.getByRole('button',{name:'Uplate',exact:true}).click();await page.getByRole('button',{name:'Evidentiraj uplatu',exact:true}).click();
- const form=page.getByRole('form',{name:'Add Payment',exact:true});await expect(form.getByLabel('Amount *',{exact:true})).toHaveValue('90');
+ const form=page.getByRole('form',{name:'Add Payment',exact:true});
+ if(theme==='dark')expect(await form.locator('label').evaluateAll(nodes=>nodes.every(e=>Number(getComputedStyle(e).color.match(/\d+/)?.[0])>=150))).toBe(true);await expect(form.getByLabel('Amount *',{exact:true})).toHaveValue('90');
  await form.getByLabel('Amount *',{exact:true}).fill('12');await form.getByLabel('Method',{exact:true}).selectOption('cash');await form.getByRole('button',{name:'Cancel',exact:true}).click();
  await page.getByRole('button',{name:'Evidentiraj uplatu',exact:true}).click();await expect(form.getByLabel('Amount *',{exact:true})).toHaveValue('90');await expect(form.getByLabel('Method',{exact:true})).toHaveValue('');
  let intercepted=0;await page.route('**/api/payments',async route=>{if(route.request().method()!=='POST'){await route.continue();return;}intercepted++;if(intercepted===1)await route.fulfill({status:503,json:{error:{code:'AUDIT_SYNTHETIC_FAILURE',message:'Synthetic failure'}}});else {await new Promise(r=>setTimeout(r,300));await route.continue();}});

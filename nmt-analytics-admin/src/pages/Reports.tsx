@@ -177,7 +177,7 @@ export default function Reports() {
                 description={t.reports.description}
             />
 
-            <div className="w-full max-w-full">
+            <div className="w-full max-w-full text-gray-900 dark:text-gray-100">
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">{t.reports.title}</h1>
                     <p className="text-gray-500 dark:text-gray-400">{t.reports.description}</p>
@@ -231,7 +231,7 @@ export default function Reports() {
                     <button
                         disabled={loading || loadError || !overview}
                         onClick={exportOverviewCSV}
-                        className="ml-auto px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors flex items-center gap-2 shrink-0"
+                        className="disabled:cursor-not-allowed disabled:opacity-50 ml-auto px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors flex items-center gap-2 shrink-0"
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -370,7 +370,7 @@ export default function Reports() {
                         <button
                             disabled={loading || loadError || !overview}
                             onClick={exportPackageCSV}
-                            className="px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors flex items-center gap-2 shrink-0"
+                            className="disabled:cursor-not-allowed disabled:opacity-50 px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors flex items-center gap-2 shrink-0"
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

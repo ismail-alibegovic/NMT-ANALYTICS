@@ -1,0 +1,38 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:32) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:45) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:67) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 nmt-analytics-admin/e2e/finance-forms/payments.spec.ts:5:2 › add dark 390: validation cancel failure recovery and duplicate protection (303ms)
+
+
+  1) nmt-analytics-admin/e2e/finance-forms/payments.spec.ts:5:2 › add dark 390: validation cancel failure recovery and duplicate protection
+
+    Error: Modal labels must remain legible with the app default inherited text color
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      19 |   await expect(form.getByLabel('Status',{exact:true})).toHaveValue('succeeded');
+      20 |   const labelColors=await form.locator('label').evaluateAll(nodes=>nodes.map(e=>Number(getComputedStyle(e).color.match(/\d+/)?.[0])));
+    > 21 |   expect(labelColors.every(red=>theme==='dark'?red>=150:red<=80),'Modal labels must remain legible with the app default inherited text color').toBe(true);
+         |                                                                                                                                                ^
+      22 |   await form.getByLabel('Method',{exact:true}).selectOption('bank_transfer');await form.getByRole('button',{name:'Cancel',exact:true}).click();
+      23 |   if(surface==='list')await page.getByRole('button',{name:'+ Add Payment',exact:true}).click();else await open();
+      24 |   await expect(form.getByLabel('Method',{exact:true})).toHaveValue(surface==='edit'?'cash':'');
+        at /workspace/repos/travline-forms/nmt-analytics-admin/e2e/finance-forms/payments.spec.ts:21:144
+
+    Error Context: nmt-analytics-admin/finance-form-results/artifacts/payments-add-dark-390-vali-ca858-ry-and-duplicate-protection/error-context.md
+
+  1 failed
+    nmt-analytics-admin/e2e/finance-forms/payments.spec.ts:5:2 › add dark 390: validation cancel failure recovery and duplicate protection
