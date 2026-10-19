@@ -44,7 +44,7 @@ for (const theme of ['light','dark']) for (const width of [390,768,1440]) {
    await dialog.evaluate(el=>{el.scrollTop=0});
    await info.attach(`flight-${theme}-${width}`,{body:await page.screenshot(),contentType:'image/png'});
    const post=page.waitForResponse(r=>r.url().endsWith('/api/flights')&&r.request().method()==='POST');
-   await page.getByRole('button',{name:'Create',exact:true}).click();
+   await dialog.getByRole('button',{name:'Create',exact:true}).click();
    const created=await post;expect(created.status(),await created.text()).toBe(201);
    flightId=(await created.json()).id;
    await expect(dialog).toBeHidden();
@@ -57,7 +57,7 @@ for (const theme of ['light','dark']) for (const width of [390,768,1440]) {
    await expect(page.getByLabel('Base price')).toHaveValue('0');
    await page.getByLabel('Notes',{exact:true}).fill('Saved isolated edit');
    const patch=page.waitForResponse(r=>r.url().endsWith(`/api/flights/${flightId}`)&&r.request().method()==='PATCH');
-   await page.getByRole('button',{name:'Save changes',exact:true}).click();
+   await edit.getByRole('button',{name:'Save changes',exact:true}).click();
    expect((await patch).status()).toBe(200);
    await expect(edit).toBeHidden();
    await page.reload();
@@ -65,7 +65,7 @@ for (const theme of ['light','dark']) for (const width of [390,768,1440]) {
    await row.getByRole('button',{name:'Edit',exact:true}).click();
    await expect(page.getByLabel('Notes',{exact:true})).toHaveValue('Saved isolated edit');
    await page.getByLabel('Notes',{exact:true}).fill('Cancelled edit');
-   await page.getByRole('button',{name:'Cancel',exact:true}).click();
+   await edit.getByRole('button',{name:'Cancel',exact:true}).click();
    const stored=await request.get(`${base}/api/flights/${flightId}`,{headers});
    expect(stored.status()).toBe(200);
    const flight=await stored.json();

@@ -103,6 +103,17 @@ operate the footer. Neither set is a screenshot of production.
 - No database migrations were added or applied locally. API implementation and
   authorization are unchanged. Customer API TypeScript accepts null email clears.
 
+## Real persistence evidence at application revision 8076119
+
+[Isolated acceptance run 39225137815](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/39225137815)
+passed all 37 existing scenarios plus four Flight workflows: light/dark at 390
+and 768 px. These covered real creation, edit/save, refresh, cancellation,
+server-side verification of notes/zero price/timestamps, filtering, and cleanup.
+The two 1440 px cases stopped before submission because an unscoped Create
+selector matched the application header and dialog buttons. Selectors are now
+scoped to their dialogs; desktop persistence remains pending until the rerun.
+All application fixes remain unchanged by that selector-only adjustment.
+
 ## Coverage and open work
 
 [Complete shared-component/consumer/form inventory](COVERAGE.md), with
