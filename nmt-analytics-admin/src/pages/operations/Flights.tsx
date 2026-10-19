@@ -89,7 +89,7 @@ export default function Flights() {
       setLoading(true);
       const params: { search?: string; active?: string; limit?: number } = { limit: 200 };
       if (nextSearch.trim()) params.search = nextSearch.trim();
-      if (nextStatus) params.active = nextStatus;
+      if (nextStatus) params.active = nextStatus === "active" ? "true" : "false";
       const result = await getFlights(params);
       const rows = result.data || [];
       const sorted = focusedFlightId
@@ -365,7 +365,7 @@ export default function Flights() {
         filters={[
           {
             key: "status",
-            label: tr.status,
+            label: t.common.status,
             value: statusFilter,
             onChange: (value) => setStatusFilter(value as StatusFilter),
             options: [

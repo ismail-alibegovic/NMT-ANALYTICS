@@ -23,6 +23,7 @@ Source inspection/dependency discovery only. A dependency is an impact candidate
 | `components/ui/FormModal.tsx` | Yes | 1 | 1 |
 | `components/ui/dropdown/Dropdown.tsx` | No | 2 | 0 |
 | `components/ui/dropdown/DropdownItem.tsx` | No | 1 | 0 |
+| `components/ui/PageToolbar.tsx` | Yes | 23 | 23 |
 
 ## Exact consumer list
 
@@ -354,6 +355,58 @@ Direct imports:
 
 Transitive pages:
 - No transitive page consumers found.
+
+### components/ui/PageToolbar.tsx
+
+Direct imports:
+- `pages/HotelDetail.tsx`
+- `pages/Inquiries.tsx`
+- `pages/Itineraries.tsx`
+- `pages/PackageDetail.tsx`
+- `pages/Profile.tsx`
+- `pages/Quotations.tsx`
+- `pages/Reservations.tsx`
+- `pages/Suppliers.tsx`
+- `pages/admin/Customers.tsx`
+- `pages/admin/Departures.tsx`
+- `pages/admin/Documents.tsx`
+- `pages/admin/Integrations.tsx`
+- `pages/admin/Packages.tsx`
+- `pages/admin/PublicForms.tsx`
+- `pages/operations/Availability.tsx`
+- `pages/operations/Calendar.tsx`
+- `pages/operations/CommissionRules.tsx`
+- `pages/operations/Contracts.tsx`
+- `pages/operations/Excursions.tsx`
+- `pages/operations/Flights.tsx`
+- `pages/operations/Hotels.tsx`
+- `pages/operations/Receipts.tsx`
+- `pages/operations/SubAgents.tsx`
+
+Transitive pages:
+- `pages/HotelDetail.tsx`
+- `pages/Inquiries.tsx`
+- `pages/Itineraries.tsx`
+- `pages/PackageDetail.tsx`
+- `pages/Profile.tsx`
+- `pages/Quotations.tsx`
+- `pages/Reservations.tsx`
+- `pages/Suppliers.tsx`
+- `pages/admin/Customers.tsx`
+- `pages/admin/Departures.tsx`
+- `pages/admin/Documents.tsx`
+- `pages/admin/Integrations.tsx`
+- `pages/admin/Packages.tsx`
+- `pages/admin/PublicForms.tsx`
+- `pages/operations/Availability.tsx`
+- `pages/operations/Calendar.tsx`
+- `pages/operations/CommissionRules.tsx`
+- `pages/operations/Contracts.tsx`
+- `pages/operations/Excursions.tsx`
+- `pages/operations/Flights.tsx`
+- `pages/operations/Hotels.tsx`
+- `pages/operations/Receipts.tsx`
+- `pages/operations/SubAgents.tsx`
 
 ## All form/control surfaces
 

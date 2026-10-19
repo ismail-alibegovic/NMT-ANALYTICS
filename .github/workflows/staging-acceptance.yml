@@ -135,6 +135,8 @@ jobs:
             ['E2E_SUPABASE_ANON_KEY', process.env.TRAVLINE_SUPABASE_ANON_KEY],
             ['E2E_MANAGER_EMAIL', 'manager@pilot-a.test'],
             ['E2E_MANAGER_PASSWORD', seed.password],
+            ['E2E_FLIGHT_MANAGER_EMAIL', 'manager@flight-audit.test'],
+            ['E2E_FLIGHT_MANAGER_PASSWORD', seed.password],
             ['E2E_STAFF_EMAIL', 'staff@pilot-a.test'],
             ['E2E_STAFF_PASSWORD', seed.password],
             ['E2E_OTHER_TENANT_EMAIL', 'manager@pilot-b.test'],

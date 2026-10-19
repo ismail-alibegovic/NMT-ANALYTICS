@@ -5,7 +5,11 @@ async function request(method: string, path: string, data?: unknown) {
   if (!response.ok) throw new Error(result.error || 'Isolated request failed');
   return { data: result };
 }
-export const get = (path: string, _params?: unknown) => request('GET', path);
+export const get = (path: string, query?: Record<string, unknown>) => {
+  const params = query?.params as Record<string, string> | undefined ?? query as Record<string, string> | undefined;
+  const search = new URLSearchParams(Object.entries(params || {}).filter(([, value]) => value != null).map(([key,value]) => [key, String(value)]));
+  return request('GET', path + (search.size ? `?${search}` : ''));
+};
 export const post = (path: string, data: unknown) => request('POST', path, data);
 export const patch = (path: string, data: unknown) => request('PATCH', path, data);
 export const del = (path: string) => request('DELETE', path);

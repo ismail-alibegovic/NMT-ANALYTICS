@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test.use({ timezoneId: 'Europe/Sarajevo' });
 
 const base = process.env.E2E_API_URL || 'http://127.0.0.1:3001';
-const configured = process.env.E2E_RUN_BROWSER === '1' && process.env.E2E_MANAGER_EMAIL && process.env.E2E_MANAGER_PASSWORD;
+const configured = process.env.E2E_RUN_BROWSER === '1' && process.env.E2E_FLIGHT_MANAGER_EMAIL && process.env.E2E_FLIGHT_MANAGER_PASSWORD;
 const localOnly = [base, process.env.E2E_BASE_URL || base, process.env.E2E_SUPABASE_URL || 'http://127.0.0.1:54321'].every(url => /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url));
 
 for (const theme of ['light','dark']) for (const width of [390,768,1440]) {
@@ -14,17 +14,23 @@ for (const theme of ['light','dark']) for (const width of [390,768,1440]) {
   await page.setViewportSize({width,height:900});
   await page.addInitScript(({theme})=>{localStorage.setItem('travline_lang','en');localStorage.setItem('theme',theme)}, {theme});
   await page.goto('/auth/signin');
-  await page.locator('#signin-email').fill(process.env.E2E_MANAGER_EMAIL!);
-  await page.locator('#signin-password').fill(process.env.E2E_MANAGER_PASSWORD!);
+  await page.locator('#signin-email').fill(process.env.E2E_FLIGHT_MANAGER_EMAIL!);
+  await page.locator('#signin-password').fill(process.env.E2E_FLIGHT_MANAGER_PASSWORD!);
   await page.getByRole('button',{name:/sign in/i}).click();
   await expect(page).not.toHaveURL(/\/auth\/signin/);
   const token=await page.evaluate(()=>localStorage.getItem('nmt_auth_token'));
   expect(token).toBeTruthy();
   const headers={Authorization:`Bearer ${token}`};
+  const context=await request.get(`${base}/api/me/context`,{headers});
+  expect(context.status()).toBe(200);
+  expect((await context.json()).modules, 'Dedicated Flight fixture must have travel_core').toContain('travel_core');
   const marker=`Flight form ${theme} ${width} ${Date.now()}`;
   let flightId: string | undefined;
   try {
    await page.goto('/operations/flights');
+   const filtered=page.waitForResponse(r=>r.url().includes('/api/flights?')&&new URL(r.url()).searchParams.get('active')==='true');
+   await page.getByRole('combobox',{name:'Status',exact:true}).selectOption('active');
+   expect((await filtered).status()).toBe(200);
    await page.getByRole('button',{name:'New flight',exact:true}).first().click();
    const dialog=page.getByRole('dialog',{name:'New flight',exact:true});
    await expect(dialog).toBeVisible();

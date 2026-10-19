@@ -69,6 +69,7 @@ export function PageToolbar({
         <div className="flex-1 max-w-md">
           <Input
             type="text"
+            aria-label={searchPlaceholder}
             placeholder={searchPlaceholder}
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -81,6 +82,7 @@ export function PageToolbar({
             {filters.map((filter) => (
               <div key={filter.key} className="min-w-[150px]">
                 <select
+                  aria-label={filter.label}
                   value={filter.value}
                   onChange={(e) => filter.onChange(e.target.value)}
                   className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-800"

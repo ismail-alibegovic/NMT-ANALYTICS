@@ -67,9 +67,10 @@ vi.mock('../context/ToastContext', () => ({
 }))
 
 vi.mock('../components/ui/PageToolbar', () => ({
-  default: ({ searchValue, onSearchChange, createButton }: { searchValue?: string; onSearchChange?: (v: string) => void; createButton: { label: string; onClick: () => void } }) => (
+  default: ({ searchValue, onSearchChange, createButton, filters }: { filters: Array<{onChange:(value:string)=>void}>; searchValue?: string; onSearchChange?: (v: string) => void; createButton: { label: string; onClick: () => void } }) => (
     <div>
       <button onClick={createButton.onClick}>{createButton.label}</button>
+      <select aria-label="status-filter" onChange={e=>filters[0].onChange(e.target.value)}><option value="">All</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
       <input aria-label="search" value={searchValue} onChange={(e) => onSearchChange?.(e.target.value)} />
     </div>
   ),
@@ -207,4 +208,14 @@ describe('Flight form regression', () => {
     expect(updateFlight).toHaveBeenCalledWith('f1', expect.objectContaining({departureTime: '2026-09-10T08:00:00.000Z', basePrice: 0}))
     mockFlights[0].basePrice = 250
   })
+})
+
+it('serializes Flight status filters to the boolean strings required by the API', async () => {
+  const { getFlights } = await import('../api/flights')
+  vi.clearAllMocks()
+  render(<MemoryRouter><Flights /></MemoryRouter>)
+  fireEvent.change(screen.getByLabelText('status-filter'), {target:{value:'active'}})
+  await waitFor(()=>expect(getFlights).toHaveBeenLastCalledWith(expect.objectContaining({active:'true'})))
+  fireEvent.change(screen.getByLabelText('status-filter'), {target:{value:'inactive'}})
+  await waitFor(()=>expect(getFlights).toHaveBeenLastCalledWith(expect.objectContaining({active:'false'})))
 })

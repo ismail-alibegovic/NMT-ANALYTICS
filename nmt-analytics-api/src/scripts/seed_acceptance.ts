@@ -6,6 +6,7 @@ const LOCAL_URL_PATTERN = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
 const PASSWORD = process.env.E2E_SEED_PASSWORD || 'TravlinePilot!2026-local';
 const ORG_A = '00000000-0000-4000-8000-0000000000a1';
 const ORG_B = '00000000-0000-4000-8000-0000000000b1';
+const FLIGHT_ORG = '00000000-0000-4000-8000-0000000000f1';
 
 type SeedUser = { email: string; role: 'manager' | 'agent'; orgId: string; fullName: string };
 
@@ -72,6 +73,18 @@ async function seed() {
   }
   await ensureOrg(ORG_A, 'Pilot A Travel', 'pilot-a-travel');
   await ensureOrg(ORG_B, 'Pilot B Travel', 'pilot-b-travel');
+  // A separate synthetic organization is entitled to the Flight UI. Preserve
+  // the original two fixtures and their module/role-denial expectations.
+  await ensureOrg(FLIGHT_ORG, 'Flight Form Audit', 'flight-form-audit');
+  const { error: moduleError } = await supabaseAdmin.from('org_modules').upsert(
+    { org_id: FLIGHT_ORG, module_key: 'travel_core', enabled: true },
+    { onConflict: 'org_id,module_key' },
+  );
+  if (moduleError) throw moduleError;
+  const flightManagerId = await ensureUser({
+    email: 'manager@flight-audit.test', role: 'manager', orgId: FLIGHT_ORG, fullName: 'Synthetic Flight Manager',
+  });
+
 
   const managerId = await ensureUser({
     email: 'manager@pilot-a.test', role: 'manager', orgId: ORG_A, fullName: 'Pilot A Manager',
@@ -250,6 +263,7 @@ async function seed() {
   console.log(JSON.stringify({
     password: PASSWORD,
     managerId,
+    flightManagerId,
     staffId,
     otherTenantId,
     orgA: ORG_A,

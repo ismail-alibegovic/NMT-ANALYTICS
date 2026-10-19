@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import Input from '../components/form/input/InputField';
 import Select from '../components/form/Select';
+import PageToolbar from '../components/ui/PageToolbar';
 import Label from '../components/form/Label';
 import { Modal } from '../components/ui/modal';
 import { FormModal } from '../components/ui/FormModal';
@@ -98,4 +99,12 @@ describe('FormModal shared workflow', () => {
     fireEvent.click(screen.getByRole('button',{name:'Open'}));
     expect(screen.getByLabelText(/Name/)).toHaveValue('Original');
   });
+});
+
+it('names toolbar search/filter controls and preserves filter selection behavior', () => {
+  const onChange=vi.fn();
+  render(<PageToolbar title="Flights" searchPlaceholder="Search flights" onSearchChange={vi.fn()} filters={[{key:'status',label:'Status',value:'',onChange,options:[{value:'active',label:'Active'}]}]} />);
+  expect(screen.getByRole('textbox',{name:'Search flights'})).toBeVisible();
+  fireEvent.change(screen.getByRole('combobox',{name:'Status'}),{target:{value:'active'}});
+  expect(onChange).toHaveBeenCalledWith('active');
 });

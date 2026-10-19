@@ -13,6 +13,7 @@ Date: 2026-10-19.
   consistent spacing, an explicit required-field legend, a padded 2-column
   desktop/tablet layout and a 1-column mobile layout. Price and currency have
   separate labels. Notes have an associated label and multiline control.
+- Flight status filters now send `true`/`false`, matching the API schema, rather than rejected `active`/`inactive` values. Toolbar search/filter controls have accessible names from existing localized labels. A browser regression exercises this through the real toolbar.
 - Flight uses the shared Input/Select/Label components instead of independent
   placeholder-only markup. The dialog can scroll within the viewport with
   margins; the title reserves space for its close button.
@@ -54,6 +55,8 @@ Vite config never enters the production build. The harness refuses normal Vite
 mode. Requests use a per-test in-memory fixture; no production host is contacted.
 
 **A refresh against this fixture proves client behavior, not PostgreSQL durability.**
+The first isolated run passed the existing 37 scenarios but its six new Flight cases were blocked before opening the form: the original pilot user had no enabled `travel_core` module and received the expected guarded 404. This did not test persistence. A dedicated localhost-only Flight organization/manager now enables that single module, and the test asserts entitlement before browser interactions. The original two security fixtures are unchanged. See [initial attempt](isolated-first-attempt.md).
+
 The separate `e2e/pilot-flight-forms.spec.ts` tests real Auth/API/PostgreSQL behavior
 in the existing disposable localhost acceptance stack. It refuses non-local
 application/API/Auth URLs, creates uniquely named flights, verifies saved data
@@ -64,7 +67,7 @@ The fixture matrix includes create, invalid numeric submission without a request
 server-rejected save with retained input, retry, edit/prepopulation, saved change,
 refresh, cancel without persistence, fresh create/reset, in-dialog overflow/bounds,
 44 px input/select height, and JavaScript page-error checks.
-An additional Bosnian regression checks labels, inline required errors,
+An additional toolbar/filter contract regression and a Bosnian regression checks labels, inline required errors,
 first-error focus, tab containment, duplicate submit protection and winter-time
 round-trip. English summer-time behavior is checked in each matrix cell.
 
@@ -85,13 +88,13 @@ operate the footer. Neither set is a screenshot of production.
 ## Local checks
 
 - Baseline admin: 368/368 tests.
-- Final admin: 381/381 tests; lint has 0 errors and 52 warnings; production build
+- Final admin: 383/383 tests; lint has 0 errors and 52 warnings; production build
   passes with existing Supabase bundle/chunk warnings.
 - Shared regression file covers Input native attributes/descriptions, controlled
   Select reset, Modal naming/Escape, and FormModal draft/reset/zero/error/duplicate
   behavior. Flight regressions cover required/numeric/IATA/chronology validation,
   create failure/retry, cancel, ISO serialization, edit prepopulation and zero price.
-- Browser fixture suite: 13 tests, including both pages × 2 themes × 3 widths.
+- Browser fixture suite: 14 tests, including both pages × 2 themes × 3 widths.
 - API build passes. API suite: 877/878; unchanged
   `publicFormFraming.test.ts > keeps clickjacking protection on other routes`
   times out when `/api/health` tries the example Supabase database. A focused
@@ -102,7 +105,7 @@ operate the footer. Neither set is a screenshot of production.
 ## Coverage and open work
 
 [Complete shared-component/consumer/form inventory](COVERAGE.md), with
-[machine-readable dependencies](component-inventory.json): 17 shared
+[machine-readable dependencies](component-inventory.json): 18 shared
 form/dropdown components and 76 form/control surfaces. Import discovery is a
 worklist, not proof of visual quality. Flight and Customer have the fixture
 workflow evidence described above. Other consumer forms remain OPEN.
@@ -135,6 +138,8 @@ from the npm-packaged serverless binary outside the repository. Local browser
 checks ran with `FORMS_CHROMIUM_PATH=/tmp/chromium npm run test:forms`. CI uses
 Playwright's installed browser. No browser binary or unrelated dependency was
 added to the application.
+
+At commit `688cd38929397e7cfd314f3f3cc3aeb3ddd967ba`, all six CI jobs passed, including all 878 API tests, admin tests, builds, Docker builds and migration replay. The initial 13-case fixture suite also passed in CI. Real persistence results belong to the separately linked acceptance run; subsequent toolbar/filter refinements have additional local coverage.
 
 The staging acceptance workflow runs the fixture suite separately, then the
 normal authenticated acceptance suite (which excludes `e2e/forms/**`). Its

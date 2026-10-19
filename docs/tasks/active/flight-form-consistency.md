@@ -20,7 +20,7 @@ this branch must document overlap, not claim they are merged or certified.
 
 - Flight source/layout/validation/date-time fixes: implemented.
 - Shared source fixes and regression tests: implemented for Input, Select,
-  Modal and FormModal. Date/time conversion reuses the utility from #124.
+  Modal, FormModal and PageToolbar. Date/time conversion reuses the utility from #124.
 - Flight before/after captures: captured at 390/768/1440 in both themes.
 - Component dependency and form-surface inventory: recorded; not a certification.
 - Actual API/Auth/PostgreSQL persistence: separate acceptance tests, requires CI.

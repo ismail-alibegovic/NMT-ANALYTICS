@@ -8,7 +8,7 @@ async function fixture(page: Page) {
   let mutations = 0;
   await page.route('**/__form-test-api/**', async route => {
     const req = route.request();
-    const id = req.url().split('/flights/')[1];
+    const id = new URL(req.url()).pathname.split('/flights/')[1];
     if (req.method() === 'GET') return route.fulfill({json: id ? rows.find(r=>r.id===id) : {data:rows}});
     mutations++;
     if (failNext) {failNext=false; return route.fulfill({status:503,json:{error:'Isolated API unavailable'}});}
@@ -117,4 +117,14 @@ test('Bosnian labels, localized validation, keyboard focus and pending-submit pr
   expect(state.mutations()).toBe(1);
   await page.getByRole('button',{name:'Uredi',exact:true}).click();
   await expect(page.getByLabel(/^Vrijeme polaska/)).toHaveValue('2027-01-15T10:00');
+});
+
+test('Flight status filter uses the API contract through the real toolbar',async({page})=>{
+ const seen:string[]=[];
+ await page.route('**/__form-test-api/**',route=>{seen.push(new URL(route.request().url()).search);return route.fulfill({json:{data:[]}})});
+ await page.goto('/e2e/forms/index.html');
+ await page.getByRole('combobox',{name:'Status',exact:true}).selectOption('active');
+ await expect.poll(()=>seen.some(q=>new URLSearchParams(q).get('active')==='true')).toBe(true);
+ await page.getByRole('combobox',{name:'Status',exact:true}).selectOption('inactive');
+ await expect.poll(()=>seen.some(q=>new URLSearchParams(q).get('active')==='false')).toBe(true);
 });
