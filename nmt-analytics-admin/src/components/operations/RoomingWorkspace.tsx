@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useT } from "../../lib/i18n/context";
 import Button from "../ui/button/Button";
 import Badge from "../ui/badge/Badge";
@@ -105,6 +105,8 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
   const [proposalError, setProposalError] = useState<string | null>(null);
   const [assignTarget, setAssignTarget] = useState<AssignTarget | null>(null);
   const [saving, setSaving] = useState(false);
+  // Guards against same-tick duplicate mutations before React updates disabled states.
+  const assignmentMutationLock = useRef(false);
   const [savingAssignmentId, setSavingAssignmentId] = useState<string | null>(null);
   const [roomNumberDrafts, setRoomNumberDrafts] = useState<Record<string, string>>({});
   const [editingRoomNumberSlotId, setEditingRoomNumberSlotId] = useState<string | null>(null);
@@ -242,6 +244,8 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
 
   async function assignToSlot(slotId: string) {
     if (!assignTarget) return;
+    if (assignmentMutationLock.current) return;
+    assignmentMutationLock.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -256,11 +260,14 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     } catch (err: any) {
       setError(err?.message || rm.assignFailed);
     } finally {
+      assignmentMutationLock.current = false;
       setSaving(false);
     }
   }
 
   async function unassign(assignmentId: string) {
+    if (assignmentMutationLock.current) return;
+    assignmentMutationLock.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -270,11 +277,14 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     } catch (err: any) {
       setError(err?.message || rm.unassignFailed);
     } finally {
+      assignmentMutationLock.current = false;
       setSaving(false);
     }
   }
 
   async function setAssignmentLock(assignmentId: string, locked: boolean) {
+    if (assignmentMutationLock.current) return;
+    assignmentMutationLock.current = true;
     setSavingAssignmentId(assignmentId);
     setError(null);
     try {
@@ -284,11 +294,14 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     } catch (err: any) {
       setError(err?.message || rm.lockFailed);
     } finally {
+      assignmentMutationLock.current = false;
       setSavingAssignmentId(null);
     }
   }
 
   async function savePhysicalRoomNumber(slotId: string) {
+    if (assignmentMutationLock.current) return;
+    assignmentMutationLock.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -299,12 +312,14 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     } catch (err: any) {
       setError(err?.message || rm.roomNumberUpdateFailed);
     } finally {
+      assignmentMutationLock.current = false;
       setSaving(false);
     }
   }
 
   async function handleApply() {
-    if (!proposal) return;
+    if (!proposal || assignmentMutationLock.current) return;
+    assignmentMutationLock.current = true;
     setApplyLoading(true);
     setApplyError(null);
     setApplyResult(null);
@@ -331,6 +346,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
         setApplyError((err as any)?.message || rm.applyFailed);
       }
     } finally {
+      assignmentMutationLock.current = false;
       setApplyLoading(false);
     }
   }
@@ -585,7 +601,6 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
                           <p className="text-xs text-gray-400">{rm.noPassengers}</p>
                         ) : slot.assignments.map((assignment) => {
                           const passenger = passengerById.get(assignment.passengerId);
-                          const assignmentSaving = savingAssignmentId === assignment.id;
                           return (
                             <div key={assignment.id} className="flex items-center gap-2 rounded-md bg-gray-50 px-2.5 py-1.5 dark:bg-white/[0.04]">
                               <span className="size-2.5 rounded-full" style={{ background: passenger?.groupColor || "#9ca3af" }} />
@@ -594,19 +609,19 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
                               {assignment.locked ? (
                                 <>
                                   <span className="text-xs text-gray-500" title={rm.lockedMutationHint}>{rm.lockedMutationHint}</span>
-                                  <button type="button" disabled={assignmentSaving} className="text-xs text-brand-600 hover:underline disabled:opacity-50" onClick={() => setAssignmentLock(assignment.id, false)}>
+                                  <button type="button" disabled={saving || applyLoading || !!savingAssignmentId} className="text-xs text-brand-600 hover:underline disabled:opacity-50" onClick={() => setAssignmentLock(assignment.id, false)}>
                                     {rm.unlock}
                                   </button>
                                 </>
                               ) : (
                                 <>
-                                  <button type="button" className="text-xs text-brand-600 hover:underline" onClick={() => setAssignTarget({ passengerId: assignment.passengerId, passengerName: assignment.passengerName, currentAssignmentId: assignment.id })}>
+                                  <button type="button" disabled={saving || applyLoading || !!savingAssignmentId} className="text-xs text-brand-600 hover:underline disabled:opacity-50" onClick={() => setAssignTarget({ passengerId: assignment.passengerId, passengerName: assignment.passengerName, currentAssignmentId: assignment.id })}>
                                     {rm.move}
                                   </button>
-                                  <button type="button" className="text-xs text-error-600 hover:underline" onClick={() => unassign(assignment.id)}>
+                                  <button type="button" disabled={saving || applyLoading || !!savingAssignmentId} className="text-xs text-error-600 hover:underline disabled:opacity-50" onClick={() => unassign(assignment.id)}>
                                     {rm.unassign}
                                   </button>
-                                  <button type="button" disabled={assignmentSaving} className="text-xs text-gray-600 hover:underline disabled:opacity-50 dark:text-gray-300" onClick={() => setAssignmentLock(assignment.id, true)}>
+                                  <button type="button" disabled={saving || applyLoading || !!savingAssignmentId} className="text-xs text-gray-600 hover:underline disabled:opacity-50 dark:text-gray-300" onClick={() => setAssignmentLock(assignment.id, true)}>
                                     {rm.lock}
                                   </button>
                                 </>
@@ -625,18 +640,18 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
       </div>
 
       {assignTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setAssignTarget(null)}>
-          <div className="mx-4 max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { if (!saving) setAssignTarget(null); }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="rooming-select-title" className="mx-4 max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === "Escape" && !saving) { e.stopPropagation(); setAssignTarget(null); } }}>
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
-              <h3 className="font-semibold text-gray-900 dark:text-white">{rm.selectRoomHint} {assignTarget.passengerName}</h3>
-              <button type="button" className="text-gray-400 hover:text-gray-600" onClick={() => setAssignTarget(null)}>×</button>
+              <h3 id="rooming-select-title" className="font-semibold text-gray-900 dark:text-white">{rm.selectRoomHint} {assignTarget.passengerName}</h3>
+              <button type="button" aria-label={t?.common?.close || "Close"} disabled={saving} className="text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-gray-300 dark:hover:text-white disabled:opacity-50" onClick={() => setAssignTarget(null)}>×</button>
             </div>
             <div className="space-y-3 px-6 py-4">
               {compatibleSlots.map(({ slot, occupied, isFull, matchesRequirement }) => (
                 <button
                   key={slot.id}
                   type="button"
-                  disabled={saving || isFull || !matchesRequirement}
+                  disabled={saving || applyLoading || !!savingAssignmentId || isFull || !matchesRequirement}
                   onClick={() => assignToSlot(slot.id)}
                   className={`w-full rounded-lg border p-3 text-left transition ${
                     isFull || !matchesRequirement
