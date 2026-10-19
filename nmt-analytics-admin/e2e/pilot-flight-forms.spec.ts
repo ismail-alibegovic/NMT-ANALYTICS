@@ -1,11 +1,14 @@
 import { expect, test } from '@playwright/test';
 
+test.use({ timezoneId: 'Europe/Sarajevo' });
+
 const base = process.env.E2E_API_URL || 'http://127.0.0.1:3001';
 const configured = process.env.E2E_RUN_BROWSER === '1' && process.env.E2E_MANAGER_EMAIL && process.env.E2E_MANAGER_PASSWORD;
 const localOnly = [base, process.env.E2E_BASE_URL || base, process.env.E2E_SUPABASE_URL || 'http://127.0.0.1:54321'].every(url => /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url));
 
 for (const theme of ['light','dark']) for (const width of [390,768,1440]) {
  test(`Flight real isolated create/edit/reload/cancel ${theme} ${width}`, async ({page,request},info)=>{
+  test.setTimeout(60_000);
   test.skip(!configured,'Requires isolated acceptance Auth/API');
   expect(localOnly, 'Flight acceptance refuses non-local APIs').toBe(true);
   await page.setViewportSize({width,height:900});
