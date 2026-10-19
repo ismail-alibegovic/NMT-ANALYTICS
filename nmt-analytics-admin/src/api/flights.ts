@@ -45,7 +45,7 @@ export async function getFlights(params?: {
   page?: number;
   limit?: number;
 }): Promise<FlightListResponse> {
-  const { data } = await get<FlightListResponse>('/flights', params);
+  const { data } = await get<FlightListResponse>('/flights', { params });
   return data;
 }
 

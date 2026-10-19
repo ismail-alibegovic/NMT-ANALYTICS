@@ -13,6 +13,7 @@ Date: 2026-10-19.
   consistent spacing, an explicit required-field legend, a padded 2-column
   desktop/tablet layout and a 1-column mobile layout. Price and currency have
   separate labels. Notes have an associated label and multiline control.
+- Both Flight list adapters now put filters under Axios `params`; the former bare configuration silently dropped search/status/limit. The shared GET helper is typed as `AxiosRequestConfig` so malformed calls fail typechecking. Two regressions use real Axios URL encoding, and the browser fixture now honors only the real transport shape. This also affects the Departure flight selector; its UI workflow remains OPEN.
 - Flight status filters now send `true`/`false`, matching the API schema, rather than rejected `active`/`inactive` values. Toolbar search/filter controls have accessible names from existing localized labels. A browser regression exercises this through the real toolbar.
 - Flight uses the shared Input/Select/Label components instead of independent
   placeholder-only markup. The dialog can scroll within the viewport with
@@ -55,7 +56,7 @@ Vite config never enters the production build. The harness refuses normal Vite
 mode. Requests use a per-test in-memory fixture; no production host is contacted.
 
 **A refresh against this fixture proves client behavior, not PostgreSQL durability.**
-The first isolated run passed the existing 37 scenarios but its six new Flight cases were blocked before opening the form: the original pilot user had no enabled `travel_core` module and received the expected guarded 404. This did not test persistence. A dedicated localhost-only Flight organization/manager now enables that single module, and the test asserts entitlement before browser interactions. The original two security fixtures are unchanged. See [initial attempt](isolated-first-attempt.md).
+The first isolated run passed the existing 37 scenarios but its six new Flight cases were blocked before opening the form: the original pilot user had no enabled `travel_core` module and received the expected guarded 404. This did not test persistence. A dedicated localhost-only Flight organization/manager now enables that single module, and the test asserts entitlement before browser interactions. The original two security fixtures are unchanged. A second attempt passed the guard but exposed dropped Axios query parameters before creation; that adapter defect and the permissive fixture have now been corrected. See [initial attempt](isolated-first-attempt.md).
 
 The separate `e2e/pilot-flight-forms.spec.ts` tests real Auth/API/PostgreSQL behavior
 in the existing disposable localhost acceptance stack. It refuses non-local
@@ -88,7 +89,7 @@ operate the footer. Neither set is a screenshot of production.
 ## Local checks
 
 - Baseline admin: 368/368 tests.
-- Final admin: 383/383 tests; lint has 0 errors and 52 warnings; production build
+- Final admin: 385/385 tests; lint has 0 errors and 52 warnings; production build
   passes with existing Supabase bundle/chunk warnings.
 - Shared regression file covers Input native attributes/descriptions, controlled
   Select reset, Modal naming/Escape, and FormModal draft/reset/zero/error/duplicate

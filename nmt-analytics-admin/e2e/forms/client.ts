@@ -6,7 +6,7 @@ async function request(method: string, path: string, data?: unknown) {
   return { data: result };
 }
 export const get = (path: string, query?: Record<string, unknown>) => {
-  const params = query?.params as Record<string, string> | undefined ?? query as Record<string, string> | undefined;
+  const params = query?.params as Record<string, string> | undefined;
   const search = new URLSearchParams(Object.entries(params || {}).filter(([, value]) => value != null).map(([key,value]) => [key, String(value)]));
   return request('GET', path + (search.size ? `?${search}` : ''));
 };

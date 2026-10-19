@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance, AxiosResponse, AxiosError, InternalAxiosRequestConfig, AxiosRequestConfig } from 'axios';
 import { logger } from '../utils/logger';
 import { captureError } from './sentry';
 import { handleExpiredSession, markSessionEstablished } from './authSession';
@@ -287,7 +287,7 @@ function extractEntity(url: string): EntityType | 'all' {
   return entity as EntityType;
 }
 
-export async function get<T = any>(url: string, config?: any): Promise<{ data: T }> {
+export async function get<T = any>(url: string, config?: AxiosRequestConfig): Promise<{ data: T }> {
   try {
     const response = await api.get<T>(url, config);
     return { data: response.data };

@@ -14,6 +14,9 @@ vi.mock('../api/client', () => ({
   del: (...args: any[]) => apiDelete(...args),
 }));
 
+import axios from 'axios';
+import { getFlights as operationsFlights } from '../api/operations';
+import { getFlights as catalogFlights } from '../api/flights';
 import { reorderFlightSegments } from '../api/flights';
 
 describe('reorderFlightSegments API contract (M13.1)', () => {
@@ -51,5 +54,17 @@ describe('reorderFlightSegments API contract (M13.1)', () => {
     const payload = apiPut.mock.calls[0][1];
     expect(payload.segments).toHaveLength(4);
     expect(payload.segments).toEqual(segments);
+  });
+});
+
+describe('Flight filter transport regressions', () => {
+  it.each([['catalog', catalogFlights], ['operations', operationsFlights]] as const)('encodes %s search/status as real Axios query parameters', async (_name, loadFlights) => {
+    vi.clearAllMocks();
+    apiGet.mockResolvedValue({data:{data:[]}});
+    await loadFlights({search:'TK 101',active:'false'});
+    const [url, config] = apiGet.mock.calls[0];
+    const requestUrl = new URL(axios.getUri({url,...config}), 'https://isolated.test');
+    expect(requestUrl.searchParams.get('search')).toBe('TK 101');
+    expect(requestUrl.searchParams.get('active')).toBe('false');
   });
 });

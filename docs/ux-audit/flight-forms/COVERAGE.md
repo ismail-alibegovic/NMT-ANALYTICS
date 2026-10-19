@@ -497,3 +497,10 @@ Transitive pages:
 - Native input/select/textarea markup exists in addition to shared components. It must be audited separately; converting Flight to shared controls does not standardize these other forms.
 - Remaining work includes auth/public forms, reservation and New Sale flows, departure/package forms, supplier/quotation/itinerary forms, payments, communication editors, hotel/allotment/rooming/seating, integrations/import/upload and settings dialogs. Test populated and failure states, relevant roles, both languages/themes, and all three viewport sizes.
 - The original owner screenshot could not be rendered by the image read response in this session; the delivered before captures are real browser renders of the unchanged Flight layout from main in the isolated component harness.
+
+## Flight transport consumers
+
+- `pages/operations/Flights.tsx`: catalog search/status/limit now reach the API using Axios query parameters; fixture and real-acceptance coverage are separate evidence.
+- `pages/DepartureDetail.tsx`: the active Flight selector uses the same catalog adapter, so its active-only/limit request now reaches the server. Its full attach/edit itinerary workflow remains OPEN.
+- `api/operations.ts`: the legacy Flight list adapter is corrected to the same contract and has an Axios-encoding regression. No current TSX consumer was found.
+- `lib/apiClient.ts`: GET configuration typing only; compilation verifies current callers conform. No unrelated HTTP runtime behavior changed.

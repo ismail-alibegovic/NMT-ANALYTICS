@@ -28,7 +28,7 @@ for (const theme of ['light','dark']) for (const width of [390,768,1440]) {
   let flightId: string | undefined;
   try {
    await page.goto('/operations/flights');
-   const filtered=page.waitForResponse(r=>r.url().includes('/api/flights?')&&new URL(r.url()).searchParams.get('active')==='true');
+   const filtered=page.waitForResponse(r=>r.url().includes('/api/flights?')&&new URL(r.url()).searchParams.get('active')==='true',{timeout:10000});
    await page.getByRole('combobox',{name:'Status',exact:true}).selectOption('active');
    expect((await filtered).status()).toBe(200);
    await page.getByRole('button',{name:'New flight',exact:true}).first().click();

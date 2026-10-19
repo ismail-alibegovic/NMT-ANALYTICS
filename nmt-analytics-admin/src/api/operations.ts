@@ -408,7 +408,7 @@ export interface Flight {
 }
 
 export async function getFlights(params?: { search?: string; active?: string }): Promise<Flight[]> {
-  const { data } = await get<{ data: Flight[] }>('/flights', params);
+  const { data } = await get<{ data: Flight[] }>('/flights', { params });
   return data.data || [];
 }
 
