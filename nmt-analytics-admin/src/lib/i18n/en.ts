@@ -233,6 +233,7 @@ export const en = {
     planned: 'Planned',
     notEnabled: 'Not enabled',
   },
+  fileImport: {"title": "Import", "customers": "customers", "packages": "packages", "templateDescription": "Download a template with the supported columns.", "downloadTemplate": "Download template", "selectFile": "Select CSV or XLSX file", "fileError": "Choose a CSV or XLSX file up to 10 MB.", "invalidFile": "The file contains invalid rows. Nothing has been imported. Correct the file and select it again.", "previewError": "The file could not be previewed. Your selection is preserved.", "saveError": "Import failed. Your file selection is preserved.", "templateError": "The template could not be downloaded.", "reading": "Checking file…", "preview": "Preview (first 5 rows)", "row": "Row", "imported": "Imported", "retryPreview": "Retry preview", "importing": "Importing…"},
   common: {
     save: 'Save', cancel: 'Cancel', delete: 'Delete', edit: 'Edit',
     create: 'Create', add: 'Add', search: 'Search', filter: 'Filter',

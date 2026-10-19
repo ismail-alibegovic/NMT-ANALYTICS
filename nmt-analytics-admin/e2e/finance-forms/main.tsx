@@ -1,9 +1,10 @@
 import { HelmetProvider } from 'react-helmet-async';
+import ImportModal from '../../src/components/import/ImportModal';
 import PublicSubAgentPortal from '../../src/pages/PublicSubAgentPortal';
 import SubAgents from '../../src/pages/operations/SubAgents';
 import Suppliers from '../../src/pages/Suppliers';
 import Reports from '../../src/pages/Reports';
-import { useState } from 'react';
+import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { I18nProvider } from '../../src/lib/i18n/context';
 import { ToastProvider } from '../../src/context/ToastContext';
@@ -17,6 +18,7 @@ const payment: Payment = { id:'00000000-0000-4000-8000-000000000022', reservatio
 export default function Harness() {
  const [open,setOpen]=useState(false);
  const surface=new URLSearchParams(location.search).get('surface');
+ if(surface==='import') return <><button onClick={()=>setOpen(true)}>Open form</button><ImportModal entity={new URLSearchParams(location.search).get('entity')==='packages'?'packages':'customers'} isOpen={open} onClose={()=>setOpen(false)} onSuccess={()=>setOpen(false)}/></>;
  if(surface==='portal') return <PublicSubAgentPortal/>;
  if(surface==='subagents') return <SubAgents/>;
  if(surface==='suppliers') return <Suppliers/>;
@@ -24,4 +26,4 @@ export default function Harness() {
  const props={isOpen:open,onClose:()=>setOpen(false)};
  return <main className="min-h-screen bg-gray-50 p-4 text-gray-900 dark:bg-gray-950"><button onClick={()=>setOpen(true)}>Open form</button>{surface==='edit'?<EditPaymentModal {...props} payment={payment}/>:surface==='list'?<PaymentsModal {...props} reservationId={payment.reservationId} reservationTotal={180}/>:<AddPaymentModal {...props} reservationId={payment.reservationId}/>}</main>;
 }
-createRoot(document.getElementById('root')!).render(<HelmetProvider><I18nProvider><ToastProvider><Harness/></ToastProvider></I18nProvider></HelmetProvider>);
+createRoot(document.getElementById('root')!).render(<StrictMode><HelmetProvider><I18nProvider><ToastProvider><Harness/></ToastProvider></I18nProvider></HelmetProvider></StrictMode>);

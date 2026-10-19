@@ -230,6 +230,7 @@ export const bs: Translations = {
     planned: 'Planirano',
     notEnabled: 'Nije omogućeno',
   },
+  fileImport: {"title": "Uvoz", "customers": "klijenata", "packages": "paketa", "templateDescription": "Preuzmite predložak s podržanim kolonama.", "downloadTemplate": "Preuzmi predložak", "selectFile": "Odaberi CSV ili XLSX datoteku", "fileError": "Odaberite CSV ili XLSX datoteku do 10 MB.", "invalidFile": "Datoteka sadrži neispravne redove. Ništa nije uvezeno. Ispravite datoteku i ponovo je odaberite.", "previewError": "Pregled datoteke nije uspio. Odabir je sačuvan.", "saveError": "Uvoz nije uspio. Odabir datoteke je sačuvan.", "templateError": "Predložak nije mogao biti preuzet.", "reading": "Provjera datoteke…", "preview": "Pregled (prvih 5 redova)", "row": "Red", "imported": "Uvezeno", "retryPreview": "Ponovi pregled", "importing": "Uvoz…"},
   common: {
     save: 'Sačuvaj', cancel: 'Odustani', delete: 'Obriši', edit: 'Uredi',
     create: 'Kreiraj', add: 'Dodaj', search: 'Pretraži', filter: 'Filter',

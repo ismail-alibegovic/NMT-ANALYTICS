@@ -23,18 +23,18 @@ Source: main `21ce102733e817638f71d545a96fadd87cd0221d` plus this scoped branch.
 | `nmt-analytics-admin/src/components/departures/DepartureFormModal.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/components/departures/SupplierPayablesPanel.tsx` | NOT TESTED | Expense/payable regressions implemented; real browser matrix awaits isolated run. Other departure forms NOT TESTED. |
 | `nmt-analytics-admin/src/components/finance/SupplierPayablesOverview.tsx` | NOT TESTED | This audit, not prior PR evidence |
-| `nmt-analytics-admin/src/components/form/Form.tsx` | NOT TESTED | This audit, not prior PR evidence |
+| `nmt-analytics-admin/src/components/form/Form.tsx` | N/A — no source consumers | Unmounted legacy component; no business workflow is certified |
 | `nmt-analytics-admin/src/components/form/Select.tsx` | NOT TESTED | This audit, not prior PR evidence |
-| `nmt-analytics-admin/src/components/form/date-picker.tsx` | NOT TESTED | This audit, not prior PR evidence |
-| `nmt-analytics-admin/src/components/form/group-input/PhoneInput.tsx` | NOT TESTED | This audit, not prior PR evidence |
+| `nmt-analytics-admin/src/components/form/date-picker.tsx` | N/A — no source consumers | Unmounted legacy component; no business workflow is certified |
+| `nmt-analytics-admin/src/components/form/group-input/PhoneInput.tsx` | N/A — no source consumers | Unmounted legacy component; no business workflow is certified |
 | `nmt-analytics-admin/src/components/form/input/Checkbox.tsx` | NOT TESTED | This audit, not prior PR evidence |
-| `nmt-analytics-admin/src/components/form/input/FileInput.tsx` | NOT TESTED | This audit, not prior PR evidence |
+| `nmt-analytics-admin/src/components/form/input/FileInput.tsx` | N/A — no source consumers | Unmounted legacy component; no business workflow is certified |
 | `nmt-analytics-admin/src/components/form/input/InputField.tsx` | NOT TESTED | This audit, not prior PR evidence |
-| `nmt-analytics-admin/src/components/form/input/Radio.tsx` | NOT TESTED | This audit, not prior PR evidence |
-| `nmt-analytics-admin/src/components/form/input/RadioSm.tsx` | NOT TESTED | This audit, not prior PR evidence |
-| `nmt-analytics-admin/src/components/form/input/TextArea.tsx` | NOT TESTED | This audit, not prior PR evidence |
+| `nmt-analytics-admin/src/components/form/input/Radio.tsx` | N/A — no source consumers | Unmounted legacy component; no business workflow is certified |
+| `nmt-analytics-admin/src/components/form/input/RadioSm.tsx` | N/A — no source consumers | Unmounted legacy component; no business workflow is certified |
+| `nmt-analytics-admin/src/components/form/input/TextArea.tsx` | N/A — no source consumers | Unmounted legacy component; no business workflow is certified |
 | `nmt-analytics-admin/src/components/header/Header.tsx` | NOT TESTED | This audit, not prior PR evidence |
-| `nmt-analytics-admin/src/components/import/ImportModal.tsx` | NOT TESTED | This audit, not prior PR evidence |
+| `nmt-analytics-admin/src/components/import/ImportModal.tsx` | PASS — 28 component contracts | Both customer/package forms, CSV/XLSX preview, validation, cancel, failed save, duplicates and locale labels; real persistence queued |
 | `nmt-analytics-admin/src/components/integrations/ConfigureIntegrationModal.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/components/operations/DrustvaTab.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/components/operations/ManualBusSeating.tsx` | NOT TESTED | This audit, not prior PR evidence |
@@ -50,7 +50,7 @@ Source: main `21ce102733e817638f71d545a96fadd87cd0221d` plus this scoped branch.
 | `nmt-analytics-admin/src/components/reservations/NewSaleWizard.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/components/travelers/TravelerRequirementsFields.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/components/ui/FormModal.tsx` | NOT TESTED | This audit, not prior PR evidence |
-| `nmt-analytics-admin/src/components/ui/ImportModal.tsx` | NOT TESTED | This audit, not prior PR evidence |
+| `nmt-analytics-admin/src/components/ui/ImportModal.tsx` | N/A — no source consumers | Unmounted legacy component; no business workflow is certified |
 | `nmt-analytics-admin/src/components/ui/PageToolbar.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/pages/DepartureDetail.tsx` | NOT TESTED | Expense/payable regressions implemented; real browser matrix awaits isolated run. Other departure forms NOT TESTED. |
 | `nmt-analytics-admin/src/pages/Inquiries.tsx` | NOT TESTED | This audit, not prior PR evidence |
