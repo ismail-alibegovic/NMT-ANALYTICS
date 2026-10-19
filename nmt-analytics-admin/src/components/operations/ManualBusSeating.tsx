@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "../../lib/i18n/context";
 import { useToast } from "../../context/ToastContext";
 import {
@@ -74,6 +74,8 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
   const [manifestPax, setManifestPax] = useState<Passenger[]>(() => normalizePax(passengers));
   const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
+  // Synchronous guard: React state alone cannot prevent double submits in the same tick.
+  const mutationLock = useRef(false);
   const [serverError, setServerError] = useState<ServerError | null>(null);
   const [savingVehicle, setSavingVehicle] = useState(false);
 
@@ -166,6 +168,8 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
   async function handleAssign() {
     if (!selectedPassengerId || selectedSeat === null) return;
     if (isSeatTaken(selectedSeat)) return;
+    if (mutationLock.current) return;
+    mutationLock.current = true;
     setMutating(true);
     setServerError(null);
     try {
@@ -179,6 +183,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
       setServerError({ code, message: displayMsg });
       toast.error(displayMsg);
     } finally {
+      mutationLock.current = false;
       setMutating(false);
     }
   }
@@ -188,6 +193,8 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
     if (!selectedPassengerId || selectedSeat === null) return;
     if (isSeatTaken(selectedSeat)) return;
     if (!selectedPassenger || selectedPassenger.seat_locked) return;
+    if (mutationLock.current) return;
+    mutationLock.current = true;
     setMutating(true);
     setServerError(null);
     try {
@@ -201,6 +208,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
       setServerError({ code, message: displayMsg });
       toast.error(displayMsg);
     } finally {
+      mutationLock.current = false;
       setMutating(false);
     }
   }
@@ -210,6 +218,8 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
     if (!selectedPassengerId) return;
     const p = manifestPax.find((x) => x.id === selectedPassengerId);
     if (!p || p.seat_locked) return;
+    if (mutationLock.current) return;
+    mutationLock.current = true;
     setMutating(true);
     setServerError(null);
     try {
@@ -223,6 +233,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
       setServerError({ code, message: displayMsg });
       toast.error(displayMsg);
     } finally {
+      mutationLock.current = false;
       setMutating(false);
     }
   }
@@ -233,6 +244,8 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
     const p = manifestPax.find((x) => x.id === selectedPassengerId);
     if (!p) return;
     const newLocked = !p.seat_locked;
+    if (mutationLock.current) return;
+    mutationLock.current = true;
     setMutating(true);
     setServerError(null);
     try {
@@ -244,6 +257,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
       setServerError({ code, message: displayMsg });
       toast.error(displayMsg);
     } finally {
+      mutationLock.current = false;
       setMutating(false);
     }
   }
