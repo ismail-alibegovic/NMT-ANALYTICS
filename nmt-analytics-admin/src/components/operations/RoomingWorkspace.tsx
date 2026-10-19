@@ -610,19 +610,19 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
                               {assignment.locked ? (
                                 <>
                                   <span className="text-xs text-gray-500" title={rm.lockedMutationHint}>{rm.lockedMutationHint}</span>
-                                  <button type="button" disabled={assignmentSaving} className="text-xs text-brand-600 hover:underline disabled:opacity-50" onClick={() => setAssignmentLock(assignment.id, false)}>
+                                  <button type="button" disabled={saving || applyLoading || !!savingAssignmentId} className="text-xs text-brand-600 hover:underline disabled:opacity-50" onClick={() => setAssignmentLock(assignment.id, false)}>
                                     {rm.unlock}
                                   </button>
                                 </>
                               ) : (
                                 <>
-                                  <button type="button" className="text-xs text-brand-600 hover:underline" onClick={() => setAssignTarget({ passengerId: assignment.passengerId, passengerName: assignment.passengerName, currentAssignmentId: assignment.id })}>
+                                  <button type="button" disabled={saving || applyLoading || !!savingAssignmentId} className="text-xs text-brand-600 hover:underline disabled:opacity-50" onClick={() => setAssignTarget({ passengerId: assignment.passengerId, passengerName: assignment.passengerName, currentAssignmentId: assignment.id })}>
                                     {rm.move}
                                   </button>
-                                  <button type="button" className="text-xs text-error-600 hover:underline" onClick={() => unassign(assignment.id)}>
+                                  <button type="button" disabled={saving || applyLoading || !!savingAssignmentId} className="text-xs text-error-600 hover:underline disabled:opacity-50" onClick={() => unassign(assignment.id)}>
                                     {rm.unassign}
                                   </button>
-                                  <button type="button" disabled={assignmentSaving} className="text-xs text-gray-600 hover:underline disabled:opacity-50 dark:text-gray-300" onClick={() => setAssignmentLock(assignment.id, true)}>
+                                  <button type="button" disabled={saving || applyLoading || !!savingAssignmentId} className="text-xs text-gray-600 hover:underline disabled:opacity-50 dark:text-gray-300" onClick={() => setAssignmentLock(assignment.id, true)}>
                                     {rm.lock}
                                   </button>
                                 </>
@@ -645,14 +645,14 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
           <div role="dialog" aria-modal="true" aria-labelledby="rooming-select-title" className="mx-4 max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === "Escape" && !saving) { e.stopPropagation(); setAssignTarget(null); } }}>
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
               <h3 id="rooming-select-title" className="font-semibold text-gray-900 dark:text-white">{rm.selectRoomHint} {assignTarget.passengerName}</h3>
-              <button type="button" aria-label={t?.common?.close || "Close"} disabled={saving} className="text-gray-400 hover:text-gray-600 disabled:opacity-50" onClick={() => setAssignTarget(null)}>×</button>
+              <button type="button" aria-label={t?.common?.close || "Close"} disabled={saving} className="text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-gray-300 dark:hover:text-white disabled:opacity-50" onClick={() => setAssignTarget(null)}>×</button>
             </div>
             <div className="space-y-3 px-6 py-4">
               {compatibleSlots.map(({ slot, occupied, isFull, matchesRequirement }) => (
                 <button
                   key={slot.id}
                   type="button"
-                  disabled={saving || isFull || !matchesRequirement}
+                  disabled={saving || applyLoading || !!savingAssignmentId || isFull || !matchesRequirement}
                   onClick={() => assignToSlot(slot.id)}
                   className={`w-full rounded-lg border p-3 text-left transition ${
                     isFull || !matchesRequirement
