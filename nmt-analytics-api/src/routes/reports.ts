@@ -144,22 +144,10 @@ router.get('/reports/export/reservations.csv', authenticateToken, requireOrgCont
  * }
  */
 router.get('/reports/summary', authenticateToken, requireOrgContext, async (req, res: Response) => {
-  const zeroedData = {
-    totalRevenue: 0,
-    bookedRevenue: 0,
-    paidRevenue: 0,
-    unpaidRevenue: 0,
-    paidPercent: 0,
-    totalReservations: 0,
-    totalCustomers: 0,
-    avgOrderValue: 0,
-    topDestinations: [] as any[]
-  };
-
   try {
     const validationResult = querySchema.safeParse(req.query);
     if (!validationResult.success) {
-      return res.status(200).json(zeroedData);
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid report query', validationResult.error.issues);
     }
 
     const { from, to, currency } = validationResult.data;
@@ -196,7 +184,7 @@ router.get('/reports/summary', authenticateToken, requireOrgContext, async (req,
 
     if (reservationsError || customersError) {
       console.error('[API Error] Reports summary query failure:', reservationsError || customersError);
-      return res.status(200).json(zeroedData);
+      return apiError(res, 503, 'REPORT_UNAVAILABLE', 'Report data could not be loaded. Retry later.');
     }
 
     const rows = (reservations || []) as any[];
@@ -246,7 +234,7 @@ router.get('/reports/summary', authenticateToken, requireOrgContext, async (req,
 
   } catch (err) {
     console.error('[API Error] Internal error in /reports/summary:', err);
-    res.status(200).json(zeroedData);
+    return apiError(res, 503, 'REPORT_UNAVAILABLE', 'Report data could not be loaded. Retry later.');
   }
 });
 
