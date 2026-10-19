@@ -1,5 +1,10 @@
 import { HelmetProvider } from 'react-helmet-async';
-import { BrowserRouter } from 'react-router';
+import SignInForm from '../../src/pages/AuthPages/SignIn';
+import { ThemeProvider } from '../../src/context/ThemeContext';
+import SignUpForm from '../../src/pages/AuthPages/SignUp';
+import ResetPasswordForm from '../../src/pages/AuthPages/ResetPassword';
+import Checkbox from '../../src/components/form/input/Checkbox';
+import { BrowserRouter, useLocation } from 'react-router';
 import Documents from '../../src/pages/admin/Documents';
 import ImportModal from '../../src/components/import/ImportModal';
 import PublicSubAgentPortal from '../../src/pages/PublicSubAgentPortal';
@@ -19,7 +24,13 @@ if (import.meta.env.MODE !== 'form-contract') throw new Error('Isolated finance 
 const payment: Payment = { id:'00000000-0000-4000-8000-000000000022', reservationId:'00000000-0000-4000-8000-000000000011',amount:30,currency:'BAM',status:'succeeded',paymentDate:'2026-10-19',paymentMethod:'cash',createdAt:'2026-10-19' };
 export default function Harness() {
  const [open,setOpen]=useState(false);
- const surface=new URLSearchParams(location.search).get('surface');
+ const [checked,setChecked]=useState(false);
+ const currentLocation=useLocation();
+ const surface=new URLSearchParams(currentLocation.search).get('surface');
+ if(surface==='signup') return <ThemeProvider><SignUpForm/></ThemeProvider>;
+ if(surface==='signin') return <ThemeProvider><SignInForm/></ThemeProvider>;
+ if(surface==='reset') return <ThemeProvider><ResetPasswordForm/></ThemeProvider>;
+ if(surface==='checkbox') return <><Checkbox label="Active checkbox" checked={checked} onChange={setChecked}/><Checkbox label="Unavailable unchecked" disabled checked={false} onChange={()=>{}}/><Checkbox label="Unavailable checked" disabled checked onChange={()=>{}}/></>;
  if(surface==='documents') return <Documents/>;
  if(surface==='import') return <><button onClick={()=>setOpen(true)}>Open form</button><ImportModal entity={new URLSearchParams(location.search).get('entity')==='packages'?'packages':'customers'} isOpen={open} onClose={()=>setOpen(false)} onSuccess={()=>setOpen(false)}/></>;
  if(surface==='portal') return <PublicSubAgentPortal/>;

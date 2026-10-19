@@ -7,6 +7,8 @@ export default mergeConfig(base, defineConfig({
   mode: 'form-contract',
   optimizeDeps: { entries: ['e2e/finance-forms/index.html'] },
   resolve: { alias: [
+    { find: /.*lib\/supabase$/, replacement: local('./e2e/finance-forms/supabase.ts') },
+    { find: /^\.\/supabase$/, replacement: local('./e2e/finance-forms/supabase.ts') },
     { find: /.*context\/AppContext$/, replacement: local('./e2e/finance-forms/app-context.ts') },
     { find: /.*lib\/apiClient$/, replacement: local('./e2e/finance-forms/client.ts') },
     { find: /^\.\/client$/, replacement: local('./e2e/finance-forms/client.ts') },

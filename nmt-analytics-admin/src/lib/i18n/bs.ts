@@ -232,6 +232,7 @@ export const bs: Translations = {
   },
   fileImport: {"title": "Uvoz", "customers": "klijenata", "packages": "paketa", "templateDescription": "Preuzmite predložak s podržanim kolonama.", "downloadTemplate": "Preuzmi predložak", "selectFile": "Odaberi CSV ili XLSX datoteku", "fileError": "Odaberite CSV ili XLSX datoteku do 10 MB.", "invalidFile": "Datoteka sadrži neispravne redove. Ništa nije uvezeno. Ispravite datoteku i ponovo je odaberite.", "previewError": "Pregled datoteke nije uspio. Odabir je sačuvan.", "saveError": "Uvoz nije uspio. Odabir datoteke je sačuvan.", "templateError": "Predložak nije mogao biti preuzet.", "reading": "Provjera datoteke…", "preview": "Pregled (prvih 5 redova)", "row": "Red", "imported": "Uvezeno", "retryPreview": "Ponovi pregled", "importing": "Uvoz…"},
   common: {
+    switchToLight: 'Prebaci na svijetli način', switchToDark: 'Prebaci na tamni način',
     save: 'Sačuvaj', cancel: 'Odustani', delete: 'Obriši', edit: 'Uredi',
     create: 'Kreiraj', add: 'Dodaj', search: 'Pretraži', filter: 'Filter',
     clear: 'Očisti', confirm: 'Potvrdi', loading: 'Učitavanje...', noData: 'Nema podataka',
@@ -676,6 +677,7 @@ export const bs: Translations = {
   auth: {
     verificationRequired: 'Provjerite email i potvrdite nalog prije prijave.',
     recoveryLinkInvalid: 'Link za oporavak je neispravan ili je istekao. Zatražite novi link.',
+    allFieldsRequired: 'Unesite naziv agencije, ime i prezime, email i lozinku.',
     signIn: 'Prijava', signUp: 'Registracija', email: 'Email', password: 'Lozinka',
     forgotPassword: 'Zaboravili ste lozinku?', noAccount: 'Nemate nalog?',
     hasAccount: 'Već imate nalog?', signInTitle: 'Dobrodošli nazad',

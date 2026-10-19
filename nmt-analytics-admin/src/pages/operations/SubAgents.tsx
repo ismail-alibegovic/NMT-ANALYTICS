@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import PageToolbar from "../../components/ui/PageToolbar";
 import Button from "../../components/ui/button/Button";
@@ -17,6 +17,7 @@ import {
 } from "../../api/operations";
 
 export default function SubAgents() {
+  const partnerTypeId = useId();
   const { success: showSuccess, error: showError } = useToast();
   const { user, loading: authLoading } = useApp();
   const { t } = useT();
@@ -198,9 +199,9 @@ export default function SubAgents() {
             <label className="block text-sm">{tr.phone}<input type="tel" value={formPhone} onChange={e=>setFormPhone(e.target.value)} className="mt-1.5 h-11 w-full rounded-lg border border-gray-300 px-3 dark:border-gray-700 dark:bg-gray-800" /></label>
             <label className="block text-sm">{tr.email}<input type="email" value={formEmail} onChange={e=>setFormEmail(e.target.value)} className="mt-1.5 h-11 w-full rounded-lg border border-gray-300 px-3 dark:border-gray-700 dark:bg-gray-800" /></label>
             <label className="block text-sm">{tr.commission}<input required type="number" min="0" max="100" step="0.01" value={formCommission} onChange={e=>setFormCommission(+e.target.value)} className="mt-1.5 h-11 w-full rounded-lg border border-gray-300 px-3 dark:border-gray-700 dark:bg-gray-800" /></label>
-            <label className="block text-sm">{tr.partnerType}<select value={formPartnerType} onChange={e=>setFormPartnerType(e.target.value as typeof formPartnerType)} className="mt-1.5 h-11 w-full rounded-lg border border-gray-300 px-3 dark:border-gray-700 dark:bg-gray-800">
+            <div className="text-sm"><label htmlFor={partnerTypeId} className="block">{tr.partnerType}</label><select id={partnerTypeId} value={formPartnerType} onChange={e=>setFormPartnerType(e.target.value as typeof formPartnerType)} className="mt-1.5 h-11 w-full rounded-lg border border-gray-300 px-3 dark:border-gray-700 dark:bg-gray-800">
               <option value="bronze">{tr.bronze}</option><option value="silver">{tr.silver}</option><option value="gold">{tr.gold}</option><option value="platinum">{tr.platinum}</option>
-            </select></label>
+            </select></div>
             <div className="flex justify-end gap-2"><Button variant="outline" onClick={closeForm}>{t.common.cancel}</Button><Button type="submit">{saving?t.common.saving:t.common.create}</Button></div>
           </fieldset>
           {saveError && <p role="alert" className="mt-3 text-sm text-error-600 dark:text-error-400">{saveError}</p>}

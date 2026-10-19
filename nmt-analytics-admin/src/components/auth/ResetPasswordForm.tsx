@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
@@ -12,6 +12,7 @@ type Mode = "request" | "update";
 
 export default function ResetPasswordForm() {
   const { t } = useT();
+  const busy = useRef(false);
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<Mode>("request");
@@ -53,7 +54,7 @@ export default function ResetPasswordForm() {
 
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading) return;
+    if (busy.current) return;
 
     setError("");
 
@@ -61,6 +62,8 @@ export default function ResetPasswordForm() {
       setError(`${t.auth.email} ${t.common.isRequired}`);
       return;
     }
+
+    busy.current = true;
 
     setLoading(true);
     try {
@@ -76,13 +79,13 @@ export default function ResetPasswordForm() {
     } catch {
       setError(t.errors.generic);
     } finally {
-      setLoading(false);
+      busy.current = false; setLoading(false);
     }
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading) return;
+    if (busy.current) return;
 
     setError("");
 
@@ -94,6 +97,8 @@ export default function ResetPasswordForm() {
       setError(t.auth.passwordsDoNotMatch);
       return;
     }
+
+    busy.current = true;
 
     setLoading(true);
     try {
@@ -108,7 +113,7 @@ export default function ResetPasswordForm() {
     } catch {
       setError(t.errors.generic);
     } finally {
-      setLoading(false);
+      busy.current = false; setLoading(false);
     }
   };
 
@@ -135,24 +140,24 @@ export default function ResetPasswordForm() {
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-900/30 dark:text-error-400">
+          <div role="alert" className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-900/30 dark:text-error-400">
             {error}
           </div>
         )}
 
         {mode === "request" && sent ? (
-          <div className="rounded-lg border border-success-200 bg-success-50 p-4 text-sm text-success-700 dark:border-success-800 dark:bg-success-900/30 dark:text-success-400">
+          <div role="status" className="rounded-lg border border-success-200 bg-success-50 p-4 text-sm text-success-700 dark:border-success-800 dark:bg-success-900/30 dark:text-success-400">
             {t.auth.resetLinkSent}
           </div>
         ) : mode === "request" ? (
-          <form onSubmit={handleRequest}>
-            <div className="space-y-5">
+          <form aria-label={t.auth.resetPasswordTitle} onSubmit={handleRequest}>
+            <fieldset disabled={loading} className="space-y-5">
               <div>
                 <Label htmlFor="reset-email">
                   {t.auth.email} <span className="text-error-500">*</span>
                 </Label>
-                <Input
-                  id="reset-email"
+                <Input disabled={loading}
+                  id="reset-email" required
                   type="email"
                   name="email"
                   autoComplete="email"
@@ -164,18 +169,18 @@ export default function ResetPasswordForm() {
               <Button className="w-full" size="sm" type="submit" disabled={loading}>
                 {loading ? `${t.common.sending}` : t.auth.sendResetLink}
               </Button>
-            </div>
+            </fieldset>
           </form>
         ) : (
-          <form onSubmit={handleUpdate}>
-            <div className="space-y-5">
+          <form aria-label={t.auth.newPasswordTitle} onSubmit={handleUpdate}>
+            <fieldset disabled={loading} className="space-y-5">
               <div>
                 <Label htmlFor="new-password">
                   {t.auth.newPassword} <span className="text-error-500">*</span>
                 </Label>
                 <div className="relative">
-                  <Input
-                    id="new-password"
+                  <Input disabled={loading}
+                    id="new-password" required
                     type={showPassword ? "text" : "password"}
                     name="new-password"
                     autoComplete="new-password"
@@ -205,8 +210,8 @@ export default function ResetPasswordForm() {
                 <Label htmlFor="confirm-password">
                   {t.auth.confirmPassword} <span className="text-error-500">*</span>
                 </Label>
-                <Input
-                  id="confirm-password"
+                <Input disabled={loading}
+                  id="confirm-password" required
                   type={showPassword ? "text" : "password"}
                   name="confirm-password"
                   autoComplete="new-password"
@@ -219,7 +224,7 @@ export default function ResetPasswordForm() {
               <Button className="w-full" size="sm" type="submit" disabled={loading}>
                 {loading ? `${t.common.saving}` : t.auth.updatePassword}
               </Button>
-            </div>
+            </fieldset>
           </form>
         )}
       </div>

@@ -1,5 +1,5 @@
 import { useT } from "../../lib/i18n/context";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
@@ -11,6 +11,7 @@ import { markSessionEstablished } from "../../lib/authSession";
 
 export default function SignInForm() {
   const { t } = useT();
+  const busy = useRef(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
   const [email, setEmail] = useState("");
@@ -24,10 +25,13 @@ export default function SignInForm() {
   const justReset = searchParams.get("reset") === "1";
 
   const handleDevLogin = async () => {
+    if (busy.current) return;
     if (!import.meta.env.DEV) {
       setError(t.errors.generic);
       return;
     }
+
+    busy.current = true;
 
     setLoading(true);
     setError("");
@@ -55,7 +59,7 @@ export default function SignInForm() {
       console.error("DEV LOGIN ERROR", err);
       setError(err?.message || t.errors.generic);
     } finally {
-      setLoading(false);
+      busy.current = false; setLoading(false);
     }
   };
 
@@ -93,15 +97,17 @@ export default function SignInForm() {
               </div>
             )}
             {error && (
-              <div className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-900/30 dark:text-error-400">
+              <div role="alert" className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-900/30 dark:text-error-400">
                 {error}
               </div>
             )}
 
-            <form onSubmit={async (e) => {
+            <form aria-label={t.auth.signInTitle} onSubmit={async (e) => {
               e.preventDefault();
 
-              if (loading) return;
+              if (busy.current) return;
+
+              busy.current = true;
 
               setLoading(true);
               setError("");
@@ -141,16 +147,16 @@ export default function SignInForm() {
               } catch (err: any) {
                 setError(err?.message || t.errors.generic);
               } finally {
-                setLoading(false);
+                busy.current = false; setLoading(false);
               }
             }}>
-              <div className="space-y-6">
+              <fieldset disabled={loading} className="space-y-6">
                 <div>
                   <Label htmlFor="signin-email">
                     {t.auth.email} <span className="text-error-500">*</span>
                   </Label>
-                  <Input
-                    id="signin-email"
+                  <Input disabled={loading}
+                    id="signin-email" required
                     type="email"
                     name="email"
                     autoComplete="email"
@@ -164,8 +170,8 @@ export default function SignInForm() {
                     {t.auth.password} <span className="text-error-500">*</span>
                   </Label>
                   <div className="relative">
-                    <Input
-                      id="signin-password"
+                    <Input disabled={loading}
+                      id="signin-password" required
                       type={showPassword ? "text" : "password"}
                       name="password"
                       autoComplete="current-password"
@@ -189,10 +195,7 @@ export default function SignInForm() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Checkbox checked={isChecked} onChange={setIsChecked} />
-                    <span className="block font-normal text-gray-700 text-theme-sm dark:text-gray-400">
-                      {t.auth.keepLoggedIn}
-                    </span>
+                    <Checkbox disabled={loading} label={t.auth.keepLoggedIn} checked={isChecked} onChange={setIsChecked} />
                   </div>
                   <Link
                     to="/auth/reset-password"
@@ -211,7 +214,7 @@ export default function SignInForm() {
                     {loading ? `${t.common.loading}...` : t.auth.signIn}
                   </Button>
                 </div>
-              </div>
+              </fieldset>
             </form>
 
             {import.meta.env.DEV && (

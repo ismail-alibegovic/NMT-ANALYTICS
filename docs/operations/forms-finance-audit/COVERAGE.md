@@ -1,12 +1,12 @@
 # Form coverage ledger — audit OPEN
 
-Source: main `21ce102733e817638f71d545a96fadd87cd0221d` plus this scoped branch. Counts describe source surfaces, not completed business workflows. A PASS below is limited to its stated layer. Real authenticated results will be recorded in the PR after disposable CI.
+Source: main `21ce102733e817638f71d545a96fadd87cd0221d` plus this scoped branch. Counts describe source surfaces, not completed business workflows. A PASS below is limited to its stated layer. Latest completed acceptance c933:84/96 real scenarios PASS,12 FAIL;89/89 component contracts PASS. These totals are bounded results, not application-wide certification. See REPORT.md for exact failed boundaries and later unverified corrections.
 
 | Source surface | Status in this audit | Scope / remaining work |
 |---|---|---|
-| `nmt-analytics-admin/src/components/auth/ResetPasswordForm.tsx` | NOT TESTED | This audit, not prior PR evidence |
-| `nmt-analytics-admin/src/components/auth/SignInForm.tsx` | NOT TESTED | This audit, not prior PR evidence |
-| `nmt-analytics-admin/src/components/auth/SignUpForm.tsx` | NOT TESTED | This audit, not prior PR evidence |
+| `nmt-analytics-admin/src/components/auth/ResetPasswordForm.tsx` | RERUN PENDING | EN/BS validation/recovery/duplicate matrix and isolated provider lifecycle prepared; no final PASS yet |
+| `nmt-analytics-admin/src/components/auth/SignInForm.tsx` | RERUN PENDING | EN/BS validation/recovery/duplicate matrix and isolated provider lifecycle prepared; no final PASS yet |
+| `nmt-analytics-admin/src/components/auth/SignUpForm.tsx` | RERUN PENDING | EN/BS validation/recovery/duplicate matrix and isolated provider lifecycle prepared; no final PASS yet |
 | `nmt-analytics-admin/src/components/common/DateRangeFilter.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/components/common/GlobalSearch.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/components/common/QuickCreateModal.tsx` | NOT TESTED | This audit, not prior PR evidence |
@@ -27,7 +27,7 @@ Source: main `21ce102733e817638f71d545a96fadd87cd0221d` plus this scoped branch.
 | `nmt-analytics-admin/src/components/form/Select.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/components/form/date-picker.tsx` | N/A — no source consumers | Unmounted legacy component; no business workflow is certified |
 | `nmt-analytics-admin/src/components/form/group-input/PhoneInput.tsx` | N/A — no source consumers | Unmounted legacy component; no business workflow is certified |
-| `nmt-analytics-admin/src/components/form/input/Checkbox.tsx` | NOT TESTED | This audit, not prior PR evidence |
+| `nmt-analytics-admin/src/components/form/input/Checkbox.tsx` | RERUN PENDING | Disabled-unchecked visual defect fixed; keyboard and both auth consumers included |
 | `nmt-analytics-admin/src/components/form/input/FileInput.tsx` | N/A — no source consumers | Unmounted legacy component; no business workflow is certified |
 | `nmt-analytics-admin/src/components/form/input/InputField.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/components/form/input/Radio.tsx` | N/A — no source consumers | Unmounted legacy component; no business workflow is certified |
@@ -87,4 +87,4 @@ Source: main `21ce102733e817638f71d545a96fadd87cd0221d` plus this scoped branch.
 
 Shared input/select/datepicker/modal/dropdown dependencies and all transitive page consumers are in [components.json](components.json). Native controls outside those components are included above. This inventory is a search aid; dynamic schemas and role-specific actions still require manual workflow verification.
 
-No upload, drawer, seating/rooming, public/portal or communication workflow is certified by this finance slice. PRs #120–128 remain separate, unmerged work; their evidence does not turn current main into a passing application-wide audit.
+CSV/XLSX customer/package import persistence passes24 real cases at c933, but clipping found during visual review means those forms are not visually certified. Other uploads, drawers, seating/rooming and communication workflows remain open. Document/portal real cases stopped at the boundaries documented in REPORT.md. PRs #120–128 remain separate, unmerged work; their evidence does not turn current main into a passing application-wide audit.

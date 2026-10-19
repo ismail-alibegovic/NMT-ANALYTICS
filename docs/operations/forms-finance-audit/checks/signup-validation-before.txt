@@ -1,0 +1,57 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> travline-api@1.0.0 test
+> vitest run --run src/tests/authSignup.test.ts
+
+
+ RUN  v4.1.10 /workspace/repos/travline-forms/nmt-analytics-api
+
+ ❯ src/tests/authSignup.test.ts (6 tests | 2 failed) 206ms
+     × rejects a whitespace-only organization before contacting Auth 30ms
+     × normalizes public names and email without changing the password 17ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/authSignup.test.ts > Auth SMTP readiness > rejects a whitespace-only organization before contacting Auth
+AssertionError: expected 201 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 201
+
+ ❯ src/tests/authSignup.test.ts:46:98
+     44|   it('rejects a whitespace-only organization before contacting Auth', …
+     45|     h.signUp.mockResolvedValue({data:{user:{identities:[]},session:nul…
+     46|     expect((await request(app()).post('/auth/signup').send({...payload…
+       |                                                                                                  ^
+     47|     expect(h.signUp).not.toHaveBeenCalled();
+     48|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/tests/authSignup.test.ts > Auth SMTP readiness > normalizes public names and email without changing the password
+AssertionError: expected 400 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 400
+
+ ❯ src/tests/authSignup.test.ts:51:165
+     49|   it('normalizes public names and email without changing the password'…
+     50|     h.signUp.mockResolvedValue({data:{user:{identities:[]},session:nul…
+     51|     expect((await request(app()).post('/auth/signup').send({...payload…
+       |                                                                                                                                                                     ^
+     52|     expect(h.signUp).toHaveBeenCalledWith(expect.objectContaining({ema…
+     53|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 4 passed (6)
+   Start at  22:38:56
+   Duration  1.82s (transform 254ms, setup 0ms, import 994ms, tests 206ms, environment 1ms)

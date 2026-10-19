@@ -235,6 +235,7 @@ export const en = {
   },
   fileImport: {"title": "Import", "customers": "customers", "packages": "packages", "templateDescription": "Download a template with the supported columns.", "downloadTemplate": "Download template", "selectFile": "Select CSV or XLSX file", "fileError": "Choose a CSV or XLSX file up to 10 MB.", "invalidFile": "The file contains invalid rows. Nothing has been imported. Correct the file and select it again.", "previewError": "The file could not be previewed. Your selection is preserved.", "saveError": "Import failed. Your file selection is preserved.", "templateError": "The template could not be downloaded.", "reading": "Checking file…", "preview": "Preview (first 5 rows)", "row": "Row", "imported": "Imported", "retryPreview": "Retry preview", "importing": "Importing…"},
   common: {
+    switchToLight: 'Switch to light mode', switchToDark: 'Switch to dark mode',
     save: 'Save', cancel: 'Cancel', delete: 'Delete', edit: 'Edit',
     create: 'Create', add: 'Add', search: 'Search', filter: 'Filter',
     clear: 'Clear', confirm: 'Confirm', loading: 'Loading...', noData: 'No data found',
@@ -676,6 +677,7 @@ export const en = {
   auth: {
     verificationRequired: 'Check your email to verify your account before signing in.',
     recoveryLinkInvalid: 'This recovery link is invalid or expired. Request a new link.',
+    allFieldsRequired: 'Enter your agency name, first and last name, email and password.',
     signIn: 'Sign In', signUp: 'Sign Up', email: 'Email', password: 'Password',
     forgotPassword: 'Forgot Password?', noAccount: "Don't have an account?",
     hasAccount: 'Already have an account?', signInTitle: 'Welcome back',

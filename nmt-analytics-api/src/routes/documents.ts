@@ -42,18 +42,27 @@ router.get('/documents', authenticateToken, requireOrgContext, async (req: any, 
   try {
     const orgId = req.orgId!;
 
-    const { data, error } = await supabaseAdmin
-      .from('documents')
-      .select('*')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false });
+    // Parameterized admin lists require an envelope; legacy callers keep arrays.
+    const paginated = ['page', 'limit', 'search'].some(key => req.query[key] !== undefined);
+    const parsed = z.object({
+      page: z.coerce.number().int().min(1).max(1_000_000).default(1),
+      limit: z.coerce.number().int().min(1).max(100).default(20),
+      search: z.string().max(500).default(''),
+    }).safeParse(req.query);
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid document list parameters' });
+    const { page, limit, search } = parsed.data;
+    let query = supabaseAdmin.from('documents').select('*', { count: 'exact' }).eq('org_id', orgId);
+    if (search) query = query.ilike('name', `%${search.replace(/[\\%_]/g, '\\$&')}%`);
+    query = query.order('created_at', { ascending: false }).order('id', { ascending: false });
+    if (paginated) query = query.range((page - 1) * limit, page * limit - 1);
+    const { data, error, count } = await query;
 
     if (error) {
       console.error('[documents] List error:', error);
       return res.status(500).json({ error: 'Failed to fetch documents' });
     }
 
-    res.json(data || []);
+    res.json(paginated ? { data: data || [], total: count || 0, page, limit, totalPages: Math.ceil((count || 0) / limit) } : data || []);
   } catch (err) {
     console.error('[documents] Route error:', err);
     res.status(500).json({ error: 'Internal server error' });

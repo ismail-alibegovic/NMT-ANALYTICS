@@ -61,7 +61,7 @@ function ImportSession({entity,onClose,onSuccess}:ImportModalProps) {
   return <Modal isOpen onClose={close} className="m-4 max-w-4xl" title={`${c.title} ${entity==='customers'?c.customers:c.packages}`}>
     <form aria-label={c.title} className="max-h-[75vh] overflow-y-auto p-6" onSubmit={event=>{event.preventDefault();void submit();}}>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand-50 p-4 dark:bg-brand-500/15"><p className="text-sm">{c.templateDescription}</p><Button variant="outline" size="sm" onClick={()=>void download()}>{c.downloadTemplate}</Button></div>
-      <fieldset disabled={phase==='import'} className="space-y-4">
+      <fieldset disabled={phase==='import'} className="min-w-0 space-y-4">
         <label htmlFor={id} className="block text-sm font-medium">{c.selectFile}</label>
         <input id={id} type="file" accept=".csv,.xlsx" onChange={event=>{const selected=event.target.files?.[0];if(selected)void readPreview(selected);}} className="block min-h-11 w-full rounded-lg border border-gray-300 bg-gray-50 text-sm file:mr-3 file:border-0 file:px-3 file:py-3 dark:border-gray-700 dark:bg-gray-800"/>
         {phase==='preview'&&<p role="status">{c.reading}</p>}

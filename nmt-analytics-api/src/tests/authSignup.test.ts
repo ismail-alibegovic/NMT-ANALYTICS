@@ -41,4 +41,15 @@ describe('Auth SMTP readiness', () => {
     vi.stubEnv('NODE_ENV', 'production'); vi.stubEnv('ADMIN_URL', 'http://unsafe.test');
     expect(() => signupRedirectUrl()).toThrow('AUTH_REDIRECT_INVALID');
   });
+  it('rejects a whitespace-only organization before contacting Auth', async () => {
+    h.signUp.mockResolvedValue({data:{user:{identities:[]},session:null},error:null});
+    expect((await request(app()).post('/auth/signup').send({...payload,org_name:'   '})).status).toBe(400);
+    expect(h.signUp).not.toHaveBeenCalled();
+  });
+  it('normalizes public names and email without changing the password', async () => {
+    h.signUp.mockResolvedValue({data:{user:{identities:[]},session:null},error:null});
+    expect((await request(app()).post('/auth/signup').send({...payload,email:' new@example.test ',org_name:' Pilot Agency ',full_name:' Synthetic User '})).status).toBe(201);
+    expect(h.signUp).toHaveBeenCalledWith(expect.objectContaining({email:'new@example.test',password:payload.password,options:expect.objectContaining({data:{full_name:'Synthetic User'}})}));
+  });
+
 });

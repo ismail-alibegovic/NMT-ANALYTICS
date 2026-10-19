@@ -8,10 +8,10 @@ import { apiError } from '../lib/errors';
 const router = Router();
 
 const signupSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().email(),
   password: z.string().min(8, 'Lozinka mora imati najmanje 8 znakova'),
-  org_name: z.string().min(2, 'Naziv organizacije je obavezan').max(100),
-  full_name: z.string().min(2, 'Ime i prezime je obavezno').max(100).optional(),
+  org_name: z.string().trim().min(2, 'Naziv organizacije je obavezan').max(100),
+  full_name: z.string().trim().min(2, 'Ime i prezime je obavezno').max(100).optional(),
 });
 
 const auditOrganizationCreate = auditLog(

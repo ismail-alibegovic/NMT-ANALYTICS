@@ -140,7 +140,8 @@
       "pages/AuthPages/SignIn.tsx",
       "pages/AuthPages/SignUp.tsx"
     ],
-    "changed": false
+    "changed": true,
+    "verification": "59 auth/checkbox/layout/theme cases prepared; exact-head rerun pending"
   },
   {
     "component": "components/form/input/FileInput.tsx",
@@ -410,5 +411,33 @@
       "pages/admin/Packages.tsx"
     ],
     "changed": true
+  },
+  {
+    "component": "components/common/ThemeTogglerTwo.tsx",
+    "direct_consumers": [
+      "pages/AuthPages/AuthPageLayout.tsx"
+    ],
+    "page_consumers": [
+      "pages/AuthPages/SignIn.tsx",
+      "pages/AuthPages/SignUp.tsx",
+      "pages/AuthPages/ResetPassword.tsx"
+    ],
+    "changed": true,
+    "verification": "Browser regression matrix prepared; rerun pending"
+  },
+  {
+    "component": "pages/AuthPages/AuthPageLayout.tsx",
+    "direct_consumers": [
+      "pages/AuthPages/SignIn.tsx",
+      "pages/AuthPages/SignUp.tsx",
+      "pages/AuthPages/ResetPassword.tsx"
+    ],
+    "page_consumers": [
+      "pages/AuthPages/SignIn.tsx",
+      "pages/AuthPages/SignUp.tsx",
+      "pages/AuthPages/ResetPassword.tsx"
+    ],
+    "changed": true,
+    "verification": "Browser regression matrix prepared; rerun pending"
   }
 ]
