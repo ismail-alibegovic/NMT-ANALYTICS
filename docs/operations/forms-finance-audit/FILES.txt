@@ -44,6 +44,10 @@ docs/operations/forms-finance-audit/checks/api-tests.txt
 docs/operations/forms-finance-audit/checks/browser-contracts.txt
 docs/operations/forms-finance-audit/checks/browser-inventory.txt
 docs/operations/forms-finance-audit/checks/cost-before.txt
+docs/operations/forms-finance-audit/checks/document-before.txt
+docs/operations/forms-finance-audit/checks/document-browser.txt
+docs/operations/forms-finance-audit/checks/document-delete-before.txt
+docs/operations/forms-finance-audit/checks/document-final-browser.txt
 docs/operations/forms-finance-audit/checks/extended-form-browser.txt
 docs/operations/forms-finance-audit/checks/import-all-browser.txt
 docs/operations/forms-finance-audit/checks/import-browser-expanded.txt
@@ -62,6 +66,8 @@ docs/operations/forms-finance-audit/checks/supplier-before.txt
 docs/operations/forms-finance-audit/checks/supplier-browser.txt
 docs/operations/forms-finance-audit/checks/supplier-label-before.txt
 docs/operations/forms-finance-audit/components.json
+docs/operations/forms-finance-audit/document-dark-390.png
+docs/operations/forms-finance-audit/document-light-390.png
 docs/operations/forms-finance-audit/import-customers-dark-390.png
 docs/operations/forms-finance-audit/import-customers-light-390.png
 docs/operations/forms-finance-audit/import-packages-dark-390.png
@@ -82,6 +88,7 @@ nmt-analytics-admin/.gitignore
 nmt-analytics-admin/e2e/finance-forms/app-context.ts
 nmt-analytics-admin/e2e/finance-forms/baseline.spec.reproduction.ts
 nmt-analytics-admin/e2e/finance-forms/client.ts
+nmt-analytics-admin/e2e/finance-forms/documents.spec.ts
 nmt-analytics-admin/e2e/finance-forms/imports.spec.ts
 nmt-analytics-admin/e2e/finance-forms/index.html
 nmt-analytics-admin/e2e/finance-forms/main.tsx
@@ -90,6 +97,7 @@ nmt-analytics-admin/e2e/finance-forms/portal.spec.ts
 nmt-analytics-admin/e2e/finance-forms/reports.spec.ts
 nmt-analytics-admin/e2e/finance-forms/subagents.spec.ts
 nmt-analytics-admin/e2e/finance-forms/suppliers.spec.ts
+nmt-analytics-admin/e2e/pilot-document-upload.spec.ts
 nmt-analytics-admin/e2e/pilot-finance-audit.spec.ts
 nmt-analytics-admin/e2e/pilot-subagent-forms.spec.ts
 nmt-analytics-admin/e2e/pilot-supplier-forms.spec.ts
@@ -112,6 +120,7 @@ nmt-analytics-admin/src/pages/DepartureDetail.tsx
 nmt-analytics-admin/src/pages/PublicSubAgentPortal.tsx
 nmt-analytics-admin/src/pages/Reports.tsx
 nmt-analytics-admin/src/pages/Suppliers.tsx
+nmt-analytics-admin/src/pages/admin/Documents.tsx
 nmt-analytics-admin/src/pages/operations/SubAgents.tsx
 nmt-analytics-admin/src/tests/departureFinancePayables.test.tsx
 nmt-analytics-admin/src/tests/importModalRejection.test.tsx
@@ -124,11 +133,13 @@ nmt-analytics-admin/src/tests/supplierPayables.test.tsx
 nmt-analytics-admin/src/utils/paymentDate.ts
 nmt-analytics-admin/vite.finance-forms.config.ts
 nmt-analytics-api/src/routes/analytics.ts
+nmt-analytics-api/src/routes/documents.ts
 nmt-analytics-api/src/routes/payments.ts
 nmt-analytics-api/src/routes/reports.ts
 nmt-analytics-api/src/routes/subAgentPortal.ts
 nmt-analytics-api/src/scripts/seed_acceptance.ts
 nmt-analytics-api/src/tests/currencyAnalyticsRoutes.test.ts
+nmt-analytics-api/src/tests/documentDeletionRecovery.test.ts
 nmt-analytics-api/src/tests/paymentRefundSafety.test.ts
 nmt-analytics-api/src/tests/publicFormFraming.test.ts
 nmt-analytics-api/src/tests/reportFailureSafety.test.ts

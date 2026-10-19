@@ -1087,6 +1087,7 @@ export const bs: Translations = {
     },
   },
   documents: {
+    uploadSuccess: "Dokument uspješno učitan", uploadError: "Dokument nije mogao biti učitan. Odabrana datoteka je sačuvana.", downloadError: "Dokument nije mogao biti preuzet", retryUpload: "Ponovi učitavanje", fileTooLarge: "Odaberite datoteku do 5 MB.",
     title: 'Dokumenti', description: 'Upravljanje dokumentima i šablonama',
     upload: 'Pošalji dokument', generate: 'Generiši dokument',
     noDocuments: 'Nema dokumenata', name: 'Naziv', type: 'Tip', size: 'Veličina',

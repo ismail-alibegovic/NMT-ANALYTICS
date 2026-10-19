@@ -69,7 +69,7 @@ Source: main `21ce102733e817638f71d545a96fadd87cd0221d` plus this scoped branch.
 | `nmt-analytics-admin/src/pages/admin/AuditLogs.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/pages/admin/Customers.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/pages/admin/Departures.tsx` | NOT TESTED | This audit, not prior PR evidence |
-| `nmt-analytics-admin/src/pages/admin/Documents.tsx` | NOT TESTED | This audit, not prior PR evidence |
+| `nmt-analytics-admin/src/pages/admin/Documents.tsx` | PASS — six component upload cases | File/size validation, failure retention, retry, same-tick guard; download/storage/delete/reload/tenant checks prepared for isolated run |
 | `nmt-analytics-admin/src/pages/admin/Integrations.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/pages/admin/PdfTemplateEditor.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/pages/admin/PublicForms.tsx` | NOT TESTED | This audit, not prior PR evidence |

@@ -148,7 +148,8 @@ router.delete('/documents/:id', auditDocumentDelete, authenticateToken, requireO
         .remove([document.storage_path]);
 
       if (storageErr) {
-        console.error('Storage remove error (non-fatal):', storageErr);
+        console.error('Storage remove error:', storageErr);
+        return res.status(503).json({ code: 'DOCUMENT_DELETE_UNAVAILABLE', message: 'The file could not be removed. The document record was kept; retry deletion.' });
       }
     }
 

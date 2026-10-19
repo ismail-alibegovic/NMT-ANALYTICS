@@ -1087,6 +1087,7 @@ export const en = {
     },
   },
   documents: {
+    uploadSuccess: "Document uploaded successfully", uploadError: "Document could not be uploaded. The selected file is preserved.", downloadError: "Document could not be downloaded", retryUpload: "Retry upload", fileTooLarge: "Choose a file up to 5 MB.",
     title: 'Documents', description: 'Manage documents and templates',
     upload: 'Upload Document', generate: 'Generate Document',
     noDocuments: 'No documents found', name: 'Name', type: 'Type', size: 'Size',
