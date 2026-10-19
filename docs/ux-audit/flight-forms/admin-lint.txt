@@ -1,0 +1,130 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> travline-admin@2.0.2 lint
+> eslint .
+
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/components/charts/AnalyticsChart.tsx
+  26:11  warning  The 'safeData' conditional could make the dependencies of useMemo Hook (at line 49) change on every render. To fix this, wrap the initialization of 'safeData' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/components/common/OnboardingChecklist.tsx
+  36:6  warning  React Hook useCallback has an unnecessary dependency: 't'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/components/communications/CommunicationHistoryPanel.tsx
+  59:9  warning  The 'statusLabel' object makes the dependencies of useMemo Hook (at line 189) change on every render. To fix this, wrap the initialization of 'statusLabel' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/components/communications/SendMessage.tsx
+  182:6  warning  React Hook useEffect has a missing dependency: 's.groupFallback'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/components/operations/AutoSeatingPanel.tsx
+  55:6  warning  React Hook useCallback has a missing dependency: 'onProposalChange'. Either include it or remove the dependency array. If 'onProposalChange' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+  88:6  warning  React Hook useCallback has a missing dependency: 'onProposalChange'. Either include it or remove the dependency array. If 'onProposalChange' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/components/operations/DrustvaTab.tsx
+  110:5  warning  React Hook useCallback has an unnecessary dependency: 'passengers'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/components/operations/ManualBusSeating.tsx
+  70:9  warning  The 'bs' logical expression could make the dependencies of useCallback Hook (at line 107) change on every render. To fix this, wrap the initialization of 'bs' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/components/operations/SeatMap.tsx
+  187:21  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/components/payments/PaymentsModal.tsx
+  31:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  81:8   warning  React Hook useEffect has a missing dependency: 'fetchPayments'. Either include it or remove the dependency array                react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/components/portal/BrandingProvider.tsx
+  56:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/components/reservations/CreateReservationModal.tsx
+   46:6  warning  React Hook useEffect has a missing dependency: 'fetchInitial'. Either include it or remove the dependency array                  react-hooks/exhaustive-deps
+  103:6  warning  React Hook useEffect has missing dependencies: 'packages' and 'totalAmount'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/components/travelers/TravelerRequirementsFields.tsx
+  12:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/components/ui/Skeleton.tsx
+   5:10  warning  Fast refresh only works when a file only exports components. Move your component(s) to a separate file  react-refresh/only-export-components
+  11:10  warning  Fast refresh only works when a file only exports components. Move your component(s) to a separate file  react-refresh/only-export-components
+  17:10  warning  Fast refresh only works when a file only exports components. Move your component(s) to a separate file  react-refresh/only-export-components
+  24:10  warning  Fast refresh only works when a file only exports components. Move your component(s) to a separate file  react-refresh/only-export-components
+  34:10  warning  Fast refresh only works when a file only exports components. Move your component(s) to a separate file  react-refresh/only-export-components
+  65:10  warning  Fast refresh only works when a file only exports components. Move your component(s) to a separate file  react-refresh/only-export-components
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/context/AppContext.tsx
+  312:6   warning  React Hook useEffect has a missing dependency: 'fetchUserContext'. Either include it or remove the dependency array             react-hooks/exhaustive-deps
+  343:6   warning  React Hook useEffect has a missing dependency: 'toast'. Either include it or remove the dependency array                        react-hooks/exhaustive-deps
+  361:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/context/QuickCreateContext.tsx
+  21:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/context/SidebarContext.tsx
+   7:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  48:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/context/ThemeContext.tsx
+  52:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/context/ToastContext.tsx
+  70:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/lib/i18n/context.tsx
+  53:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  59:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/DepartureDetail.tsx
+  348:6  warning  React Hook useEffect has a missing dependency: 'loadDeparture'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/Hub/HomeHub.tsx
+  262:9  warning  The 'now' object construction makes the dependencies of useMemo Hook (at line 473) change on every render. To fix this, wrap the initialization of 'now' in its own useMemo() Hook                                                                                                                                                                                                     react-hooks/exhaustive-deps
+  262:9  warning  The 'now' object construction makes the dependencies of useMemo Hook (at line 477) change on every render. To fix this, wrap the initialization of 'now' in its own useMemo() Hook                                                                                                                                                                                                     react-hooks/exhaustive-deps
+  456:6  warning  React Hook useEffect has missing dependencies: 'hub.alertCapacityFull', 'hub.alertDocumentsAttention', 'hub.alertFlightMissing', 'hub.alertGroupSplit', 'hub.alertRoomingMissingConfig', 'hub.alertRoomingUnassigned', 'hub.alertSeatingUnassigned', 'hub.alertSupplierConfirmations', 'hub.untitledDeparture', and 'hubCurrency'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  563:6  warning  React Hook useMemo has a missing dependency: 'hubCurrency'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                           react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/Inquiries.tsx
+  44:37  warning  React Hook useEffect has a missing dependency: 'load'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/Itineraries.tsx
+  29:219  warning  React Hook useEffect has missing dependencies: 'c.loadError', 'load', and 'showError'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/ItineraryDetail.tsx
+  29:6    warning  React Hook useEffect has a missing dependency: 'load'. Either include it or remove the dependency array                                                                                    react-hooks/exhaustive-deps
+  30:106  warning  The 'items' logical expression could make the dependencies of useMemo Hook (at line 31) change on every render. To fix this, wrap the initialization of 'items' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  30:106  warning  The 'items' logical expression could make the dependencies of useMemo Hook (at line 32) change on every render. To fix this, wrap the initialization of 'items' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/Profile.tsx
+  52:8  warning  React Hook useEffect has a missing dependency: 'fetchProfile'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/QuotationDetail.tsx
+  44:37  warning  React Hook useEffect has a missing dependency: 'load'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/Quotations.tsx
+  33:223  warning  React Hook useEffect has missing dependencies: 'c.loadError', 'load', and 'showError'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/Reservations.tsx
+  138:6  warning  React Hook useEffect has a missing dependency: 'assignedOnly'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/Suppliers.tsx
+  46:43  warning  React Hook useEffect has a missing dependency: 'load'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/admin/Integrations.tsx
+  65:58  warning  React Hook useEffect has a missing dependency: 'handleRefreshETuristaHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/admin/Settings.tsx
+  178:152  warning  React Hook useEffect has missing dependencies: 'fetchAgencyProfile' and 'fetchTemplates'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/operations/CommissionRules.tsx
+  80:6  warning  React Hook useEffect has a missing dependency: 'fetchRules'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/operations/Excursions.tsx
+  56:37  warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/operations/Hotels.tsx
+  76:6  warning  React Hook useEffect has a missing dependency: 'fetchHotels'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/workspace/repos/travline-forms/nmt-analytics-admin/src/pages/operations/SubAgents.tsx
+  52:6  warning  React Hook useEffect has a missing dependency: 'fetchSubAgents'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 52 problems (0 errors, 52 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.

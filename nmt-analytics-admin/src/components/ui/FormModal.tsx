@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useId, useMemo } from 'react';
 import { Modal } from './modal';
 import Button from './button/Button';
 import Input from '../form/input/InputField';
@@ -6,6 +6,8 @@ import Label from '../form/Label';
 import Select from '../form/Select';
 import { useToast } from '../../context/ToastContext';
 import { useT } from '../../lib/i18n/context';
+
+const EMPTY_DATA: Record<string, unknown> = {};
 
 interface FormField {
   name: string;
@@ -33,31 +35,40 @@ export function FormModal({
   title,
   fields,
   onSubmit,
-  initialData = {},
+  initialData = EMPTY_DATA,
   submitButtonText = 'Save',
   loading = false,
 }: FormModalProps) {
   const { success, error } = useToast();
   const { t } = useT();
   const [submitting, setSubmitting] = useState(false);
+  const submitLock = useRef(false);
+  const [submissionError, setSubmissionError] = useState('');
+  const formId = useId();
+  const closeForm = () => { if (!submitLock.current && !loading) onClose(); };
   const [formData, setFormData] = useState<Record<string, any>>(initialData);
+  // Parents frequently pass inline initialData objects. Equal values must not
+  // reset an active draft when a parent changes its loading state.
+  const initialSignature = JSON.stringify(initialData);
+  const initialValues = useMemo(() => JSON.parse(initialSignature), [initialSignature]);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (isOpen) {
-      setFormData(initialData);
+      setFormData(initialValues);
       setFormErrors({});
+      setSubmissionError('');
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialValues]);
 
   const validateField = (field: FormField, value: any): string => {
-    if (field.required && field.type !== 'checkbox' && !value) {
-      return `${field.label} je obavezno polje`;
+    if (field.required && (field.type === 'checkbox' ? value !== true : value == null || String(value).trim() === '')) {
+      return `${field.label} ${t.common.isRequired}`;
     }
     if (field.type === 'email' && value) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(value)) {
-        return 'Neispravna email adresa';
+        return t.publicForms.public.invalidEmail;
       }
     }
     return '';
@@ -81,26 +92,31 @@ export function FormModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (submitLock.current || loading) return;
     if (!validateForm()) {
       return;
     }
 
+    submitLock.current = true;
+    setSubmissionError('');
     setSubmitting(true);
     try {
       await onSubmit(formData);
       success(t.common.success);
       onClose();
     } catch (err: any) {
-      console.error('Form submission error:', err);
+      setSubmissionError(err.message || t.common.error);
       // Let the parent component handle specific errors if needed, but show generic error here if not handled
       error(err.message || t.common.error);
     } finally {
+      submitLock.current = false;
       setSubmitting(false);
     }
   };
 
   const handleInputChange = (name: string, value: any) => {
     setFormData(prev => ({ ...prev, [name]: value }));
+    setSubmissionError('');
     // Clear error when user starts typing
     if (formErrors[name]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
@@ -109,37 +125,44 @@ export function FormModal({
 
   const renderField = (field: FormField) => {
     const fieldError = formErrors[field.name];
+    const fieldId = `${formId}-${field.name}`;
+    const errorId = `${fieldId}-error`;
 
     switch (field.type) {
       case 'select':
         return (
           <div key={field.name}>
-            <Label htmlFor={field.name}>
+            <Label htmlFor={fieldId}>
               {field.label}
               {field.required && <span className="ml-0.5 text-error-500">*</span>}
             </Label>
             <Select
+              id={fieldId}
+              name={field.name}
+              aria-describedby={fieldError ? errorId : undefined}
               options={field.options || []}
               placeholder={field.placeholder}
-              defaultValue={formData[field.name] || ''}
+              value={formData[field.name] ?? ''}
               onChange={(value) => handleInputChange(field.name, value)}
               error={!!fieldError}
             />
-            {fieldError && <p className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
+            {fieldError && <p id={errorId} role="alert" className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
           </div>
         );
 
       case 'textarea':
         return (
           <div key={field.name}>
-            <Label htmlFor={field.name}>
+            <Label htmlFor={fieldId}>
               {field.label}
               {field.required && <span className="ml-0.5 text-error-500">*</span>}
             </Label>
             <textarea
-              id={field.name}
+              id={fieldId}
+              aria-invalid={!!fieldError}
+              aria-describedby={fieldError ? errorId : undefined}
               placeholder={field.placeholder}
-              value={formData[field.name] || ''}
+              value={formData[field.name] ?? ''}
               onChange={(e) => {
                 handleInputChange(field.name, e.target.value);
                 e.target.style.height = 'auto';
@@ -153,7 +176,7 @@ export function FormModal({
               }`}
               rows={4}
             />
-            {fieldError && <p className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
+            {fieldError && <p id={errorId} role="alert" className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
           </div>
         );
 
@@ -161,59 +184,58 @@ export function FormModal({
         return (
           <div key={field.name}>
             <label
-              htmlFor={field.name}
+              htmlFor={fieldId}
               className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 transition-colors hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
             >
               <input
                 type="checkbox"
-                id={field.name}
+                id={fieldId}
                 checked={!!formData[field.name]}
                 onChange={(e) => handleInputChange(field.name, e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-600 dark:bg-gray-900"
               />
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{field.label}</span>
             </label>
-            {fieldError && <p className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
+            {fieldError && <p id={errorId} role="alert" className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
           </div>
         );
 
       default:
         return (
           <div key={field.name}>
-            <Label htmlFor={field.name}>
+            <Label htmlFor={fieldId}>
               {field.label}
               {field.required && <span className="ml-0.5 text-error-500">*</span>}
             </Label>
             <Input
+              name={field.name}
+              aria-describedby={fieldError ? errorId : undefined}
               type={field.type}
-              id={field.name}
+              id={fieldId}
               placeholder={field.placeholder}
-              value={formData[field.name] || ''}
+              value={formData[field.name] ?? ''}
               onChange={(e) => handleInputChange(field.name, e.target.value)}
               onBlur={() => handleBlur(field)}
               error={!!fieldError}
             />
-            {fieldError && <p className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
+            {fieldError && <p id={errorId} role="alert" className="mt-1.5 text-xs text-error-500">{fieldError}</p>}
           </div>
         );
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-2xl">
+    <Modal isOpen={isOpen} onClose={closeForm} className="max-w-2xl" scrollable title={title} closeLabel={t.common.close}>
       <div className="p-6">
-        <h2 className="mb-6 text-xl font-semibold text-gray-800 dark:text-white/90">
-          {title}
-        </h2>
-
         <form onSubmit={handleSubmit} className="space-y-4">
-          {fields.map(renderField)}
+          <fieldset disabled={submitting || loading} className="min-w-0 space-y-4">{fields.map(renderField)}</fieldset>
 
+          {submissionError && <p role="alert" className="rounded-lg bg-error-50 p-3 text-sm text-error-700 dark:bg-error-500/10 dark:text-error-400">{submissionError}</p>}
           <div className="flex justify-end gap-3 pt-4">
             <Button
               type="button"
               variant="outline"
-              onClick={onClose}
+              onClick={closeForm}
               disabled={submitting}
             >
               {t.common.cancel}

@@ -19,6 +19,8 @@ interface SelectProps {
   disabled?: boolean;
   id?: string;
   name?: string;
+  required?: boolean;
+  "aria-describedby"?: string;
 }
 
 const Select: React.FC<SelectProps> = ({
@@ -32,6 +34,8 @@ const Select: React.FC<SelectProps> = ({
   disabled = false,
   id,
   name,
+  required,
+  "aria-describedby": describedBy,
 }) => {
   // `value` (controlled) takes precedence over `defaultValue` (uncontrolled).
   const [internalValue, setInternalValue] = useState<string>(value ?? defaultValue);
@@ -59,13 +63,16 @@ const Select: React.FC<SelectProps> = ({
       : "border-gray-300 focus:border-brand-400 focus:ring-brand-500/15 dark:border-gray-700 dark:focus:border-brand-500";
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <select
         id={id}
         name={name}
+        required={required}
+        aria-invalid={error || undefined}
+        aria-describedby={describedBy}
         data-select-styled
         disabled={disabled}
-        className={`h-11 w-full appearance-none rounded-lg border bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs transition-colors focus:outline-hidden focus:ring-2 dark:bg-gray-900 ${stateClasses} ${
+        className={`h-11 w-full min-w-0 appearance-none rounded-lg border bg-transparent px-4 py-2.5 pr-11 text-sm shadow-theme-xs transition-colors focus:outline-hidden focus:ring-2 dark:bg-gray-900 ${stateClasses} ${
           selectedValue
             ? "text-gray-800 dark:text-white/90"
             : "text-gray-400 dark:text-gray-400"

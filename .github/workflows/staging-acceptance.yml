@@ -54,6 +54,10 @@ jobs:
         working-directory: nmt-analytics-admin
         run: npx playwright install --with-deps chromium
 
+      - name: Browser form contract regressions (isolated fixture transport)
+        working-directory: nmt-analytics-admin
+        run: npm run test:forms
+
       - name: Start isolated Supabase PostgreSQL 17, Auth, Storage and SMTP
         working-directory: nmt-analytics-api
         run: |
@@ -131,6 +135,8 @@ jobs:
             ['E2E_SUPABASE_ANON_KEY', process.env.TRAVLINE_SUPABASE_ANON_KEY],
             ['E2E_MANAGER_EMAIL', 'manager@pilot-a.test'],
             ['E2E_MANAGER_PASSWORD', seed.password],
+            ['E2E_FLIGHT_MANAGER_EMAIL', 'manager@flight-audit.test'],
+            ['E2E_FLIGHT_MANAGER_PASSWORD', seed.password],
             ['E2E_STAFF_EMAIL', 'staff@pilot-a.test'],
             ['E2E_STAFF_PASSWORD', seed.password],
             ['E2E_OTHER_TENANT_EMAIL', 'manager@pilot-b.test'],

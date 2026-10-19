@@ -1,0 +1,12 @@
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router';
+import { HelmetProvider } from 'react-helmet-async';
+import { I18nProvider } from '../../src/lib/i18n/context';
+import { ToastProvider } from '../../src/context/ToastContext';
+import { SidebarProvider } from '../../src/context/SidebarContext';
+import Customers from '../../src/pages/admin/Customers';
+import Flights from '../../src/pages/operations/Flights';
+import '../../src/index.css';
+if (import.meta.env.MODE !== 'form-contract') throw new Error('Use npm run test:forms for this isolated harness.');
+createRoot(document.getElementById('root')!).render(<HelmetProvider><BrowserRouter><I18nProvider><ToastProvider><SidebarProvider><main className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">{new URLSearchParams(location.search).get('surface') === 'customers' ? <Customers /> : <Flights />}</main></SidebarProvider></ToastProvider></I18nProvider></BrowserRouter></HelmetProvider>);

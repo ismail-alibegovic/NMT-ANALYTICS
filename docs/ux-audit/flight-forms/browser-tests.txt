@@ -1,0 +1,33 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> travline-admin@2.0.2 test:forms
+> playwright test --config playwright.forms.config.ts
+
+[WebServer] (node:31) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:44) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:44) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 14 tests using 1 worker
+
+(node:66) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 e2e/forms/customers.spec.ts:3:2 › Customer FormModal contract workflow — light 390 (4.1s)
+  ✓   2 e2e/forms/customers.spec.ts:3:2 › Customer FormModal contract workflow — light 768 (4.2s)
+  ✓   3 e2e/forms/customers.spec.ts:3:2 › Customer FormModal contract workflow — light 1440 (6.4s)
+  ✓   4 e2e/forms/customers.spec.ts:3:2 › Customer FormModal contract workflow — dark 390 (5.6s)
+  ✓   5 e2e/forms/customers.spec.ts:3:2 › Customer FormModal contract workflow — dark 768 (6.1s)
+  ✓   6 e2e/forms/customers.spec.ts:3:2 › Customer FormModal contract workflow — dark 1440 (7.5s)
+  ✓   7 e2e/forms/flight.spec.ts:35:3 › Flight create/edit/cancel/error/refresh — light 390 (6.2s)
+  ✓   8 e2e/forms/flight.spec.ts:35:3 › Flight create/edit/cancel/error/refresh — light 768 (4.8s)
+  ✓   9 e2e/forms/flight.spec.ts:35:3 › Flight create/edit/cancel/error/refresh — light 1440 (4.8s)
+  ✓  10 e2e/forms/flight.spec.ts:35:3 › Flight create/edit/cancel/error/refresh — dark 390 (3.5s)
+  ✓  11 e2e/forms/flight.spec.ts:35:3 › Flight create/edit/cancel/error/refresh — dark 768 (3.6s)
+  ✓  12 e2e/forms/flight.spec.ts:35:3 › Flight create/edit/cancel/error/refresh — dark 1440 (4.7s)
+  ✓  13 e2e/forms/flight.spec.ts:93:1 › Bosnian labels, localized validation, keyboard focus and pending-submit protection (1.3s)
+  ✓  14 e2e/forms/flight.spec.ts:122:1 › Flight status filter uses the API contract through the real toolbar (1.2s)
+
+  14 passed (1.1m)

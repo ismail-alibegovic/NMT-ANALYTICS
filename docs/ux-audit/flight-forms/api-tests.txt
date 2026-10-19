@@ -1,0 +1,56 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> travline-api@1.0.0 test
+> vitest run
+
+
+ RUN  v4.1.10 /workspace/repos/travline-forms/nmt-analytics-api
+
+stdout | src/tests/publicFormFraming.test.ts
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stderr | src/tests/publicFormFraming.test.ts
+[CONFIG] Supabase Host: example.supabase.co
+[CONFIG] Service Role Key: configured
+
+stdout | src/tests/publicFormFraming.test.ts
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stderr | src/tests/publicFormFraming.test.ts
+--- Supabase Configuration Check ---
+Current Dir: /workspace/repos/travline-forms/nmt-analytics-api/src/lib
+Project Root (inferred): /workspace/repos/travline-forms/nmt-analytics-api
+URL: ✅ Loaded
+Anon Key: ✅ Loaded
+Service Role Key: ✅ Loaded
+------------------------------------
+
+stdout | src/tests/publicFormFraming.test.ts
+[sentry] SENTRY_DSN absent or invalid — error capture disabled.
+
+stdout | src/tests/publicFormFraming.test.ts
+[SMTP] SMTP_CONFIG not set — using mock email provider
+
+ ❯ src/tests/publicFormFraming.test.ts (2 tests | 1 failed) 5038ms
+     × keeps clickjacking protection on other routes 5003ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/publicFormFraming.test.ts > public form iframe embedding headers > keeps clickjacking protection on other routes
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/tests/publicFormFraming.test.ts:11:3
+      9|   });
+     10|
+     11|   it('keeps clickjacking protection on other routes', async () => {
+       |   ^
+     12|     const res = await request(app).get('/api/health');
+     13|     expect(res.headers['x-frame-options']).toBe('SAMEORIGIN');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 89 passed (90)
+      Tests  1 failed | 877 passed (878)
+   Start at  09:54:13
+   Duration  57.56s (transform 3.59s, setup 0ms, import 18.55s, tests 18.02s, environment 14ms)

@@ -6,9 +6,13 @@ import Button from "../../components/ui/button/Button";
 import { DataTable, Column } from "../../components/ui/DataTable";
 import EmptyState from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/modal";
+import Input from "../../components/form/input/InputField";
+import Label from "../../components/form/Label";
+import Select from "../../components/form/Select";
 import Badge from "../../components/ui/badge/Badge";
 import { useToast } from "../../context/ToastContext";
 import { useApp } from "../../context/AppContext";
+import { toDateTimeInput as flightLocalTime, fromDateTimeInput } from "../../utils/dateTimeInput";
 import { useT } from "../../lib/i18n/context";
 import { TrashBinIcon } from "../../icons";
 import {
@@ -19,6 +23,11 @@ import {
   deleteFlight,
   type Flight,
 } from "../../api/flights";
+
+// An unchanged minute-level control must retain any stored seconds/milliseconds.
+function serializeFlightTime(value: string, original?: string) {
+  return fromDateTimeInput(original && value === flightLocalTime(original) ? original : value);
+}
 
 type StatusFilter = "" | "active" | "inactive";
 
@@ -65,6 +74,14 @@ export default function Flights() {
 
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [submitting, setSubmitting] = useState(false);
+  const submitLock = useRef(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [saveError, setSaveError] = useState("");
+  const closeForm = () => {
+    if (submitLock.current) return;
+    setIsModalOpen(false);
+    setEditingFlight(null);
+  };
   const focusedFlightId = searchParams.get("flightId");
 
   const fetchFlights = useCallback(async (nextSearch: string, nextStatus: StatusFilter) => {
@@ -72,7 +89,7 @@ export default function Flights() {
       setLoading(true);
       const params: { search?: string; active?: string; limit?: number } = { limit: 200 };
       if (nextSearch.trim()) params.search = nextSearch.trim();
-      if (nextStatus) params.active = nextStatus;
+      if (nextStatus) params.active = nextStatus === "active" ? "true" : "false";
       const result = await getFlights(params);
       const rows = result.data || [];
       const sorted = focusedFlightId
@@ -103,6 +120,8 @@ export default function Flights() {
 
   const openCreate = () => {
     setEditingFlight(null);
+    setFormErrors({});
+    setSaveError("");
     setForm({ ...EMPTY_FORM });
     setIsModalOpen(true);
   };
@@ -111,15 +130,17 @@ export default function Flights() {
     try {
       const fresh = await getFlight(f.id);
       setEditingFlight(fresh);
+      setFormErrors({});
+      setSaveError("");
       setForm({
         airline: fresh.airline,
         flightNumber: fresh.flightNumber,
         departureAirport: fresh.departureAirport,
         arrivalAirport: fresh.arrivalAirport,
-        departureTime: fresh.departureTime ? fresh.departureTime.slice(0, 16) : "",
-        arrivalTime: fresh.arrivalTime ? fresh.arrivalTime.slice(0, 16) : "",
+        departureTime: fresh.departureTime ? flightLocalTime(fresh.departureTime) : "",
+        arrivalTime: fresh.arrivalTime ? flightLocalTime(fresh.arrivalTime) : "",
         capacity: String(fresh.capacity ?? ""),
-        basePrice: fresh.basePrice ? String(fresh.basePrice) : "",
+        basePrice: fresh.basePrice != null ? String(fresh.basePrice) : "",
         currency: fresh.currency || "BAM",
         notes: fresh.notes || "",
         active: fresh.active,
@@ -130,18 +151,36 @@ export default function Flights() {
     }
   };
 
-  const setField = (key: keyof typeof EMPTY_FORM, value: string | boolean) =>
+  const setField = (key: keyof typeof EMPTY_FORM, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+    setFormErrors((prev) => ({ ...prev, [key]: "" }));
+    setSaveError("");
+  };
 
-  const handleSubmit = async () => {
-    if (!form.airline.trim() || !form.flightNumber.trim() || !form.departureAirport.trim() || !form.arrivalAirport.trim()) {
-      showError(tr.requiredFields);
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (submitLock.current) return;
+    const errors: Record<string, string> = {};
+    for (const key of ["airline", "flightNumber", "departureAirport", "arrivalAirport", "departureTime", "arrivalTime"] as const) {
+      if (!form[key].trim()) errors[key] = tr.requiredFields;
+    }
+    for (const key of ["departureAirport", "arrivalAirport"] as const) {
+      if (form[key] && !/^[A-Z]{3}$/.test(form[key].trim().toUpperCase())) errors[key] = tr.airportError;
+    }
+    if (form.departureAirport.trim() && form.departureAirport.trim().toUpperCase() === form.arrivalAirport.trim().toUpperCase()) errors.arrivalAirport = tr.sameAirportError;
+    for (const key of ["departureTime", "arrivalTime"] as const) {
+      if (form[key] && (!Number.isFinite(new Date(form[key]).getTime()) || flightLocalTime(form[key]) !== form[key])) errors[key] = tr.dateError;
+    }
+    if (form.departureTime && form.arrivalTime && new Date(form.arrivalTime) <= new Date(form.departureTime)) errors.arrivalTime = tr.chronologyError;
+    if (form.capacity === "" || !Number.isSafeInteger(Number(form.capacity)) || Number(form.capacity) <= 0) errors.capacity = tr.capacityError;
+    if (form.basePrice !== "" && (!Number.isFinite(Number(form.basePrice)) || Number(form.basePrice) < 0)) errors.basePrice = tr.priceError;
+    setFormErrors(errors);
+    if (Object.keys(errors).length) {
+      document.getElementById(`flight-${Object.keys(errors)[0]}`)?.focus();
       return;
     }
-    if (form.departureTime && form.arrivalTime && new Date(form.arrivalTime) <= new Date(form.departureTime)) {
-      showError(tr.chronologyError);
-      return;
-    }
+    submitLock.current = true;
+    setSaveError("");
     try {
       setSubmitting(true);
       const payload = {
@@ -149,12 +188,12 @@ export default function Flights() {
         flightNumber: form.flightNumber.trim(),
         departureAirport: form.departureAirport.trim().toUpperCase(),
         arrivalAirport: form.arrivalAirport.trim().toUpperCase(),
-        departureTime: form.departureTime ? new Date(form.departureTime).toISOString() : "",
-        arrivalTime: form.arrivalTime ? new Date(form.arrivalTime).toISOString() : "",
+        departureTime: serializeFlightTime(form.departureTime, editingFlight?.departureTime),
+        arrivalTime: serializeFlightTime(form.arrivalTime, editingFlight?.arrivalTime),
         capacity: form.capacity === "" ? undefined : Number(form.capacity),
-        basePrice: form.basePrice === "" ? undefined : Number(form.basePrice),
+        basePrice: form.basePrice === "" ? 0 : Number(form.basePrice),
         currency: form.currency,
-        notes: form.notes || undefined,
+        notes: form.notes.trim() || null,
         active: form.active,
       };
       if (editingFlight) {
@@ -169,8 +208,9 @@ export default function Flights() {
       setForm({ ...EMPTY_FORM });
       fetchFlights(search, statusFilter);
     } catch (err: any) {
-      showError(err?.message || (editingFlight ? tr.editError : tr.createError));
+      setSaveError(err?.message || (editingFlight ? tr.editError : tr.createError));
     } finally {
+      submitLock.current = false;
       setSubmitting(false);
     }
   };
@@ -325,7 +365,7 @@ export default function Flights() {
         filters={[
           {
             key: "status",
-            label: tr.status,
+            label: t.common.status,
             value: statusFilter,
             onChange: (value) => setStatusFilter(value as StatusFilter),
             options: [
@@ -345,7 +385,7 @@ export default function Flights() {
           <EmptyState
             title={tr.emptyTitle}
             description={tr.emptyDescription}
-            action={{ label: tr.add, onClick: () => { setEditingFlight(null); setForm({ ...EMPTY_FORM }); setIsModalOpen(true); } }}
+            action={{ label: tr.add, onClick: openCreate }}
           />
         ) : (
           <DataTable
@@ -355,112 +395,60 @@ export default function Flights() {
         )}
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingFlight(null); }} className="max-w-lg">
-        <div className="space-y-4">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-            {editingFlight ? tr.editTitle : tr.createTitle}
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              placeholder={tr.airlinePlaceholder}
-              value={form.airline}
-              onChange={(e) => setField("airline", e.target.value)}
-              className="col-span-2 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
-            />
-            <input
-              placeholder={tr.flightNumberPlaceholder}
-              value={form.flightNumber}
-              onChange={(e) => setField("flightNumber", e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700"
-            />
-            <div className="flex items-end">
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                <input
-                  type="checkbox"
-                  checked={form.active}
-                  onChange={(e) => setField("active", e.target.checked)}
-                  className="size-4 rounded border-gray-300"
-                />
-                {form.active ? tr.statusActive : tr.statusInactive}
-              </label>
+      <Modal isOpen={isModalOpen} onClose={closeForm} className="max-w-2xl" scrollable closeLabel={t.common.close} title={editingFlight ? tr.editTitle : tr.createTitle}>
+        <form onSubmit={handleSubmit} noValidate className="space-y-6 p-4 sm:p-6" aria-busy={submitting}>
+          <fieldset disabled={submitting} className="min-w-0 space-y-5">
+            <legend className="mb-4 text-sm text-gray-600 dark:text-gray-400">{tr.requiredHint}</legend>
+            <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+              {([
+                ["airline", tr.airline, tr.airlinePlaceholder, "text", true],
+                ["flightNumber", tr.flightNumberLabel, tr.flightNumberPlaceholder, "text", true],
+                ["departureAirport", tr.departureAirportLabel, tr.departureAirportPlaceholder, "text", true],
+                ["arrivalAirport", tr.arrivalAirportLabel, tr.arrivalAirportPlaceholder, "text", true],
+                ["departureTime", tr.departureTime, "", "datetime-local", true],
+                ["arrivalTime", tr.arrivalTime, "", "datetime-local", true],
+                ["capacity", tr.capacity, tr.capacityPlaceholder, "number", true],
+                ["basePrice", tr.pricePlaceholder, "0.00", "number", false],
+              ] as const).map(([key, label, placeholder, type, required]) => (
+                <div key={key} className="min-w-0">
+                  <Label htmlFor={`flight-${key}`}>{label}{required && <span aria-hidden="true"> *</span>}</Label>
+                  <Input id={`flight-${key}`} name={key} type={type} required={required}
+                    placeholder={placeholder} value={form[key]} onChange={(e) => setField(key, e.target.value)}
+                    min={key === "capacity" ? "1" : key === "basePrice" ? "0" : undefined}
+                    step={key === "capacity" ? 1 : key === "basePrice" ? 0.01 : undefined}
+                    maxLength={key.endsWith("Airport") ? 3 : undefined}
+                    className={key.endsWith("Airport") ? "uppercase" : ""}
+                    error={!!formErrors[key]} hint={formErrors[key]} />
+                </div>
+              ))}
+              <div className="min-w-0">
+                <Label htmlFor="flight-currency">{tr.currencyLabel}</Label>
+                <Select id="flight-currency" name="currency" placeholder={tr.currencyLabel} value={form.currency} onChange={(value) => setField("currency", value)}
+                  options={Array.from(new Set(["BAM", "EUR", "USD", "TRY", form.currency])).map(value => ({ value, label: value }))} />
+              </div>
+              <div className="flex min-h-11 items-center sm:pt-7">
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input type="checkbox" checked={form.active} onChange={(e) => setField("active", e.target.checked)} className="size-4 rounded border-gray-300" />
+                  {tr.statusActive}
+                </label>
+              </div>
             </div>
-            <input
-              placeholder={tr.departureAirportPlaceholder}
-              value={form.departureAirport}
-              onChange={(e) => setField("departureAirport", e.target.value)}
-              maxLength={3}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase dark:bg-gray-800 dark:border-gray-700"
-            />
-            <input
-              placeholder={tr.arrivalAirportPlaceholder}
-              value={form.arrivalAirport}
-              onChange={(e) => setField("arrivalAirport", e.target.value)}
-              maxLength={3}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase dark:bg-gray-800 dark:border-gray-700"
-            />
+            <p className="text-xs text-gray-600 dark:text-gray-400">{tr.timezoneHint} {Intl.DateTimeFormat().resolvedOptions().timeZone}</p>
             <div>
-              <label className="text-xs text-gray-500">{tr.departureTime}</label>
-              <input
-                type="datetime-local"
-                value={form.departureTime}
-                onChange={(e) => setField("departureTime", e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700"
-              />
+              <Label htmlFor="flight-notes">{tr.notesLabel}</Label>
+              <textarea id="flight-notes" name="notes" value={form.notes} onChange={(e) => setField("notes", e.target.value)}
+                rows={3} placeholder={tr.notesPlaceholder}
+                className="w-full min-w-0 resize-y rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
             </div>
-            <div>
-              <label className="text-xs text-gray-500">{tr.arrivalTime}</label>
-              <input
-                type="datetime-local"
-                value={form.arrivalTime}
-                onChange={(e) => setField("arrivalTime", e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700"
-              />
-            </div>
-            <input
-              type="number"
-              min={1}
-              placeholder={tr.capacityPlaceholder}
-              value={form.capacity}
-              onChange={(e) => setField("capacity", e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700"
-            />
-            <div className="flex gap-2">
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                placeholder={tr.pricePlaceholder}
-                value={form.basePrice}
-                onChange={(e) => setField("basePrice", e.target.value)}
-                className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700"
-              />
-              <select
-                value={form.currency}
-                onChange={(e) => setField("currency", e.target.value)}
-                className="rounded-lg border border-gray-300 px-2 py-2 text-sm dark:bg-gray-800 dark:border-gray-700"
-              >
-                <option value="BAM">BAM</option>
-                <option value="EUR">EUR</option>
-                <option value="USD">USD</option>
-                <option value="TRY">TRY</option>
-              </select>
-            </div>
-            <input
-              placeholder={tr.notesPlaceholder}
-              value={form.notes}
-              onChange={(e) => setField("notes", e.target.value)}
-              className="col-span-2 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700"
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => { setIsModalOpen(false); setEditingFlight(null); }}>
-              {tr.cancel}
-            </Button>
-            <Button variant="primary" onClick={handleSubmit} disabled={submitting}>
+          </fieldset>
+          {saveError && <p role="alert" className="rounded-lg bg-error-50 p-3 text-sm text-error-700 dark:bg-error-500/10 dark:text-error-400">{saveError}</p>}
+          <div className="flex flex-wrap justify-end gap-3 border-t border-gray-200 pt-4 dark:border-gray-800">
+            <Button variant="outline" onClick={closeForm} disabled={submitting}>{tr.cancel}</Button>
+            <Button type="submit" variant="primary" disabled={submitting}>
               {submitting ? (editingFlight ? tr.updating : tr.creating) : editingFlight ? tr.update : tr.create}
             </Button>
           </div>
-        </div>
+        </form>
       </Modal>
 
       <Modal isOpen={!!relatedDeparturesFlight} onClose={() => setRelatedDeparturesFlight(null)} className="max-w-2xl">
