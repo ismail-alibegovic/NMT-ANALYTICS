@@ -42,6 +42,7 @@ docs/operations/forms-finance-audit/checks/api-tests.txt
 docs/operations/forms-finance-audit/checks/browser-contracts.txt
 docs/operations/forms-finance-audit/checks/browser-inventory.txt
 docs/operations/forms-finance-audit/checks/cost-before.txt
+docs/operations/forms-finance-audit/checks/report-date-before.txt
 docs/operations/forms-finance-audit/checks/supplier-after.txt
 docs/operations/forms-finance-audit/checks/supplier-before.txt
 docs/operations/forms-finance-audit/components.json
@@ -77,9 +78,11 @@ nmt-analytics-admin/src/tests/revenueChartLocale.test.tsx
 nmt-analytics-admin/src/tests/supplierPayables.test.tsx
 nmt-analytics-admin/src/utils/paymentDate.ts
 nmt-analytics-admin/vite.finance-forms.config.ts
+nmt-analytics-api/src/routes/analytics.ts
 nmt-analytics-api/src/routes/payments.ts
 nmt-analytics-api/src/routes/reports.ts
 nmt-analytics-api/src/scripts/seed_acceptance.ts
+nmt-analytics-api/src/tests/currencyAnalyticsRoutes.test.ts
 nmt-analytics-api/src/tests/paymentRefundSafety.test.ts
 nmt-analytics-api/src/tests/publicFormFraming.test.ts
 nmt-analytics-api/src/tests/reportFailureSafety.test.ts

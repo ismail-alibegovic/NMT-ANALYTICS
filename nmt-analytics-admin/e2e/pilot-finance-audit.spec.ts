@@ -25,6 +25,7 @@ for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`real
  let intercepted=0;await page.route('**/api/payments',async route=>{if(route.request().method()!=='POST'){await route.continue();return;}intercepted++;if(intercepted===1)await route.fulfill({status:503,json:{error:{code:'AUDIT_SYNTHETIC_FAILURE',message:'Synthetic failure'}}});else {await new Promise(r=>setTimeout(r,300));await route.continue();}});
  await form.getByLabel('Method',{exact:true}).selectOption('bank_transfer');await form.getByLabel('Date *',{exact:true}).fill('2041-04-23');
  await form.getByRole('button',{name:'Add Payment',exact:true}).click();await expect(form.getByRole('alert')).toBeVisible();await expect(form.getByLabel('Amount *',{exact:true})).toHaveValue('90');
+ await testInfo.attach(`add-form-${theme}-${width}`,{body:await page.screenshot(),contentType:'image/png'});
  const paying=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith('/api/payments')&&r.status()===201);
  await form.evaluate(e=>{e.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));e.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
  await page.keyboard.press('Escape');await expect(form).toBeVisible();const paid=await json(await paying);expect(intercepted).toBe(2);expect(paid.reservation.paidAmount).toBe(90);await expect(form).toBeHidden();
@@ -35,11 +36,20 @@ for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`real
  const row=page.getByRole('row').filter({hasText:marker});await row.getByRole('button',{name:'Plaćanja',exact:true}).click();
  const modal=page.locator('.modal').first();await modal.getByRole('button',{name:'Refund',exact:true}).locator('..').getByRole('button',{name:'Edit',exact:true}).click();
  const edit=page.getByRole('form',{name:'Edit Payment',exact:true});await edit.getByLabel('Method',{exact:true}).selectOption('card');
+ await testInfo.attach(`edit-form-${theme}-${width}`,{body:await page.screenshot(),contentType:'image/png'});
  const saving=page.waitForResponse(r=>r.request().method()==='PATCH'&&r.url().endsWith(`/payments/${paid.payment.id}`));await edit.getByRole('button',{name:'Save',exact:true}).click();await json(await saving,200);await expect(edit).toBeHidden();
  const stored=await json(await request.get(`${api}/api/payments?reservation_id=${res.id}`,{headers}),200);expect(stored.data.find((p:any)=>p.id===paid.payment.id).paymentMethod).toBe('card');
  page.once('dialog',dialog=>dialog.accept('Isolated audit refund'));const refund=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith(`/payments/${paid.payment.id}/refund`));await modal.getByRole('button',{name:'Refund',exact:true}).click();await json(await refund,200);
  const final=await json(await request.get(`${api}/api/reservations/${res.id}`,{headers}),200);expect(final.paidAmount).toBe(0);expect(final.balanceDue).toBe(180);
  await page.reload();await page.getByPlaceholder('Traži klijenta ili telefon...').fill(marker);await page.getByRole('row').filter({hasText:marker}).getByRole('button',{name:'Plaćanja',exact:true}).click();await expect(page.locator('.modal').getByText('Refunded',{exact:true})).toBeVisible();
+ await page.locator('.modal').getByRole('button',{name:'+ Add Payment',exact:true}).click();
+ const embedded=page.getByRole('form',{name:'Add Payment',exact:true});await embedded.getByLabel('Amount *',{exact:true}).fill('30');
+ await testInfo.attach(`embedded-form-${theme}-${width}`,{body:await page.screenshot(),contentType:'image/png'});
+ const adding=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith('/api/payments')&&r.status()===201);
+ await embedded.getByRole('button',{name:'Add Payment',exact:true}).click();await json(await adding);
+ await expect(embedded).toBeHidden();const extra=await json(await request.get(`${api}/api/reservations/${res.id}`,{headers}),200);expect(extra.paidAmount).toBe(30);expect(extra.balanceDue).toBe(150);
+ await page.reload();const persisted=await json(await request.get(`${api}/api/payments?reservation_id=${res.id}`,{headers}),200);expect(persisted.data.filter((p:any)=>p.status==='succeeded')).toEqual([expect.objectContaining({amount:30})]);
+
 });
 test('refund eligibility concurrent refunds tenant isolation reports and ledger agree',async({request})=>{
  test.skip(!enabled,'NOT TESTED: disposable local Auth/API required');expect(local(api)&&local(auth)).toBe(true);test.setTimeout(60_000);
@@ -48,7 +58,7 @@ test('refund eligibility concurrent refunds tenant isolation reports and ledger 
  for(const status of ['pending','failed','cancelled']){const p=await create(status,5);const r=await request.post(`${api}/api/payments/${p.payment.id}/refund`,{headers,data:{}});expect(r.status()).toBe(409);expect((await r.json()).code).toBe('PAYMENT_NOT_REFUNDABLE');}
  const p=await create('succeeded',60);
  expect((await request.patch(`${api}/api/payments/${p.payment.id}`,{headers:other,data:{amount:65}})).status()).toBe(404);
- const corrected=await json(await request.patch(`${api}/api/payments/${p.payment.id}`,{headers,data:{amount:65}}),200);expect(corrected.reservation.paidAmount).toBe(65);
+ const corrected=await json(await request.patch(`${api}/api/payments/${p.payment.id}`,{headers,data:{amount:65}}),200);expect(corrected.affectedReservations.find((row:any)=>row.id===res.id).paidAmount).toBe(65);
  expect((await request.post(`${api}/api/payments/${p.payment.id}/refund`,{headers:other,data:{}})).status()).toBe(404);
  const outcomes=await Promise.all([0,1,2].map(()=>request.post(`${api}/api/payments/${p.payment.id}/refund`,{headers,data:{}})));expect(outcomes.filter(r=>r.status()===200)).toHaveLength(1);expect(outcomes.filter(r=>[400,409].includes(r.status()))).toHaveLength(2);
  const final=await json(await request.get(`${api}/api/reservations/${res.id}`,{headers}),200);const payments=await json(await request.get(`${api}/api/payments?reservation_id=${res.id}`,{headers}),200);expect(final.paidAmount).toBe(payments.data.filter((p:any)=>p.status==='succeeded').reduce((sum:number,p:any)=>sum+p.amount,0));expect(final.balanceDue).toBe(180);
@@ -68,6 +78,8 @@ for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`real
  await page.getByLabel('To:',{exact:true}).fill(date);const overview=await json(await refresh,200);expect(overview).toMatchObject({total_amount_sum:180,total_paid_sum:60,total_balance_sum:120});
  await expect(page.getByText(/180[,.]00/).first()).toBeVisible();
  const exported=page.waitForResponse(r=>r.url().includes('/analytics/overview.csv?'));const download=page.waitForEvent('download');await page.getByRole('button',{name:'Export Overview CSV',exact:true}).click();const csvResponse=await exported;expect(csvResponse.status()).toBe(200);expect(csvResponse.request().headers().authorization).toMatch(/^Bearer /);expect(await csvResponse.text()).toContain('Total Amount Sum,180.00,BAM');await download;
+ const packageExport=page.waitForResponse(r=>r.url().includes('/analytics/by-package.csv?'));const packageDownload=page.waitForEvent('download');await page.getByRole('button',{name:'Export Package CSV',exact:true}).click();const packageCSV=await packageExport;expect(packageCSV.status()).toBe(200);expect(packageCSV.request().headers().authorization).toMatch(/^Bearer /);expect(await packageCSV.text()).toContain('180.00,60.00,120.00');await packageDownload;
+
  await testInfo.attach(`report-${theme}-${width}`,{body:await page.screenshot(),contentType:'image/png'});
  let fail=true;await page.route('**/api/analytics/overview-v2?**',async route=>{if(fail)await route.fulfill({status:503,json:{error:{code:'AUDIT_SYNTHETIC_FAILURE',message:'Synthetic failure'}}});else await route.continue();});
  await page.getByRole('button',{name:'Last 30 Days',exact:true}).click();await expect(page.getByRole('alert')).toBeVisible();await expect(page.getByRole('button',{name:'Export Overview CSV',exact:true})).toBeDisabled();fail=false;await page.getByRole('button',{name:'Retry',exact:true}).click();await expect(page.getByRole('alert')).toBeHidden();

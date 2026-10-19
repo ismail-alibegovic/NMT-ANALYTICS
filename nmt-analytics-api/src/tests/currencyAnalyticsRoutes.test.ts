@@ -5,6 +5,7 @@ import request from 'supertest';
 const ORG = 'org-1';
 
 let rows: Record<string, any[]> = {};
+let errorTable: string | undefined;
 
 vi.mock('../middleware/authenticateToken', () => ({
   authenticateToken: (req: any, _res: any, next: any) => {
@@ -71,6 +72,7 @@ function query(table: string) {
     }),
     order: vi.fn(() => api),
     then(resolve: any) {
+      if (table === errorTable) return Promise.resolve({ data: null, error: { message: "Synthetic query failure" }, count: 0 }).then(resolve);
       const result = (rows[table] || []).filter((row) => state.filters.every((filter) => filter(row)));
       return Promise.resolve({
         data: state.countMode ? null : result,
@@ -97,6 +99,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  errorTable = undefined;
   rows = {
     payments: [
       {
@@ -304,6 +307,7 @@ describe('currency-aware analytics routes', () => {
       {
         ...rows.reservations[1],
         id: 'res-eur-old',
+        reservation_at: '2025-12-15T08:00:00.000Z',
         total_amount: 999,
         paid_amount: 0,
         balance_due: 999,
@@ -481,5 +485,24 @@ describe('currency-safe CSV exports', () => {
     expect(csv).toContain('Metric,Value,Currency');
     expect(csv).toContain('Date From,2027-01-01,');
     expect(csv).not.toContain('Total Amount Sum');
+  });
+});
+
+describe('report booking-date consistency and unavailable payment metrics', () => {
+  it.each(['overview-v2','by-package','revenue-series'])('uses reservation_at in %s even when entered later', async endpoint => {
+    rows.reservations[0].created_at = '2026-02-15T08:00:00.000Z';
+    const r = await request(app).get(`/api/analytics/${endpoint}?from=2026-01-15&to=2026-01-15&currency=BAM`);
+    expect(r.status).toBe(200);
+    if (endpoint === 'overview-v2') expect(r.body.total_amount_sum).toBe(100);
+    else expect(r.body.data.reduce((sum: number, row: any) => sum + row.total_amount_sum, 0)).toBe(100);
+  });
+  it('exports the same booking-date population as the screen', async () => {
+    rows.reservations[0].created_at = '2026-02-15T08:00:00.000Z';
+    const r = await request(app).get('/api/analytics/overview.csv?from=2026-01-15&to=2026-01-15&currency=BAM');
+    expect(r.status).toBe(200); expect(r.text).toContain('Total Amount Sum,100.00,BAM');
+  });
+  it.each(['overview-v2','revenue-series'])('fails closed when payment metrics are unavailable in %s', async endpoint => {
+    errorTable='payments';const r=await request(app).get(`/api/analytics/${endpoint}`);
+    expect(r.status).toBe(500);expect(r.body.code).toBe('QUERY_ERROR');expect(r.body).not.toHaveProperty('payments_sum');
   });
 });

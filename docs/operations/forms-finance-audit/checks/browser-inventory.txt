@@ -15,13 +15,13 @@ Listing tests:
   [chromium] › pilot-finance-audit.spec.ts:15:71 › real payment installment edit refund reload dark 390
   [chromium] › pilot-finance-audit.spec.ts:15:71 › real payment installment edit refund reload dark 768
   [chromium] › pilot-finance-audit.spec.ts:15:71 › real payment installment edit refund reload dark 1440
-  [chromium] › pilot-finance-audit.spec.ts:44:1 › refund eligibility concurrent refunds tenant isolation reports and ledger agree
-  [chromium] › pilot-finance-audit.spec.ts:57:71 › real financial report and authenticated CSV light 390
-  [chromium] › pilot-finance-audit.spec.ts:57:71 › real financial report and authenticated CSV light 768
-  [chromium] › pilot-finance-audit.spec.ts:57:71 › real financial report and authenticated CSV light 1440
-  [chromium] › pilot-finance-audit.spec.ts:57:71 › real financial report and authenticated CSV dark 390
-  [chromium] › pilot-finance-audit.spec.ts:57:71 › real financial report and authenticated CSV dark 768
-  [chromium] › pilot-finance-audit.spec.ts:57:71 › real financial report and authenticated CSV dark 1440
+  [chromium] › pilot-finance-audit.spec.ts:54:1 › refund eligibility concurrent refunds tenant isolation reports and ledger agree
+  [chromium] › pilot-finance-audit.spec.ts:69:71 › real financial report and authenticated CSV light 390
+  [chromium] › pilot-finance-audit.spec.ts:69:71 › real financial report and authenticated CSV light 768
+  [chromium] › pilot-finance-audit.spec.ts:69:71 › real financial report and authenticated CSV light 1440
+  [chromium] › pilot-finance-audit.spec.ts:69:71 › real financial report and authenticated CSV dark 390
+  [chromium] › pilot-finance-audit.spec.ts:69:71 › real financial report and authenticated CSV dark 768
+  [chromium] › pilot-finance-audit.spec.ts:69:71 › real financial report and authenticated CSV dark 1440
   [chromium] › pilot-import-security.spec.ts:45:3 › Import security (isolated Supabase) › agent is forbidden; manager imports; other tenant neither sees nor blocks; duplicates and reservations are rejected
   [chromium] › pilot-inquiry-quotation.spec.ts:10:3 › preserves inquiry and quotation version in bs at 1440px
   [chromium] › pilot-inquiry-quotation.spec.ts:10:3 › preserves inquiry and quotation version in en at 390px
@@ -45,13 +45,13 @@ Listing tests:
   [chromium] › pilot-quotation-lock.spec.ts:67:1 › approval serializes concurrent item editing and rejects empty or mixed-currency pricing
   [chromium] › pilot-quotation-lock.spec.ts:96:1 › creates complete unique snapshots concurrently and leaves no record on item failure
   [chromium] › pilot-recovery.spec.ts:3:1 › recovers a saved sale once, preserves passengers and permits payment only after completion
-  [chromium] › pilot-supplier-payables.spec.ts:24:3 › issues pays reverses and cancels a supplier obligation in en at 390px light
-  [chromium] › pilot-supplier-payables.spec.ts:24:3 › issues pays reverses and cancels a supplier obligation in en at 768px light
-  [chromium] › pilot-supplier-payables.spec.ts:24:3 › issues pays reverses and cancels a supplier obligation in en at 1440px light
-  [chromium] › pilot-supplier-payables.spec.ts:24:3 › issues pays reverses and cancels a supplier obligation in bs at 390px dark
-  [chromium] › pilot-supplier-payables.spec.ts:24:3 › issues pays reverses and cancels a supplier obligation in bs at 768px dark
-  [chromium] › pilot-supplier-payables.spec.ts:24:3 › issues pays reverses and cancels a supplier obligation in bs at 1440px dark
-  [chromium] › pilot-supplier-payables.spec.ts:134:1 › supplier ledger serializes payments and rejects foreign roles organizations and excess money
+  [chromium] › pilot-supplier-payables.spec.ts:25:3 › issues pays reverses and cancels a supplier obligation in en at 390px light
+  [chromium] › pilot-supplier-payables.spec.ts:25:3 › issues pays reverses and cancels a supplier obligation in en at 768px light
+  [chromium] › pilot-supplier-payables.spec.ts:25:3 › issues pays reverses and cancels a supplier obligation in en at 1440px light
+  [chromium] › pilot-supplier-payables.spec.ts:25:3 › issues pays reverses and cancels a supplier obligation in bs at 390px dark
+  [chromium] › pilot-supplier-payables.spec.ts:25:3 › issues pays reverses and cancels a supplier obligation in bs at 768px dark
+  [chromium] › pilot-supplier-payables.spec.ts:25:3 › issues pays reverses and cancels a supplier obligation in bs at 1440px dark
+  [chromium] › pilot-supplier-payables.spec.ts:138:1 › supplier ledger serializes payments and rejects foreign roles organizations and excess money
   [chromium] › pilot-today.spec.ts:9:3 › Today opens outstanding supplier confirmations in bs at 1440px
   [chromium] › pilot-today.spec.ts:9:3 › Today opens outstanding supplier confirmations in en at 390px
   [chromium] › pilot.spec.ts:72:3 › Travline browser pilot acceptance › manager can authenticate through the real staging session
