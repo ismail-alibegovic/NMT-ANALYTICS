@@ -26,9 +26,9 @@ const listQuerySchema = z
   .transform((data) => ({ ...data, ...getPaginationParams(data) }));
 
 const createSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
+  name: z.string().trim().min(1, 'Name is required'),
   phone: z.string().optional(),
-  email: z.string().email().optional(),
+  email: z.preprocess(value => typeof value === 'string' && !value.trim() ? undefined : value, z.string().trim().email().optional()),
   commissionRate: z.number().min(0).max(100).default(0),
   partnerType: z.enum(['bronze', 'silver', 'gold', 'platinum']).default('bronze'),
 });
@@ -55,7 +55,7 @@ function transformSubAgent(s: any) {
     portalLastSeenAt: s.portal_last_seen_at || null,
     isActive: s.is_active,
     createdAt: s.created_at,
-    sales: s.sales,
+    sales: s.sub_agent_sales || s.sales,
   };
 }
 
@@ -68,13 +68,13 @@ router.get('/subagents', authenticateToken, requireOrgContext, async (req, res, 
     const orgId = req.orgId!;
     const { data, error, count } = await supabaseAdmin
       .from('sub_agents')
-      .select('*, sub_agent_sales(*)')
+      .select('*, sub_agent_sales(*)', { count: 'exact' })
       .eq('org_id', orgId)
       .order('created_at', { ascending: false })
       .range(0, 99);
     if (error) throw error;
 
-    return res.json(formatListResponse(data || [], count || 0, 1, 25));
+    return res.json(formatListResponse((data || []).map(transformSubAgent), count || 0, 1, 100));
   } catch (err) { next(err); }
 });
 
