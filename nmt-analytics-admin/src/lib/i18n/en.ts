@@ -1376,6 +1376,9 @@ export const en = {
       flightSavedLegacy: 'Linked flight updated',
     },
     subagents: {
+      portalDescription: "Generate a secure link to view sales and documents. It is valid for 90 days and can be revoked.", portalLink: "Portal link", copied: "Link copied", copyError: "Link could not be copied", copy: "Copy", shareLink: "Share this private link with {name}. The URL contains their access credential.", replaceLink: "Generate a new link to replace it.", noLink: "No active portal link. Generate one to enable access.", revoke: "Revoke", generateLink: "Generate link", revokeConfirm: "Revoke portal access for {name}?", revoked: "Portal access revoked", portalError: "Portal access could not be updated",
+      portal: {"retry": "Retry", "error": "Error", "title": "Travline · Sub-agent portal", "contactAgency": "Contact the agency for a new link.", "totalSales": "Displayed sales (up to 100)", "yourCommission": "Commission shown", "revenue": "Revenue shown", "commissionRate": "Your commission rate", "expires": "Link expires", "sales": "Sales", "empty": "No recorded sales.", "customer": "Customer", "departure": "Departure", "amount": "Amount", "commission": "Commission", "status": "Status", "documents": "Documents", "linkStatus": "Portal link is", "lastSeen": "Last access", "valid": "Active", "expired": "Expired", "revoked": "Revoked", "not_found": "Unknown"},
+      created: 'Sub-agent created', createError: 'Sub-agent could not be created', partnerType: 'Partner type', bronze: 'Bronze', silver: 'Silver', gold: 'Gold', platinum: 'Platinum',
       title: 'Sub-agent network', description: 'Manage sub-agents and auto-generate document bundles (najava, ugovor, faktura)',
       add: 'Add Sub-agent', generateSale: 'Generate Sale', generating: 'Generating…',
       name: 'Name', phone: 'Phone', email: 'Email', commission: 'Commission %',

@@ -63,7 +63,7 @@ router.post('/subagents/:id/portal-token', authenticateToken, requireOrgContext,
 
     // Build the public portal URL
     const base = process.env.PUBLIC_PORTAL_BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://travline-sprypine.zocomputer.io' : 'http://localhost:3001');
-    const portalUrl = `${base}/portal/subagent?token=${rawToken}`;
+    const portalUrl = `${base.replace(/\/$/, '')}/portal/subagent/${encodeURIComponent(rawToken)}`;
 
     return res.json({
       token: rawToken,
@@ -113,7 +113,7 @@ async function portalAuth(req: any, res: Response, next: any) {
 
   const { data: agent, error } = await supabaseAdmin
     .from('sub_agents')
-    .select('id, org_id, name, is_active, portal_token_expires_at')
+    .select('id, org_id, name, is_active, partner_type, commission_rate, portal_token_expires_at, portal_last_seen_at')
     .eq('portal_token_hash', tokenHash)
     .single();
 
@@ -128,7 +128,7 @@ async function portalAuth(req: any, res: Response, next: any) {
   }
 
   // Stamp last-seen (fire-and-forget)
-  supabaseAdmin.from('sub_agents').update({ portal_last_seen_at: new Date().toISOString() }).eq('id', agent.id).then(() => {}, () => {});
+  supabaseAdmin.from('sub_agents').update({ portal_last_seen_at: new Date().toISOString() }).eq('id', agent.id).eq('org_id', agent.org_id).then(() => {}, () => {});
 
   req.portalAgent = agent;
   req.orgId = agent.org_id;
@@ -144,6 +144,9 @@ router.get('/portal/me', portalAuth, async (req: any, res: Response) => {
         id: a.id,
         name: a.name,
         partnerType: a.partner_type || 'bronze',
+        commissionRate: Number(a.commission_rate || 0),
+        expiresAt: a.portal_token_expires_at,
+        lastSeenAt: a.portal_last_seen_at,
       },
     });
   } catch (err) {

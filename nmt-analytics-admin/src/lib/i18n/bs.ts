@@ -1376,6 +1376,9 @@ export const bs: Translations = {
       flightSavedLegacy: 'Povezani let ažuriran',
     },
     subagents: {
+      portalDescription: "Kreirajte siguran link za pregled prodaja i dokumenata. Važi 90 dana i može se opozvati.", portalLink: "Link portala", copied: "Link kopiran", copyError: "Link nije mogao biti kopiran", copy: "Kopiraj", shareLink: "Podijelite privatni link sa {name}. URL sadrži pristupni ključ.", replaceLink: "Kreirajte novi link da zamijenite postojeći.", noLink: "Nema aktivnog linka portala. Kreirajte link da omogućite pristup.", revoke: "Opozovi", generateLink: "Kreiraj link", revokeConfirm: "Opozvati pristup portalu za {name}?", revoked: "Pristup portalu opozvan", portalError: "Pristup portalu nije mogao biti ažuriran",
+      portal: {"retry": "Pokušaj ponovo", "error": "Greška", "title": "Travline · Portal subagenta", "contactAgency": "Kontaktirajte agenciju za novi link.", "totalSales": "Prikazane prodaje (do 100)", "yourCommission": "Prikazana provizija", "revenue": "Prikazani promet", "commissionRate": "Vaša provizijska stopa", "expires": "Link ističe", "sales": "Prodaje", "empty": "Nema registrovanih prodaja.", "customer": "Klijent", "departure": "Polazak", "amount": "Iznos", "commission": "Provizija", "status": "Status", "documents": "Dokumenti", "linkStatus": "Portal link je", "lastSeen": "Posljednji pristup", "valid": "Aktivan", "expired": "Istekao", "revoked": "Povučen", "not_found": "Nepoznat"},
+      created: 'Subagent kreiran', createError: 'Subagent nije mogao biti kreiran', partnerType: 'Tip partnera', bronze: 'Bronzani', silver: 'Srebrni', gold: 'Zlatni', platinum: 'Platinasti',
       title: 'Subagenti', description: 'Upravljaj subagentima i auto-generiši pakete dokumenata (najava, ugovor, faktura)',
       add: 'Dodaj subagenta', generateSale: 'Generiši prodaju', generating: 'Generišem…',
       name: 'Ime', phone: 'Telefon', email: 'Email', commission: 'Provizija %',

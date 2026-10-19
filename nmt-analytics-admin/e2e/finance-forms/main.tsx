@@ -1,4 +1,6 @@
 import { HelmetProvider } from 'react-helmet-async';
+import PublicSubAgentPortal from '../../src/pages/PublicSubAgentPortal';
+import SubAgents from '../../src/pages/operations/SubAgents';
 import Suppliers from '../../src/pages/Suppliers';
 import Reports from '../../src/pages/Reports';
 import { useState } from 'react';
@@ -15,6 +17,8 @@ const payment: Payment = { id:'00000000-0000-4000-8000-000000000022', reservatio
 export default function Harness() {
  const [open,setOpen]=useState(false);
  const surface=new URLSearchParams(location.search).get('surface');
+ if(surface==='portal') return <PublicSubAgentPortal/>;
+ if(surface==='subagents') return <SubAgents/>;
  if(surface==='suppliers') return <Suppliers/>;
  if(surface==='reports') return <main className="min-h-screen bg-gray-50 p-4 text-gray-900 dark:bg-gray-950"><Reports/></main>;
  const props={isOpen:open,onClose:()=>setOpen(false)};

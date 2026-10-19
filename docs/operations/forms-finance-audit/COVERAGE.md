@@ -65,7 +65,7 @@ Source: main `21ce102733e817638f71d545a96fadd87cd0221d` plus this scoped branch.
 | `nmt-analytics-admin/src/pages/Reports.tsx` | PASS — component browser contract only | Create/edit or filter, cancel, validation, failed-save retry; real persistence awaits isolated run |
 | `nmt-analytics-admin/src/pages/ReservationDetail.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/pages/Reservations.tsx` | NOT TESTED | This audit, not prior PR evidence |
-| `nmt-analytics-admin/src/pages/Suppliers.tsx` | NOT TESTED | This audit, not prior PR evidence |
+| `nmt-analytics-admin/src/pages/Suppliers.tsx` | PASS — 12 component browser cases | Create/service native validation, cancel, failed save recovery, same-tick suppression across six theme/size combinations; real persistence pending |
 | `nmt-analytics-admin/src/pages/admin/AuditLogs.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/pages/admin/Customers.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/pages/admin/Departures.tsx` | NOT TESTED | This audit, not prior PR evidence |
@@ -82,7 +82,7 @@ Source: main `21ce102733e817638f71d545a96fadd87cd0221d` plus this scoped branch.
 | `nmt-analytics-admin/src/pages/operations/Flights.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/pages/operations/Hotels.tsx` | NOT TESTED | This audit, not prior PR evidence |
 | `nmt-analytics-admin/src/pages/operations/Receipts.tsx` | NOT TESTED | This audit, not prior PR evidence |
-| `nmt-analytics-admin/src/pages/operations/SubAgents.tsx` | NOT TESTED | This audit, not prior PR evidence |
+| `nmt-analytics-admin/src/pages/operations/SubAgents.tsx` | PASS — component browser contract only | Six create/validation/cancel/failure/duplicate checks; portal and real persistence pending exact-head run |
 | `nmt-analytics-admin/src/pages/portal/PortalSettings.tsx` | NOT TESTED | This audit, not prior PR evidence |
 
 Shared input/select/datepicker/modal/dropdown dependencies and all transitive page consumers are in [components.json](components.json). Native controls outside those components are included above. This inventory is a search aid; dynamic schemas and role-specific actions still require manual workflow verification.

@@ -1,0 +1,42 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:34) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:47) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:47) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:70) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 nmt-analytics-admin/e2e/finance-forms/subagents.spec.ts:2:71 › subagent validation cancel recovery light 390 (5.6s)
+
+
+  1) nmt-analytics-admin/e2e/finance-forms/subagents.spec.ts:2:71 › subagent validation cancel recovery light 390 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('form', { name: 'Add Sub-agent', exact: true }).getByLabel('Name', { exact: true })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('form', { name: 'Add Sub-agent', exact: true }).getByLabel('Name', { exact: true }) with timeout 5000ms
+      - waiting for getByRole('form', { name: 'Add Sub-agent', exact: true }).getByLabel('Name', { exact: true })
+
+
+      2 | for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`subagent validation cancel recovery ${theme} ${width}`,async({page})=>{
+      3 |  await page.setViewportSize({width,height:900});await page.addInitScript(theme=>{localStorage.setItem('travline_lang','en');document.addEventListener('DOMContentLoaded',()=>document.documentElement.classList.toggle('dark',theme==='dark'));},theme);
+    > 4 |  let calls=0;await page.route('**/__form-test-api/subagents**',async route=>{if(route.request().method()==='GET')return route.fulfill({json:{data:[]}});calls++;await new Promise(r=>setTimeout(r,200));return route.fulfill({status:503,json:{error:'Synthetic subagent failure'}});});await page.goto('/e2e/finance-forms/index.html?surface=subagents');await page.getByRole('button',{name:'Add Sub-agent',exact:true}).first().click();const form=page.getByRole('form',{name:'Add Sub-agent',exact:true});await expect(form.getByLabel('Name',{exact:true})).toBeVisible();await form.getByLabel('Name',{exact:true}).fill('Discard');await form.getByRole('button',{name:'Cancel',exact:true}).click();await page.getByRole('button',{name:'Add Sub-agent',exact:true}).first().click();await expect(form.getByLabel('Name',{exact:true})).toHaveValue('');await form.getByRole('button',{name:'Create',exact:true}).click();expect(calls).toBe(0);await form.getByLabel('Name',{exact:true}).fill('Synthetic agent');await form.getByLabel('Email',{exact:true}).fill('invalid');await form.getByRole('button',{name:'Create',exact:true}).click();expect(calls).toBe(0);await form.getByLabel('Email',{exact:true}).fill('agent@example.test');await form.getByLabel('Commission %',{exact:true}).fill('7.5');await form.evaluate(f=>{f.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));f.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});await expect(form.getByLabel('Name',{exact:true})).toBeDisabled();await page.keyboard.press('Escape');await expect(form).toBeVisible();await expect(form.getByRole('alert')).toHaveText('Synthetic subagent failure');expect(calls).toBe(1);await expect(form.getByLabel('Name',{exact:true})).toHaveValue('Synthetic agent');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+        |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ^
+      5 | });
+      6 |
+        at /workspace/repos/travline-forms/nmt-analytics-admin/e2e/finance-forms/subagents.spec.ts:4:548
+
+    Error Context: nmt-analytics-admin/finance-form-results/artifacts/subagents-subagent-validation-cancel-recovery-light-390/error-context.md
+
+  1 failed
+    nmt-analytics-admin/e2e/finance-forms/subagents.spec.ts:2:71 › subagent validation cancel recovery light 390 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import PageToolbar from "../../components/ui/PageToolbar";
 import Button from "../../components/ui/button/Button";
@@ -24,6 +24,11 @@ export default function SubAgents() {
   const [subAgents, setSubAgents] = useState<SubAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const saveLock = useRef(false);
+  const resetForm = () => { setFormName(''); setFormPhone(''); setFormEmail(''); setFormCommission(5); setFormPartnerType('bronze'); setSaveError(''); };
+  const closeForm = () => { if (!saveLock.current) { setIsModalOpen(false); resetForm(); } };
 
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
@@ -33,6 +38,8 @@ export default function SubAgents() {
   const [portalModalAgent, setPortalModalAgent] = useState<SubAgent | null>(null);
   const [portalUrl, setPortalUrl] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
+  const portalLock = useRef(false);
+  const closePortal = () => { if (!portalLock.current) {setPortalModalAgent(null);setPortalUrl(null);} };
 
   const fetchSubAgents = async () => {
     setLoading(true);
@@ -52,40 +59,43 @@ export default function SubAgents() {
   }, [user, authLoading]);
 
   const handleCreate = async () => {
+    if (saveLock.current || !formName.trim()) return;
+    saveLock.current = true; setSaving(true); setSaveError('');
     try {
       await createSubAgent({
         name: formName, phone: formPhone, email: formEmail, commissionRate: formCommission, partnerType: formPartnerType,
       });
-      showSuccess("Sub-agent created");
+      showSuccess(tr.created);
       setIsModalOpen(false);
       setFormName(""); setFormPhone(""); setFormEmail(""); setFormCommission(5); setFormPartnerType("bronze");
       fetchSubAgents();
     } catch (err: any) {
-      showError(err.message || "Failed to create sub-agent");
-    }
+      setSaveError(err.message || tr.createError);
+    } finally { saveLock.current = false; setSaving(false); }
   };
 
   const handleIssuePortalToken = async (sa: SubAgent) => {
-    setPortalLoading(true);
+    if (portalLock.current) return;
+    portalLock.current = true; setPortalLoading(true);
     try {
       const res = await issueSubAgentPortalToken(sa.id);
-      const origin = window.location.origin.replace(/:\d+$/, "");
-      setPortalUrl(`${origin}/portal/subagent?t=${res.token}`);
-      setPortalModalAgent(sa);
+      setPortalUrl(`${window.location.origin}/portal/subagent/${encodeURIComponent(res.token)}`);
+      setPortalModalAgent({...sa,portalTokenExpiresAt:res.expiresAt});
     } catch (err: any) {
-      showError(err.message || "Failed to issue portal token");
-    } finally { setPortalLoading(false); }
+      showError(err.message || tr.portalError);
+    } finally { portalLock.current = false; setPortalLoading(false); }
   };
 
   const handleRevokePortalToken = async (sa: SubAgent) => {
-    if (!confirm(`Revoke portal access for ${sa.name}?`)) return;
+    if (portalLock.current || !confirm(tr.revokeConfirm.replace('{name}',sa.name))) return;
+    portalLock.current = true; setPortalLoading(true);
     try {
       await revokeSubAgentPortalToken(sa.id);
-      showSuccess("Portal access revoked");
+      showSuccess(tr.revoked); setPortalUrl(null);setPortalModalAgent(current=>current?.id===sa.id?{...current,portalTokenExpiresAt:null}:current);
       fetchSubAgents();
     } catch (err: any) {
-      showError(err.message || "Failed to revoke portal token");
-    }
+      showError(err.message || tr.portalError);
+    } finally { portalLock.current = false; setPortalLoading(false); }
   };
 
   const handleDelete = async (sa: SubAgent) => {
@@ -181,57 +191,52 @@ export default function SubAgents() {
         </>
       )}
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} className="max-w-md">
-        <div className="space-y-4">
-          <h3 className="font-bold">Add Sub-agent</h3>
-          <input placeholder="Name" value={formName} onChange={e => setFormName(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700" />
-          <input placeholder="Phone" value={formPhone} onChange={e => setFormPhone(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700" />
-          <input placeholder="Email" value={formEmail} onChange={e => setFormEmail(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700" />
-          <input type="number" placeholder="Commission %" value={formCommission} onChange={e => setFormCommission(+e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700" />
-          <select value={formPartnerType} onChange={e => setFormPartnerType(e.target.value as any)} className="w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
-            <option value="bronze">Bronze</option>
-            <option value="silver">Silver</option>
-            <option value="gold">Gold</option>
-            <option value="platinum">Platinum</option>
-          </select>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button variant="primary" onClick={handleCreate}>Create</Button>
-          </div>
-        </div>
+      <Modal isOpen={isModalOpen} onClose={closeForm} className="m-4 max-w-md" title={tr.add}>
+        <form aria-label={tr.add} className="max-h-[75vh] overflow-y-auto p-6" onSubmit={event=>{event.preventDefault();void handleCreate();}}>
+          <fieldset disabled={saving} className="space-y-4">
+            <label className="block text-sm">{tr.name}<input required aria-label={tr.name} value={formName} onChange={e=>setFormName(e.target.value)} className="mt-1.5 h-11 w-full rounded-lg border border-gray-300 px-3 dark:border-gray-700 dark:bg-gray-800" /></label>
+            <label className="block text-sm">{tr.phone}<input type="tel" value={formPhone} onChange={e=>setFormPhone(e.target.value)} className="mt-1.5 h-11 w-full rounded-lg border border-gray-300 px-3 dark:border-gray-700 dark:bg-gray-800" /></label>
+            <label className="block text-sm">{tr.email}<input type="email" value={formEmail} onChange={e=>setFormEmail(e.target.value)} className="mt-1.5 h-11 w-full rounded-lg border border-gray-300 px-3 dark:border-gray-700 dark:bg-gray-800" /></label>
+            <label className="block text-sm">{tr.commission}<input required type="number" min="0" max="100" step="0.01" value={formCommission} onChange={e=>setFormCommission(+e.target.value)} className="mt-1.5 h-11 w-full rounded-lg border border-gray-300 px-3 dark:border-gray-700 dark:bg-gray-800" /></label>
+            <label className="block text-sm">{tr.partnerType}<select value={formPartnerType} onChange={e=>setFormPartnerType(e.target.value as typeof formPartnerType)} className="mt-1.5 h-11 w-full rounded-lg border border-gray-300 px-3 dark:border-gray-700 dark:bg-gray-800">
+              <option value="bronze">{tr.bronze}</option><option value="silver">{tr.silver}</option><option value="gold">{tr.gold}</option><option value="platinum">{tr.platinum}</option>
+            </select></label>
+            <div className="flex justify-end gap-2"><Button variant="outline" onClick={closeForm}>{t.common.cancel}</Button><Button type="submit">{saving?t.common.saving:t.common.create}</Button></div>
+          </fieldset>
+          {saveError && <p role="alert" className="mt-3 text-sm text-error-600 dark:text-error-400">{saveError}</p>}
+        </form>
       </Modal>
 
       {portalModalAgent && (
-        <Modal isOpen={!!portalModalAgent} onClose={() => { setPortalModalAgent(null); setPortalUrl(null); }} className="max-w-lg">
-          <div className="space-y-4">
-            <h3 className="font-bold text-lg">Sub-agent portal — {portalModalAgent.name}</h3>
+        <Modal isOpen={!!portalModalAgent} onClose={closePortal} className="m-4 max-w-lg">
+          <div className="max-h-[75vh] space-y-4 overflow-y-auto p-6">
+            <h3 className="font-bold text-lg">{tr.portal.title} — {portalModalAgent.name}</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Generate a secure link the sub-agent can use to view their own sales history and download generated documents.
-              The link expires in 30 days and can be revoked anytime.
+              {tr.portalDescription}
             </p>
             {portalUrl ? (
               <div className="space-y-3">
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
                   <div className="flex items-center gap-2">
-                    <input readOnly value={portalUrl} className="flex-1 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs font-mono dark:bg-gray-900 dark:border-gray-700" />
-                    <Button size="sm" variant="primary" onClick={() => { navigator.clipboard?.writeText(portalUrl); showSuccess("Link copied"); }}>Copy</Button>
+                    <input aria-label={tr.portalLink} readOnly value={portalUrl} className="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs font-mono dark:bg-gray-900 dark:border-gray-700" />
+                    <Button size="sm" variant="primary" onClick={async () => { try { await navigator.clipboard.writeText(portalUrl); showSuccess(tr.copied); } catch { showError(tr.copyError); } }}>{tr.copy}</Button>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500">Share this link directly with {portalModalAgent.name}. They do not need a login — the token in the URL is their credential.</p>
+                <p className="text-xs text-gray-500">{tr.shareLink.replace('{name}',portalModalAgent.name)}</p>
               </div>
             ) : (
               <div className="text-sm text-gray-600 dark:text-gray-400">
                 {portalModalAgent.portalTokenExpiresAt
-                  ? <>Active link expires {new Date(portalModalAgent.portalTokenExpiresAt).toLocaleDateString()}. Generate a new one to replace it.</>
-                  : "No active portal link. Generate one to enable sub-agent self-serve access."}
+                  ? <>{tr.portal.expires}: {new Date(portalModalAgent.portalTokenExpiresAt).toLocaleDateString()}. {tr.replaceLink}</>
+                  : tr.noLink}
               </div>
             )}
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => { setPortalModalAgent(null); setPortalUrl(null); }}>Close</Button>
+              <Button variant="outline" onClick={closePortal}>{t.common.close}</Button>
               {portalModalAgent.portalTokenExpiresAt && (
-                <Button variant="outline" className="!text-red-600" onClick={() => handleRevokePortalToken(portalModalAgent)}>Revoke</Button>
+                <Button variant="outline" className="!text-red-600" onClick={() => handleRevokePortalToken(portalModalAgent)}>{tr.revoke}</Button>
               )}
-              <Button variant="primary" onClick={() => handleIssuePortalToken(portalModalAgent)} disabled={!!portalLoading}>Generate link</Button>
+              <Button variant="primary" onClick={() => handleIssuePortalToken(portalModalAgent)} disabled={!!portalLoading}>{tr.generateLink}</Button>
             </div>
           </div>
         </Modal>

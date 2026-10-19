@@ -14,4 +14,4 @@ export const post = (path: string, data: unknown) => request('POST', path, data)
 export const patch = (path: string, data: unknown) => request('PATCH', path, data);
 export const del = (path: string) => request('DELETE', path);
 export const put = (path: string, data: unknown) => request('PUT', path, data);
-export default { get, post, patch, delete: del, put };
+export default { get, post, patch, delete: del, put, defaults: {baseURL:'/__form-test-api'} };
