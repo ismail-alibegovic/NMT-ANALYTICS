@@ -36,7 +36,12 @@ beforeAll(async () => {
 });
 it.each([false, true])('renders consent PDF with Unicode branding/footer when signed=%s', async signed => {
   state.signed = signed;
-  const response = await request(app).get('/api/waivers/' + id + '/pdf');
+  const response = await request(app).get('/api/waivers/' + id + '/pdf').buffer(true).parse((stream: any, callback: any) => {
+    const chunks: Buffer[] = [];
+    stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+    stream.on('end', () => callback(null, Buffer.concat(chunks)));
+    stream.on('error', callback);
+  });
   expect(response.status).toBe(200);
   expect(response.headers['content-type']).toContain('application/pdf');
   expect(response.headers['content-disposition']).toBe('attachment; filename="waiver_' + id + '.pdf"');

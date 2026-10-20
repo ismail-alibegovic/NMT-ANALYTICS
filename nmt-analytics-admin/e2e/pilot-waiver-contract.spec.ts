@@ -91,6 +91,20 @@ test('waiver API preserves snapshots, single-use state, tenant isolation and con
   expect((await request.get(api + '/api/waivers/' + waiver.waiver_id + '/pdf', { headers: agent })).status()).toBe(200);
   const agentIssued = await create(request, '/waivers/issue', { passenger_id: slot.passenger.id }, agent);
   expect((await request.post(api + '/api/waivers/' + agentIssued.waiver_id + '/revoke', { headers: agent })).status()).toBe(204);
+  const [batchTarget, unrelated] = await Promise.all([
+    passenger(request, 'Waiver audit batch target ' + randomUUID()),
+    passenger(request, 'Waiver audit unrelated departure ' + randomUUID()),
+  ]);
+  const batch = await request.post(api + '/api/waivers/issue-batch', { headers, data: { departure_id: batchTarget.departure.id } });
+  expect(batch.status()).toBe(200);
+  const batchResult = await batch.json(); expect(batchResult.issued).toBe(1); expect(batchResult.failed).toBe(0);
+  expect(batchResult.results.map((row: any) => row.passenger_id)).toEqual([batchTarget.passenger.id]);
+  const repeatedBatch = await request.post(api + '/api/waivers/issue-batch', { headers, data: { departure_id: batchTarget.departure.id } });
+  expect(repeatedBatch.status()).toBe(200); expect((await repeatedBatch.json()).issued).toBe(0);
+  const unrelatedStatus = await request.get(api + '/api/waivers/by-departure/' + unrelated.departure.id, { headers });
+  expect(unrelatedStatus.status()).toBe(200); expect(await unrelatedStatus.json()).toEqual([]);
+  const foreignBatch = await request.post(api + '/api/waivers/issue-batch', { headers, data: { departure_id: foreignSlot.departure.id } });
+  expect(foreignBatch.status()).toBe(200); expect((await foreignBatch.json()).issued).toBe(0);
   const other = await passenger(request, 'Waiver audit race ' + randomUUID());
   const race = await create(request, '/waivers/issue', { passenger_id: other.passenger.id });
   const raceUrl = api + '/api/public/waiver/' + race.sign_url.split('/').pop();
