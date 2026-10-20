@@ -175,6 +175,12 @@ jobs:
           PLAYWRIGHT_JUNIT_OUTPUT_FILE: ${{ github.workspace }}/acceptance-evidence/playwright-results.xml
         run: npm run test:e2e
 
+      - name: Verify waiver consent database invariants
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/waiver-contract.sql \
+            > "$ACCEPTANCE_EVIDENCE_DIR/waiver-database.txt" 2>&1
+
       - name: Verify isolated Storage and SMTP delivery
         env:
           E2E_MANAGER_EMAIL: manager@pilot-a.test

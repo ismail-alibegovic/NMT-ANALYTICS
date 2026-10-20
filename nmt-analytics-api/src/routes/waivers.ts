@@ -19,7 +19,7 @@ import { Router, type Request, type Response } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
 import { requireMinimumRole } from '../middleware/requireRole';
-import { auditLog, logAuditEntry } from '../middleware/auditLogger';
+import { auditLog } from '../middleware/auditLogger';
 import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
 import { apiError } from '../lib/errors';
 import { getOrgBranding } from '../lib/orgBranding';
@@ -27,6 +27,11 @@ import { z } from 'zod';
 import crypto from 'node:crypto';
 
 const router = Router();
+router.use('/public/waiver', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  next();
+});
 
 // Audit wrappers (scoped to charter-person waiver entities)
 const auditWaiverTemplateCreate = auditLog('CREATE', 'waiver_template', undefined, (req) => (req.body as any)?.title);
@@ -48,7 +53,7 @@ router.get('/waiver-templates', async (req: any, res: Response) => {
   const orgId = req.orgId!;
   const { data, error } = await supabaseAdmin
     .from('waiver_templates')
-    .select('id, title, body_text, is_active, created_at, updated_at')
+    .select('id, title, body_text:body, declarations, is_active, created_at, updated_at')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
   if (error) return handleSupabaseError(res, error, 'Failed to fetch waiver templates');
@@ -56,9 +61,14 @@ router.get('/waiver-templates', async (req: any, res: Response) => {
 });
 
 const templateSchema = z.object({
-  title: z.string().min(1).max(200),
-  body_text: z.string().min(1).max(20000),
-  is_active: z.boolean().optional().default(true),
+  title: z.string().trim().min(1).max(200),
+  body_text: z.string().trim().min(1).max(20000),
+  is_active: z.boolean().optional(),
+  declarations: z.array(z.object({
+    id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
+    label: z.string().trim().min(1).max(500),
+    required: z.boolean().optional().default(false),
+  })).max(20).refine(rows => new Set(rows.map(row => row.id)).size === rows.length, 'Declaration IDs must be unique').optional(),
 });
 
 // POST /waiver-templates
@@ -72,11 +82,13 @@ router.post('/waiver-templates', auditWaiverTemplateCreate, async (req: any, res
     .insert({
       org_id: orgId,
       title: parsed.data.title,
-      body_text: parsed.data.body_text,
-      is_active: parsed.data.is_active,
+      body: parsed.data.body_text,
+      is_active: parsed.data.is_active ?? true,
+      declarations: parsed.data.declarations || [],
     })
-    .select()
+    .select('id, title, body_text:body, declarations, is_active, created_at, updated_at')
     .single();
+  if (error?.code === '23505') return apiError(res, 409, 'TEMPLATE_EXISTS', 'An organization template already exists; edit it instead');
   if (error) return handleSupabaseError(res, error, 'Failed to create waiver template');
   return res.status(201).json(data);
 });
@@ -85,19 +97,20 @@ router.post('/waiver-templates', auditWaiverTemplateCreate, async (req: any, res
 router.patch('/waiver-templates/:id', auditWaiverTemplateUpdate, async (req: any, res: Response) => {
   const { id } = req.params;
   const orgId = req.orgId!;
-  const parsed = templateSchema.partial().safeParse(req.body);
+  const parsed = templateSchema.partial().refine(value => Object.keys(value).length > 0).safeParse(req.body);
   if (!parsed.success)
     return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', parsed.error.issues);
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (parsed.data.title !== undefined) update.title = parsed.data.title;
-  if (parsed.data.body_text !== undefined) update.body_text = parsed.data.body_text;
+  if (parsed.data.body_text !== undefined) update.body = parsed.data.body_text;
   if (parsed.data.is_active !== undefined) update.is_active = parsed.data.is_active;
+  if (parsed.data.declarations !== undefined) update.declarations = parsed.data.declarations;
   const { data, error } = await supabaseAdmin
     .from('waiver_templates')
     .update(update)
     .eq('id', id)
     .eq('org_id', orgId)
-    .select()
+    .select('id, title, body_text:body, declarations, is_active, created_at, updated_at')
     .single();
   if (error) return handleSupabaseError(res, error, 'Failed to update waiver template');
   return res.json(data);
@@ -107,12 +120,14 @@ router.patch('/waiver-templates/:id', auditWaiverTemplateUpdate, async (req: any
 router.delete('/waiver-templates/:id', auditWaiverTemplateDelete, async (req: any, res: Response) => {
   const { id } = req.params;
   const orgId = req.orgId!;
-  const { error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('waiver_templates')
     .delete()
     .eq('id', id)
-    .eq('org_id', orgId);
+    .eq('org_id', orgId).select('id').maybeSingle();
+  if (error?.code === '23503') return apiError(res, 409, 'TEMPLATE_IN_USE', 'Issued consent history references this template; deactivate it instead');
   if (error) return handleSupabaseError(res, error, 'Failed to delete waiver template');
+  if (!data) return apiError(res, 404, 'NOT_FOUND', 'Waiver template not found');
   return res.status(204).send();
 });
 
@@ -127,7 +142,7 @@ async function resolveTemplate(orgId: string, templateId?: string) {
   if (templateId) {
     const { data, error } = await supabaseAdmin
       .from('waiver_templates')
-      .select('id, title, body_text')
+      .select('id, title, body_text:body, declarations')
       .eq('id', templateId)
       .eq('org_id', orgId)
       .eq('is_active', true)
@@ -138,7 +153,7 @@ async function resolveTemplate(orgId: string, templateId?: string) {
   // Default to the first active template for the org
   const { data } = await supabaseAdmin
     .from('waiver_templates')
-    .select('id, title, body_text')
+    .select('id, title, body_text:body, declarations')
     .eq('org_id', orgId)
     .eq('is_active', true)
     .order('created_at', { ascending: true })
@@ -153,24 +168,34 @@ async function issueForPassenger(
   template: any,
   expiresInDays: number,
 ) {
-  // Look up reservation → departure / passenger + customer email
   const { data: passenger, error: pErr } = await supabaseAdmin
-    .from('excursion_passengers')
-    .select(
-      `
-      id, full_name, phone,
-      reservations ( id, customer_name, customer_phone, customer_email,
-        departures ( id, depart_at, packages ( id, name, destination ) ) )
-    `,
-    )
-    .eq('id', passengerId)
-    .eq('org_id', orgId)
-    .single();
-  if (pErr || !passenger) return { error: 'Passenger not found' };
+    .from('excursion_passengers').select('id, full_name, reservation_id')
+    .eq('id', passengerId).eq('org_id', orgId).single();
+  if (pErr || !passenger) return { error: 'Passenger not found', status: 404 };
 
-  const reservation = (passenger as any).reservations;
-  const departure = reservation?.departures;
-  const pkg = departure?.packages;
+  const { data: reservation, error: rErr } = await supabaseAdmin
+    .from('reservations').select('id, departure_id')
+    .eq('id', passenger.reservation_id).eq('org_id', orgId).single();
+  if (rErr || !reservation) return { error: 'Reservation not found', status: 404 };
+  let departure: any = null;
+  let pkg: any = null;
+  if (reservation.departure_id) {
+    const result = await supabaseAdmin.from('departures').select('id, package_id')
+      .eq('id', reservation.departure_id).eq('org_id', orgId).single();
+    if (result.error || !result.data) return { error: 'Departure not found', status: 404 };
+    departure = result.data;
+    if (departure.package_id) {
+      const result = await supabaseAdmin.from('packages').select('id, name, destination')
+        .eq('id', departure.package_id).eq('org_id', orgId).single();
+      if (result.error || !result.data) return { error: 'Package not found', status: 404 };
+      pkg = result.data;
+    }
+  }
+  const now = new Date().toISOString();
+  const expired = await supabaseAdmin.from('waiver_tokens').update({ revoked_at: now })
+    .eq('org_id', orgId).eq('passenger_id', passengerId)
+    .is('consumed_at', null).is('revoked_at', null).lte('expires_at', now);
+  if (expired.error) return { error: 'Failed to expire prior waiver', status: 500 };
 
   // Generate secure token
   const token = crypto.randomBytes(24).toString('hex');
@@ -178,7 +203,6 @@ async function issueForPassenger(
   const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString();
 
   // Snapshot the template body so changes to the template don't alter issued waivers
-  const displayToken = `${token.slice(0, 8)}-${token.slice(8, 16)}-${token.slice(16, 24)}-${token.slice(24, 32)}`;
 
   const { data: waiver, error: wErr } = await supabaseAdmin
     .from('waiver_tokens')
@@ -188,6 +212,7 @@ async function issueForPassenger(
       template_id: template.id,
       template_snapshot_title: template.title,
       template_snapshot_body: template.body_text,
+      template_snapshot_declarations: template.declarations || [],
       passenger_name_snapshot: passenger.full_name,
       reservation_id: reservation?.id || null,
       departure_id: departure?.id || null,
@@ -198,13 +223,14 @@ async function issueForPassenger(
     })
     .select('id, created_at, expires_at')
     .single();
-  if (wErr) return { error: 'Failed to issue waiver: ' + wErr.message };
+  if (wErr) return { error: wErr.code === '23505' ? 'A pending waiver already exists; revoke it before reissuing' : 'Failed to issue waiver', status: wErr.code === '23505' ? 409 : 500 };
 
   return {
+    id: waiver.id,
     waiver_id: waiver.id,
     passenger_id: passengerId,
     passenger_name: passenger.full_name,
-    sign_url: `/public/waiver/${displayToken}`,
+    sign_url: `/waiver/${token}`,
     expires_at: waiver.expires_at,
   };
 }
@@ -230,7 +256,7 @@ router.post(
       template,
       parsed.data.expires_in_days,
     );
-    if ((result as any).error) return apiError(res, 400, 'ISSUE_FAILED', (result as any).error);
+    if ((result as any).error) return apiError(res, (result as any).status || 400, 'ISSUE_FAILED', (result as any).error);
     return res.status(201).json(result);
   },
 );
@@ -254,26 +280,23 @@ router.post(
     if (!parsed.success)
       return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', parsed.error.issues);
 
-    // Find passengers on this departure
+    const reservations = await supabaseAdmin.from('reservations').select('id')
+      .eq('org_id', orgId).eq('departure_id', parsed.data.departure_id);
+    if (reservations.error) return handleSupabaseError(res, reservations.error, 'Failed to list reservations');
+    const ids = (reservations.data || []).map(r => r.id);
+    if (!ids.length) return res.json({ issued: 0, results: [] });
     const { data: passengers, error: pErr } = await supabaseAdmin
-      .from('excursion_passengers')
-      .select(
-        `
-        id, full_name,
-        reservations ( id, departures ( id ) )
-      `,
-      )
-      .eq('org_id', orgId)
-      .eq('reservations.departure_id', parsed.data.departure_id);
+      .from('excursion_passengers').select('id, full_name')
+      .eq('org_id', orgId).in('reservation_id', ids);
     if (pErr) return handleSupabaseError(res, pErr, 'Failed to list passengers');
-
-    // Existing pending waivers for these passengers
-    const passengerIds = (passengers || []).map((p) => (p as any).id);
-    const { data: existing } = await supabaseAdmin
-      .from('waiver_tokens')
-      .select('passenger_id')
-      .in('passenger_id', passengerIds.length ? passengerIds : ['00000000-0000-0000-0000-000000000000']);
-    const issuedSet = new Set((existing || []).map((w) => (w as any).passenger_id));
+    const passengerIds = (passengers || []).map(p => p.id);
+    if (!passengerIds.length) return res.json({ issued: 0, results: [] });
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('waiver_tokens').select('passenger_id, revoked_at, consumed_at, expires_at')
+      .eq('org_id', orgId).in('passenger_id', passengerIds);
+    if (existingError) return handleSupabaseError(res, existingError, 'Failed to list existing waivers');
+    const issuedSet = new Set((existing || []).filter(w => w.consumed_at ||
+      (!w.revoked_at && new Date(w.expires_at).getTime() > Date.now())).map(w => w.passenger_id));
 
     const template = await resolveTemplate(orgId, parsed.data.template_id);
     if (!template)
@@ -291,7 +314,7 @@ router.post(
         ),
       );
     }
-    return res.json({ issued: results.length, results });
+    return res.json({ issued: results.filter(r => !r.error).length, failed: results.filter(r => r.error).length, results });
   },
 );
 
@@ -310,18 +333,83 @@ router.get(
         `
         id, status, signed_at, expires_at, created_at,
         passenger_name_snapshot, package_name_snapshot, destination_snapshot,
-        passengers ( id, seat_number, phone,
-          reservations ( customer_email )
-        )
+        template_snapshot_title, passenger_id, reservation_id, revoked_at, consumed_at
       `,
       )
       .eq('org_id', orgId)
       .eq('departure_id', depId)
       .order('created_at', { ascending: true });
     if (error) return handleSupabaseError(res, error, 'Failed to fetch waivers');
-    return res.json(data);
+    return res.json((data || []).map(issuerRecord));
   },
 );
+
+
+// Issuer views deliberately exclude capability hashes and signature image data.
+const issuerFields = 'id, passenger_id, reservation_id, template_snapshot_title, passenger_name_snapshot, status, created_at, signed_at, expires_at, revoked_at, consumed_at';
+function issuerRecord(row: any) {
+  return {
+    ...row,
+    template_title: row.template_snapshot_title,
+    status: row.revoked_at ? 'revoked' : row.consumed_at ? 'signed' :
+      new Date(row.expires_at).getTime() <= Date.now() ? 'expired' : 'pending',
+  };
+}
+router.get('/waivers', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req: any, res: Response) => {
+  const result = await supabaseAdmin.from('waiver_tokens').select(issuerFields)
+    .eq('org_id', req.orgId!).order('created_at', { ascending: false }).limit(500);
+  if (result.error) return handleSupabaseError(res, result.error, 'Failed to list waivers');
+  return res.json((result.data || []).map(issuerRecord));
+});
+
+router.get('/waivers/departures', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req: any, res: Response) => {
+  const orgId = req.orgId!;
+  const departures = await supabaseAdmin.from('departures').select('id, depart_at, package_id')
+    .eq('org_id', orgId).order('depart_at', { ascending: false }).limit(100);
+  if (departures.error) return handleSupabaseError(res, departures.error, 'Failed to list departures');
+  if (!departures.data?.length) return res.json([]);
+  const departureIds = departures.data.map(d => d.id);
+  const reservations = await supabaseAdmin.from('reservations').select('id, departure_id')
+    .eq('org_id', orgId).in('departure_id', departureIds);
+  if (reservations.error) return handleSupabaseError(res, reservations.error, 'Failed to list reservations');
+  const reservationIds = (reservations.data || []).map(r => r.id);
+  const passengers = reservationIds.length ? await supabaseAdmin.from('excursion_passengers')
+    .select('id, full_name, reservation_id').eq('org_id', orgId).in('reservation_id', reservationIds) : { data: [], error: null };
+  if (passengers.error) return handleSupabaseError(res, passengers.error, 'Failed to list passengers');
+  const packageIds = [...new Set(departures.data.map(d => d.package_id).filter(Boolean))];
+  const packages = packageIds.length ? await supabaseAdmin.from('packages').select('id, name, destination')
+    .eq('org_id', orgId).in('id', packageIds) : { data: [], error: null };
+  if (packages.error) return handleSupabaseError(res, packages.error, 'Failed to list packages');
+  const packageMap = new Map<string, any>((packages.data || []).map((p: any): [string, any] => [p.id, p]));
+  const reservationMap = new Map<string, string>((reservations.data || []).map((r: any): [string, string] => [r.id, r.departure_id]));
+  return res.json(departures.data.map(d => {
+    const pkg = packageMap.get(d.package_id);
+    const rows = (passengers.data || []).filter(p => reservationMap.get(p.reservation_id) === d.id);
+    return {
+      id: d.id, depart_at: d.depart_at, package_name: pkg?.name || '', destination: pkg?.destination || '',
+      passenger_count: rows.length,
+      passengers: rows.map(p => ({ passengerId: p.id, fullName: p.full_name })),
+    };
+  }));
+});
+
+router.post('/waivers/:id/revoke', authenticateToken, requireOrgContext, requireMinimumRole('agent'),
+  auditLog('UPDATE', 'waiver_token', req => req.params.id),
+  async (req: any, res: Response) => {
+    const orgId = req.orgId!;
+    const existing = await supabaseAdmin.from('waiver_tokens').select('id, consumed_at, revoked_at')
+      .eq('id', req.params.id).eq('org_id', orgId).maybeSingle();
+    if (existing.error) return handleSupabaseError(res, existing.error, 'Failed to load waiver');
+    if (!existing.data) return apiError(res, 404, 'NOT_FOUND', 'Waiver not found');
+    if (existing.data.consumed_at) return apiError(res, 409, 'ALREADY_SIGNED', 'Signed consent cannot be revoked as an unused link');
+    if (existing.data.revoked_at) return res.status(204).send();
+    const result = await supabaseAdmin.from('waiver_tokens').update({ revoked_at: new Date().toISOString() })
+      .eq('id', req.params.id).eq('org_id', orgId).is('consumed_at', null).is('revoked_at', null)
+      .select('id').maybeSingle();
+    if (result.error) return handleSupabaseError(res, result.error, 'Failed to revoke waiver');
+    if (!result.data) return apiError(res, 409, 'WAIVER_CONFLICT', 'The waiver changed during revocation');
+    return res.status(204).send();
+  });
 
 // ── Public: signing surface ─────────────────────────────────────────────────
 function hashToken(token: string): string {
@@ -334,7 +422,7 @@ router.get('/public/waiver/:token', async (req: Request, res: Response) => {
   const { data, error } = await supabaseAdmin
     .from('waiver_tokens')
     .select(
-      'id, passenger_name_snapshot, package_name_snapshot, destination_snapshot, template_snapshot_title, template_snapshot_body, status, expires_at, revoked_at, consumed_at',
+      'id, passenger_name_snapshot, package_name_snapshot, destination_snapshot, template_snapshot_title, template_snapshot_body, template_snapshot_declarations, status, expires_at, revoked_at, consumed_at',
     )
     .eq('token_hash', tokenHash)
     .single();
@@ -351,14 +439,17 @@ router.get('/public/waiver/:token', async (req: Request, res: Response) => {
     destination: data.destination_snapshot,
     template_title: data.template_snapshot_title,
     template_body: data.template_snapshot_body,
+    declarations: data.template_snapshot_declarations || [],
     expires_at: data.expires_at,
     status: data.status,
   });
 });
 
 const signSchema = z.object({
-  signer_name: z.string().min(1).max(200),
-  signature_png: z.string().optional(), // base64 PNG of a canvas signature, optional
+  signer_name: z.string().trim().min(1).max(200),
+  signature_png: z.string().max(64000).regex(/^[A-Za-z0-9+/]+={0,2}$/)
+    .refine(value => Buffer.from(value, 'base64').subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])), 'Invalid PNG signature').optional(),
+  declarations: z.record(z.string(), z.boolean()).optional().default({}),
   agreed: z.boolean().refine((v) => v === true, {
     message: 'Must agree to the terms',
   }),
@@ -373,7 +464,7 @@ router.post('/public/waiver/:token/sign', async (req: Request, res: Response) =>
   const tokenHash = hashToken(req.params.token);
   const { data: waiver, error: wErr } = await supabaseAdmin
     .from('waiver_tokens')
-    .select('id, org_id, status, expires_at, revoked_at, consumed_at')
+    .select('id, org_id, status, expires_at, revoked_at, consumed_at, template_snapshot_declarations')
     .eq('token_hash', tokenHash)
     .single();
   if (wErr || !waiver || waiver.revoked_at) return apiError(res, 404, 'NOT_FOUND', 'Waiver not found');
@@ -382,10 +473,16 @@ router.post('/public/waiver/:token/sign', async (req: Request, res: Response) =>
   if (new Date(waiver.expires_at).getTime() < Date.now())
     return apiError(res, 410, 'EXPIRED', 'This waiver link has expired');
 
+  const declarations = (waiver.template_snapshot_declarations || []) as Array<{ id: string; required?: boolean }>;
+  if (declarations.some(item => item.required && parsed.data.declarations[item.id] !== true))
+    return apiError(res, 400, 'DECLARATIONS_REQUIRED', 'Required declarations must be accepted');
+  const acceptedAt = new Date().toISOString();
+
   const update: Record<string, unknown> = {
     status: 'signed',
-    signed_at: new Date().toISOString(),
-    consumed_at: new Date().toISOString(),
+    signed_at: acceptedAt,
+    consumed_at: acceptedAt,
+    declaration_answers: parsed.data.declarations,
     signer_name: parsed.data.signer_name,
     signed_via: 'web',
   };
@@ -401,16 +498,7 @@ router.post('/public/waiver/:token/sign', async (req: Request, res: Response) =>
   if (error) return handleSupabaseError(res, error, 'Failed to sign waiver');
   if (!signed) return apiError(res, 409, 'WAIVER_CONFLICT', 'This waiver is no longer available for signing');
 
-  // Audit: public self-sign — log against owning org (no authenticated user).
-  logAuditEntry({
-    org_id: waiver.org_id,
-    user_id: 'public',
-    action: 'SIGN',
-    entity: 'waiver_token',
-    entity_id: waiver.id,
-    metadata: { signed_via: 'web', signer_name: parsed.data.signer_name },
-  }).catch(err => console.error('[AUDIT] waiver sign log failed:', err));
-
+  // Passenger state and the public-capability audit entry commit with the token claim.
   return res.json({ ok: true, signed: true, signed_at: update.signed_at });
 });
 
@@ -431,6 +519,7 @@ router.get(
       .single();
     if (error || !data) return apiError(res, 404, 'NOT_FOUND', 'Waiver not found');
 
+    if (!data.template_snapshot_body) return apiError(res, 409, 'SNAPSHOT_UNAVAILABLE', 'Historical waiver terms are unavailable');
     const branding = await getOrgBranding(orgId);
 
     // Inline PDF generation — keep light, no separate module yet
@@ -445,7 +534,7 @@ router.get(
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="waiver_${(data.passenger_name_snapshot || 'passenger').replace(/\s+/g, '_')}.pdf"`,
+        `attachment; filename="waiver_${data.id}.pdf"`,
       );
       res.send(buf);
     });

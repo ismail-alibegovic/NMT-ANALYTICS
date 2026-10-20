@@ -1,6 +1,6 @@
 import {expect,test} from '@playwright/test';
 const configured=process.env.E2E_RUN_BROWSER==='1'&&process.env.E2E_FINANCE_DIRECTOR_EMAIL&&process.env.E2E_FINANCE_DIRECTOR_PASSWORD;
-const routes=['/payments','/reports','/integrations','/settings','/settings/public-forms','/settings/pdf-templates','/admin/audit-logs','/admin/documents'];
+const routes=['/payments','/reports','/integrations','/settings','/settings/public-forms','/settings/pdf-templates','/admin/audit-logs','/admin/documents','/admin/waivers'];
 for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`director initial-render audit ${theme} ${width}`,async({page},info)=>{
  test.skip(!configured,'BLOCKED: isolated director fixture required');test.setTimeout(180_000);await page.setViewportSize({width,height:900});await page.addInitScript(theme=>{localStorage.setItem('theme',theme);localStorage.setItem('travline_lang','en');},theme);
  await page.goto('/auth/signin');await page.locator('#signin-email').fill(process.env.E2E_FINANCE_DIRECTOR_EMAIL!);await page.locator('#signin-password').fill(process.env.E2E_FINANCE_DIRECTOR_PASSWORD!);await page.getByRole('button',{name:/sign in/i}).click();await expect(page).not.toHaveURL(/auth\/signin/);

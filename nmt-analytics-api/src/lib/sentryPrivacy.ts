@@ -1,10 +1,18 @@
+/** Remove bearer capabilities embedded in paths before logging or telemetry. */
+export function redactCapabilityPath(path: string): string {
+  return path.split(/[?#]/)[0].replace(
+    /((?:\/api)?\/public\/waiver|\/waiver)\/[^/]+/g,
+    '$1/[redacted]',
+  );
+}
+
 /** Conservative allowlist for telemetry: business data and auth URLs must stay local. */
 export function sanitizeSentryEvent<T>(event: T): T {
   const value = event as Record<string, any>;
   const safeUrl = (url: unknown) => {
     if (typeof url !== 'string') return undefined;
-    try { const parsed = new URL(url); return parsed.origin + parsed.pathname; }
-    catch { return url.split(/[?#]/)[0]; }
+    try { const parsed = new URL(url); return parsed.origin + redactCapabilityPath(parsed.pathname); }
+    catch { return redactCapabilityPath(url); }
   };
   if (value.request) value.request = { method: value.request.method, url: safeUrl(value.request.url) };
   if (value.user) value.user = value.user.id ? { id: value.user.id } : undefined;

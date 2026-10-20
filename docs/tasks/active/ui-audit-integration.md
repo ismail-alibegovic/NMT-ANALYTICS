@@ -12,5 +12,8 @@ User scope: sequential Travline release prompts, step 4. Start from current main
 ## Evidence requirements
 Run component browser regressions plus all six required checks. Staging Acceptance must execute authenticated customer editing/conflict recovery, departure persistence, mobile populated layouts and initial route inventories in both themes at 390/768/1440. An initial route render is not full workflow verification. Use only disposable synthetic data. Screenshots are CI evidence; no manual visual inspection has been performed in the unavailable local execution environment.
 
+## Consent workflow repair
+The coordinated waiver migration, API, issuer/public forms and security regression coverage are included in this same integration. See docs/tasks/active/waiver-consent-contract.md and docs/operations/waiver-consent-audit.md. Reverify all checks after these additions; previous UI-only results do not certify the final combined code.
+
 ## Remaining blockers
-Waiver schema/API/token/public form contract is confirmed broken and requires a separate coordinated fix with migration and security regression coverage. This integration does not certify every form, portal or production deployment. Final release remains NO-GO until critical gaps and infrastructure verification are resolved.
+This integration does not certify every portal/form workflow or production deployment. Final release remains NO-GO until critical gaps and infrastructure verification are resolved.

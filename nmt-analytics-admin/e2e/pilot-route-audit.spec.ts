@@ -13,7 +13,7 @@ const routes = [
 // This is an initial-render inventory, not a CRUD or accessibility certificate.
 // Explicitly retain gaps instead of counting missing fixtures as passing screens.
 const missingFixtures = ['/packages/:id', '/itineraries/:id', '/quotations/:id', '/operations/hotels/:id',
-  '/waiver/:token', '/portal/subagent/:token', '/public/forms/:slug',
+  '/portal/subagent/:token', '/public/forms/:slug',
   '/portal', '/portal/packages', '/portal/departures', '/portal/reservations', '/portal/customers', '/portal/settings'];
 for (const theme of ['light', 'dark']) for (const width of [390, 768, 1440]) {
   test(`initial route inventory ${theme} ${width}px`, async ({page}, info) => {
