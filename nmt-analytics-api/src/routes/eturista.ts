@@ -114,6 +114,7 @@ router.get(
   '/integrations/eturista/history',
   authenticateToken,
   requireOrgContext,
+  requireMinimumRole('manager'),
   async (req, res, next) => {
     try {
       const orgId = req.orgId!;
@@ -155,6 +156,7 @@ router.get(
   '/integrations/eturista/status',
   authenticateToken,
   requireOrgContext,
+  requireMinimumRole('manager'),
   async (req, res) => {
     try {
       const orgId = req.orgId!;

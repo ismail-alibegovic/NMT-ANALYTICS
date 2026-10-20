@@ -2023,26 +2023,26 @@
       "path": "/integrations/eturista/history",
       "line": 108,
       "authenticated": true,
-      "minimumRole": "viewer",
+      "minimumRole": "manager",
       "realm": "staff",
       "roles": {
         "director": true,
         "manager": true,
-        "agent": true
+        "agent": false
       }
     },
     {
       "module": "eturista",
       "method": "GET",
       "path": "/integrations/eturista/status",
-      "line": 149,
+      "line": 150,
       "authenticated": true,
-      "minimumRole": "viewer",
+      "minimumRole": "manager",
       "realm": "staff",
       "roles": {
         "director": true,
         "manager": true,
-        "agent": true
+        "agent": false
       }
     },
     {
