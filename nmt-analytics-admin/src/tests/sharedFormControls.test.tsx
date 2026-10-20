@@ -17,6 +17,12 @@ vi.mock('../icons', () => ({ ChevronDownIcon: () => <svg /> }));
 const providers = ({ children }: { children: React.ReactNode }) => <I18nProvider><ToastProvider>{children}</ToastProvider></I18nProvider>;
 
 describe('shared form control contracts', () => {
+  it('toolbar filter retains accessible label and readable light/dark color classes', () => {
+    render(<PageToolbar title="Flights" hideSearch filters={[{ key: 'status', label: 'Status', value: '', options: [{value: 'active', label: 'Active'}], onChange: vi.fn() }]} />);
+    const select = screen.getByRole('combobox', {name: 'Status'});
+    expect(select).toHaveClass('bg-white', 'text-gray-800', 'dark:bg-gray-900', 'dark:text-gray-100');
+    expect(select).toHaveClass('focus-visible:ring-2');
+  });
   it('forwards native validation and accessible error descriptions without dropping caller hints', () => {
     render(<><Label htmlFor="iata">Airport</Label><p id="help">IATA code</p><Input id="iata" required maxLength={3} pattern="[A-Z]{3}" error hint="Use three letters" aria-describedby="help" /></>);
     const input = screen.getByLabelText('Airport');
