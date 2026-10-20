@@ -1,0 +1,35 @@
+name: UI audit browser regressions
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: ui-audit-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ui-audit:
+    name: UI audit browser regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: nmt-analytics-admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: nmt-analytics-admin/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --config playwright.audit-ui.config.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-audit-${{ github.sha }}
+          path: |
+            nmt-analytics-admin/audit-ui-report/
+            nmt-analytics-admin/test-results/
+          retention-days: 14

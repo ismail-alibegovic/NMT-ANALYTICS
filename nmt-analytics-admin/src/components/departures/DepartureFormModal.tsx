@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toDateTimeInput, fromDateTimeInput } from "../../utils/dateTimeInput";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
@@ -38,8 +39,8 @@ export default function DepartureFormModal({
     if (!isOpen) return;
     if (editingDeparture) {
       setPackageId(editingDeparture.package_id);
-      setDepartAt(editingDeparture.depart_at?.slice(0, 16) || "");
-      setReturnAt(editingDeparture.return_at?.slice(0, 16) || "");
+      setDepartAt(toDateTimeInput(editingDeparture.depart_at));
+      setReturnAt(toDateTimeInput(editingDeparture.return_at));
       setCapacity(editingDeparture.capacity);
       setBooked(editingDeparture.booked);
       setStatus(editingDeparture.status);
@@ -63,8 +64,8 @@ export default function DepartureFormModal({
     try {
       await onSubmit({
         packageId,
-        departAt,
-        returnAt,
+        departAt: fromDateTimeInput(departAt),
+        returnAt: fromDateTimeInput(returnAt),
         capacity,
         status,
         booked,
@@ -90,7 +91,7 @@ export default function DepartureFormModal({
               options={packages.map((p) => ({ value: p.id, label: `${p.name} - ${p.destination}` }))}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Polazak <span className="text-error-500">*</span></label>
               <Input type="datetime-local" value={departAt} onChange={(e: any) => setDepartAt(e.target.value)} />
@@ -100,7 +101,7 @@ export default function DepartureFormModal({
               <Input type="datetime-local" value={returnAt} onChange={(e: any) => setReturnAt(e.target.value)} />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kapacitet <span className="text-error-500">*</span></label>
               <Input type="number" value={capacity === "" ? "" : String(capacity)} onChange={(e: any) => setCapacity(e.target.value === "" ? "" : Number(e.target.value))} />
