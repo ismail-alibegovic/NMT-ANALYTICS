@@ -477,8 +477,8 @@ export interface PackageAnalyticsV2 {
  * Phase 2: Returns comprehensive analytics overview
  * 
  * Query params:
- * - from (optional): Start date (YYYY-MM-DD) - filters reservations.created_at
- * - to (optional): End date (YYYY-MM-DD) - filters reservations.created_at
+ * - from (optional): Start date (YYYY-MM-DD) - filters reservations.reservation_at
+ * - to (optional): End date (YYYY-MM-DD) - filters reservations.reservation_at
  * 
  * Returns:
  * - Reservation counts and totals
@@ -512,8 +512,8 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async
       .select('total_amount, paid_amount, balance_due, payment_status, currency')
       .eq('org_id', orgId);
 
-    if (from) reservationQuery = reservationQuery.gte('created_at', from);
-    if (to) reservationQuery = reservationQuery.lte('created_at', `${to}T23:59:59.999Z`);
+    if (from) reservationQuery = reservationQuery.gte('reservation_at', from);
+    if (to) reservationQuery = reservationQuery.lte('reservation_at', `${to}T23:59:59.999Z`);
 
     console.log(`[GET /api/analytics/overview-v2] [Req:${requestId}] Executing reservation metrics query`);
     const { data: allReservations, error: reservationError } = await reservationQuery;
@@ -557,7 +557,7 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async
 
     if (paymentError) {
       console.error(`[GET /api/analytics/overview-v2] [Req:${requestId}] Payment error:`, paymentError);
-      // Continue without payment metrics
+      return apiError(res, 500, "QUERY_ERROR", "Failed to fetch payment metrics");
     }
 
     // Filter payments by date range (using payment_date or created_at)
@@ -650,8 +650,8 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async
  * Phase 2: Returns analytics grouped by package
  * 
  * Query params:
- * - from (optional): Start date (YYYY-MM-DD) - filters reservations.created_at
- * - to (optional): End date (YYYY-MM-DD) - filters reservations.created_at
+ * - from (optional): Start date (YYYY-MM-DD) - filters reservations.reservation_at
+ * - to (optional): End date (YYYY-MM-DD) - filters reservations.reservation_at
  * 
  * Returns array of:
  * - package_id
@@ -696,8 +696,8 @@ router.get('/analytics/by-package', authenticateToken, requireOrgContext, async 
             `)
       .eq('org_id', orgId);
 
-    if (from) query = query.gte('created_at', from);
-    if (to) query = query.lte('created_at', `${to}T23:59:59.999Z`);
+    if (from) query = query.gte('reservation_at', from);
+    if (to) query = query.lte('reservation_at', `${to}T23:59:59.999Z`);
     if (selectedCurrency) query = query.eq('currency', selectedCurrency);
 
     console.log(`[GET /api/analytics/by-package] [Req:${requestId}] Executing query`);
@@ -793,11 +793,11 @@ router.get('/analytics/revenue-series', authenticateToken, requireOrgContext, as
     // Build reservation revenue query
     let reservationQuery = supabaseAdmin
       .from('reservations')
-      .select('created_at, total_amount, currency')
+      .select('reservation_at, total_amount, currency')
       .eq('org_id', orgId);
 
-    if (from) reservationQuery = reservationQuery.gte('created_at', from);
-    if (to) reservationQuery = reservationQuery.lte('created_at', `${to}T23:59:59.999Z`);
+    if (from) reservationQuery = reservationQuery.gte('reservation_at', from);
+    if (to) reservationQuery = reservationQuery.lte('reservation_at', `${to}T23:59:59.999Z`);
     if (selectedCurrency) reservationQuery = reservationQuery.eq('currency', selectedCurrency);
 
     const { data: reservations, error: reservationError } = await reservationQuery;
@@ -819,12 +819,13 @@ router.get('/analytics/revenue-series', authenticateToken, requireOrgContext, as
 
     if (paymentError) {
       console.error(`[GET /api/analytics/revenue-series] [Req:${requestId}] Payment error:`, paymentError);
+      return apiError(res, 500, "QUERY_ERROR", "Failed to fetch payment metrics");
     }
 
     // Group reservations by date bucket
     const reservationMap = new Map<string, Map<string, number>>();
     reservations?.forEach((reservation: any) => {
-      const date = new Date(reservation.created_at);
+      const date = new Date(reservation.reservation_at);
       let bucketKey: string;
 
       if (bucket === 'weekly') {
@@ -833,7 +834,7 @@ router.get('/analytics/revenue-series', authenticateToken, requireOrgContext, as
         const monday = new Date(date.setDate(diff));
         bucketKey = monday.toISOString().split('T')[0];
       } else {
-        bucketKey = reservation.created_at.split('T')[0];
+        bucketKey = reservation.reservation_at.split('T')[0];
       }
 
       if (from && bucketKey < from) return;

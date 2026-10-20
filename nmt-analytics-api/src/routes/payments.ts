@@ -854,6 +854,11 @@ router.post('/payments/:id/refund', auditPaymentUpdate, async (req: Request, res
             return apiError(res, 400, 'ALREADY_REFUNDED', 'Payment is already refunded');
         }
 
+        if (existingPayment.status !== 'succeeded') {
+            return apiError(res, 409, 'PAYMENT_NOT_REFUNDABLE', 'Only a succeeded payment can be refunded');
+        }
+
+        // Compare-and-set under the tenant: a concurrent edit/refund must not be overwritten.
         // Update payment status to refunded
         const { data: updatedPayment, error: updateError } = await supabaseAdmin
             .from('payments')
@@ -862,11 +867,16 @@ router.post('/payments/:id/refund', auditPaymentUpdate, async (req: Request, res
             })
             .eq('id', paymentId)
             .eq('org_id', orgId)
+            .eq('status', 'succeeded')
             .select('id, reservation_id, amount, currency, status, payment_method, payment_date, created_at')
-            .single();
+            .maybeSingle();
 
         if (updateError) {
             return handleSupabaseError(res, updateError, 'Failed to refund payment');
+        }
+
+        if (!updatedPayment) {
+            return apiError(res, 409, 'PAYMENT_CONFLICT', 'The payment changed before the refund. Refresh before retrying.');
         }
 
         // Audit log: payment.refunded
