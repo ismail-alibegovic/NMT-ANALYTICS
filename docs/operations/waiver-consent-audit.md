@@ -11,7 +11,7 @@ Verification status is recorded for the final head in PR #140 and its CI artifac
 | Public SIGN audit used a non-UUID actor and could be dropped | Insert a null-user public-capability audit in the same transaction as signing | At least one matching SIGN audit for each signed synthetic consent |
 | Consent PDF used an unregistered italic font, failing with a footer or unsigned document | Use the registered Unicode oblique family and safe UUID filenames | Real PDF rendering tests for signed/unsigned consent with Unicode footer; authenticated file access tests |
 | Issuer page was unmounted and controls used broken endpoints; failed signing removed drafts | Protected manager page, role floor and reachable excursion action; preserve form/drawing after failed save; typed-name keyboard path | Role route regressions; BS/EN browser workflows at 390/768/1440 in both themes |
-| Capability URLs leaked into request logs and telemetry URL paths | Redact consent path capabilities; no-store API and no-referrer signing page | API/admin telemetry regressions and actual access-log test |
+| Capability URLs leaked into request logs and telemetry URL paths | Redact consent path capabilities; no-store API and no-referrer signing page | API/admin telemetry regressions, actual access-log test and client request-interceptor log test |
 
 ## Security boundaries
 
