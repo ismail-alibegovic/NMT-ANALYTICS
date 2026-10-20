@@ -37,7 +37,7 @@ describe('refund eligibility and compare-and-set',()=>{
   expect(results.map(r=>r.status).sort()).toEqual([200,409]);expect(h.writes).toEqual([{status:'refunded'}]);expect(h.audit).toHaveBeenCalledTimes(1);
  });
  it('does not access another tenant payment',async()=>{
-  expect((await request(app).post(`/api/payments/${PAY}/refund`).set('x-org','foreign-org').send({})).status).toBe(404);expect(h.writes).toHaveLength(0);
+  expect((await request(app).post(`/api/payments/${PAY}/refund`).set('x-org','foreign-org').send({})).status).toBe(404);expect(h.writes).toHaveLength(0);expect(h.audit).not.toHaveBeenCalled();
  });
  it('rejects an already refunded payment without another write',async()=>{
   h.row.status='refunded';expect((await request(app).post(`/api/payments/${PAY}/refund`).send({})).status).toBe(400);expect(h.writes).toHaveLength(0);
