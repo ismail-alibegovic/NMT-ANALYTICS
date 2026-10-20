@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { randomUUID } from 'crypto';
+import { redactCapabilityPath } from '../lib/sentryPrivacy';
 
 // Middleware to add request ID
 export const requestId: RequestHandler = (req, res, next) => {
@@ -21,7 +22,7 @@ export const requestLogging: RequestHandler = (req, res, next) => {
     const duration = Date.now() - req.startTime;
     const status = res.statusCode;
     const method = req.method;
-    const path = req.path;
+    const path = redactCapabilityPath(req.path);
     const requestId = req.requestId;
 
     // Simple log format

@@ -72,6 +72,118 @@
       }
     },
     {
+      "module": "accommodation",
+      "method": "GET",
+      "path": "/departures/:departureId/accommodation",
+      "line": 433,
+      "authenticated": true,
+      "minimumRole": "agent",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "accommodation",
+      "method": "POST",
+      "path": "/departures/:departureId/accommodation/buildings",
+      "line": 470,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "accommodation",
+      "method": "GET",
+      "path": "/departures/:departureId/room-slots",
+      "line": 192,
+      "authenticated": true,
+      "minimumRole": "agent",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "accommodation",
+      "method": "DELETE",
+      "path": "/room-slot-assignments/:assignmentId",
+      "line": 283,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "accommodation",
+      "method": "PATCH",
+      "path": "/room-slot-assignments/:assignmentId/lock",
+      "line": 376,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "accommodation",
+      "method": "POST",
+      "path": "/room-slot-assignments/:assignmentId/move",
+      "line": 322,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "accommodation",
+      "method": "PATCH",
+      "path": "/room-slots/:slotId",
+      "line": 402,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "accommodation",
+      "method": "POST",
+      "path": "/room-slots/:slotId/assign",
+      "line": 238,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
       "module": "admin",
       "method": "GET",
       "path": "/admin/audit-logs",
@@ -282,31 +394,101 @@
       }
     },
     {
-      "module": "signup",
+      "module": "analytics",
       "method": "GET",
-      "path": "/auth/check-org",
-      "line": 95,
-      "authenticated": false,
-      "minimumRole": null,
-      "realm": "public",
+      "path": "/dashboard",
+      "line": 408,
+      "authenticated": true,
+      "minimumRole": "viewer",
+      "realm": "staff",
       "roles": {
-        "director": null,
-        "manager": null,
-        "agent": null
+        "director": true,
+        "manager": true,
+        "agent": true
       }
     },
     {
-      "module": "signup",
-      "method": "POST",
-      "path": "/auth/signup",
-      "line": 22,
-      "authenticated": false,
-      "minimumRole": null,
-      "realm": "public",
+      "module": "automationRules",
+      "method": "GET",
+      "path": "/settings/automation-rules",
+      "line": 144,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
       "roles": {
-        "director": null,
-        "manager": null,
-        "agent": null
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "automationRules",
+      "method": "POST",
+      "path": "/settings/automation-rules",
+      "line": 201,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "automationRules",
+      "method": "DELETE",
+      "path": "/settings/automation-rules/:id",
+      "line": 311,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "automationRules",
+      "method": "GET",
+      "path": "/settings/automation-rules/:id",
+      "line": 176,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "automationRules",
+      "method": "PATCH",
+      "path": "/settings/automation-rules/:id",
+      "line": 245,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "automationRules",
+      "method": "PATCH",
+      "path": "/settings/automation-rules/:id/toggle",
+      "line": 332,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
       }
     },
     {
@@ -335,6 +517,160 @@
         "director": true,
         "manager": true,
         "agent": true
+      }
+    },
+    {
+      "module": "campaigns",
+      "method": "GET",
+      "path": "/settings/campaigns",
+      "line": 150,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "campaigns",
+      "method": "POST",
+      "path": "/settings/campaigns",
+      "line": 214,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "campaigns",
+      "method": "DELETE",
+      "path": "/settings/campaigns/:id",
+      "line": 351,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "campaigns",
+      "method": "GET",
+      "path": "/settings/campaigns/:id",
+      "line": 173,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "campaigns",
+      "method": "PATCH",
+      "path": "/settings/campaigns/:id",
+      "line": 270,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "campaigns",
+      "method": "POST",
+      "path": "/settings/campaigns/:id/preview",
+      "line": 383,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "campaigns",
+      "method": "PATCH",
+      "path": "/settings/campaigns/:id/schedule",
+      "line": 440,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "campaigns",
+      "method": "POST",
+      "path": "/settings/campaigns/:id/schedule",
+      "line": 415,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "campaigns",
+      "method": "POST",
+      "path": "/settings/campaigns/:id/schedule/cancel",
+      "line": 460,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "campaigns",
+      "method": "POST",
+      "path": "/settings/campaigns/:id/send",
+      "line": 472,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "campaigns",
+      "method": "POST",
+      "path": "/settings/campaigns/preview",
+      "line": 191,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
       }
     },
     {
@@ -632,12 +968,96 @@
       }
     },
     {
-      "module": "analytics",
+      "module": "departureDocuments",
       "method": "GET",
-      "path": "/dashboard",
-      "line": 408,
+      "path": "/departures/:id/bus-seating.csv",
+      "line": 606,
       "authenticated": true,
-      "minimumRole": "viewer",
+      "minimumRole": "agent",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "departureDocuments",
+      "method": "GET",
+      "path": "/departures/:id/bus-seating.pdf",
+      "line": 517,
+      "authenticated": true,
+      "minimumRole": "agent",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "departureDocuments",
+      "method": "GET",
+      "path": "/departures/:id/manifest.csv",
+      "line": 298,
+      "authenticated": true,
+      "minimumRole": "agent",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "departureDocuments",
+      "method": "GET",
+      "path": "/departures/:id/manifest.pdf",
+      "line": 200,
+      "authenticated": true,
+      "minimumRole": "agent",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "departureDocuments",
+      "method": "GET",
+      "path": "/departures/:id/rooming-list.csv",
+      "line": 450,
+      "authenticated": true,
+      "minimumRole": "agent",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "departureDocuments",
+      "method": "GET",
+      "path": "/departures/:id/rooming-list.pdf",
+      "line": 354,
+      "authenticated": true,
+      "minimumRole": "agent",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "departureDocuments",
+      "method": "GET",
+      "path": "/departures/:id/vouchers-batch.pdf",
+      "line": 633,
+      "authenticated": true,
+      "minimumRole": "agent",
       "realm": "staff",
       "roles": {
         "director": true,
@@ -730,62 +1150,6 @@
       }
     },
     {
-      "module": "departures",
-      "method": "GET",
-      "path": "/departures",
-      "line": 131,
-      "authenticated": true,
-      "minimumRole": "viewer",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "departures",
-      "method": "POST",
-      "path": "/departures",
-      "line": 213,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "accommodation",
-      "method": "GET",
-      "path": "/departures/:departureId/accommodation",
-      "line": 433,
-      "authenticated": true,
-      "minimumRole": "agent",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "accommodation",
-      "method": "POST",
-      "path": "/departures/:departureId/accommodation/buildings",
-      "line": 470,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
       "module": "departureProfitability",
       "method": "POST",
       "path": "/departures/:departureId/cost-items",
@@ -828,118 +1192,6 @@
       }
     },
     {
-      "module": "supplierConfirmations",
-      "method": "POST",
-      "path": "/departures/:departureId/cost-items/:itemId/confirmation",
-      "line": 89,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "flights",
-      "method": "GET",
-      "path": "/departures/:departureId/flights",
-      "line": 371,
-      "authenticated": true,
-      "minimumRole": "agent",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "flights",
-      "method": "POST",
-      "path": "/departures/:departureId/flights",
-      "line": 399,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "flights",
-      "method": "DELETE",
-      "path": "/departures/:departureId/flights/:id",
-      "line": 490,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "flights",
-      "method": "PATCH",
-      "path": "/departures/:departureId/flights/:id",
-      "line": 461,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "flights",
-      "method": "PUT",
-      "path": "/departures/:departureId/flights/reorder",
-      "line": 521,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "passengerGroups",
-      "method": "GET",
-      "path": "/departures/:departureId/passenger-groups",
-      "line": 85,
-      "authenticated": true,
-      "minimumRole": "agent",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "passengerGroups",
-      "method": "POST",
-      "path": "/departures/:departureId/passenger-groups",
-      "line": 112,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
       "module": "departureProfitability",
       "method": "GET",
       "path": "/departures/:departureId/profitability",
@@ -954,12 +1206,12 @@
       }
     },
     {
-      "module": "accommodation",
+      "module": "departures",
       "method": "GET",
-      "path": "/departures/:departureId/room-slots",
-      "line": 192,
+      "path": "/departures",
+      "line": 131,
       "authenticated": true,
-      "minimumRole": "agent",
+      "minimumRole": "viewer",
       "realm": "staff",
       "roles": {
         "director": true,
@@ -968,80 +1220,10 @@
       }
     },
     {
-      "module": "rooming",
+      "module": "departures",
       "method": "POST",
-      "path": "/departures/:departureId/rooming/apply",
-      "line": 35,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "rooming",
-      "method": "POST",
-      "path": "/departures/:departureId/rooming/proposal",
-      "line": 9,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "seats",
-      "method": "POST",
-      "path": "/departures/:departureId/seating/apply",
-      "line": 177,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "seats",
-      "method": "POST",
-      "path": "/departures/:departureId/seating/proposal",
-      "line": 147,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "supplierConfirmations",
-      "method": "GET",
-      "path": "/departures/:departureId/supplier-confirmation-events",
-      "line": 142,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "supplierConfirmations",
-      "method": "GET",
-      "path": "/departures/:departureId/supplier-confirmations",
-      "line": 63,
+      "path": "/departures",
+      "line": 213,
       "authenticated": true,
       "minimumRole": "manager",
       "realm": "staff",
@@ -1178,82 +1360,12 @@
       }
     },
     {
-      "module": "hotels",
-      "method": "POST",
-      "path": "/departures/:id/allocations",
-      "line": 252,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "departureDocuments",
-      "method": "GET",
-      "path": "/departures/:id/bus-seating.csv",
-      "line": 606,
-      "authenticated": true,
-      "minimumRole": "agent",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "departureDocuments",
-      "method": "GET",
-      "path": "/departures/:id/bus-seating.pdf",
-      "line": 517,
-      "authenticated": true,
-      "minimumRole": "agent",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
       "module": "departures",
       "method": "GET",
       "path": "/departures/:id/groups",
       "line": 1402,
       "authenticated": true,
       "minimumRole": "viewer",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "departureDocuments",
-      "method": "GET",
-      "path": "/departures/:id/manifest.csv",
-      "line": 298,
-      "authenticated": true,
-      "minimumRole": "agent",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "departureDocuments",
-      "method": "GET",
-      "path": "/departures/:id/manifest.pdf",
-      "line": 200,
-      "authenticated": true,
-      "minimumRole": "agent",
       "realm": "staff",
       "roles": {
         "director": true,
@@ -1282,76 +1394,6 @@
       "line": 1070,
       "authenticated": true,
       "minimumRole": "viewer",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "departureDocuments",
-      "method": "GET",
-      "path": "/departures/:id/rooming-list.csv",
-      "line": 450,
-      "authenticated": true,
-      "minimumRole": "agent",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "departureDocuments",
-      "method": "GET",
-      "path": "/departures/:id/rooming-list.pdf",
-      "line": 354,
-      "authenticated": true,
-      "minimumRole": "agent",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "supplierPayables",
-      "method": "GET",
-      "path": "/departures/:id/supplier-payables",
-      "line": 82,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "supplierPayables",
-      "method": "POST",
-      "path": "/departures/:id/supplier-payables",
-      "line": 92,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "departureDocuments",
-      "method": "GET",
-      "path": "/departures/:id/vouchers-batch.pdf",
-      "line": 633,
-      "authenticated": true,
-      "minimumRole": "agent",
       "realm": "staff",
       "roles": {
         "director": true,
@@ -1448,6 +1490,104 @@
       "method": "POST",
       "path": "/documents/voucher",
       "line": 312,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "emailSettings",
+      "method": "GET",
+      "path": "/settings/email",
+      "line": 39,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "emailSettings",
+      "method": "POST",
+      "path": "/settings/email",
+      "line": 116,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "emailSettings",
+      "method": "POST",
+      "path": "/settings/email/test",
+      "line": 72,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "emailSettings",
+      "method": "POST",
+      "path": "/settings/email/verify",
+      "line": 105,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "eturista",
+      "method": "GET",
+      "path": "/integrations/eturista/history",
+      "line": 108,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "eturista",
+      "method": "GET",
+      "path": "/integrations/eturista/status",
+      "line": 150,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "eturista",
+      "method": "POST",
+      "path": "/integrations/eturista/submit",
+      "line": 37,
       "authenticated": true,
       "minimumRole": "manager",
       "realm": "staff",
@@ -1642,6 +1782,76 @@
     {
       "module": "flights",
       "method": "GET",
+      "path": "/departures/:departureId/flights",
+      "line": 371,
+      "authenticated": true,
+      "minimumRole": "agent",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "flights",
+      "method": "POST",
+      "path": "/departures/:departureId/flights",
+      "line": 399,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "flights",
+      "method": "DELETE",
+      "path": "/departures/:departureId/flights/:id",
+      "line": 490,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "flights",
+      "method": "PATCH",
+      "path": "/departures/:departureId/flights/:id",
+      "line": 461,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "flights",
+      "method": "PUT",
+      "path": "/departures/:departureId/flights/reorder",
+      "line": 521,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "flights",
+      "method": "GET",
       "path": "/flights",
       "line": 108,
       "authenticated": true,
@@ -1710,90 +1920,6 @@
       }
     },
     {
-      "module": "publicForms",
-      "method": "GET",
-      "path": "/forms",
-      "line": 104,
-      "authenticated": true,
-      "minimumRole": "viewer",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "publicForms",
-      "method": "POST",
-      "path": "/forms",
-      "line": 128,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "publicForms",
-      "method": "DELETE",
-      "path": "/forms/:id",
-      "line": 203,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "publicForms",
-      "method": "GET",
-      "path": "/forms/:id",
-      "line": 116,
-      "authenticated": true,
-      "minimumRole": "viewer",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "publicForms",
-      "method": "PATCH",
-      "path": "/forms/:id",
-      "line": 158,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "publicForms",
-      "method": "GET",
-      "path": "/forms/:id/submissions",
-      "line": 213,
-      "authenticated": true,
-      "minimumRole": "viewer",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
       "module": "health",
       "method": "GET",
       "path": "/health",
@@ -1805,6 +1931,20 @@
         "director": null,
         "manager": null,
         "agent": null
+      }
+    },
+    {
+      "module": "hotels",
+      "method": "POST",
+      "path": "/departures/:id/allocations",
+      "line": 252,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
       }
     },
     {
@@ -1878,20 +2018,6 @@
       }
     },
     {
-      "module": "packageHotels",
-      "method": "GET",
-      "path": "/hotels/:id/packages",
-      "line": 181,
-      "authenticated": true,
-      "minimumRole": "viewer",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
       "module": "hotels",
       "method": "GET",
       "path": "/hotels/:id/rooms",
@@ -1917,6 +2043,20 @@
         "director": true,
         "manager": true,
         "agent": false
+      }
+    },
+    {
+      "module": "hotels",
+      "method": "GET",
+      "path": "/public/hotels/:slug/rooms",
+      "line": 286,
+      "authenticated": false,
+      "minimumRole": null,
+      "realm": "public",
+      "roles": {
+        "director": null,
+        "manager": null,
+        "agent": null
       }
     },
     {
@@ -2018,45 +2158,31 @@
       }
     },
     {
-      "module": "eturista",
+      "module": "installments",
       "method": "GET",
-      "path": "/integrations/eturista/history",
-      "line": 108,
+      "path": "/reservations/:id/installments",
+      "line": 101,
       "authenticated": true,
-      "minimumRole": "manager",
+      "minimumRole": "agent",
       "realm": "staff",
       "roles": {
         "director": true,
         "manager": true,
-        "agent": false
+        "agent": true
       }
     },
     {
-      "module": "eturista",
-      "method": "GET",
-      "path": "/integrations/eturista/status",
-      "line": 150,
+      "module": "installments",
+      "method": "PUT",
+      "path": "/reservations/:id/installments",
+      "line": 162,
       "authenticated": true,
-      "minimumRole": "manager",
+      "minimumRole": "agent",
       "realm": "staff",
       "roles": {
         "director": true,
         "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "eturista",
-      "method": "POST",
-      "path": "/integrations/eturista/submit",
-      "line": 37,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
+        "agent": true
       }
     },
     {
@@ -2225,6 +2351,90 @@
         "director": true,
         "manager": true,
         "agent": true
+      }
+    },
+    {
+      "module": "messageTemplates",
+      "method": "GET",
+      "path": "/settings/message-templates",
+      "line": 83,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "messageTemplates",
+      "method": "POST",
+      "path": "/settings/message-templates",
+      "line": 131,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "messageTemplates",
+      "method": "DELETE",
+      "path": "/settings/message-templates/:id",
+      "line": 217,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "messageTemplates",
+      "method": "GET",
+      "path": "/settings/message-templates/:id",
+      "line": 110,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "messageTemplates",
+      "method": "PATCH",
+      "path": "/settings/message-templates/:id",
+      "line": 160,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "messageTemplates",
+      "method": "POST",
+      "path": "/settings/message-templates/:id/duplicate",
+      "line": 238,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
       }
     },
     {
@@ -2424,6 +2634,76 @@
       }
     },
     {
+      "module": "packageCosting",
+      "method": "POST",
+      "path": "/packages/:packageId/cost-items",
+      "line": 222,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "packageCosting",
+      "method": "DELETE",
+      "path": "/packages/:packageId/cost-items/:itemId",
+      "line": 280,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "packageCosting",
+      "method": "PATCH",
+      "path": "/packages/:packageId/cost-items/:itemId",
+      "line": 250,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "packageCosting",
+      "method": "GET",
+      "path": "/packages/:packageId/costing",
+      "line": 214,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "packageHotels",
+      "method": "GET",
+      "path": "/hotels/:id/packages",
+      "line": 181,
+      "authenticated": true,
+      "minimumRole": "viewer",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
       "module": "packageHotels",
       "method": "DELETE",
       "path": "/package-hotels/:id",
@@ -2452,10 +2732,10 @@
       }
     },
     {
-      "module": "packageServices",
+      "module": "packageHotels",
       "method": "GET",
-      "path": "/package-services",
-      "line": 74,
+      "path": "/packages/:id/hotels",
+      "line": 99,
       "authenticated": true,
       "minimumRole": "viewer",
       "realm": "staff",
@@ -2466,38 +2746,10 @@
       }
     },
     {
-      "module": "packageServices",
+      "module": "packageHotels",
       "method": "POST",
-      "path": "/package-services",
-      "line": 105,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "packageServices",
-      "method": "DELETE",
-      "path": "/package-services/:id",
-      "line": 176,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "packageServices",
-      "method": "PATCH",
-      "path": "/package-services/:id",
-      "line": 141,
+      "path": "/packages/:id/hotels",
+      "line": 113,
       "authenticated": true,
       "minimumRole": "manager",
       "realm": "staff",
@@ -2592,90 +2844,6 @@
       }
     },
     {
-      "module": "packageHotels",
-      "method": "GET",
-      "path": "/packages/:id/hotels",
-      "line": 99,
-      "authenticated": true,
-      "minimumRole": "viewer",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "packageHotels",
-      "method": "POST",
-      "path": "/packages/:id/hotels",
-      "line": 113,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "packageCosting",
-      "method": "POST",
-      "path": "/packages/:packageId/cost-items",
-      "line": 222,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "packageCosting",
-      "method": "DELETE",
-      "path": "/packages/:packageId/cost-items/:itemId",
-      "line": 280,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "packageCosting",
-      "method": "PATCH",
-      "path": "/packages/:packageId/cost-items/:itemId",
-      "line": 250,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "packageCosting",
-      "method": "GET",
-      "path": "/packages/:packageId/costing",
-      "line": 214,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
       "module": "packages",
       "method": "GET",
       "path": "/packages/export",
@@ -2687,6 +2855,90 @@
         "director": true,
         "manager": true,
         "agent": true
+      }
+    },
+    {
+      "module": "packageServices",
+      "method": "GET",
+      "path": "/package-services",
+      "line": 74,
+      "authenticated": true,
+      "minimumRole": "viewer",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "packageServices",
+      "method": "POST",
+      "path": "/package-services",
+      "line": 105,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "packageServices",
+      "method": "DELETE",
+      "path": "/package-services/:id",
+      "line": 176,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "packageServices",
+      "method": "PATCH",
+      "path": "/package-services/:id",
+      "line": 141,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "passengerGroups",
+      "method": "GET",
+      "path": "/departures/:departureId/passenger-groups",
+      "line": 85,
+      "authenticated": true,
+      "minimumRole": "agent",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "passengerGroups",
+      "method": "POST",
+      "path": "/departures/:departureId/passenger-groups",
+      "line": 112,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
       }
     },
     {
@@ -2872,48 +3124,6 @@
       }
     },
     {
-      "module": "subAgentPortal",
-      "method": "GET",
-      "path": "/portal/commission-rules",
-      "line": 178,
-      "authenticated": false,
-      "minimumRole": null,
-      "realm": "subagent-token",
-      "roles": {
-        "director": null,
-        "manager": null,
-        "agent": null
-      }
-    },
-    {
-      "module": "subAgentPortal",
-      "method": "GET",
-      "path": "/portal/me",
-      "line": 136,
-      "authenticated": false,
-      "minimumRole": null,
-      "realm": "subagent-token",
-      "roles": {
-        "director": null,
-        "manager": null,
-        "agent": null
-      }
-    },
-    {
-      "module": "subAgentPortal",
-      "method": "GET",
-      "path": "/portal/sales",
-      "line": 155,
-      "authenticated": false,
-      "minimumRole": null,
-      "realm": "subagent-token",
-      "roles": {
-        "director": null,
-        "manager": null,
-        "agent": null
-      }
-    },
-    {
       "module": "public",
       "method": "GET",
       "path": "/public/:orgId/departures",
@@ -2956,6 +3166,118 @@
       }
     },
     {
+      "module": "public",
+      "method": "POST",
+      "path": "/public/hotel-bookings",
+      "line": 269,
+      "authenticated": false,
+      "minimumRole": null,
+      "realm": "public",
+      "roles": {
+        "director": null,
+        "manager": null,
+        "agent": null
+      }
+    },
+    {
+      "module": "public",
+      "method": "POST",
+      "path": "/public/reserve",
+      "line": 233,
+      "authenticated": false,
+      "minimumRole": null,
+      "realm": "public",
+      "roles": {
+        "director": null,
+        "manager": null,
+        "agent": null
+      }
+    },
+    {
+      "module": "publicForms",
+      "method": "GET",
+      "path": "/forms",
+      "line": 104,
+      "authenticated": true,
+      "minimumRole": "viewer",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "publicForms",
+      "method": "POST",
+      "path": "/forms",
+      "line": 128,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "publicForms",
+      "method": "DELETE",
+      "path": "/forms/:id",
+      "line": 203,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "publicForms",
+      "method": "GET",
+      "path": "/forms/:id",
+      "line": 116,
+      "authenticated": true,
+      "minimumRole": "viewer",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "publicForms",
+      "method": "PATCH",
+      "path": "/forms/:id",
+      "line": 158,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "publicForms",
+      "method": "GET",
+      "path": "/forms/:id/submissions",
+      "line": 213,
+      "authenticated": true,
+      "minimumRole": "viewer",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
       "module": "publicForms",
       "method": "GET",
       "path": "/public/forms/:slug",
@@ -2984,73 +3306,31 @@
       }
     },
     {
-      "module": "public",
+      "module": "quotationBooking",
       "method": "POST",
-      "path": "/public/hotel-bookings",
-      "line": 269,
-      "authenticated": false,
-      "minimumRole": null,
-      "realm": "public",
+      "path": "/quotations/:id/booking",
+      "line": 36,
+      "authenticated": true,
+      "minimumRole": "agent",
+      "realm": "staff",
       "roles": {
-        "director": null,
-        "manager": null,
-        "agent": null
+        "director": true,
+        "manager": true,
+        "agent": true
       }
     },
     {
-      "module": "hotels",
+      "module": "quotationBooking",
       "method": "GET",
-      "path": "/public/hotels/:slug/rooms",
-      "line": 286,
-      "authenticated": false,
-      "minimumRole": null,
-      "realm": "public",
+      "path": "/quotations/:id/booking-options",
+      "line": 29,
+      "authenticated": true,
+      "minimumRole": "agent",
+      "realm": "staff",
       "roles": {
-        "director": null,
-        "manager": null,
-        "agent": null
-      }
-    },
-    {
-      "module": "public",
-      "method": "POST",
-      "path": "/public/reserve",
-      "line": 233,
-      "authenticated": false,
-      "minimumRole": null,
-      "realm": "public",
-      "roles": {
-        "director": null,
-        "manager": null,
-        "agent": null
-      }
-    },
-    {
-      "module": "waivers",
-      "method": "GET",
-      "path": "/public/waiver/:token",
-      "line": 329,
-      "authenticated": false,
-      "minimumRole": null,
-      "realm": "public",
-      "roles": {
-        "director": null,
-        "manager": null,
-        "agent": null
-      }
-    },
-    {
-      "module": "waivers",
-      "method": "POST",
-      "path": "/public/waiver/:token/sign",
-      "line": 365,
-      "authenticated": false,
-      "minimumRole": null,
-      "realm": "public",
-      "roles": {
-        "director": null,
-        "manager": null,
-        "agent": null
+        "director": true,
+        "manager": true,
+        "agent": true
       }
     },
     {
@@ -3100,34 +3380,6 @@
       "method": "PATCH",
       "path": "/quotations/:id",
       "line": 298,
-      "authenticated": true,
-      "minimumRole": "agent",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "quotationBooking",
-      "method": "POST",
-      "path": "/quotations/:id/booking",
-      "line": 36,
-      "authenticated": true,
-      "minimumRole": "agent",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "quotationBooking",
-      "method": "GET",
-      "path": "/quotations/:id/booking-options",
-      "line": 29,
       "authenticated": true,
       "minimumRole": "agent",
       "realm": "staff",
@@ -3446,34 +3698,6 @@
       }
     },
     {
-      "module": "installments",
-      "method": "GET",
-      "path": "/reservations/:id/installments",
-      "line": 101,
-      "authenticated": true,
-      "minimumRole": "agent",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
-      "module": "installments",
-      "method": "PUT",
-      "path": "/reservations/:id/installments",
-      "line": 162,
-      "authenticated": true,
-      "minimumRole": "agent",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": true
-      }
-    },
-    {
       "module": "reservations",
       "method": "GET",
       "path": "/reservations/:id/invoice.pdf",
@@ -3558,38 +3782,10 @@
       }
     },
     {
-      "module": "accommodation",
-      "method": "DELETE",
-      "path": "/room-slot-assignments/:assignmentId",
-      "line": 283,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "accommodation",
-      "method": "PATCH",
-      "path": "/room-slot-assignments/:assignmentId/lock",
-      "line": 376,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "accommodation",
+      "module": "rooming",
       "method": "POST",
-      "path": "/room-slot-assignments/:assignmentId/move",
-      "line": 322,
+      "path": "/departures/:departureId/rooming/apply",
+      "line": 35,
       "authenticated": true,
       "minimumRole": "manager",
       "realm": "staff",
@@ -3600,24 +3796,38 @@
       }
     },
     {
-      "module": "accommodation",
-      "method": "PATCH",
-      "path": "/room-slots/:slotId",
-      "line": 402,
-      "authenticated": true,
-      "minimumRole": "manager",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": true,
-        "agent": false
-      }
-    },
-    {
-      "module": "accommodation",
+      "module": "rooming",
       "method": "POST",
-      "path": "/room-slots/:slotId/assign",
-      "line": 238,
+      "path": "/departures/:departureId/rooming/proposal",
+      "line": 9,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "seats",
+      "method": "POST",
+      "path": "/departures/:departureId/seating/apply",
+      "line": 177,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "seats",
+      "method": "POST",
+      "path": "/departures/:departureId/seating/proposal",
+      "line": 147,
       "authenticated": true,
       "minimumRole": "manager",
       "realm": "staff",
@@ -3726,90 +3936,6 @@
       }
     },
     {
-      "module": "automationRules",
-      "method": "GET",
-      "path": "/settings/automation-rules",
-      "line": 144,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "automationRules",
-      "method": "POST",
-      "path": "/settings/automation-rules",
-      "line": 201,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "automationRules",
-      "method": "DELETE",
-      "path": "/settings/automation-rules/:id",
-      "line": 311,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "automationRules",
-      "method": "GET",
-      "path": "/settings/automation-rules/:id",
-      "line": 176,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "automationRules",
-      "method": "PATCH",
-      "path": "/settings/automation-rules/:id",
-      "line": 245,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "automationRules",
-      "method": "PATCH",
-      "path": "/settings/automation-rules/:id/toggle",
-      "line": 332,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
       "module": "settings",
       "method": "GET",
       "path": "/settings/branding",
@@ -3828,300 +3954,6 @@
       "method": "PATCH",
       "path": "/settings/branding",
       "line": 431,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "campaigns",
-      "method": "GET",
-      "path": "/settings/campaigns",
-      "line": 150,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "campaigns",
-      "method": "POST",
-      "path": "/settings/campaigns",
-      "line": 214,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "campaigns",
-      "method": "DELETE",
-      "path": "/settings/campaigns/:id",
-      "line": 351,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "campaigns",
-      "method": "GET",
-      "path": "/settings/campaigns/:id",
-      "line": 173,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "campaigns",
-      "method": "PATCH",
-      "path": "/settings/campaigns/:id",
-      "line": 270,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "campaigns",
-      "method": "POST",
-      "path": "/settings/campaigns/:id/preview",
-      "line": 383,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "campaigns",
-      "method": "PATCH",
-      "path": "/settings/campaigns/:id/schedule",
-      "line": 440,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "campaigns",
-      "method": "POST",
-      "path": "/settings/campaigns/:id/schedule",
-      "line": 415,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "campaigns",
-      "method": "POST",
-      "path": "/settings/campaigns/:id/schedule/cancel",
-      "line": 460,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "campaigns",
-      "method": "POST",
-      "path": "/settings/campaigns/:id/send",
-      "line": 472,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "campaigns",
-      "method": "POST",
-      "path": "/settings/campaigns/preview",
-      "line": 191,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "emailSettings",
-      "method": "GET",
-      "path": "/settings/email",
-      "line": 39,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "emailSettings",
-      "method": "POST",
-      "path": "/settings/email",
-      "line": 116,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "emailSettings",
-      "method": "POST",
-      "path": "/settings/email/test",
-      "line": 72,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "emailSettings",
-      "method": "POST",
-      "path": "/settings/email/verify",
-      "line": 105,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "messageTemplates",
-      "method": "GET",
-      "path": "/settings/message-templates",
-      "line": 83,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "messageTemplates",
-      "method": "POST",
-      "path": "/settings/message-templates",
-      "line": 131,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "messageTemplates",
-      "method": "DELETE",
-      "path": "/settings/message-templates/:id",
-      "line": 217,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "messageTemplates",
-      "method": "GET",
-      "path": "/settings/message-templates/:id",
-      "line": 110,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "messageTemplates",
-      "method": "PATCH",
-      "path": "/settings/message-templates/:id",
-      "line": 160,
-      "authenticated": true,
-      "minimumRole": "director",
-      "realm": "staff",
-      "roles": {
-        "director": true,
-        "manager": false,
-        "agent": false
-      }
-    },
-    {
-      "module": "messageTemplates",
-      "method": "POST",
-      "path": "/settings/message-templates/:id/duplicate",
-      "line": 238,
       "authenticated": true,
       "minimumRole": "director",
       "realm": "staff",
@@ -4188,6 +4020,34 @@
       }
     },
     {
+      "module": "signup",
+      "method": "GET",
+      "path": "/auth/check-org",
+      "line": 95,
+      "authenticated": false,
+      "minimumRole": null,
+      "realm": "public",
+      "roles": {
+        "director": null,
+        "manager": null,
+        "agent": null
+      }
+    },
+    {
+      "module": "signup",
+      "method": "POST",
+      "path": "/auth/signup",
+      "line": 22,
+      "authenticated": false,
+      "minimumRole": null,
+      "realm": "public",
+      "roles": {
+        "director": null,
+        "manager": null,
+        "agent": null
+      }
+    },
+    {
       "module": "smsSettings",
       "method": "GET",
       "path": "/settings/sms",
@@ -4220,6 +4080,76 @@
       "method": "POST",
       "path": "/settings/sms/test",
       "line": 170,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "subAgentPortal",
+      "method": "GET",
+      "path": "/portal/commission-rules",
+      "line": 178,
+      "authenticated": false,
+      "minimumRole": null,
+      "realm": "subagent-token",
+      "roles": {
+        "director": null,
+        "manager": null,
+        "agent": null
+      }
+    },
+    {
+      "module": "subAgentPortal",
+      "method": "GET",
+      "path": "/portal/me",
+      "line": 136,
+      "authenticated": false,
+      "minimumRole": null,
+      "realm": "subagent-token",
+      "roles": {
+        "director": null,
+        "manager": null,
+        "agent": null
+      }
+    },
+    {
+      "module": "subAgentPortal",
+      "method": "GET",
+      "path": "/portal/sales",
+      "line": 155,
+      "authenticated": false,
+      "minimumRole": null,
+      "realm": "subagent-token",
+      "roles": {
+        "director": null,
+        "manager": null,
+        "agent": null
+      }
+    },
+    {
+      "module": "subAgentPortal",
+      "method": "POST",
+      "path": "/subagents/:id/portal-token",
+      "line": 30,
+      "authenticated": true,
+      "minimumRole": "director",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": false,
+        "agent": false
+      }
+    },
+    {
+      "module": "subAgentPortal",
+      "method": "POST",
+      "path": "/subagents/:id/portal-token/revoke",
+      "line": 79,
       "authenticated": true,
       "minimumRole": "director",
       "realm": "staff",
@@ -4300,30 +4230,72 @@
       }
     },
     {
-      "module": "subAgentPortal",
+      "module": "supplierConfirmations",
       "method": "POST",
-      "path": "/subagents/:id/portal-token",
-      "line": 30,
+      "path": "/departures/:departureId/cost-items/:itemId/confirmation",
+      "line": 89,
       "authenticated": true,
-      "minimumRole": "director",
+      "minimumRole": "manager",
       "realm": "staff",
       "roles": {
         "director": true,
-        "manager": false,
+        "manager": true,
         "agent": false
       }
     },
     {
-      "module": "subAgentPortal",
-      "method": "POST",
-      "path": "/subagents/:id/portal-token/revoke",
-      "line": 79,
+      "module": "supplierConfirmations",
+      "method": "GET",
+      "path": "/departures/:departureId/supplier-confirmation-events",
+      "line": 142,
       "authenticated": true,
-      "minimumRole": "director",
+      "minimumRole": "manager",
       "realm": "staff",
       "roles": {
         "director": true,
-        "manager": false,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "supplierConfirmations",
+      "method": "GET",
+      "path": "/departures/:departureId/supplier-confirmations",
+      "line": 63,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "supplierPayables",
+      "method": "GET",
+      "path": "/departures/:id/supplier-payables",
+      "line": 82,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": false
+      }
+    },
+    {
+      "module": "supplierPayables",
+      "method": "POST",
+      "path": "/departures/:id/supplier-payables",
+      "line": 92,
+      "authenticated": true,
+      "minimumRole": "manager",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
         "agent": false
       }
     },
@@ -4470,8 +4442,36 @@
     {
       "module": "waivers",
       "method": "GET",
+      "path": "/public/waiver/:token",
+      "line": 419,
+      "authenticated": false,
+      "minimumRole": null,
+      "realm": "public",
+      "roles": {
+        "director": null,
+        "manager": null,
+        "agent": null
+      }
+    },
+    {
+      "module": "waivers",
+      "method": "POST",
+      "path": "/public/waiver/:token/sign",
+      "line": 458,
+      "authenticated": false,
+      "minimumRole": null,
+      "realm": "public",
+      "roles": {
+        "director": null,
+        "manager": null,
+        "agent": null
+      }
+    },
+    {
+      "module": "waivers",
+      "method": "GET",
       "path": "/waiver-templates",
-      "line": 44,
+      "line": 45,
       "authenticated": true,
       "minimumRole": "manager",
       "realm": "staff",
@@ -4485,7 +4485,7 @@
       "module": "waivers",
       "method": "POST",
       "path": "/waiver-templates",
-      "line": 62,
+      "line": 45,
       "authenticated": true,
       "minimumRole": "manager",
       "realm": "staff",
@@ -4499,7 +4499,7 @@
       "module": "waivers",
       "method": "DELETE",
       "path": "/waiver-templates/:id",
-      "line": 104,
+      "line": 97,
       "authenticated": true,
       "minimumRole": "manager",
       "realm": "staff",
@@ -4513,7 +4513,7 @@
       "module": "waivers",
       "method": "PATCH",
       "path": "/waiver-templates/:id",
-      "line": 82,
+      "line": 97,
       "authenticated": true,
       "minimumRole": "manager",
       "realm": "staff",
@@ -4526,8 +4526,36 @@
     {
       "module": "waivers",
       "method": "GET",
+      "path": "/waivers",
+      "line": 357,
+      "authenticated": true,
+      "minimumRole": "agent",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "waivers",
+      "method": "GET",
       "path": "/waivers/:id/pdf",
-      "line": 415,
+      "line": 506,
+      "authenticated": true,
+      "minimumRole": "agent",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "waivers",
+      "method": "POST",
+      "path": "/waivers/:id/revoke",
+      "line": 395,
       "authenticated": true,
       "minimumRole": "agent",
       "realm": "staff",
@@ -4541,7 +4569,21 @@
       "module": "waivers",
       "method": "GET",
       "path": "/waivers/by-departure/:depId",
-      "line": 296,
+      "line": 322,
+      "authenticated": true,
+      "minimumRole": "agent",
+      "realm": "staff",
+      "roles": {
+        "director": true,
+        "manager": true,
+        "agent": true
+      }
+    },
+    {
+      "module": "waivers",
+      "method": "GET",
+      "path": "/waivers/departures",
+      "line": 364,
       "authenticated": true,
       "minimumRole": "agent",
       "realm": "staff",
@@ -4555,7 +4597,7 @@
       "module": "waivers",
       "method": "POST",
       "path": "/waivers/issue",
-      "line": 210,
+      "line": 239,
       "authenticated": true,
       "minimumRole": "agent",
       "realm": "staff",
@@ -4569,7 +4611,7 @@
       "module": "waivers",
       "method": "POST",
       "path": "/waivers/issue-batch",
-      "line": 236,
+      "line": 265,
       "authenticated": true,
       "minimumRole": "manager",
       "realm": "staff",

@@ -54,6 +54,7 @@ const AvailabilityPage = lazy(() => import("./pages/operations/Availability"));
 const CommunicationCenter = lazy(() => import("./pages/communication/CommunicationCenter"));
 const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/OtherPage/NotFound"));
+const WaiversPage = lazy(() => import("./pages/admin/Waivers"));
 const PublicSignWaiver = lazy(() => import("./pages/PublicSignWaiver"));
 const PublicSubAgentPortal = lazy(() => import("./pages/PublicSubAgentPortal"));
 const PublicFormRenderer = lazy(() => import("./pages/PublicFormRenderer"));
@@ -162,6 +163,7 @@ export default function App() {
           {/* Phase B — Operations */}
           <Route path="/operations/subagents" element={<SuspenseWrapper><SubAgentsPage /></SuspenseWrapper>} />
           <Route path="/operations/commission-rules" element={<SuspenseWrapper><CommissionRulesPage /></SuspenseWrapper>} />
+          <Route path="/admin/waivers" element={<SuspenseWrapper><ModuleGuard moduleKey="travel_core" fallback={<NotFoundClientOnly />}><WaiversPage /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/operations/excursions" element={<SuspenseWrapper><ModuleGuard moduleKey="travel_core" fallback={<NotFoundClientOnly />}><ExcursionsPage /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/operations/flights" element={<SuspenseWrapper><ModuleGuard moduleKey="travel_core" fallback={<NotFoundClientOnly />}><FlightsPage /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/operations/hotels" element={<SuspenseWrapper><ModuleGuard moduleKey="travel_core" fallback={<NotFoundClientOnly />}><HotelsPage /></ModuleGuard></SuspenseWrapper>} />

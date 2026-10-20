@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import PageToolbar from "../../components/ui/PageToolbar";
 import Button from "../../components/ui/button/Button";
@@ -19,7 +20,7 @@ import { getReservations, Reservation } from "../../api/reservations";
 export default function Excursions() {
   const { success: showSuccess, error: showError } = useToast();
   const { user, loading: authLoading } = useApp();
-  const { t } = useT();
+  const { t, lang } = useT();
   const tr = t.operations.excursions;
   const [passengers, setPassengers] = useState<ExcursionPassenger[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,7 +136,8 @@ export default function Excursions() {
         searchValue={search}
         onSearchChange={setSearch}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Link to="/admin/waivers" className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600">{lang === "bs" ? "Pristanak putnika" : "Passenger consent"}</Link>
             <Button variant="outline" onClick={handleBusList} disabled={!selectedResId} title="Bus passenger list PDF" className="flex items-center gap-2">
               <DownloadIcon className="w-4 h-4" /> Bus List
             </Button>
