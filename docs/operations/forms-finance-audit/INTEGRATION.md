@@ -25,6 +25,8 @@ Retained current main Input native-prop support and refund safety assertions. Co
 
 ## Verification
 
-Pending final integration CI and isolated browser acceptance. Historical REPORT.md, COVERAGE.md, screenshots and logs describe earlier commits and are not evidence for this integration. Current results will be recorded here after verification.
+Local combined-tree verification: API TypeScript build and 908 tests passed; admin lint passed with 0 errors/51 warnings, 405 tests and production build passed. Local Chromium installation was blocked by a download failure.
+
+The authoritative final-commit CI and isolated browser evidence is attached to integration PR #137: https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/137. Review all six protected checks on the final head before merging. Historical REPORT.md, COVERAGE.md, screenshots and logs describe earlier commits and are not evidence for this integration.
 
 No migration is added and no production financial records are accessed. The historical application-wide form inventory remains broader than this scoped integration; untested surfaces are not certified by this work.
