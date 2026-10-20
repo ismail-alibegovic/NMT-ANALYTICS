@@ -806,7 +806,7 @@ router.post(
       const { count: occupied } = await supabaseAdmin
         .from('accommodation_assignments')
         .select('*', { count: 'exact', head: true })
-        .eq('room_id', targetRoomId);
+        .eq('room_id', targetRoomId).eq('org_id', orgId);
 
       if ((occupied || 0) >= targetRoom.capacity) {
         return apiError(res, 409, 'ROOM_FULL', `Room at capacity (${targetRoom.capacity}/${targetRoom.capacity})`);
@@ -836,20 +836,20 @@ router.post(
         const beds = (targetRoom.beds as any[]).map((b: any) =>
           b.label === bedLabel ? { ...b, assignedPassengerId: oldAssignment.passenger_id } : b
         );
-        await supabaseAdmin.from('accommodation_rooms').update({ beds }).eq('id', targetRoomId);
+        await supabaseAdmin.from('accommodation_rooms').update({ beds }).eq('id', targetRoomId).eq('org_id', orgId);
       }
 
       if (oldAssignment.bed_label) {
         const { data: oldRoom } = await supabaseAdmin
           .from('accommodation_rooms')
           .select('beds')
-          .eq('id', oldAssignment.room_id)
+          .eq('id', oldAssignment.room_id).eq('org_id', orgId)
           .single();
         if (oldRoom?.beds) {
           const oldBeds = (oldRoom.beds as any[]).map((b: any) =>
             b.label === oldAssignment.bed_label ? { ...b, assignedPassengerId: null } : b
           );
-          await supabaseAdmin.from('accommodation_rooms').update({ beds: oldBeds }).eq('id', oldAssignment.room_id);
+          await supabaseAdmin.from('accommodation_rooms').update({ beds: oldBeds }).eq('id', oldAssignment.room_id).eq('org_id', orgId);
         }
       }
 

@@ -286,28 +286,7 @@ router.post('/departures/:id/allocations', authenticateToken, requireOrgContext,
 });
 
 /** GET /api/public/hotels/:slug/rooms */
-router.get('/public/hotels/:slug/rooms', async (req, res: Response) => {
-  try {
-    const { slug } = req.params;
-    const { data, error } = await supabaseAdmin
-      .from('hotels')
-      .select('id, name, slug, hotel_rooms(*)')
-      .eq('slug', slug)
-      .single();
-    if (error || !data) return apiError(res, 404, 'NOT_FOUND', 'Hotel not found');
-
-    // Aggregate room availability
-    const rooms = (data.hotel_rooms || []).map((r: any) => ({
-      id: r.id,
-      roomType: r.room_type,
-      capacity: r.capacity,
-      pricePerNight: r.base_price,
-      available: r.available,
-      total: r.total,
-    }));
-
-    return res.json({ hotel: data.name, slug: data.slug, rooms });
-  } catch (err) { console.error('Error in GET /public/hotels/:slug/rooms:', err); apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err)); }
-});
+router.get('/public/hotels/:slug/rooms', (_req, res: Response) =>
+  apiError(res, 410, 'LEGACY_HOTEL_CATALOG_DISABLED', 'Use a configured public booking form.'));
 
 export default router;

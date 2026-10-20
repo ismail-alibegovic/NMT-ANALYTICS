@@ -111,3 +111,5 @@ SQL
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/database-function-security.sql"
 echo "Migration Replay PASS: $count migrations executed"
 
+
+"${PSQL_BASE[@]}" -f "$ROOT/scripts/authorization-security.sql"

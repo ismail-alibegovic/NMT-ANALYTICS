@@ -15,7 +15,7 @@ import { requireMinimumRole } from '../middleware/requireRole';
 const router = Router();
 
 // All payment routes require manager or higher
-router.use(authenticateToken, requireOrgContext, requireMinimumRole('manager'));
+router.use('/payments', authenticateToken, requireOrgContext, requireMinimumRole('manager'));
 
 // ============================================================================
 // VALIDATION SCHEMAS

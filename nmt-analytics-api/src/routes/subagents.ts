@@ -60,7 +60,7 @@ function transformSubAgent(s: any) {
 }
 
 /** GET /api/subagents */
-router.get('/subagents', authenticateToken, requireOrgContext, async (req, res, next) => {
+router.get('/subagents', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res, next) => {
   try {
     const r = listQuerySchema.safeParse(req.query);
     if (!r.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', r.error.issues);

@@ -1,3 +1,4 @@
+import { requireMinimumRole } from '../middleware/requireRole';
 import { Router, Response } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
@@ -15,7 +16,7 @@ const router = Router();
  *
  * Response: application/zip with filename "travline-export-YYYY-MM-DD.zip"
  */
-router.get('/export/all.zip', authenticateToken, requireOrgContext, async (req, res: Response) => {
+router.get('/export/all.zip', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
   try {
     const orgId = req.orgId!;
     const dateStr = new Date().toISOString().split('T')[0];
@@ -496,7 +497,7 @@ router.get('/export/reservations.csv', authenticateToken, requireOrgContext, asy
  * - fromDate: Filter transactions from this date (YYYY-MM-DD)
  * - toDate: Filter transactions to this date (YYYY-MM-DD)
  */
-router.get('/export/transactions.csv', authenticateToken, requireOrgContext, async (req, res: Response) => {
+router.get('/export/transactions.csv', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
   try {
     const { type, fromDate, toDate } = req.query;
     const orgId = req.orgId!;

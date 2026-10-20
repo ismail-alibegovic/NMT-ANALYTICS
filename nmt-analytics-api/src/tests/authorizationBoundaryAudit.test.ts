@@ -1,0 +1,13 @@
+import {beforeAll,beforeEach,expect,it,vi} from 'vitest';
+import express,{type Express} from 'express';
+import request from 'supertest';
+const h=vi.hoisted(()=>({queries:0}));
+vi.mock('../middleware/authenticateToken',()=>({authenticateToken:(req:any,res:any,next:any)=>{const role=req.headers['x-audit-role'];if(!role)return res.sendStatus(401);req.user={id:'actor',role,email:'synthetic@test.invalid'};req.orgId='org-a';next();}}));
+vi.mock('../middleware/requireOrgContext',()=>({requireOrgContext:(_req:any,_res:any,next:any)=>next()}));
+vi.mock('../lib/supabase',()=>({supabaseAdmin:{from:()=>{h.queries++;throw new Error('SYNTHETIC_DB_BOUNDARY');}},handleSupabaseError:(res:any)=>res.sendStatus(500)}));
+let app:Express;
+beforeAll(async()=>{app=express();app.use(express.json());for(const name of ['analytics','documents','export','commissionRules','public'])app.use('/api',(await import(`../routes/${name}.ts`)).default);app.use((_e:any,_q:any,res:any,_n:any)=>res.sendStatus(500));});
+beforeEach(()=>{h.queries=0;});
+it.each(['/analytics/overview-v2','/analytics/by-package','/analytics/revenue-series','/analytics/overview.csv','/analytics/by-package.csv','/documents','/documents/foreign/download','/export/all.zip','/export/transactions.csv'])('Agent cannot read privileged resource %s',async path=>{const r=await request(app).get('/api'+path).set('x-audit-role','agent');expect(r.status).toBe(403);expect(h.queries).toBe(0);});
+it.each(['manager','agent'])('%s cannot read director commission rules',async role=>{expect((await request(app).get('/api/commission-rules').set('x-audit-role',role)).status).toBe(403);expect(h.queries).toBe(0);});
+it('legacy anonymous hotel booking cannot mutate inventory, including concurrent calls',async()=>{const results=await Promise.all([0,1,2].map(()=>request(app).post('/api/public/hotel-bookings').send({orgId:'11111111-1111-4111-8111-111111111111',hotelId:'22222222-2222-4222-8222-222222222222',roomType:'double',checkIn:'2041-01-01',checkOut:'2041-01-02',guestName:'Synthetic',guestPhone:'000'})));expect(results.map(r=>r.status)).toEqual([410,410,410]);expect(h.queries).toBe(0);});

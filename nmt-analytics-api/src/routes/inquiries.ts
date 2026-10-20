@@ -108,6 +108,11 @@ router.patch('/inquiries/:id', authenticateToken, requireOrgContext, requireMini
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid inquiry update', parsed.error.issues);
   const b = parsed.data;
+  if (b.assignedTo) {
+    const { data: assignee, error: assigneeError } = await supabaseAdmin.from('profiles')
+      .select('id').eq('id', b.assignedTo).eq('org_id', req.orgId!).maybeSingle();
+    if (assigneeError || !assignee) return apiError(res, 404, 'ASSIGNEE_NOT_FOUND', 'Assigned user not found in this organization');
+  }
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   const fields: Record<string, string> = { contactName: 'contact_name', tripType: 'trip_type', travelStart: 'travel_start', travelEnd: 'travel_end', assignedTo: 'assigned_to', nextActionAt: 'next_action_at', lostReason: 'lost_reason' };
   for (const [key, value] of Object.entries(b)) updates[fields[key] || key] = value;

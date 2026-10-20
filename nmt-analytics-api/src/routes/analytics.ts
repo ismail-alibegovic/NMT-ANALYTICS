@@ -1,3 +1,4 @@
+import { requireMinimumRole } from '../middleware/requireRole';
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
@@ -486,7 +487,7 @@ export interface PackageAnalyticsV2 {
  * - Average reservation value
  * - Payment metrics in date range
  */
-router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async (req: Request, res: Response) => {
+router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req: Request, res: Response) => {
   const orgId = req.orgId;
   const requestId = (req as any).requestId || 'unknown';
 
@@ -661,7 +662,7 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, async
  * - total_paid_sum
  * - total_balance_sum
  */
-router.get('/analytics/by-package', authenticateToken, requireOrgContext, async (req: Request, res: Response) => {
+router.get('/analytics/by-package', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req: Request, res: Response) => {
   const orgId = req.orgId;
   const requestId = (req as any).requestId || 'unknown';
 
@@ -763,7 +764,7 @@ router.get('/analytics/by-package', authenticateToken, requireOrgContext, async 
  * 
  * Returns revenue time series data
  */
-router.get('/analytics/revenue-series', authenticateToken, requireOrgContext, async (req: Request, res: Response) => {
+router.get('/analytics/revenue-series', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req: Request, res: Response) => {
   const orgId = req.orgId;
   const requestId = (req as any).requestId || 'unknown';
 
@@ -913,7 +914,7 @@ router.get('/analytics/revenue-series', authenticateToken, requireOrgContext, as
  * 
  * Exports overview analytics as CSV
  */
-router.get('/analytics/overview.csv', authenticateToken, requireOrgContext, async (req: Request, res: Response) => {
+router.get('/analytics/overview.csv', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req: Request, res: Response) => {
   const orgId = req.orgId;
   const requestId = (req as any).requestId || 'unknown';
 
@@ -1030,7 +1031,7 @@ router.get('/analytics/overview.csv', authenticateToken, requireOrgContext, asyn
  * 
  * Exports package analytics as CSV
  */
-router.get('/analytics/by-package.csv', authenticateToken, requireOrgContext, async (req: Request, res: Response) => {
+router.get('/analytics/by-package.csv', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req: Request, res: Response) => {
   const orgId = req.orgId;
   const requestId = (req as any).requestId || 'unknown';
 
@@ -1144,7 +1145,7 @@ router.get('/analytics/by-package.csv', authenticateToken, requireOrgContext, as
 // GET /api/analytics/payment-status
 // Returns payment count and amount grouped by status
 // ============================================================================
-router.get('/analytics/payment-status', authenticateToken, requireOrgContext, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/analytics/payment-status', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.orgId!;
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { get, patch } from "../api/client";
 import { useApp } from "../context/AppContext";
 import { useNavigate } from "react-router";
 import Button from "../components/ui/button/Button";
@@ -54,47 +54,15 @@ export default function Profile() {
     const fetchProfile = async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from("profiles")
-                .select("*")
-                .eq("id", user?.id)
-                .single();
-
-            if (error) {
-                if (error.code === "PGRST116") {
-                    // Profile not found, we'll allow creation on save
-                    setProfile({ id: user!.id });
-                } else {
-                    throw error;
-                }
-            } else {
-                setProfile(data);
-                setFullName(data.full_name || "");
-
-                if (data.org_id) {
-                    fetchOrganization(data.org_id);
-                }
-            }
+            const { data } = await get<{profile: ProfileData; organization: OrganizationData | null}>('/me/profile');
+            setProfile(data.profile);
+            setFullName(data.profile.full_name || "");
+            setOrganization(data.organization);
         } catch (err: any) {
             console.error("Error fetching profile:", err);
             toast.error("Failed to load profile data");
         } finally {
             setLoading(false);
-        }
-    };
-
-    const fetchOrganization = async (orgId: string) => {
-        try {
-            const { data, error } = await supabase
-                .from("organizations")
-                .select("*")
-                .eq("id", orgId)
-                .single();
-
-            if (error) throw error;
-            setOrganization(data);
-        } catch (err: any) {
-            console.error("Error fetching organization:", err);
         }
     };
 
@@ -104,19 +72,7 @@ export default function Profile() {
 
         try {
             setSaving(true);
-            const updates = {
-                id: user.id,
-                full_name: fullName,
-                // We preserve org_id and role if they exist
-                ...(profile?.org_id ? { org_id: profile.org_id } : {}),
-                ...(profile?.role ? { role: profile.role } : {}),
-            };
-
-            const { error } = await supabase
-                .from("profiles")
-                .upsert(updates, { onConflict: "id" });
-
-            if (error) throw error;
+            await patch('/me/profile', { full_name: fullName });
 
             toast.success("Profile updated successfully");
             await fetchProfile();

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { supabaseAdmin } from "../lib/supabase";
+import { isUserRole } from '../types/roles';
 import { config } from "../config";
 import { apiError } from "../lib/errors";
 
@@ -152,6 +153,10 @@ export async function authenticateToken(
             console.warn(`[AUTH] Request ${req.requestId}: Profile not found for user ${data.user.id}`);
           }
           return apiError(res, 403, "ORG_CONTEXT_REQUIRED", "Organization context required");
+        }
+
+        if (!profile.org_id || !isUserRole(profile.role)) {
+          return apiError(res, 403, 'INVALID_AUTH_CONTEXT', 'A valid organization and role are required');
         }
 
         // Populate org context

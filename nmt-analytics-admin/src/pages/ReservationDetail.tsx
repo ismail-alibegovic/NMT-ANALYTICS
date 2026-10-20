@@ -8,6 +8,8 @@ import { DataTable, Column } from "../components/ui/DataTable";
 import CommunicationHistoryPanel from "../components/communications/CommunicationHistoryPanel";
 import ManualMessageComposer from "../components/communications/ManualMessageComposer";
 import { Modal } from "../components/ui/modal";
+import { useApp } from "../context/AppContext";
+import { hasAccess } from "../types/roles";
 import { useToast } from "../context/ToastContext";
 import { useT } from '../lib/i18n/context';
 import {
@@ -60,6 +62,8 @@ const transportLabels: Record<string, string> = {
 
 export default function ReservationDetail() {
   const { t: copy } = useT();
+  const { userContext } = useApp();
+  const canManagePayments = hasAccess("manager", userContext?.role);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showError, showSuccess } = useToast();
@@ -356,7 +360,7 @@ export default function ReservationDetail() {
               <FileIcon className="size-4" /> Ugovor
             </Button>
             <Button size="sm" variant="outline" onClick={handleDownloadVoucher}>Vaucer</Button>
-            <Button size="sm" variant="outline" onClick={handleDownloadInvoice}>Faktura</Button>
+            <Button size="sm" variant="outline" disabled={!canManagePayments} onClick={handleDownloadInvoice}>Faktura</Button>
           </div>
         </div>
 
@@ -466,7 +470,7 @@ export default function ReservationDetail() {
                 </div>
                 <Button
                   size="sm"
-                  disabled={Boolean(reservation.creationState && reservation.creationState !== 'completed')}
+                  disabled={!canManagePayments || Boolean(reservation.creationState && reservation.creationState !== 'completed')}
                   onClick={() => {
                     setSelectedInstallmentId(pendingInstallments[0]?.id || null);
                     setAddPaymentOpen(true);
@@ -524,7 +528,7 @@ export default function ReservationDetail() {
                             <Button
                               size="sm"
                               variant="outline"
-                              disabled={Boolean(reservation.creationState && reservation.creationState !== 'completed')}
+                              disabled={!canManagePayments || Boolean(reservation.creationState && reservation.creationState !== 'completed')}
                               onClick={() => {
                                 setSelectedInstallmentId(installment.id);
                                 setAddPaymentOpen(true);
@@ -636,7 +640,7 @@ export default function ReservationDetail() {
           <div className="space-y-4">
             <div className="flex gap-3">
               <Button size="sm" variant="outline" onClick={handleDownloadVoucher}>Preuzmi vaučer</Button>
-              <Button size="sm" variant="outline" onClick={handleDownloadInvoice}>Preuzmi fakturu</Button>
+              <Button size="sm" variant="outline" disabled={!canManagePayments} onClick={handleDownloadInvoice}>Preuzmi fakturu</Button>
             </div>
             <ManualMessageComposer
               initialEmail={reservationEmail}
@@ -668,7 +672,7 @@ export default function ReservationDetail() {
       />
 
       <AddPaymentModal
-        isOpen={addPaymentOpen}
+        isOpen={canManagePayments && addPaymentOpen}
         onClose={() => setAddPaymentOpen(false)}
         reservationId={reservation.id}
         reservationCurrency={reservation.currency}

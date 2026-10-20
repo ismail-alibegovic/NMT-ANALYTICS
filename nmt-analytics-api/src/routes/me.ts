@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
@@ -140,6 +141,24 @@ router.get('/me/context', authenticateToken, requireOrgContext, async (req, res)
     console.error('Error in /me/context route:', error);
     apiError(res, 500, "INTERNAL_ERROR", "Internal server error", error instanceof Error ? error.message : String(error));
   }
+});
+
+// No caller-supplied user, organization or role may enter this contract.
+router.get('/me/profile', authenticateToken, requireOrgContext, async (req, res) => {
+  const { data: profile, error } = await supabaseAdmin.from('profiles')
+    .select('id, org_id, role, full_name, created_at').eq('id', req.user!.id).eq('org_id', req.orgId!).single();
+  if (error || !profile) return apiError(res, 404, 'NOT_FOUND', 'Profile not found');
+  const { data: organization } = await supabaseAdmin.from('organizations')
+    .select('id, name, slug').eq('id', req.orgId!).single();
+  return res.json({ profile, organization });
+});
+router.patch('/me/profile', authenticateToken, requireOrgContext, async (req, res) => {
+  const parsed = z.object({ full_name: z.string().trim().max(100) }).strict().safeParse(req.body);
+  if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Only the profile display name can be updated');
+  const { data, error } = await supabaseAdmin.from('profiles').update(parsed.data)
+    .eq('id', req.user!.id).eq('org_id', req.orgId!).select('id, org_id, role, full_name, created_at').single();
+  if (error || !data) return apiError(res, 404, 'NOT_FOUND', 'Profile not found');
+  return res.json(data);
 });
 
 export default router;

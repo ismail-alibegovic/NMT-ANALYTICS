@@ -35,11 +35,9 @@ export function ModuleGuard({ moduleKey, children, fallback }: ModuleGuardProps)
   const { userContext, loading, profileLoading } = useApp();
   const navigate = useNavigate();
 
-  // While context is still loading, render children to avoid a flicker
-  // of the fallback. The real gate settles once `userContext.modules`
-  // is populated.
+  // Wait for authoritative context before mounting protected children.
   if (loading || profileLoading) {
-    return <>{children}</>;
+    return null;
   }
 
   const enabled = userContext?.modules ?? [];
