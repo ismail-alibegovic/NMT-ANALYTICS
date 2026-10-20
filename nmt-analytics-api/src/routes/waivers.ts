@@ -593,14 +593,14 @@ router.get(
         }
       }
     } else {
-      doc.fillColor('#9CA3AF').font('DejaVu-Italic').text('Pristanak još nije potpisan.', 50, y);
+      doc.fillColor('#9CA3AF').font('DejaVu-Oblique').text('Pristanak još nije potpisan.', 50, y);
     }
     // Footer with org display name
     if (branding.footerText) {
       doc
         .fillColor('#9CA3AF')
         .fontSize(8)
-        .font('DejaVu-Italic')
+        .font('DejaVu-Oblique')
         .text(branding.footerText, 50, 780, { align: 'center', width: 495 });
     }
     doc.end();
