@@ -21,6 +21,7 @@ Client business data is API-only. Browser Auth/session remains Supabase; self-pr
 | A05 | Reservation/inquiry assignee IDs could reference a profile outside authenticated org; secondary enrichment/room queries lacked explicit org predicates. | Validate assignee membership before writes/capacity work; scope departure profile/payment enrichment and accommodation room queries to org. | Real requests use an owned departure with foreign assignee, distinct from foreign-departure tests. Existing accommodation/move and booking suites plus cross-tenant record tests preserve supported workflows. |
 | A06 | Invalid stored roles could proceed through authentication, and raw database diagnostics were returned to clients. | Reject invalid auth context; keep SQL details/hints/row values in server logs, normalize missing rows to 404. | authContextAudit tests invalid profiles/token and spoofed headers; databaseErrorExposure verifies exact sanitized responses. |
 | A07 | Some direct UI routes lacked explicit role floors; ModuleGuard mounted protected children while loading; Agent reservation screen offered financial writes. | Add route floors matching server, wait for entitlement context, disable Agent payment/invoice actions while preserving booking balances. | routeAuthorizationAudit covers 3 roles and 12 protected paths, sales access, invalid role and loading gate. ReservationDetail test covers Agent controls. Three real browser role/profile workflows attach screenshots. |
+| A08 | Waiver token reads ignored revoked_at/consumed_at and signing used a read-then-unconditional-write, permitting signature overwrite on a compatible deployed schema. | Deny revoked/consumed capabilities; compare status, organization, expiry and revocation/consumption at update time, with one conditional winner. | waiverAuthorizationAudit: baseline revoked-token GET returned 200; four regression cases now pass, covering concurrent signatures and revocation between read/write. Actual positive waiver acceptance is blocked by existing schema drift below. |
 
 ## Tenant and concurrency verification
 
@@ -30,7 +31,7 @@ Parent-derived queries without a tenant column (for example passenger-group link
 
 ## Coverage ledger
 
-The machine-readable [routes.json](routes.json) lists every literal method/path, source module/line, authentication realm and Director/Manager/Agent role floor. Regenerate with `node scripts/security-route-inventory.cjs`. Source permission allows are not a claim that every valid workflow was browser-tested. The real denial matrix attaches actual statuses for all staff routes and every disallowed role; positive workflow checks use existing acceptance scenarios and the new role/profile tests. Public/token paths are reviewed separately and tested by their dedicated public-form/waiver/portal suites.
+The machine-readable [routes.json](routes.json) lists every literal method/path, source module/line, authentication realm and Director/Manager/Agent role floor. Regenerate with `node scripts/security-route-inventory.cjs`. Source permission allows are not a claim that every valid workflow was browser-tested. The real denial matrix attaches actual statuses for all staff routes and every disallowed role; positive workflow checks use existing acceptance scenarios and the new role/profile tests. Public/token paths are reviewed separately; public forms have real acceptance, while waiver revocation/concurrency uses a focused route harness as noted below.
 
 Inventory: 327 endpoints; 60 modules; 13 public, 311 staff, 3 subagent-token. No unclassified literal routes.
 
@@ -96,6 +97,10 @@ Inventory: 327 endpoints; 60 modules; 13 public, 311 staff, 3 subagent-token. No
 | suppliers | 5 | staff | agent, viewer |
 | transactions | 2 | staff | manager |
 | waivers | 10 | public, staff | agent, manager |
+
+## Existing waiver workflow blocker
+
+`waivers.ts` expects `waiver_templates.body_text` and waiver token snapshot/status/signature columns that are absent from the repository migration history (`20260711220000_passenger_waivers.sql` defines `body`, `revoked_at` and `consumed_at`). It also formats/truncates issued tokens differently from the raw token hashed for lookup. The current replayed schema fails closed on those queries; positive issuance/signing cannot be certified. This PR fixes the revocation/concurrent-write authorization logic using a deterministic route harness, without inventing or migrating a new waiver data model. Reconcile the existing waiver schema/token contract in a dedicated functional task before enabling or claiming full waiver acceptance. This is an explicit remaining coverage blocker, not a passed workflow or a demonstrated production exploit.
 
 ## Verification and release evidence
 

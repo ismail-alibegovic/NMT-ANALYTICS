@@ -334,12 +334,12 @@ router.get('/public/waiver/:token', async (req: Request, res: Response) => {
   const { data, error } = await supabaseAdmin
     .from('waiver_tokens')
     .select(
-      'id, passenger_name_snapshot, package_name_snapshot, destination_snapshot, template_snapshot_title, template_snapshot_body, status, expires_at',
+      'id, passenger_name_snapshot, package_name_snapshot, destination_snapshot, template_snapshot_title, template_snapshot_body, status, expires_at, revoked_at, consumed_at',
     )
     .eq('token_hash', tokenHash)
     .single();
-  if (error || !data) return apiError(res, 404, 'NOT_FOUND', 'Waiver not found or invalid link');
-  if (data.status === 'signed')
+  if (error || !data || data.revoked_at) return apiError(res, 404, 'NOT_FOUND', 'Waiver not found or invalid link');
+  if (data.status === 'signed' || data.consumed_at)
     return apiError(res, 409, 'ALREADY_SIGNED', 'This waiver has already been signed');
   if (new Date(data.expires_at).getTime() < Date.now())
     return apiError(res, 410, 'EXPIRED', 'This waiver link has expired');
@@ -373,11 +373,11 @@ router.post('/public/waiver/:token/sign', async (req: Request, res: Response) =>
   const tokenHash = hashToken(req.params.token);
   const { data: waiver, error: wErr } = await supabaseAdmin
     .from('waiver_tokens')
-    .select('id, org_id, status, expires_at')
+    .select('id, org_id, status, expires_at, revoked_at, consumed_at')
     .eq('token_hash', tokenHash)
     .single();
-  if (wErr || !waiver) return apiError(res, 404, 'NOT_FOUND', 'Waiver not found');
-  if (waiver.status === 'signed')
+  if (wErr || !waiver || waiver.revoked_at) return apiError(res, 404, 'NOT_FOUND', 'Waiver not found');
+  if (waiver.status === 'signed' || waiver.consumed_at)
     return apiError(res, 409, 'ALREADY_SIGNED', 'This waiver has already been signed');
   if (new Date(waiver.expires_at).getTime() < Date.now())
     return apiError(res, 410, 'EXPIRED', 'This waiver link has expired');
@@ -385,6 +385,7 @@ router.post('/public/waiver/:token/sign', async (req: Request, res: Response) =>
   const update: Record<string, unknown> = {
     status: 'signed',
     signed_at: new Date().toISOString(),
+    consumed_at: new Date().toISOString(),
     signer_name: parsed.data.signer_name,
     signed_via: 'web',
   };
@@ -392,8 +393,13 @@ router.post('/public/waiver/:token/sign', async (req: Request, res: Response) =>
     update.signature_png_base64 = parsed.data.signature_png;
   }
 
-  const { error } = await supabaseAdmin.from('waiver_tokens').update(update).eq('id', waiver.id);
+  // The capability is single-use and revocable at the instant of the write.
+  const { data: signed, error } = await supabaseAdmin.from('waiver_tokens').update(update)
+    .eq('id', waiver.id).eq('org_id', waiver.org_id).eq('status', waiver.status)
+    .is('revoked_at', null).is('consumed_at', null).gt('expires_at', new Date().toISOString())
+    .select('id').maybeSingle();
   if (error) return handleSupabaseError(res, error, 'Failed to sign waiver');
+  if (!signed) return apiError(res, 409, 'WAIVER_CONFLICT', 'This waiver is no longer available for signing');
 
   // Audit: public self-sign — log against owning org (no authenticated user).
   logAuditEntry({
@@ -477,7 +483,7 @@ router.get(
     });
     y = doc.y + 28;
     // Signature
-    if (data.status === 'signed') {
+    if (data.status === 'signed' || data.consumed_at) {
       doc.font('DejaVu-Bold').text('Potpis:', 50, y);
       y += 18;
       doc.font('DejaVu').text(data.signer_name || '—', 70, y);

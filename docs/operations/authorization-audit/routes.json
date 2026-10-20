@@ -4527,7 +4527,7 @@
       "module": "waivers",
       "method": "GET",
       "path": "/waivers/:id/pdf",
-      "line": 409,
+      "line": 415,
       "authenticated": true,
       "minimumRole": "agent",
       "realm": "staff",

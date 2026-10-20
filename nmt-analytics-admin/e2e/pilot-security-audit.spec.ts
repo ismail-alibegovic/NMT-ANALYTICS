@@ -40,6 +40,7 @@ test('cross-tenant records and financial races stay within the authenticated org
  const docResponse=await request.post(api+'/api/documents/upload',{headers:b.headers,multipart:{file:{name:marker+'.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF synthetic security')}}});expect(docResponse.status()).toBe(201);const doc=await docResponse.json();
  const ownPackage=await create(request,a.headers,'/packages',{name:'Own security '+randomUUID(),destination:'Synthetic',price:180,currency:'BAM',active:true,transportType:'none',maxParticipants:8});
  const ownDeparture=await create(request,a.headers,'/departures',{packageId:ownPackage.id,departAt:'2043-02-01T08:00:00Z',returnAt:'2043-02-02T18:00:00Z',capacity:8,status:'active',transportType:'none'});
+ const ownInquiry=await create(request,a.headers,'/inquiries',{contactName:'Own security inquiry',tripType:'scheduled_group'});
  const observations=[];
  for(const role of roles){const actor=await login(request,role);
   for(const [path,payload] of [[`/customers/${customer.id}`,{fullName:'Forbidden'}],[`/packages/${pkg.id}`,{name:'Forbidden'}],[`/departures/${dep.id}`,{status:'cancelled'}],[`/reservations/${reservation.id}`,{status:'cancelled'}],[`/payments/${payment.id}`,{amount:1}],[`/suppliers/${supplier.id}`,{name:'Forbidden'}],[`/hotels/${hotel.id}`,{name:'Forbidden'}],[`/flights/${flight.id}`,{airline:'Forbidden'}]] as const){
@@ -48,6 +49,7 @@ test('cross-tenant records and financial races stay within the authenticated org
   for(const path of [`/customers/${customer.id}`,`/packages/${pkg.id}`,`/departures/${dep.id}`,`/reservations/${reservation.id}`,`/documents/${doc.id}/download`]){const r=await request.get(api+'/api'+path,{headers:actor.headers});expect([403,404],`${role} GET ${path}: ${await r.text()}`).toContain(r.status());}
   const spoof=await request.post(api+'/api/reservations',{headers:actor.headers,data:{departureId:dep.id,customerName:'Forbidden',customerPhone:'000',partySize:1,reservationAt:'2043-01-01T10:00:00Z',totalAmount:180,currency:'BAM',status:'confirmed',org_id:b.userId,assignedTo:b.userId}});expect([400,403,404]).toContain(spoof.status());
   const assignee=await request.post(api+'/api/reservations',{headers:actor.headers,data:{departureId:ownDeparture.id,customerName:'Foreign assignee',customerPhone:'000',partySize:1,reservationAt:'2043-02-01T10:00:00Z',totalAmount:180,currency:'BAM',status:'confirmed',assignedTo:b.userId}});expect(assignee.status(),await assignee.text()).toBe(400);
+  const inquiryAssignee=await request.patch(`${api}/api/inquiries/${ownInquiry.id}`,{headers:actor.headers,data:{assignedTo:b.userId}});expect(inquiryAssignee.status(),await inquiryAssignee.text()).toBe(400);
   const deletion=await request.delete(`${api}/api/documents/${doc.id}`,{headers:actor.headers});expect([403,404]).toContain(deletion.status());
  }
  const preserved=await request.get(`${api}/api/documents/${doc.id}/download`,{headers:b.headers});expect(preserved.status()).toBe(200);
