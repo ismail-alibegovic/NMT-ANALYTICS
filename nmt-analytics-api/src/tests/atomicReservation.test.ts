@@ -156,7 +156,20 @@ vi.mock('../lib/supabase', () => {
           const deleteEqOrg = vi.fn(async () => ({ error: null }))
           const deleteEqId = vi.fn(() => ({ eq: deleteEqOrg }))
           const deleteFn = vi.fn(() => ({ eq: deleteEqId }))
-          return { insert, select, delete: deleteFn }
+          const update = vi.fn((_payload: Record<string, unknown>) => ({
+            eq: vi.fn((key: string, value: unknown) => {
+              expect(key).toBe('id')
+              expect(String(value)).toMatch(/^res-/)
+              return {
+                eq: vi.fn(async (orgKey: string, orgValue: unknown) => {
+                  expect(orgKey).toBe('org_id')
+                  expect(orgValue).toBe('org-test-00000000-0000-0000-0000-000000000000')
+                  return { error: null }
+                }),
+              }
+            }),
+          }))
+          return { insert, select, delete: deleteFn, update }
         }
         case 'departures': {
           const departureSingle = vi.fn(async () => departureExists
