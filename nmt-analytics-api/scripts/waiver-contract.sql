@@ -7,7 +7,10 @@ DECLARE foreign_passenger record;
 DECLARE own_token record;
 DECLARE denied boolean := false;
 BEGIN
-  IF has_table_privilege('anon', 'public.waiver_tokens', 'SELECT') OR
+  IF EXISTS (SELECT 1 FROM pg_class WHERE oid IN ('public.waiver_tokens'::regclass, 'public.waiver_templates'::regclass) AND NOT relrowsecurity) OR
+     has_any_column_privilege('authenticated', 'public.waiver_tokens', 'SELECT') OR
+     has_any_column_privilege('anon', 'public.waiver_tokens', 'SELECT') OR
+     has_table_privilege('anon', 'public.waiver_tokens', 'SELECT') OR
      has_table_privilege('authenticated', 'public.waiver_tokens', 'SELECT') OR
      has_table_privilege('authenticated', 'public.waiver_tokens', 'UPDATE') OR
      has_function_privilege('anon', 'public.sync_waiver_passenger_consent()', 'EXECUTE') OR

@@ -45,6 +45,13 @@ CREATE UNIQUE INDEX waiver_tokens_one_unconsumed
   ON public.waiver_tokens (org_id, passenger_id)
   WHERE consumed_at IS NULL AND revoked_at IS NULL;
 
+-- Support tenant history/status views and every referencing foreign-key lookup.
+CREATE INDEX waiver_tokens_org_created ON public.waiver_tokens (org_id, created_at DESC);
+CREATE INDEX waiver_tokens_passenger_org ON public.waiver_tokens (passenger_id, org_id);
+CREATE INDEX waiver_tokens_reservation_org ON public.waiver_tokens (reservation_id, org_id);
+CREATE INDEX waiver_tokens_departure_org_created ON public.waiver_tokens (departure_id, org_id, created_at);
+CREATE INDEX waiver_tokens_template_org ON public.waiver_tokens (template_id, org_id);
+
 CREATE UNIQUE INDEX waiver_passenger_org_identity ON public.excursion_passengers (org_id, id);
 CREATE UNIQUE INDEX waiver_reservation_org_identity ON public.reservations (org_id, id);
 CREATE UNIQUE INDEX waiver_departure_org_identity ON public.departures (org_id, id);
