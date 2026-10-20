@@ -5,7 +5,7 @@ const api = process.env.E2E_API_URL || 'http://127.0.0.1:3001';
 const auth = process.env.E2E_SUPABASE_URL || 'http://127.0.0.1:54321';
 type Headers = Record<string, string>;
 const terms = 'Synthetic consent terms. No real passenger or financial data.';
-let headers: Headers, foreign: Headers, templateId: string;
+let headers: Headers, foreign: Headers, agent: Headers, templateId: string;
 test.describe.configure({ mode: 'serial' });
 async function login(request: APIRequestContext, email: string) {
   const result = await request.post(auth + '/auth/v1/token?grant_type=password', {
@@ -32,6 +32,7 @@ test.beforeAll(async ({ request }) => {
   expect(/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(auth)).toBe(true);
   headers = await login(request, process.env.E2E_FINANCE_DIRECTOR_EMAIL!);
   foreign = await login(request, process.env.E2E_OTHER_TENANT_EMAIL!);
+  agent = await login(request, 'agent@security-audit.test');
   const template = await create(request, '/waiver-templates', {
     title: 'Synthetic consent', body_text: terms,
     declarations: [{ id: 'health', label: 'Synthetic required declaration', required: true }],
@@ -48,6 +49,9 @@ test('waiver API preserves snapshots, single-use state, tenant isolation and con
   expect(issued.map(r => r.status()).sort()).toEqual([201, 409]);
   const waiver = await issued.find(r => r.status() === 201)!.json();
   const token = waiver.sign_url.split('/').pop(); expect(token).toMatch(/^[a-f0-9]{48}$/);
+  const managerIssued = await create(request, '/waivers/issue', { passenger_id: foreignSlot.passenger.id }, foreign);
+  expect(managerIssued.waiver_id).toBeTruthy();
+  expect((await request.get(api + '/api/waiver-templates', { headers: agent })).status()).toBe(403);
   const publicUrl = api + '/api/public/waiver/' + token;
   const payload = await request.get(publicUrl); expect(payload.status()).toBe(200);
   expect(payload.headers()['cache-control']).toBe('no-store');
@@ -60,6 +64,11 @@ test('waiver API preserves snapshots, single-use state, tenant isolation and con
   expect((await request.post(publicUrl + '/sign', { data: { signer_name: '   ', agreed: true } })).status()).toBe(400);
   expect((await request.post(publicUrl + '/sign', { data: { signer_name: 'Synthetic', agreed: true, declarations: {} } })).status()).toBe(400);
   expect((await request.post(api + '/api/waivers/issue', { headers: foreign, data: { passenger_id: slot.passenger.id } })).status()).toBe(404);
+  expect((await request.patch(api + '/api/waiver-templates/' + templateId, { headers: foreign, data: { body_text: 'Unauthorized synthetic change' } })).status()).toBe(404);
+  expect((await request.delete(api + '/api/waiver-templates/' + templateId, { headers: foreign })).status()).toBe(404);
+  const foreignDeparture = await request.get(api + '/api/waivers/by-departure/' + slot.departure.id, { headers: foreign });
+  expect(foreignDeparture.status()).toBe(200); expect(await foreignDeparture.json()).toEqual([]);
+
   expect((await request.post(api + '/api/waivers/' + waiver.waiver_id + '/revoke', { headers: foreign })).status()).toBe(404);
   expect((await request.get(api + '/api/waivers/' + waiver.waiver_id + '/pdf', { headers: foreign })).status()).toBe(404);
   const foreignList = await request.get(api + '/api/waivers', { headers: foreign }); expect(foreignList.status()).toBe(200);
@@ -79,6 +88,9 @@ test('waiver API preserves snapshots, single-use state, tenant isolation and con
   const pdf = await request.get(api + '/api/waivers/' + waiver.waiver_id + '/pdf', { headers });
   expect(pdf.status(), await pdf.text()).toBe(200); expect(pdf.headers()['content-type']).toContain('application/pdf');
   expect((await pdf.body()).subarray(0, 4).toString()).toBe('%PDF');
+  expect((await request.get(api + '/api/waivers/' + waiver.waiver_id + '/pdf', { headers: agent })).status()).toBe(200);
+  const agentIssued = await create(request, '/waivers/issue', { passenger_id: slot.passenger.id }, agent);
+  expect((await request.post(api + '/api/waivers/' + agentIssued.waiver_id + '/revoke', { headers: agent })).status()).toBe(204);
   const other = await passenger(request, 'Waiver audit race ' + randomUUID());
   const race = await create(request, '/waivers/issue', { passenger_id: other.passenger.id });
   const raceUrl = api + '/api/public/waiver/' + race.sign_url.split('/').pop();

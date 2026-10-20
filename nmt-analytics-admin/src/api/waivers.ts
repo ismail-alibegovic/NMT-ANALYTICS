@@ -99,7 +99,7 @@ export interface PublicWaiver {
 
 export async function fetchPublicWaiver(token: string): Promise<{ waiver: PublicWaiver | null; token: string }> {
   const api = (await import('../lib/apiClient')).default;
-  const { data } = await api.get(`/public/waiver/${token}`);
+  const { data } = await api.get(`/public/waiver/${encodeURIComponent(token)}`);
   return { waiver: data ? { ...data, waiver_id: data.id } : null, token };
 }
 
@@ -108,6 +108,6 @@ export async function signPublicWaiver(
   payload: { signer_name: string; agreed: true; signature_png?: string; declarations?: Record<string, boolean> },
 ): Promise<{ signed_at: string }> {
   const api = (await import('../lib/apiClient')).default;
-  const { data } = await api.post(`/public/waiver/${token}/sign`, payload);
+  const { data } = await api.post(`/public/waiver/${encodeURIComponent(token)}/sign`, payload);
   return data;
 }

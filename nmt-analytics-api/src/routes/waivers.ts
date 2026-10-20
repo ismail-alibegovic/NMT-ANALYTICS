@@ -120,13 +120,14 @@ router.patch('/waiver-templates/:id', auditWaiverTemplateUpdate, async (req: any
 router.delete('/waiver-templates/:id', auditWaiverTemplateDelete, async (req: any, res: Response) => {
   const { id } = req.params;
   const orgId = req.orgId!;
-  const { error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('waiver_templates')
     .delete()
     .eq('id', id)
-    .eq('org_id', orgId);
+    .eq('org_id', orgId).select('id').maybeSingle();
   if (error?.code === '23503') return apiError(res, 409, 'TEMPLATE_IN_USE', 'Issued consent history references this template; deactivate it instead');
   if (error) return handleSupabaseError(res, error, 'Failed to delete waiver template');
+  if (!data) return apiError(res, 404, 'NOT_FOUND', 'Waiver template not found');
   return res.status(204).send();
 });
 
@@ -446,7 +447,7 @@ router.get('/public/waiver/:token', async (req: Request, res: Response) => {
 
 const signSchema = z.object({
   signer_name: z.string().trim().min(1).max(200),
-  signature_png: z.string().max(180000).regex(/^[A-Za-z0-9+/]+={0,2}$/)
+  signature_png: z.string().max(64000).regex(/^[A-Za-z0-9+/]+={0,2}$/)
     .refine(value => Buffer.from(value, 'base64').subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])), 'Invalid PNG signature').optional(),
   declarations: z.record(z.string(), z.boolean()).optional().default({}),
   agreed: z.boolean().refine((v) => v === true, {
