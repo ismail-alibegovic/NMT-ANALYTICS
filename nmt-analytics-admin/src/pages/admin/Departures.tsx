@@ -211,7 +211,8 @@ export default function Departures() {
       setModalOpen(false);
       fetchDepartures(currentPage);
     } catch (err: any) {
-      showError(err?.message || 'Greška pri čuvanju polaska');
+      // The form owns failed-save feedback and must retain its current draft.
+      throw err instanceof Error ? err : new Error('Departure save failed');
     } finally {
       setSubmitting(false);
     }

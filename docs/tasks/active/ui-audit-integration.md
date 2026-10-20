@@ -5,7 +5,7 @@ User scope: sequential Travline release prompts, step 4. Start from current main
 ## Changes to verify
 - Nested modal focus ownership, scroll locking, Escape, localization and viewport reachability; preserve current scrollable and closeLabel props.
 - Native light/dark color scheme and visible date/time picker controls.
-- Departure editing displays local wall time and sends the same instant to the API; mobile field layout.
+- Departure editing displays local wall time and preserves the same instant, subsecond precision and DST fold when unchanged; mobile field layout, accessible required fields, synchronous duplicate guard, pending-close protection and failed-save recovery.
 - Itinerary/quotation cards, reservation actions/tabs and commission preview controls fit mobile layouts.
 - Retain existing FormModal draft preservation, validation and save locking; add missing rejected-save/customer regression fixtures.
 
