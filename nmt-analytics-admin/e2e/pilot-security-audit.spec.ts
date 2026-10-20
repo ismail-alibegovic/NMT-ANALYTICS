@@ -32,7 +32,7 @@ test('cross-tenant records and financial races stay within the authenticated org
  const pkg=await create(request,b.headers,'/packages',{name:marker,destination:'Synthetic',price:180,currency:'BAM',active:true,transportType:'none',maxParticipants:8});
  const dep=await create(request,b.headers,'/departures',{packageId:pkg.id,departAt:'2043-01-01T08:00:00Z',returnAt:'2043-01-02T18:00:00Z',capacity:8,status:'active',transportType:'none'});
  const customer=await create(request,b.headers,'/customers',{full_name:marker,phone:'+3876'+Date.now().toString().slice(-9)});
- const reservation=await create(request,{...b.headers,'Idempotency-Key':randomUUID()},'/reservations',{departureId:dep.id,customerId:customer.id,customerName:marker,customerPhone:'000',partySize:1,reservationAt:'2043-01-01T10:00:00Z',status:'confirmed',totalAmount:180,currency:'BAM',source:'agent'});
+ const reservation=await create(request,b.headers,'/reservations',{departureId:dep.id,customerId:customer.id,customerName:marker,customerPhone:'000',partySize:1,reservationAt:'2043-01-01T10:00:00Z',status:'confirmed',totalAmount:180,currency:'BAM',source:'agent'});
  const completed=await request.get(`${api}/api/reservations/${reservation.id}`,{headers:b.headers});expect(completed.status()).toBe(200);expect((await completed.json()).creationState).toBe('completed');
  const payment=(await create(request,b.headers,'/payments',{reservation_id:reservation.id,amount:60,currency:'BAM',status:'succeeded',idempotency_key:randomUUID()})).payment;
  const supplier=await create(request,b.headers,'/suppliers',{name:marker,category:'other'});

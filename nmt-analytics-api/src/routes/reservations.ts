@@ -1057,16 +1057,15 @@ router.post('/reservations', authenticateToken, requireOrgContext, requireMinimu
       }
     }
 
-    if (idempotencyKey) {
-      const { error: completionError } = await supabaseAdmin
-        .from('reservations')
-        .update({ creation_state: 'completed', creation_error_stage: null })
-        .eq('id', reservation.id)
-        .eq('org_id', orgId);
-      if (completionError) {
-        await markSaleRecoveryRequired(reservation.id, orgId, 'completion');
-        return handleSupabaseError(res, completionError, 'Failed to finalize sale');
-      }
+    // Completion is a persisted sale invariant, independent of retry-key support.
+    const { error: completionError } = await supabaseAdmin
+      .from('reservations')
+      .update({ creation_state: 'completed', creation_error_stage: null })
+      .eq('id', reservation.id)
+      .eq('org_id', orgId);
+    if (completionError) {
+      await markSaleRecoveryRequired(reservation.id, orgId, 'completion');
+      return handleSupabaseError(res, completionError, 'Failed to finalize sale');
     }
 
     try {
