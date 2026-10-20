@@ -58,7 +58,7 @@ function ImportSession({entity,onClose,onSuccess}:ImportModalProps) {
     catch{if(mounted.current)setError(c.templateError);}
   };
   const rows=preview?.preview||[]; const headers=Object.keys(rows[0]||{});
-  return <Modal isOpen onClose={close} className="m-4 max-w-4xl" title={`${c.title} ${entity==='customers'?c.customers:c.packages}`}>
+  return <Modal isOpen onClose={close} className="m-4 min-w-0 max-w-4xl" title={`${c.title} ${entity==='customers'?c.customers:c.packages}`}>
     <form aria-label={c.title} className="max-h-[75vh] overflow-y-auto p-6" onSubmit={event=>{event.preventDefault();void submit();}}>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand-50 p-4 dark:bg-brand-500/15"><p className="text-sm">{c.templateDescription}</p><Button variant="outline" size="sm" onClick={()=>void download()}>{c.downloadTemplate}</Button></div>
       <fieldset disabled={phase==='import'} className="min-w-0 space-y-4">

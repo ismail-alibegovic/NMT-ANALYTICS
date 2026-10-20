@@ -36,7 +36,14 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
     );
 
     const chartHeight = 300;
-    const chartPadding = { top: 20, right: 20, bottom: 40, left: 60 };
+    // Leave room for the complete currency label, including large amounts.
+    const axisLabels = [0, 0.25, 0.5, 0.75, 1].map(ratio => ({
+        ratio, label: formatCurrency(maxValue * ratio, currency),
+    }));
+    const chartPadding = { top: 20, right: 20, bottom: 40,
+        left: Math.max(96, ...axisLabels.map(({ label }) => label.length * 8 + 16)),
+    };
+    const scaleMax = maxValue || 1;
     const chartWidth = Math.max(600, data.length * 60);
 
     return (
@@ -47,9 +54,8 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
                 className="min-w-full"
             >
                 {/* Y-axis labels */}
-                {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                {axisLabels.map(({ ratio, label }) => {
                     const y = chartPadding.top + chartHeight * (1 - ratio);
-                    const value = maxValue * ratio;
                     return (
                         <g key={ratio}>
                             <line
@@ -68,7 +74,7 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
                                 textAnchor="end"
                                 className="text-xs fill-gray-600 dark:fill-gray-400"
                             >
-                                {formatCurrency(value, currency)}
+                                {label}
                             </text>
                         </g>
                     );
@@ -99,13 +105,13 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
                 {/* Data points and lines */}
                 {data.map((point, index) => {
                     const x = chartPadding.left + (index / (data.length - 1 || 1)) * (chartWidth - chartPadding.left - chartPadding.right);
-                    const yTotal = chartPadding.top + chartHeight - (point.total_amount_sum / maxValue) * chartHeight;
-                    const yPaid = chartPadding.top + chartHeight - (point.total_paid_sum / maxValue) * chartHeight;
+                    const yTotal = chartPadding.top + chartHeight - (point.total_amount_sum / scaleMax) * chartHeight;
+                    const yPaid = chartPadding.top + chartHeight - (point.total_paid_sum / scaleMax) * chartHeight;
 
                     const nextPoint = data[index + 1];
                     const nextX = nextPoint ? chartPadding.left + ((index + 1) / (data.length - 1 || 1)) * (chartWidth - chartPadding.left - chartPadding.right) : x;
-                    const nextYTotal = nextPoint ? chartPadding.top + chartHeight - (nextPoint.total_amount_sum / maxValue) * chartHeight : yTotal;
-                    const nextYPaid = nextPoint ? chartPadding.top + chartHeight - (nextPoint.total_paid_sum / maxValue) * chartHeight : yPaid;
+                    const nextYTotal = nextPoint ? chartPadding.top + chartHeight - (nextPoint.total_amount_sum / scaleMax) * chartHeight : yTotal;
+                    const nextYPaid = nextPoint ? chartPadding.top + chartHeight - (nextPoint.total_paid_sum / scaleMax) * chartHeight : yPaid;
 
                     return (
                         <g key={point.date}>

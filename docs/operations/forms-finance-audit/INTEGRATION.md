@@ -30,3 +30,7 @@ Local combined-tree verification: API TypeScript build and 908 tests passed; adm
 The authoritative final-commit CI and isolated browser evidence is attached to integration PR #137: https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/137. Review all six protected checks on the final head before merging. Historical REPORT.md, COVERAGE.md, screenshots and logs describe earlier commits and are not evidence for this integration.
 
 No migration is added and no production financial records are accessed. The historical application-wide form inventory remains broader than this scoped integration; untested surfaces are not certified by this work.
+
+## Visual review follow-up
+
+The first combined acceptance passed 148 finance form checks and 108 authenticated scenarios with no skips/flakes. Screenshot review then exposed two mobile bounds defects: the import dialog lost its outer margin when the preview had wide content, and currency labels extended left of the revenue chart SVG. The integration now permits the import dialog to shrink, reserves chart label width and adds real browser bounds assertions. Zero-only chart series also use a finite scale. All required checks must pass again on this final follow-up commit.

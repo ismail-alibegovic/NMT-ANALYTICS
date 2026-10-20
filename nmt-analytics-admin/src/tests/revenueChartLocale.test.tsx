@@ -9,3 +9,11 @@ for(const [lang,c] of [['en',en],['bs',bs]] as const)it(`renders chart labels an
  expect(screen.getByText(c.reports.totalRevenue)).toBeInTheDocument();expect(screen.getByText(c.reports.totalPaid)).toBeInTheDocument();
  view.rerender(<RevenueChart data={[]}/>);expect(screen.getByText(c.reports.noData)).toBeInTheDocument();
 });
+
+it('renders finite zero-revenue chart coordinates',()=>{
+ const {container}=render(<RevenueChart data={[{date:'2041-04-23',total_amount_sum:0,total_paid_sum:0}]} currency="BAM"/>);
+ const circles=Array.from(container.querySelectorAll('circle[cy]'));
+ expect(circles.length).toBeGreaterThan(0);
+ for(const circle of circles)expect(Number.isFinite(Number(circle.getAttribute('cy')))).toBe(true);
+ expect(circles.filter(circle=>circle.getAttribute('cy')==='320')).toHaveLength(2);
+});
