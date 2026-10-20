@@ -6,7 +6,7 @@ Scope: Director, Manager and Agent, based on main `63f0e87ddcdc0836339c8afb23b33
 
 Staff identity and organization come from a verified Auth token and its server-loaded profile. Caller role/org headers are ignored. Unknown roles and missing organizations fail closed. The actual route middleware is the role contract: Manager can operate payments/refunds, reports and private documents; Director manages settings, audit and commission rules; Agent retains customer/booking operations and booking balances. Existing dashboard aggregates are available to Agent by the established dashboard:read policy. Tenant identity is never a cross-tenant administration override, even for Director.
 
-Public signup/check-org, configured public booking forms, waiver links and sub-agent tokens are separate trust realms. Legacy hotel stock mutation and unpublished hotel catalog routes are retired with 410. Existing configured public booking forms and widget remain supported. Internal job routes use their existing service-secret validation (covered by cronScheduler tests); dynamically registered job paths are outside the literal-path inventory.
+Public signup/check-org, configured public booking forms, waiver links and sub-agent tokens are separate trust realms. Legacy hotel stock mutation and unpublished hotel catalog routes are retired with 410. Existing configured public booking forms and widget remain supported. Internal job routes use their existing service-secret validation (covered by cronScheduler tests); the three `router.route().all` cron handlers (GET/POST each) are audited separately from the router-method inventory.
 
 Client business data is API-only. Browser Auth/session remains Supabase; self-profile now uses an explicit API. The new migration revokes browser table/column access rather than depending on RLS alone. Existing RLS and privileged function restrictions remain. Some earlier SECURITY DEFINER helper revocations already prevented specific direct RLS paths; a broad grant alone is not evidence that every table was exploitable before this patch.
 
@@ -31,7 +31,7 @@ Parent-derived queries without a tenant column (for example passenger-group link
 
 ## Coverage ledger
 
-The machine-readable [routes.json](routes.json) lists every literal method/path, source module/line, authentication realm and Director/Manager/Agent role floor. Regenerate with `node scripts/security-route-inventory.cjs`. Source permission allows are not a claim that every valid workflow was browser-tested. The real denial matrix attaches actual statuses for all staff routes and every disallowed role; positive workflow checks use existing acceptance scenarios and the new role/profile tests. Public/token paths are reviewed separately; public forms have real acceptance, while waiver revocation/concurrency uses a focused route harness as noted below.
+The machine-readable [routes.json](routes.json) lists mounted router.get/post/put/patch/delete method/path declarations, source module/line, authentication realm and Director/Manager/Agent role floor. Regenerate with `node scripts/security-route-inventory.cjs`. Source permission allows are not a claim that every valid workflow was browser-tested. The real denial matrix attaches actual statuses for all staff routes and every disallowed role; positive workflow checks use existing acceptance scenarios and the new role/profile tests. Public/token paths are reviewed separately; public forms have real acceptance, while waiver revocation/concurrency uses a focused route harness as noted below.
 
 Inventory: 327 endpoints; 60 modules; 13 public, 311 staff, 3 subagent-token. No unclassified literal routes.
 
@@ -97,6 +97,8 @@ Inventory: 327 endpoints; 60 modules; 13 public, 311 staff, 3 subagent-token. No
 | suppliers | 5 | staff | agent, viewer |
 | transactions | 2 | staff | manager |
 | waivers | 10 | public, staff | agent, manager |
+
+Internal cron handlers add six GET/POST method combinations in the internal module; their service-secret checks, disabled/unconfigured failures and execution guards are covered by existing cronScheduler tests. They are not staff routes and never accept a staff role as a scheduler credential.
 
 ## Existing waiver workflow blocker
 
