@@ -101,7 +101,7 @@ export const Modal: React.FC<ModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`${contentClasses} ${scrollable ? "mx-3 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain" : ""} ${className}`}
+        className={`${contentClasses} text-gray-900 dark:text-gray-100 ${scrollable ? "mx-3 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain" : ""} ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {showCloseButton && (

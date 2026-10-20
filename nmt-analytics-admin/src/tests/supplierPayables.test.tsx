@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from './renderWithI18n';
 import SupplierPayablesPanel from '../components/departures/SupplierPayablesPanel';
@@ -83,4 +83,17 @@ describe('supplier obligation workspace', () => {
     sessionStorage.setItem(key, JSON.stringify({ action: 'entry' })); show(); await screen.findByText(en.supplierPayables.empty);
     expect(screen.queryByText(en.supplierPayables.pending)).not.toBeInTheDocument();
   });
+  it('does not generate two financial requests from same-tick submits', async () => {
+    api.get.mockResolvedValue([payable]); let resolve!: () => void;
+    api.record.mockImplementation(() => new Promise<void>(r => { resolve=r; }));
+    show(); await screen.findByText(en.supplierPayables.status.unpaid);
+    fireEvent.click(screen.getByRole('button', { name: en.supplierPayables.record }));
+    fireEvent.change(screen.getByLabelText(en.supplierPayables.amount), { target: { value: '10' } });
+    fireEvent.change(screen.getByLabelText(en.supplierPayables.paymentDate), { target: { value: '2026-10-19' } });
+    const form=screen.getByTestId('pay-form').querySelector('form')!;
+    act(() => { form.dispatchEvent(new Event('submit', { bubbles:true,cancelable:true })); form.dispatchEvent(new Event('submit', { bubbles:true,cancelable:true })); });
+    expect(api.record).toHaveBeenCalledTimes(1); resolve();
+    await waitFor(() => expect(screen.queryByTestId('pay-form')).not.toBeInTheDocument());
+  });
+
 });

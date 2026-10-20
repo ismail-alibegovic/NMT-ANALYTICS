@@ -1,0 +1,695 @@
+[
+  {
+    "file": "nmt-analytics-admin/src/components/auth/ResetPasswordForm.tsx",
+    "surfaces": [
+      "form",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/auth/SignInForm.tsx",
+    "surfaces": [
+      "form",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/auth/SignUpForm.tsx",
+    "surfaces": [
+      "form",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/common/DateRangeFilter.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/common/GlobalSearch.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/common/QuickCreateModal.tsx",
+    "surfaces": [
+      "modal"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/communications/AutomationEditorModal.tsx",
+    "surfaces": [
+      "form",
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/communications/AutomationTab.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/communications/CampaignEditorModal.tsx",
+    "surfaces": [
+      "form",
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/communications/CampaignsTab.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/communications/CommunicationHistoryPanel.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/communications/ManualMessageComposer.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/communications/SendMessage.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/communications/TemplateEditorModal.tsx",
+    "surfaces": [
+      "form",
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/communications/TemplatesTab.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/departures/DepartureAccommodationAllotment.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/departures/DepartureFormModal.tsx",
+    "surfaces": [
+      "form",
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/departures/SupplierPayablesPanel.tsx",
+    "surfaces": [
+      "form",
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "Expense/payable regressions implemented; real browser matrix awaits isolated run. Other departure forms NOT TESTED."
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/finance/SupplierPayablesOverview.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/form/Form.tsx",
+    "surfaces": [
+      "form"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/form/Select.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/form/date-picker.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/form/group-input/PhoneInput.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/form/input/Checkbox.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/form/input/FileInput.tsx",
+    "surfaces": [
+      "upload",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/form/input/InputField.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/form/input/Radio.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/form/input/RadioSm.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/form/input/TextArea.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/header/Header.tsx",
+    "surfaces": [
+      "form",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/import/ImportModal.tsx",
+    "surfaces": [
+      "upload",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/integrations/ConfigureIntegrationModal.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/operations/DrustvaTab.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/operations/ManualBusSeating.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/operations/RoomingWorkspace.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/packages/PackageEditorModal.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/payments/AddPaymentModal.tsx",
+    "surfaces": [
+      "modal"
+    ],
+    "status": "PASS \u2014 component browser contract only",
+    "scope": "Create/edit or filter, cancel, validation, failed-save retry; real persistence awaits isolated run"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/payments/EditPaymentModal.tsx",
+    "surfaces": [
+      "modal"
+    ],
+    "status": "PASS \u2014 component browser contract only",
+    "scope": "Create/edit or filter, cancel, validation, failed-save retry; real persistence awaits isolated run"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/payments/PaymentForm.tsx",
+    "surfaces": [
+      "form",
+      "control"
+    ],
+    "status": "PASS \u2014 component browser contract only",
+    "scope": "Create/edit or filter, cancel, validation, failed-save retry; real persistence awaits isolated run"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/payments/PaymentsModal.tsx",
+    "surfaces": [
+      "modal"
+    ],
+    "status": "PASS \u2014 component browser contract only",
+    "scope": "Create/edit or filter, cancel, validation, failed-save retry; real persistence awaits isolated run"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/quotations/QuotationBookingPanel.tsx",
+    "surfaces": [
+      "form",
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/reservations/CreateReservationModal.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/reservations/EditReservationModal.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/reservations/NewSaleWizard.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/travelers/TravelerRequirementsFields.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/ui/FormModal.tsx",
+    "surfaces": [
+      "form",
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/ui/ImportModal.tsx",
+    "surfaces": [
+      "upload",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/components/ui/PageToolbar.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/DepartureDetail.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "Expense/payable regressions implemented; real browser matrix awaits isolated run. Other departure forms NOT TESTED."
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/Inquiries.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/Itineraries.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/ItineraryDetail.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/PackageDetail.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/Profile.tsx",
+    "surfaces": [
+      "form",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/PublicFormRenderer.tsx",
+    "surfaces": [
+      "form",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/PublicSignWaiver.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/QuotationDetail.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/Quotations.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/Reports.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "PASS \u2014 component browser contract only",
+    "scope": "Create/edit or filter, cancel, validation, failed-save retry; real persistence awaits isolated run"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/ReservationDetail.tsx",
+    "surfaces": [
+      "modal"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/Reservations.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/Suppliers.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/admin/AuditLogs.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/admin/Customers.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/admin/Departures.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/admin/Documents.tsx",
+    "surfaces": [
+      "upload",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/admin/Integrations.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/admin/PdfTemplateEditor.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/admin/PublicForms.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/admin/Settings.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/admin/UnifiedPayments.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/admin/Waivers.tsx",
+    "surfaces": [
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/operations/CommissionRules.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/operations/Contracts.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/operations/Excursions.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/operations/Flights.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/operations/Hotels.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/operations/Receipts.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/operations/SubAgents.tsx",
+    "surfaces": [
+      "modal",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  },
+  {
+    "file": "nmt-analytics-admin/src/pages/portal/PortalSettings.tsx",
+    "surfaces": [
+      "form",
+      "control"
+    ],
+    "status": "NOT TESTED",
+    "scope": "This audit, not prior PR evidence"
+  }
+]

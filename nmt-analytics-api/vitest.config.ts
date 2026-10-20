@@ -7,7 +7,8 @@ export default defineConfig({
     fileParallelism: false,
     include: ['src/tests/**/*.test.ts'],
     env: {
-      SUPABASE_URL: 'https://example.supabase.co',
+      // Unit tests must never fall back to an external database host.
+      SUPABASE_URL: 'http://127.0.0.1:54321',
       SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.anon',
       SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.service',
     },

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
@@ -9,6 +9,8 @@ import { useT } from "../../lib/i18n/context";
 
 export default function SignUpForm() {
   const { t } = useT();
+  const busy = useRef(false);
+  const formId = useId();
   const navigate = useNavigate();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -22,10 +24,11 @@ export default function SignUpForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy.current) return;
     setError("");
 
-    if (!firstName || !lastName || !email || !password || !orgName) {
-      setError(t.errors.generic);
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password || !orgName.trim()) {
+      setError(t.auth.allFieldsRequired);
       return;
     }
     if (!agree) {
@@ -37,6 +40,8 @@ export default function SignUpForm() {
       return;
     }
 
+    busy.current = true;
+
     setLoading(true);
     try {
       const apiBase = import.meta.env.VITE_API_URL || "/api";
@@ -44,10 +49,10 @@ export default function SignUpForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
+          email: email.trim(),
           password,
-          full_name: `${firstName} ${lastName}`,
-          org_name: orgName,
+          full_name: `${firstName.trim()} ${lastName.trim()}`,
+          org_name: orgName.trim(),
         }),
       });
 
@@ -62,7 +67,7 @@ export default function SignUpForm() {
     } catch {
       setError(t.errors.generic);
     } finally {
-      setLoading(false);
+      busy.current = false; setLoading(false);
     }
   };
 
@@ -88,19 +93,20 @@ export default function SignUpForm() {
             </p>
           </div>
           {error && (
-            <div className="mb-4 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-900/30 dark:text-error-400">
+            <div role="alert" className="mb-4 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-900/30 dark:text-error-400">
               {error}
             </div>
           )}
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-5">
+          <form aria-label={t.auth.signUpTitle} onSubmit={handleSubmit}>
+            <fieldset disabled={loading} className="space-y-5">
               <div>
-                <Label>
+                <Label htmlFor={`${formId}-agency`}>
                   {t.auth.orgName}<span className="text-error-500">*</span>
                 </Label>
                 <div className="relative mt-1">
-                  <Input
+                  <Input disabled={loading}
                     type="text"
+                    id={`${formId}-agency`} required autoComplete="organization"
                     value={orgName}
                     onChange={(e) => setOrgName(e.target.value)}
                     placeholder={t.auth.enterOrgName}
@@ -109,26 +115,28 @@ export default function SignUpForm() {
               </div>
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div>
-                  <Label>
+                  <Label htmlFor={`${formId}-first-name`}>
                     {t.auth.firstName}<span className="text-error-500">*</span>
                   </Label>
                   <div className="relative mt-1">
-                    <Input
+                    <Input disabled={loading}
                       type="text"
-                      value={firstName}
+                      id={`${formId}-first-name`} required autoComplete="given-name"
+                    value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       placeholder={t.auth.enterFirstName}
                     />
                   </div>
                 </div>
                 <div>
-                  <Label>
+                  <Label htmlFor={`${formId}-last-name`}>
                     {t.auth.lastName}<span className="text-error-500">*</span>
                   </Label>
                   <div className="relative mt-1">
-                    <Input
+                    <Input disabled={loading}
                       type="text"
-                      value={lastName}
+                      id={`${formId}-last-name`} required autoComplete="family-name"
+                    value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       placeholder={t.auth.enterLastName}
                     />
@@ -136,12 +144,13 @@ export default function SignUpForm() {
                 </div>
               </div>
               <div>
-                <Label>
+                <Label htmlFor={`${formId}-email`}>
                   {t.auth.email}<span className="text-error-500">*</span>
                 </Label>
                 <div className="relative mt-1">
-                  <Input
+                  <Input disabled={loading}
                     type="email"
+                    id={`${formId}-email`} required autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={t.auth.enterEmail}
@@ -149,18 +158,20 @@ export default function SignUpForm() {
                 </div>
               </div>
               <div>
-                <Label>
+                <Label htmlFor={`${formId}-password`}>
                   {t.auth.password}<span className="text-error-500">*</span>
                 </Label>
                 <div className="relative mt-1">
-                  <Input
+                  <Input disabled={loading}
                     type={showPassword ? "text" : "password"}
+                    id={`${formId}-password`} required autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t.auth.enterPassword}
                   />
                   <button
                     type="button"
+                    aria-label={showPassword ? t.auth.hidePassword : t.auth.showPassword}
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
                   >
@@ -173,20 +184,7 @@ export default function SignUpForm() {
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <Checkbox
-                  checked={agree}
-                  onChange={(checked: boolean) => setAgree(checked)}
-                />
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {t.auth.termsPrefix}{" "}
-                  <span className="text-brand-500 dark:text-brand-400">
-                    {t.auth.termsLink}
-                  </span>{" "}
-                  {t.auth.termsMiddle}{" "}
-                  <span className="text-brand-500 dark:text-brand-400">
-                    {t.auth.privacyLink}
-                  </span>
-                </p>
+                <Checkbox disabled={loading} label={`${t.auth.termsPrefix} ${t.auth.termsLink} ${t.auth.termsMiddle} ${t.auth.privacyLink}`} checked={agree} onChange={setAgree}/>
               </div>
               <div>
                 <Button
@@ -198,7 +196,7 @@ export default function SignUpForm() {
                   {loading ? t.auth.signingUp : t.auth.signUpButton}
                 </Button>
               </div>
-            </div>
+            </fieldset>
           </form>
           <div className="mt-5 text-center">
             <p className="text-sm text-gray-500 dark:text-gray-400">

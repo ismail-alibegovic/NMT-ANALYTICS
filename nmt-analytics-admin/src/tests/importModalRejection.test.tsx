@@ -1,37 +1,18 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider } from '../lib/i18n/context';
 const post = vi.fn();
-vi.mock('../lib/apiClient', () => ({ post: (...args: unknown[]) => post(...args) }));
-
+vi.mock('../lib/apiClient', () => ({ default:{post:(...args:unknown[])=>post(...args)}, get:vi.fn() }));
 import ImportModal from '../components/import/ImportModal';
-
-describe('ImportModal rejected file', () => {
-  it('shows the offending rows and reports nothing imported when the API rejects the file', async () => {
-    post.mockRejectedValueOnce({
-      response: {
-        data: {
-          code: 'IMPORT_VALIDATION_FAILED',
-          results: {
-            total: 2,
-            invalidCount: 1,
-            invalidRows: [{ row: 2, errors: ['email is invalid'] }],
-          },
-        },
-      },
-    });
-    const onSuccess = vi.fn();
-    const { container } = render(
-      <ImportModal entity="customers" isOpen onClose={() => {}} onSuccess={onSuccess} />,
-    );
-
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
-    fireEvent.change(input, {
-      target: { files: [new File(['fullName,phone\nA,061123456'], 'c.csv', { type: 'text/csv' })] },
-    });
-    fireEvent.click(await screen.findByRole('button', { name: /^import/i }));
-
-    await waitFor(() => expect(screen.getByText('Row 2')).toBeInTheDocument());
-    expect(onSuccess).not.toHaveBeenCalled();
-  });
+const valid={total:2,validCount:2,invalidCount:0,invalidRows:[],preview:[{full_name:'Synthetic customer'}]};
+const invalid={total:2,validCount:1,invalidCount:1,invalidRows:[{row:2,errors:['email is invalid']}]};
+function open(){const onSuccess=vi.fn();render(<I18nProvider><ImportModal entity="customers" isOpen onClose={()=>{}} onSuccess={onSuccess}/></I18nProvider>);fireEvent.change(screen.getByLabelText('Select CSV or XLSX file'),{target:{files:[new File(['fullName,phone\nSynthetic customer,061123456'],'c.csv',{type:'text/csv'})]}});return onSuccess;}
+beforeEach(()=>{post.mockReset();localStorage.setItem('travline_lang','en');});
+describe('ImportModal rejected file',()=>{
+ it('shows invalid preview rows and never enables a write',async()=>{
+  post.mockResolvedValueOnce({data:{success:true,dryRun:true,results:invalid}});const onSuccess=open();await screen.findByText(/Row 2:.*email is invalid/);expect(screen.getByRole('button',{name:/^Import$/})).toBeDisabled();expect(post).toHaveBeenCalledTimes(1);expect(onSuccess).not.toHaveBeenCalled();
+ });
+ it('retains rejected save details and never reports success',async()=>{
+  post.mockResolvedValueOnce({data:{success:true,dryRun:true,results:valid}}).mockRejectedValueOnce({response:{data:{code:'IMPORT_VALIDATION_FAILED',message:'Nothing was imported',results:invalid}}});const onSuccess=open();const submit=screen.getByRole('button',{name:/^Import$/});await waitFor(()=>expect(submit).toBeEnabled());fireEvent.click(submit);await screen.findByText(/Row 2:.*email is invalid/);expect(screen.getByRole('alert')).toHaveTextContent('Nothing was imported');expect(onSuccess).not.toHaveBeenCalled();expect(submit).toBeDisabled();
+ });
 });

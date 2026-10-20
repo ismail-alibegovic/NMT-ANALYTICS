@@ -1,3 +1,4 @@
+import { useT } from '../../lib/i18n/context';
 import { formatCurrency } from '../../utils/business';
 
 interface RevenueChartProps {
@@ -12,6 +13,7 @@ interface RevenueChartProps {
 }
 
 export default function RevenueChart({ data, loading, currency = 'BAM' }: RevenueChartProps) {
+    const { t, lang } = useT();
     if (loading) {
         return (
             <div className="flex items-center justify-center p-20">
@@ -23,7 +25,7 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
     if (data.length === 0) {
         return (
             <div className="flex items-center justify-center p-20 text-gray-500 dark:text-gray-400">
-                Nema podataka za prikaz
+                {t.reports.noData}
             </div>
         );
     }
@@ -34,7 +36,14 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
     );
 
     const chartHeight = 300;
-    const chartPadding = { top: 20, right: 20, bottom: 40, left: 60 };
+    // Leave room for the complete currency label, including large amounts.
+    const axisLabels = [0, 0.25, 0.5, 0.75, 1].map(ratio => ({
+        ratio, label: formatCurrency(maxValue * ratio, currency),
+    }));
+    const chartPadding = { top: 20, right: 20, bottom: 40,
+        left: Math.max(96, ...axisLabels.map(({ label }) => label.length * 8 + 16)),
+    };
+    const scaleMax = maxValue || 1;
     const chartWidth = Math.max(600, data.length * 60);
 
     return (
@@ -45,9 +54,8 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
                 className="min-w-full"
             >
                 {/* Y-axis labels */}
-                {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                {axisLabels.map(({ ratio, label }) => {
                     const y = chartPadding.top + chartHeight * (1 - ratio);
-                    const value = maxValue * ratio;
                     return (
                         <g key={ratio}>
                             <line
@@ -66,7 +74,7 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
                                 textAnchor="end"
                                 className="text-xs fill-gray-600 dark:fill-gray-400"
                             >
-                                {formatCurrency(value, currency)}
+                                {label}
                             </text>
                         </g>
                     );
@@ -97,13 +105,13 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
                 {/* Data points and lines */}
                 {data.map((point, index) => {
                     const x = chartPadding.left + (index / (data.length - 1 || 1)) * (chartWidth - chartPadding.left - chartPadding.right);
-                    const yTotal = chartPadding.top + chartHeight - (point.total_amount_sum / maxValue) * chartHeight;
-                    const yPaid = chartPadding.top + chartHeight - (point.total_paid_sum / maxValue) * chartHeight;
+                    const yTotal = chartPadding.top + chartHeight - (point.total_amount_sum / scaleMax) * chartHeight;
+                    const yPaid = chartPadding.top + chartHeight - (point.total_paid_sum / scaleMax) * chartHeight;
 
                     const nextPoint = data[index + 1];
                     const nextX = nextPoint ? chartPadding.left + ((index + 1) / (data.length - 1 || 1)) * (chartWidth - chartPadding.left - chartPadding.right) : x;
-                    const nextYTotal = nextPoint ? chartPadding.top + chartHeight - (nextPoint.total_amount_sum / maxValue) * chartHeight : yTotal;
-                    const nextYPaid = nextPoint ? chartPadding.top + chartHeight - (nextPoint.total_paid_sum / maxValue) * chartHeight : yPaid;
+                    const nextYTotal = nextPoint ? chartPadding.top + chartHeight - (nextPoint.total_amount_sum / scaleMax) * chartHeight : yTotal;
+                    const nextYPaid = nextPoint ? chartPadding.top + chartHeight - (nextPoint.total_paid_sum / scaleMax) * chartHeight : yPaid;
 
                     return (
                         <g key={point.date}>
@@ -140,7 +148,7 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
                                 textAnchor="middle"
                                 className="text-xs fill-gray-600 dark:fill-gray-400"
                             >
-                                {new Date(point.date).toLocaleDateString('bs-BA', { month: 'short', day: 'numeric' })}
+                                {new Date(point.date).toLocaleDateString(lang === 'bs' ? 'bs-BA' : 'en-GB', { month: 'short', day: 'numeric' })}
                             </text>
                         </g>
                     );
@@ -150,11 +158,11 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
                 <g transform={`translate(${chartPadding.left}, ${chartPadding.top - 10})`}>
                     <circle cx="0" cy="0" r="4" fill="#3b82f6" />
                     <text x="10" y="4" className="text-xs fill-gray-700 dark:fill-gray-300">
-                        Ukupan prihod
+                        {t.reports.totalRevenue}
                     </text>
                     <circle cx="120" cy="0" r="4" fill="#10b981" />
                     <text x="130" y="4" className="text-xs fill-gray-700 dark:fill-gray-300">
-                        Plaćeno
+                        {t.reports.totalPaid}
                     </text>
                 </g>
             </svg>

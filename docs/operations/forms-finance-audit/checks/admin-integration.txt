@@ -1,0 +1,14 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> travline-admin@2.0.2 test
+> vitest run departureFinancePayables reportsCurrency reservationDetail
+
+
+ RUN  v4.1.10 /workspace/repos/travline-forms/nmt-analytics-admin
+
+
+ Test Files  3 passed (3)
+      Tests  26 passed (26)
+   Start at  01:53:20
+   Duration  2.61s (transform 1.70s, setup 202ms, import 2.38s, tests 2.18s, environment 1.91s)
+

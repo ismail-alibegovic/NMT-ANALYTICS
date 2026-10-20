@@ -1,0 +1,27 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:32) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:45) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 12 tests using 1 worker
+
+(node:68) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 nmt-analytics-admin/e2e/finance-forms/suppliers.spec.ts:3:71 › supplier create validation cancel recovery light 390 (988ms)
+  ✓   2 nmt-analytics-admin/e2e/finance-forms/suppliers.spec.ts:3:71 › supplier create validation cancel recovery light 768 (890ms)
+  ✓   3 nmt-analytics-admin/e2e/finance-forms/suppliers.spec.ts:3:71 › supplier create validation cancel recovery light 1440 (1.2s)
+  ✓   4 nmt-analytics-admin/e2e/finance-forms/suppliers.spec.ts:3:71 › supplier create validation cancel recovery dark 390 (904ms)
+  ✓   5 nmt-analytics-admin/e2e/finance-forms/suppliers.spec.ts:3:71 › supplier create validation cancel recovery dark 768 (979ms)
+  ✓   6 nmt-analytics-admin/e2e/finance-forms/suppliers.spec.ts:3:71 › supplier create validation cancel recovery dark 1440 (1.1s)
+  ✓   7 nmt-analytics-admin/e2e/finance-forms/suppliers.spec.ts:18:71 › supplier service validation cancel recovery light 390 (880ms)
+  ✓   8 nmt-analytics-admin/e2e/finance-forms/suppliers.spec.ts:18:71 › supplier service validation cancel recovery light 768 (842ms)
+  ✓   9 nmt-analytics-admin/e2e/finance-forms/suppliers.spec.ts:18:71 › supplier service validation cancel recovery light 1440 (875ms)
+  ✓  10 nmt-analytics-admin/e2e/finance-forms/suppliers.spec.ts:18:71 › supplier service validation cancel recovery dark 390 (930ms)
+  ✓  11 nmt-analytics-admin/e2e/finance-forms/suppliers.spec.ts:18:71 › supplier service validation cancel recovery dark 768 (994ms)
+  ✓  12 nmt-analytics-admin/e2e/finance-forms/suppliers.spec.ts:18:71 › supplier service validation cancel recovery dark 1440 (904ms)
+
+  12 passed (13.3s)

@@ -2,7 +2,8 @@ import { expect, test, type APIRequestContext } from '@playwright/test';
 import { en } from '../src/lib/i18n/en'; import { bs } from '../src/lib/i18n/bs';
 const api = process.env.E2E_API_URL || 'http://127.0.0.1:3001';
 const auth = process.env.E2E_SUPABASE_URL || 'http://127.0.0.1:54321';
-const configured = process.env.E2E_RUN_BROWSER === '1' && process.env.E2E_MANAGER_EMAIL && process.env.E2E_MANAGER_PASSWORD;
+const local = (url: string) => /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url);
+const configured = local(api) && local(auth) && local(process.env.E2E_BASE_URL || 'http://127.0.0.1:3001') && process.env.E2E_RUN_BROWSER === '1' && process.env.E2E_MANAGER_EMAIL && process.env.E2E_MANAGER_PASSWORD;
 async function login(request: APIRequestContext, role: 'manager'|'staff'|'other' = 'manager') {
   const prefix = role === 'other' ? 'E2E_OTHER_TENANT' : role === 'staff' ? 'E2E_STAFF' : 'E2E_MANAGER';
   const response = await request.post(`${auth}/auth/v1/token?grant_type=password`, {
@@ -20,17 +21,57 @@ async function seed(request: APIRequestContext, headers: Record<string,string>, 
   const { costItem } = await json(await request.post(`${api}/api/departures/${departure.id}/cost-items`, { headers, data: { category: 'transport', label: marker, supplierId: linked ? supplier.id : null, quantity: 2, unitCost: 50, currency: 'BAM' } }));
   return { marker, supplier, departure, cost: costItem };
 }
-for (const scenario of [{ lang: 'bs', width: 1440 }, { lang: 'en', width: 390 }] as const) {
-  test(`issues pays reverses and cancels a supplier obligation in ${scenario.lang} at ${scenario.width}px`, async ({ page, request }) => {
+for (const theme of ['light','dark']) for (const width of [390,768,1440]) for (const scenario of [{ lang: theme === 'dark' ? 'bs' : 'en', width }] as const) {
+  test(`issues pays reverses and cancels a supplier obligation in ${scenario.lang} at ${scenario.width}px ${theme}`, async ({ page, request }, testInfo) => {
     test.skip(!configured, 'BLOCKED: isolated Auth/API required'); test.setTimeout(90_000);
     const headers = await login(request), seeded = await seed(request, headers, false), copy = scenario.lang === 'bs' ? bs : en, c = copy.supplierPayables;
     await page.setViewportSize({ width: scenario.width, height: 900 }); await page.goto('/auth/signin');
     await page.locator('#signin-email').fill(process.env.E2E_MANAGER_EMAIL!); await page.locator('#signin-password').fill(process.env.E2E_MANAGER_PASSWORD!);
     await page.getByRole('button', { name: /sign in/i }).click(); await expect(page).not.toHaveURL(/\/auth\/signin/);
-    await page.evaluate(lang => localStorage.setItem('travline_lang', lang), scenario.lang);
+    await page.evaluate(({lang,theme}) => {localStorage.setItem('travline_lang', lang);localStorage.setItem('theme',theme);}, {lang:scenario.lang,theme});
     await page.goto(`/departures/${seeded.departure.id}?tab=finance`);
+    await page.evaluate(theme => document.documentElement.classList.toggle('dark',theme==='dark'),theme);
     const panel = page.getByRole('region', { name: c.title });
     const modal = page.locator('.modal');
+    // Actual expense form: validation, cancel/reset, failed save, retry, edit/clear and delete.
+    const f = copy.departure.finance;
+    await page.getByRole('button', { name: f.addCost, exact: true }).click();
+    await modal.getByLabel(f.label, { exact: true }).fill('Cancelled expense');
+    await modal.getByRole('button', { name: copy.common.save, exact: true }).click();
+    await expect(modal.getByRole('alert')).toHaveText(f.invalidAmount);
+    await modal.getByRole('button', { name: copy.common.cancel, exact: true }).click();
+    await page.getByRole('button', { name: f.addCost, exact: true }).click();
+    await expect(modal.getByLabel(f.label, { exact: true })).toHaveValue('');
+    const expenseLabel = `Extra ${seeded.marker}`;
+    await modal.getByLabel(f.label, { exact: true }).fill(expenseLabel);
+    await modal.getByLabel(f.quantity, { exact: true }).fill('2');
+    await modal.getByLabel(f.unitCost, { exact: true }).fill('7.50');
+    await modal.getByLabel(f.notes, { exact: true }).fill('Saved expense note');
+    let expenseAttempts=0;
+    await page.route(`**/api/departures/${seeded.departure.id}/cost-items`, async route => {
+      if(route.request().method()!=='POST'){await route.continue();return;}
+      expenseAttempts++;
+      if(expenseAttempts===1) await route.fulfill({status:503,json:{message:'Synthetic expense failure'}});
+      else {await new Promise(resolve=>setTimeout(resolve,250));await route.continue();}
+    });
+    await modal.getByRole('button', { name: copy.common.save, exact: true }).click();
+    await expect(modal.getByRole('alert')).toBeVisible();
+    await expect(modal.getByLabel(f.notes, { exact: true })).toHaveValue('Saved expense note');
+    await testInfo.attach(`expense-form-${theme}-${scenario.width}`,{body:await page.screenshot(),contentType:'image/png'});
+    const creatingExpense=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith(`/departures/${seeded.departure.id}/cost-items`)&&r.status()===201);
+    await modal.getByRole('button', { name: copy.common.save, exact: true }).evaluate(e=>{(e as HTMLButtonElement).click();(e as HTMLButtonElement).click();});
+    const expense=(await json(await creatingExpense)).costItem;expect(expense.totalCost).toBe(15);expect(expenseAttempts).toBe(2);
+    await expect(modal).toBeHidden();
+    const expenseRow=page.locator(`[data-cost-item-id="${expense.id}"]`);
+    await expenseRow.getByRole('button',{name:f.edit,exact:true}).click();
+    await modal.getByLabel(f.notes,{exact:true}).fill('');
+    const correcting=page.waitForResponse(r=>r.request().method()==='PATCH'&&r.url().endsWith(`/cost-items/${expense.id}`));
+    await modal.getByRole('button',{name:copy.common.save,exact:true}).click();await json(await correcting,200);
+    await expect(modal).toBeHidden();
+    const expenseProfit=await json(await request.get(`${api}/api/departures/${seeded.departure.id}/profitability`,{headers}),200);
+    expect(expenseProfit.costItems.find((item:any)=>item.id===expense.id).notes).toBeNull();expect(expenseProfit.supplierCosts).toBe(115);
+    const deleting=page.waitForResponse(r=>r.request().method()==='DELETE'&&r.url().endsWith(`/cost-items/${expense.id}`));
+    await expenseRow.getByRole('button',{name:f.deleteCost,exact:true}).click();expect((await deleting).status()).toBe(204);await expect(expenseRow).toBeHidden();
     await page.getByRole('button', { name: copy.departure.finance.edit, exact: true }).click();
     await modal.getByLabel(c.supplier, { exact: true }).selectOption(seeded.supplier.id);
     const linking = page.waitForResponse(r => r.request().method() === 'PATCH' && r.url().endsWith(`/cost-items/${seeded.cost.id}`));
@@ -46,8 +87,11 @@ for (const scenario of [{ lang: 'bs', width: 1440 }, { lang: 'en', width: 390 }]
     await row.getByRole('button', { name: c.record, exact: true }).click();
     await modal.getByLabel(c.amount, { exact: true }).fill('60'); await modal.getByLabel(c.paymentDate).fill('2026-10-15');
     await modal.getByLabel(c.reference).fill('Recorded test transfer');
+    let entryRequests=0;await page.route(`**/api/supplier-payables/${payableId}/entries`,async route=>{entryRequests++;await new Promise(resolve=>setTimeout(resolve,250));await route.continue();});
+    if(theme==='dark')expect(await modal.locator('label').evaluateAll(nodes=>nodes.every(e=>Number(getComputedStyle(e).color.match(/\d+/)?.[0])>=150))).toBe(true);
+    await testInfo.attach(`payable-form-${theme}-${scenario.width}`,{body:await page.screenshot(),contentType:'image/png'});
     const paying = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith(`/supplier-payables/${payableId}/entries`));
-    await modal.getByRole('button', { name: c.confirm, exact: true }).click(); const payment = await json(await paying);
+    await modal.locator('form').evaluate(e=>{e.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));e.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));}); const payment = await json(await paying);expect(entryRequests).toBe(1);
     await expect(row.getByText(c.status.partial, { exact: true })).toBeVisible();
     await expect(row.locator('dd').nth(2)).toContainText(/40[,.]00 BAM/);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -88,6 +132,7 @@ for (const scenario of [{ lang: 'bs', width: 1440 }, { lang: 'en', width: 390 }]
     expect(corrected.costItem.totalCost).toBe(140);
     const profit = await json(await request.get(`${api}/api/departures/${seeded.departure.id}/profitability`, { headers }), 200);
     expect(profit.supplierCosts).toBe(140); // The payment/reversal never becomes another cost.
+    await testInfo.attach(`supplier-finance-${theme}-${scenario.width}`,{body:await page.screenshot(),contentType:'image/png'});
     await page.reload(); await expect(panel.locator(`[data-payable-id="${payableId}"]`).getByText(c.status.cancelled, { exact: true })).toBeVisible();
   });
 }

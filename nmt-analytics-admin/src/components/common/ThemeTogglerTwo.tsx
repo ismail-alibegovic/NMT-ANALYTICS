@@ -1,9 +1,12 @@
+import { useT } from "../../lib/i18n/context";
 import { useTheme } from "../../context/ThemeContext";
 
 export default function ThemeTogglerTwo() {
-  const { toggleTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
+  const {t}=useT();
   return (
     <button
+      type="button" aria-pressed={theme === "dark"} aria-label={theme === "dark" ? t.common.switchToLight : t.common.switchToDark}
       onClick={toggleTheme}
       className="inline-flex items-center justify-center text-white transition-colors rounded-full size-14 bg-brand-500 hover:bg-brand-600"
     >
