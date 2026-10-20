@@ -1,3 +1,4 @@
+import { MODULE_KEYS } from '../lib/planModules';
 import { supabaseAdmin } from '../lib/supabase';
 import { createReservationSchema } from '../routes/reservations';
 import { saleRequestFingerprint } from '../lib/saleIdempotency';
@@ -7,8 +8,9 @@ const PASSWORD = process.env.E2E_SEED_PASSWORD || 'TravlinePilot!2026-local';
 const ORG_A = '00000000-0000-4000-8000-0000000000a1';
 const ORG_B = '00000000-0000-4000-8000-0000000000b1';
 const FLIGHT_ORG = '00000000-0000-4000-8000-0000000000f1';
+const FINANCE_ORG = '00000000-0000-4000-8000-0000000000d1';
 
-type SeedUser = { email: string; role: 'manager' | 'agent'; orgId: string; fullName: string };
+type SeedUser = { email: string; role: 'director' | 'manager' | 'agent'; orgId: string; fullName: string };
 
 function assertLocalOnly() {
   const url = process.env.TRAVLINE_SUPABASE_URL;
@@ -85,6 +87,15 @@ async function seed() {
     email: 'manager@flight-audit.test', role: 'manager', orgId: FLIGHT_ORG, fullName: 'Synthetic Flight Manager',
   });
 
+
+  // Reuse #126's separate entitled-actor pattern without altering either security tenant.
+  await ensureOrg(FINANCE_ORG, 'Synthetic Finance Audit', 'synthetic-finance-audit');
+  const { error: planError } = await supabaseAdmin.from('organizations').update({ plan: 'enterprise' }).eq('id', FINANCE_ORG);
+  if (planError) throw planError;
+  const { error: financeModuleError } = await supabaseAdmin.from('org_modules').upsert(
+    MODULE_KEYS.map(module_key => ({ org_id: FINANCE_ORG, module_key, enabled: true })), { onConflict: 'org_id,module_key' });
+  if (financeModuleError) throw financeModuleError;
+  const financeDirectorId = await ensureUser({ email: 'director@finance-audit.test', role: 'director', orgId: FINANCE_ORG, fullName: 'Synthetic Finance Director' });
 
   const managerId = await ensureUser({
     email: 'manager@pilot-a.test', role: 'manager', orgId: ORG_A, fullName: 'Pilot A Manager',
@@ -264,6 +275,7 @@ async function seed() {
     password: PASSWORD,
     managerId,
     flightManagerId,
+    financeDirectorId,
     staffId,
     otherTenantId,
     orgA: ORG_A,

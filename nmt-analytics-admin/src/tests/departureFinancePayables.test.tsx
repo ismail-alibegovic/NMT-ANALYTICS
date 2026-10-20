@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router';
 import DepartureDetail from '../pages/DepartureDetail';
 import { en } from '../lib/i18n/en';
@@ -36,13 +36,11 @@ vi.mock('../components/operations/DrustvaTab', () => ({ default: () => null }));
 vi.mock('../components/communications/CommunicationHistoryPanel', () => ({ default: () => null }));
 vi.mock('../components/communications/ManualMessageComposer', () => ({ default: () => null }));
 
-vi.mock('../context/ToastContext', () => ({
-  useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
-}));
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }));
+vi.mock('../context/ToastContext', () => ({ useToast: () => toast }));
 
-vi.mock('../context/AppContext', () => ({
-  useApp: () => ({ userContext: { role: 'manager' }, user: { id: 'user-1' }, loading: false }),
-}));
+const appState = vi.hoisted(() => ({ userContext: { role: 'manager' }, user: { id: 'user-1' }, loading: false }));
+vi.mock('../context/AppContext', () => ({ useApp: () => appState }));
 
 vi.mock('../api/reservations', () => ({
   getReservations: vi.fn(async () => ({ data: [], total: 0, pagination: { page: 1, limit: 200, total: 0, totalPages: 0 } })),
@@ -52,6 +50,7 @@ vi.mock('../api/manualMessaging', () => ({
   sendDepartureManualMessage: vi.fn(),
 }));
 
+const mockCreateCost = vi.fn();
 const mockGetDeparture = vi.fn();
 const mockGetDepartureProfitability = vi.fn();
 
@@ -63,7 +62,7 @@ vi.mock('../api/departures', () => ({
   getDepartureGroups: vi.fn(async () => ({ byHotel: [], byAgent: [] })),
   getPassengerGroups: vi.fn(async () => []),
   getDepartureProfitability: (...args: any[]) => mockGetDepartureProfitability(...args),
-  createDepartureCostItem: vi.fn(),
+  createDepartureCostItem: (...args: any[]) => mockCreateCost(...args),
   updateDepartureCostItem: vi.fn(),
   deleteDepartureCostItem: vi.fn(),
   updateDeparture: vi.fn(),
@@ -84,6 +83,7 @@ vi.mock('../api/hotels', () => ({
 
 describe('DepartureDetail finance supplier payables integration', () => {
   beforeEach(() => {
+    mockCreateCost.mockReset();
     currentLang = 'en';
     mockGetDeparture.mockResolvedValue({
       id: 'd1',
@@ -182,4 +182,35 @@ describe('DepartureDetail finance supplier payables integration', () => {
     expect(screen.getByText(bs.departure.finance.margin)).toBeInTheDocument();
     expect(screen.getByText(bs.departure.finance.realizedCash)).toBeInTheDocument();
   });
+  it('does not silently record an empty unit cost as a zero expense', async () => {
+    renderView(); await screen.findByText('Antalya Summer');
+    fireEvent.click(await screen.findByRole('button', { name: en.departure.finance.title }));
+    await screen.findByText(en.departure.finance.supplierPaid);
+    fireEvent.click(screen.getByRole('button', { name: en.departure.finance.addCost }));
+    const modal = screen.getByTestId('modal');
+    fireEvent.change(within(modal).getAllByRole('textbox')[0], { target: { value: 'Isolated cost' } });
+    fireEvent.click(within(modal).getByRole('button', { name: en.common.save }));
+    await screen.findByRole('alert'); expect(mockCreateCost).not.toHaveBeenCalled();
+  });
+  it('associates all expense fields and serializes pending submissions', async () => {
+    let reject!: (reason: Error) => void;
+    mockCreateCost.mockImplementation(() => new Promise((_r,j) => { reject=j; }));
+    renderView(); await screen.findByText('Antalya Summer');
+    fireEvent.click(await screen.findByRole('button', { name: en.departure.finance.title }));
+    await screen.findByText(en.departure.finance.supplierPaid);
+    fireEvent.click(screen.getByRole('button', { name: en.departure.finance.addCost }));
+    const modal = screen.getByTestId('modal');
+    fireEvent.change(within(modal).getByLabelText(en.departure.finance.label), { target: { value: 'Isolated cost' } });
+    fireEvent.change(within(modal).getByLabelText(en.departure.finance.unitCost), { target: { value: '50' } });
+    expect(within(modal).getByLabelText(en.departure.finance.category)).toBeInTheDocument();
+    expect(within(modal).getByLabelText(en.departure.finance.quantity)).toHaveValue(1);
+    expect(within(modal).getByLabelText(en.departure.finance.notes)).toBeInTheDocument();
+    const save=within(modal).getByRole('button', { name: en.common.save });
+    fireEvent.click(save); fireEvent.click(save);
+    expect(mockCreateCost).toHaveBeenCalledTimes(1);
+    expect(within(modal).getByLabelText(en.departure.finance.category)).toBeDisabled();
+    reject(new Error('Synthetic failure')); await waitFor(() => expect(within(modal).getByRole('alert')).toBeInTheDocument());
+    expect(within(modal).getByLabelText(en.departure.finance.label)).toHaveValue('Isolated cost');
+  });
+
 });

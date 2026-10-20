@@ -1,0 +1,45 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:32) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:45) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 30 tests using 1 worker
+
+(node:67) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates signin light 390 (11.4s)
+  ✓   2 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates signin light 768 (4.5s)
+  ✓   3 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates signin light 1440 (3.4s)
+  ✓   4 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates signin dark 390 (3.2s)
+  ✓   5 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates signin dark 768 (2.7s)
+  ✓   6 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates signin dark 1440 (2.4s)
+  ✓   7 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates signup light 390 (3.5s)
+  ✓   8 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates signup light 768 (2.8s)
+  ✓   9 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates signup light 1440 (2.3s)
+  ✓  10 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates signup dark 390 (2.4s)
+  ✓  11 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates signup dark 768 (2.3s)
+  ✓  12 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates signup dark 1440 (3.2s)
+  ✓  13 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates reset light 390 (2.3s)
+  ✓  14 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates reset light 768 (2.5s)
+  ✓  15 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates reset light 1440 (2.4s)
+  ✓  16 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates reset dark 390 (4.9s)
+  ✓  17 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates reset dark 768 (5.2s)
+  ✓  18 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates reset dark 1440 (6.0s)
+  ✓  19 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates update light 390 (7.5s)
+  ✓  20 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates update light 768 (5.7s)
+  ✓  21 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates update light 1440 (3.5s)
+  ✓  22 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates update dark 390 (4.0s)
+  ✓  23 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates update dark 768 (4.2s)
+  ✓  24 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates update dark 1440 (4.3s)
+  ✓  25 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:12:71 › checkbox keyboard disabled state light 390 (1.7s)
+  ✓  26 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:12:71 › checkbox keyboard disabled state light 768 (1.3s)
+  ✓  27 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:12:71 › checkbox keyboard disabled state light 1440 (1.1s)
+  ✓  28 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:12:71 › checkbox keyboard disabled state dark 390 (1.1s)
+  ✓  29 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:12:71 › checkbox keyboard disabled state dark 768 (1.3s)
+  ✓  30 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:12:71 › checkbox keyboard disabled state dark 1440 (1.3s)
+
+  30 passed (1.9m)

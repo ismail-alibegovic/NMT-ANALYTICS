@@ -1,0 +1,181 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> travline-api@1.0.0 test
+> vitest run currencyAnalyticsRoutes
+
+
+ RUN  v4.1.10 /workspace/repos/travline-forms/nmt-analytics-api
+
+stdout | src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > uses reservation_at in overview-v2 even when entered later
+[GET /api/analytics/overview-v2] [Req:unknown] Query: [Object: null prototype] {
+  from: '2026-01-15',
+  to: '2026-01-15',
+  currency: 'BAM'
+}
+[GET /api/analytics/overview-v2] [Req:unknown] Executing reservation metrics query
+
+stdout | src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > uses reservation_at in overview-v2 even when entered later
+[GET /api/analytics/overview-v2] [Req:unknown] Success: {
+  reservations_count: 0,
+  total_amount_sum: 0,
+  total_paid_sum: 0,
+  total_balance_sum: 0,
+  unpaid_count: 0,
+  partially_paid_count: 0,
+  paid_count: 0,
+  avg_reservation_value: 0,
+  payments_count: 0,
+  payments_sum: 0,
+  currency: 'BAM',
+  availableCurrencies: [ 'EUR' ],
+  multiCurrency: false,
+  currencyBreakdown: [],
+  date_from: '2026-01-15',
+  date_to: '2026-01-15'
+}
+
+stdout | src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > uses reservation_at in by-package even when entered later
+[GET /api/analytics/by-package] [Req:unknown] Query: [Object: null prototype] {
+  from: '2026-01-15',
+  to: '2026-01-15',
+  currency: 'BAM'
+}
+[GET /api/analytics/by-package] [Req:unknown] Executing query
+
+stdout | src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > uses reservation_at in by-package even when entered later
+[GET /api/analytics/by-package] [Req:unknown] Success: 0 packages
+
+stdout | src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > uses reservation_at in revenue-series even when entered later
+[GET /api/analytics/revenue-series] [Req:unknown] Query: [Object: null prototype] {
+  from: '2026-01-15',
+  to: '2026-01-15',
+  currency: 'BAM'
+}
+
+stdout | src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > uses reservation_at in revenue-series even when entered later
+[GET /api/analytics/revenue-series] [Req:unknown] Success: 1 data points
+
+stdout | src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > fails closed when payment metrics are unavailable in overview-v2
+[GET /api/analytics/overview-v2] [Req:unknown] Query: [Object: null prototype] {}
+[GET /api/analytics/overview-v2] [Req:unknown] Executing reservation metrics query
+
+stdout | src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > fails closed when payment metrics are unavailable in overview-v2
+[GET /api/analytics/overview-v2] [Req:unknown] Success: {
+  reservations_count: 2,
+  total_amount_sum: null,
+  total_paid_sum: null,
+  total_balance_sum: null,
+  unpaid_count: 0,
+  partially_paid_count: 0,
+  paid_count: 2,
+  avg_reservation_value: null,
+  payments_count: 0,
+  payments_sum: null,
+  currency: null,
+  availableCurrencies: [ 'BAM', 'EUR' ],
+  multiCurrency: true,
+  currencyBreakdown: [
+    {
+      currency: 'BAM',
+      total_amount_sum: 100,
+      total_paid_sum: 100,
+      total_balance_sum: 0,
+      payments_sum: 0
+    },
+    {
+      currency: 'EUR',
+      total_amount_sum: 200,
+      total_paid_sum: 200,
+      total_balance_sum: 0,
+      payments_sum: 0
+    }
+  ],
+  date_from: null,
+  date_to: null
+}
+
+stderr | src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > fails closed when payment metrics are unavailable in overview-v2
+[GET /api/analytics/overview-v2] [Req:unknown] Payment error: { message: 'Synthetic query failure' }
+
+stdout | src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > fails closed when payment metrics are unavailable in revenue-series
+[GET /api/analytics/revenue-series] [Req:unknown] Query: [Object: null prototype] {}
+
+stderr | src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > fails closed when payment metrics are unavailable in revenue-series
+[GET /api/analytics/revenue-series] [Req:unknown] Payment error: { message: 'Synthetic query failure' }
+
+stdout | src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > fails closed when payment metrics are unavailable in revenue-series
+[GET /api/analytics/revenue-series] [Req:unknown] Success: 2 data points
+
+ ❯ src/tests/currencyAnalyticsRoutes.test.ts (20 tests | 5 failed) 223ms
+     × uses reservation_at in overview-v2 even when entered later 7ms
+     × uses reservation_at in by-package even when entered later 2ms
+     × uses reservation_at in revenue-series even when entered later 3ms
+     × fails closed when payment metrics are unavailable in overview-v2 2ms
+     × fails closed when payment metrics are unavailable in revenue-series 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > uses reservation_at in overview-v2 even when entered later
+AssertionError: expected +0 to be 100 // Object.is equality
+
+- Expected
++ Received
+
+- 100
++ 0
+
+ ❯ src/tests/currencyAnalyticsRoutes.test.ts:495:69
+    493|     const r = await request(app).get(`/api/analytics/${endpoint}?from=…
+    494|     expect(r.status).toBe(200);
+    495|     if (endpoint === 'overview-v2') expect(r.body.total_amount_sum).to…
+       |                                                                     ^
+    496|     else expect(r.body.data.reduce((sum: number, row: any) => sum + ro…
+    497|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > uses reservation_at in by-package even when entered later
+ FAIL  src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > uses reservation_at in revenue-series even when entered later
+AssertionError: expected +0 to be 100 // Object.is equality
+
+- Expected
++ Received
+
+- 100
++ 0
+
+ ❯ src/tests/currencyAnalyticsRoutes.test.ts:496:95
+    494|     expect(r.status).toBe(200);
+    495|     if (endpoint === 'overview-v2') expect(r.body.total_amount_sum).to…
+    496|     else expect(r.body.data.reduce((sum: number, row: any) => sum + ro…
+       |                                                                                               ^
+    497|   });
+    498|   it('exports the same booking-date population as the screen', async (…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > fails closed when payment metrics are unavailable in overview-v2
+ FAIL  src/tests/currencyAnalyticsRoutes.test.ts > report booking-date consistency and unavailable payment metrics > fails closed when payment metrics are unavailable in revenue-series
+AssertionError: expected 200 to be 500 // Object.is equality
+
+- Expected
++ Received
+
+- 500
++ 200
+
+ ❯ src/tests/currencyAnalyticsRoutes.test.ts:505:22
+    503|   it.each(['overview-v2','revenue-series'])('fails closed when payment…
+    504|     errorTable='payments';const r=await request(app).get(`/api/analyti…
+    505|     expect(r.status).toBe(500);expect(r.body.code).toBe('QUERY_ERROR')…
+       |                      ^
+    506|   });
+    507| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 15 passed (20)
+   Start at  02:16:35
+   Duration  528ms (transform 133ms, setup 0ms, import 153ms, tests 223ms, environment 0ms)

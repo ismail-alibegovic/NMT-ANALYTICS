@@ -35,6 +35,11 @@ export default function Documents() {
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [uploading, setUploading] = useState(false);
+    const uploadLock = useRef(false);
+    const [uploadDraft, setUploadDraft] = useState<File | null>(null);
+    const [uploadError, setUploadError] = useState('');
+    const deleteLock = useRef(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
@@ -104,24 +109,24 @@ export default function Documents() {
         fileInputRef.current?.click();
     };
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setUploading(true);
-        const formData = new FormData();
-        formData.append('file', file);
-
+    const saveUpload = async (file: File) => {
+        if (uploadLock.current) return;
+        setUploadDraft(file); setUploadError('');
+        if (file.size > 5 * 1024 * 1024) { setUploadError(t.documents.fileTooLarge); return; }
+        uploadLock.current = true; setUploading(true);
+        const formData = new FormData(); formData.append('file', file);
         try {
             await uploadDocument(formData);
-            showSuccess('Document uploaded successfully');
-            fetchDocuments(1, searchTerm);
-        } catch (err: any) {
-            showError(err.message || 'Failed to upload document');
-        } finally {
-            setUploading(false);
+            showSuccess(t.documents.uploadSuccess); setUploadDraft(null);
             if (fileInputRef.current) fileInputRef.current.value = '';
-        }
+            void fetchDocuments(1, searchTerm);
+        } catch (err: unknown) {
+            setUploadError((err as {message?:string}).message || t.documents.uploadError);
+        } finally { uploadLock.current = false; setUploading(false); }
+    };
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) void saveUpload(file);
     };
 
     const handleDownload = async (doc: Document) => {
@@ -136,19 +141,21 @@ export default function Documents() {
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
         } catch (err: any) {
-            showError('Failed to download document');
+            showError(t.documents.downloadError);
         }
     };
 
     const handleDelete = async (doc: Document) => {
+        if (deleteLock.current) return;
         if (!confirm(t.documents.deleteConfirm || `Are you sure you want to delete "${doc.name}"?`)) return;
+        deleteLock.current = true; setDeletingId(doc.id);
         try {
             await deleteDocument(doc.id);
             showSuccess(t.documents.deleteSuccess);
             fetchDocuments(currentPage, searchTerm);
         } catch (err: any) {
             showError(t.documents.deleteError);
-        }
+        } finally { deleteLock.current = false; setDeletingId(null); }
     };
 
     const formatSize = (bytes: number) => {
@@ -226,6 +233,7 @@ export default function Documents() {
                     <Button
                         size="sm"
                         variant="outline"
+                        title={`${t.common.download} ${doc.name}`}
                         onClick={() => handleDownload(doc)}
                         className="p-2"
                     >
@@ -234,6 +242,7 @@ export default function Documents() {
                     <Button
                         size="sm"
                         variant="outline"
+                        title={`${t.common.delete} ${doc.name}`} disabled={deletingId === doc.id}
                         onClick={() => handleDelete(doc)}
                         className="p-2 text-red-600 hover:text-red-700"
                     >
@@ -252,6 +261,7 @@ export default function Documents() {
 
             <input
                 type="file"
+                aria-label={t.documents.upload} disabled={uploading}
                 ref={fileInputRef}
                 onChange={handleFileChange}
                 className="hidden"
@@ -284,7 +294,9 @@ export default function Documents() {
                 }
             />
 
-            <div className="mb-6 flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+            {uploadError && <div role="alert" className="mb-4 space-y-3 rounded-lg border border-error-200 p-4 text-sm text-error-600 dark:border-error-800 dark:text-error-400"><p>{uploadError}</p>{uploadDraft && <><p className="break-words">{uploadDraft.name}</p><Button disabled={uploading || uploadDraft.size > 5 * 1024 * 1024} onClick={()=>void saveUpload(uploadDraft)}>{t.documents.retryUpload}</Button></>}</div>}
+
+            <div className="mb-6 flex flex-col items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20 sm:flex-row sm:items-center">
                 <DocsIcon className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
                 <div className="flex-1">
                     <p className="text-sm font-medium text-blue-900 dark:text-blue-200">PDF Templates are managed in Settings</p>

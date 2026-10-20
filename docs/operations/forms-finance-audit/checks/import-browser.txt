@@ -1,0 +1,27 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:33) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:46) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:46) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 12 tests using 1 worker
+
+(node:69) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 nmt-analytics-admin/e2e/finance-forms/imports.spec.ts:2:116 › import success envelope customers light 390 (812ms)
+  ✓   2 nmt-analytics-admin/e2e/finance-forms/imports.spec.ts:2:116 › import success envelope customers light 768 (446ms)
+  ✓   3 nmt-analytics-admin/e2e/finance-forms/imports.spec.ts:2:116 › import success envelope customers light 1440 (433ms)
+  ✓   4 nmt-analytics-admin/e2e/finance-forms/imports.spec.ts:2:116 › import success envelope customers dark 390 (412ms)
+  ✓   5 nmt-analytics-admin/e2e/finance-forms/imports.spec.ts:2:116 › import success envelope customers dark 768 (412ms)
+  ✓   6 nmt-analytics-admin/e2e/finance-forms/imports.spec.ts:2:116 › import success envelope customers dark 1440 (481ms)
+  ✓   7 nmt-analytics-admin/e2e/finance-forms/imports.spec.ts:2:116 › import success envelope packages light 390 (391ms)
+  ✓   8 nmt-analytics-admin/e2e/finance-forms/imports.spec.ts:2:116 › import success envelope packages light 768 (399ms)
+  ✓   9 nmt-analytics-admin/e2e/finance-forms/imports.spec.ts:2:116 › import success envelope packages light 1440 (497ms)
+  ✓  10 nmt-analytics-admin/e2e/finance-forms/imports.spec.ts:2:116 › import success envelope packages dark 390 (411ms)
+  ✓  11 nmt-analytics-admin/e2e/finance-forms/imports.spec.ts:2:116 › import success envelope packages dark 768 (399ms)
+  ✓  12 nmt-analytics-admin/e2e/finance-forms/imports.spec.ts:2:116 › import success envelope packages dark 1440 (454ms)
+
+  12 passed (7.2s)

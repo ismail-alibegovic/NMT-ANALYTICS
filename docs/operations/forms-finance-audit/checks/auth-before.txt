@@ -1,0 +1,68 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:34) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:47) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:47) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:69) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates signup light 390 (1.0m)
+(node:174) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:12:71 › checkbox keyboard disabled state light 390 (6.8s)
+
+
+  1) nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates signup light 390
+
+    Test timeout of 60000ms exceeded.
+
+    Error: locator.fill: Test timeout of 60000ms exceeded.
+    Call log:
+      - waiting for locator('form').getByLabel(/^Agency Name/)
+
+
+       5 |  await page.goto(`/e2e/finance-forms/index.html?surface=${surface==='update'?'reset':surface}${surface==='update'?'&mode=update':''}`);const form=page.locator('form');
+       6 |  const button=form.getByRole('button',{name:surface==='signup'?'Create account':surface==='signin'?'Sign In':surface==='reset'?'Send reset link':'Update password',exact:true});
+    >  7 |  if(surface==='signup'){await form.getByLabel(/^Agency Name/).fill('Isolated agency');await form.getByLabel(/^First Name/).fill('Synthetic');await form.getByLabel(/^Last Name/).fill('User');await form.getByRole('checkbox').check();}
+         |                                                               ^
+       8 |  if(surface==='update'){await form.getByLabel(/^New password/).fill('contract-password');await form.getByLabel(/^Confirm password/).fill('different-contract-password');await button.click();expect(calls).toBe(0);await form.getByLabel(/^Confirm password/).fill('contract-password');}
+       9 |  else{await form.getByLabel(/^Email/).fill('invalid');await button.click();expect(calls).toBe(0);await form.getByLabel(/^Email/).fill('isolated@example.test');if(surface!=='reset')await form.getByLabel(/^Password/).fill('contract-password');}
+      10 |  await form.evaluate(f=>{f.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));f.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});await expect(form.locator('input').first()).toBeDisabled();await expect(page.getByRole('alert')).toBeVisible();expect(calls).toBe(1);await info.attach(`auth-${surface}-${theme}-${width}`,{body:await page.screenshot(),contentType:'image/png'});fail=false;await button.click();await expect.poll(()=>calls).toBe(2);if(surface==='reset')await expect(page.getByRole('status')).toBeVisible();else await expect(form).toBeHidden();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+        at /workspace/repos/travline-forms/nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:7:63
+
+    Error Context: nmt-analytics-admin/finance-form-results/artifacts/auth-auth-labels-validatio-454b4-duplicates-signup-light-390/error-context.md
+
+  2) nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:12:71 › checkbox keyboard disabled state light 390
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('checkbox', { name: 'Unavailable unchecked', exact: true }).locator('..').locator('svg')
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" getByRole('checkbox', { name: 'Unavailable unchecked', exact: true }).locator('..').locator('svg') with timeout 5000ms
+      - waiting for getByRole('checkbox', { name: 'Unavailable unchecked', exact: true }).locator('..').locator('svg')
+        13 × locator resolved to 1 element
+           - unexpected value "1"
+
+
+      11 | });
+      12 | for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`checkbox keyboard disabled state ${theme} ${width}`,async({page})=>{
+    > 13 |  await page.setViewportSize({width,height:900});await page.addInitScript(theme=>{document.addEventListener('DOMContentLoaded',()=>document.documentElement.classList.toggle('dark',theme==='dark'));},theme);await page.goto('/e2e/finance-forms/index.html?surface=checkbox');const active=page.getByRole('checkbox',{name:'Active checkbox',exact:true});await active.focus();await page.keyboard.press('Space');await expect(active).toBeChecked();const disabled=page.getByRole('checkbox',{name:'Unavailable unchecked',exact:true});await expect(disabled).not.toBeChecked();await expect(disabled).toBeDisabled();await expect(disabled.locator('..').locator('svg')).toHaveCount(0);expect(await active.locator('../..').evaluate(e=>e.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+         |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              ^
+      14 | });
+      15 |
+        at /workspace/repos/travline-forms/nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:13:654
+
+    Error Context: nmt-analytics-admin/finance-form-results/artifacts/auth-checkbox-keyboard-disabled-state-light-390/error-context.md
+
+  2 failed
+    nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:2:129 › auth labels validation failed request recovery duplicates signup light 390
+    nmt-analytics-admin/e2e/finance-forms/auth.spec.ts:12:71 › checkbox keyboard disabled state light 390

@@ -1,0 +1,44 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:32) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:45) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:65) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 nmt-analytics-admin/e2e/finance-forms/documents.spec.ts:2:71 › document upload retains failed file light 390 (10.5s)
+
+
+  1) nmt-analytics-admin/e2e/finance-forms/documents.spec.ts:2:71 › document upload retains failed file light 390 
+
+    Error: expect(locator).not.toHaveValue(expected) failed
+
+    Locator:  locator('input[type=file]')
+    Expected: not ""
+    Received: ""
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "not toHaveValue" locator('input[type=file]') with timeout 5000ms
+      - waiting for locator('input[type=file]')
+        13 × locator resolved to <input type="file" class="hidden"/>
+           - unexpected value ""
+
+
+      3 |
+      4 |  await page.setViewportSize({width,height:900});await page.addInitScript(theme=>{localStorage.setItem('travline_lang','en');document.addEventListener('DOMContentLoaded',()=>document.documentElement.classList.toggle('dark',theme==='dark'));},theme);
+    > 5 |  await page.route('**/__form-test-api/documents**',async route=>{if(route.request().method()==='GET')return route.fulfill({json:{data:[],total:0,page:1,limit:10}});await new Promise(r=>setTimeout(r,200));return route.fulfill({status:503,json:{error:'Synthetic document failure'}});});await page.goto('/e2e/finance-forms/index.html?surface=documents');const failed=page.waitForResponse(r=>r.url().includes('/documents/upload')&&r.status()===503);await page.locator('input[type=file]').setInputFiles({name:'synthetic.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.7\nSynthetic document\n%%EOF')});await failed;await expect(page.getByRole('button',{name:'Upload Document',exact:true}).first()).toBeVisible();await expect(page.locator('input[type=file]')).not.toHaveValue('');
+        |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ^
+      6 | });
+      7 |
+        at /workspace/repos/travline-forms/nmt-analytics-admin/e2e/finance-forms/documents.spec.ts:5:769
+
+    Error Context: nmt-analytics-admin/finance-form-results/artifacts/documents-document-upload-retains-failed-file-light-390/error-context.md
+
+  1 failed
+    nmt-analytics-admin/e2e/finance-forms/documents.spec.ts:2:71 › document upload retains failed file light 390 

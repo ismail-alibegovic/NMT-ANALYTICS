@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: '**/forms/**',
+  testIgnore: ['**/forms/**', '**/finance-forms/**'],
   timeout: 30_000,
   fullyParallel: true,
   reporter: process.env.CI

@@ -1,0 +1,36 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> travline-api@1.0.0 test
+> vitest run --run src/tests/documentDeletionRecovery.test.ts
+
+
+ RUN  v4.1.10 /workspace/repos/travline-forms/nmt-analytics-api
+
+stderr | src/tests/documentDeletionRecovery.test.ts > storage failure preserves the document record for a safe delete retry
+Storage remove error (non-fatal): { message: 'Synthetic storage failure' }
+
+ ❯ src/tests/documentDeletionRecovery.test.ts (2 tests | 1 failed) 1188ms
+   × storage failure preserves the document record for a safe delete retry 1158ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/documentDeletionRecovery.test.ts > storage failure preserves the document record for a safe delete retry
+AssertionError: expected 200 to be 503 // Object.is equality
+
+- Expected
++ Received
+
+- 503
++ 200
+
+ ❯ src/tests/documentDeletionRecovery.test.ts:15:91
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  22:22:28
+   Duration  2.86s (transform 403ms, setup 0ms, import 855ms, tests 1.19s, environment 0ms)
+

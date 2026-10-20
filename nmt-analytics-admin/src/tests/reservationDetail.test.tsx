@@ -427,10 +427,10 @@ describe("ReservationDetail", () => {
     expect(screen.getByText("Rata 2 · 800 BAM")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Evidentiraj" })[0]);
-    await waitFor(() => expect(screen.getAllByText("Dodaj plaćanje").length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText("Add Payment").length).toBeGreaterThan(0));
     expect(screen.getByDisplayValue("300")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Dodaj plaćanje" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Payment" }));
 
     await waitFor(() => expect(mockCreatePayment).toHaveBeenCalledWith(expect.objectContaining({
       reservation_id: BASE_RESERVATION.id,

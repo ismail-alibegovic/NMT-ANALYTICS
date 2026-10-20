@@ -233,7 +233,9 @@ export const en = {
     planned: 'Planned',
     notEnabled: 'Not enabled',
   },
+  fileImport: {"title": "Import", "customers": "customers", "packages": "packages", "templateDescription": "Download a template with the supported columns.", "downloadTemplate": "Download template", "selectFile": "Select CSV or XLSX file", "fileError": "Choose a CSV or XLSX file up to 10 MB.", "invalidFile": "The file contains invalid rows. Nothing has been imported. Correct the file and select it again.", "previewError": "The file could not be previewed. Your selection is preserved.", "saveError": "Import failed. Your file selection is preserved.", "templateError": "The template could not be downloaded.", "reading": "Checking file…", "preview": "Preview (first 5 rows)", "row": "Row", "imported": "Imported", "retryPreview": "Retry preview", "importing": "Importing…"},
   common: {
+    switchToLight: 'Switch to light mode', switchToDark: 'Switch to dark mode',
     save: 'Save', cancel: 'Cancel', delete: 'Delete', edit: 'Edit',
     create: 'Create', add: 'Add', search: 'Search', filter: 'Filter',
     clear: 'Clear', confirm: 'Confirm', loading: 'Loading...', noData: 'No data found',
@@ -492,6 +494,10 @@ export const en = {
     },
   },
   reports: {
+    selectCurrency: 'Select currency', mixedCurrencies: 'Mixed currencies', selectForChart: 'Select a currency to view the revenue chart.', selectForRanking: 'Select a currency to view monetary package rankings.', unknownPackage: 'Unknown Package', authRequired: 'Authentication required', pleaseSignIn: 'Please sign in', perReservation: 'Per reservation', noData: 'No data', noReservations: 'No reservations for the selected period.',
+
+    loadError: 'Report data could not be loaded. Previous figures are hidden to avoid showing stale balances.', retry: 'Retry', exportError: 'Report export failed. Please retry.',
+
     title: 'Reports', description: 'Financial reports and analytics',
     exportOverview: 'Export Overview CSV', exportPackage: 'Export Package CSV',
     totalRevenue: 'Total Revenue', totalPaid: 'Total Paid', balance: 'Balance',
@@ -509,6 +515,19 @@ export const en = {
     retry: 'Your reservation is saved. Retry to finish it without creating another reservation.',
     manual: 'Your reservation is saved but needs review. Open it before making further changes.',
     open: 'Open saved reservation',
+  },
+  paymentForm: {
+    title: 'Reservation payments', total: 'Reservation total', paid: 'Total paid', totalRefunded: 'Total refunded', remaining: 'Remaining', history: 'Payment history', createdAt: 'Created',
+    loadError: 'Payments could not be loaded. Retry before recording another payment.', retryLoad: 'Retry loading',
+    void: 'Void', refund: 'Refund', voidConfirm: 'Void this payment?', refundReason: 'Refund reason (optional):', voided: 'Payment voided', refunded: 'Payment refunded',
+
+    statuses: { succeeded: 'Succeeded', pending: 'Pending', failed: 'Failed', refunded: 'Refunded', cancelled: 'Cancelled' },
+    methods: { cash: 'Cash', card: 'Card', bank_transfer: 'Bank transfer', credit: 'Credit', other: 'Other' },
+    selectMethod: 'Select method', unchangedMethod: 'Keep existing method', saving: 'Saving…',
+    invalidAmount: 'Enter a positive amount with at most two decimal places.',
+    saveError: 'Payment could not be saved. Your entries are preserved. Retry with the same details to avoid recording a second payment.',
+    balanceWarning: 'Changes automatically update the reservation balance.',
+    created: 'Payment added', updated: 'Payment updated',
   },
   payments: {
     retryFailed: 'Retry payment',
@@ -659,6 +678,7 @@ export const en = {
   auth: {
     verificationRequired: 'Check your email to verify your account before signing in.',
     recoveryLinkInvalid: 'This recovery link is invalid or expired. Request a new link.',
+    allFieldsRequired: 'Enter your agency name, first and last name, email and password.',
     signIn: 'Sign In', signUp: 'Sign Up', email: 'Email', password: 'Password',
     forgotPassword: 'Forgot Password?', noAccount: "Don't have an account?",
     hasAccount: 'Already have an account?', signInTitle: 'Welcome back',
@@ -1070,6 +1090,7 @@ export const en = {
     },
   },
   documents: {
+    uploadSuccess: "Document uploaded successfully", uploadError: "Document could not be uploaded. The selected file is preserved.", downloadError: "Document could not be downloaded", retryUpload: "Retry upload", fileTooLarge: "Choose a file up to 5 MB.",
     title: 'Documents', description: 'Manage documents and templates',
     upload: 'Upload Document', generate: 'Generate Document',
     noDocuments: 'No documents found', name: 'Name', type: 'Type', size: 'Size',
@@ -1187,6 +1208,7 @@ export const en = {
     categories: { accommodation: 'Accommodation', transport: 'Transport', flight: 'Flight', guide: 'Guide', activity: 'Activity', meal: 'Meal', insurance: 'Insurance', visa: 'Visa', ticket: 'Ticket', venue: 'Venue', equipment: 'Equipment', other: 'Other' },
   },
   suppliers: {
+    basicDetails: 'Basic details', locationBilling: 'Location and billing',
 
     title: 'Suppliers', description: 'Shared supplier directory and reusable service cost catalogue', search: 'Search supplier, city, or contact…',
     addSupplier: 'Add supplier', suppliersCount: 'suppliers', servicesCount: 'services', allCategories: 'All categories',
@@ -1371,6 +1393,9 @@ export const en = {
       flightSavedLegacy: 'Linked flight updated',
     },
     subagents: {
+      portalDescription: "Generate a secure link to view sales and documents. It is valid for 90 days and can be revoked.", portalLink: "Portal link", copied: "Link copied", copyError: "Link could not be copied", copy: "Copy", shareLink: "Share this private link with {name}. The URL contains their access credential.", replaceLink: "Generate a new link to replace it.", noLink: "No active portal link. Generate one to enable access.", revoke: "Revoke", generateLink: "Generate link", revokeConfirm: "Revoke portal access for {name}?", revoked: "Portal access revoked", portalError: "Portal access could not be updated",
+      portal: {"retry": "Retry", "error": "Error", "title": "Travline · Sub-agent portal", "contactAgency": "Contact the agency for a new link.", "totalSales": "Displayed sales (up to 100)", "yourCommission": "Commission shown", "revenue": "Revenue shown", "commissionRate": "Your commission rate", "expires": "Link expires", "sales": "Sales", "empty": "No recorded sales.", "customer": "Customer", "departure": "Departure", "amount": "Amount", "commission": "Commission", "status": "Status", "documents": "Documents", "linkStatus": "Portal link is", "lastSeen": "Last access", "valid": "Active", "expired": "Expired", "revoked": "Revoked", "not_found": "Unknown"},
+      created: 'Sub-agent created', createError: 'Sub-agent could not be created', partnerType: 'Partner type', bronze: 'Bronze', silver: 'Silver', gold: 'Gold', platinum: 'Platinum',
       title: 'Sub-agent network', description: 'Manage sub-agents and auto-generate document bundles (najava, ugovor, faktura)',
       add: 'Add Sub-agent', generateSale: 'Generate Sale', generating: 'Generating…',
       name: 'Name', phone: 'Phone', email: 'Email', commission: 'Commission %',

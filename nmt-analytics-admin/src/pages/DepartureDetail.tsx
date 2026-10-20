@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type ComponentType, type SVGProps, useCallback } from "react";
+import { useState, useEffect, useMemo, type ComponentType, type SVGProps, useCallback, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "../lib/i18n/context";
 import PageMeta from "../components/common/PageMeta";
@@ -238,6 +238,7 @@ export default function DepartureDetail() {
   const [profitError, setProfitError] = useState<string | null>(null);
   const [showCostModal, setShowCostModal] = useState(false);
   const [editingCostItem, setEditingCostItem] = useState<DepartureCostItem | null>(null);
+  const costSaveLock = useRef(false);
   const [costSaving, setCostSaving] = useState(false);
   const [costSuppliers, setCostSuppliers] = useState<Supplier[]>([]);
   const [costSupplierError, setCostSupplierError] = useState(false);
@@ -815,7 +816,7 @@ export default function DepartureDetail() {
   };
 
   const handleSaveCostItem = async () => {
-    if (!id || !profitability) return;
+    if (!id || !profitability || costSaveLock.current) return;
     if (!costForm.label.trim()) {
       setProfitError(t.departure.finance.labelRequired);
       return;
@@ -823,11 +824,12 @@ export default function DepartureDetail() {
 
     const quantity = Number(costForm.quantity);
     const unitCost = Number(costForm.unitCost);
-    if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitCost) || unitCost < 0) {
+    if (!costForm.unitCost.trim() || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitCost) || unitCost < 0) {
       setProfitError(t.departure.finance.invalidAmount);
       return;
     }
 
+    costSaveLock.current = true;
     setCostSaving(true);
     setProfitError(null);
     try {
@@ -838,7 +840,7 @@ export default function DepartureDetail() {
         unitCost,
         currency: profitability.currency,
         supplierId: costForm.supplierId || null,
-        notes: costForm.notes.trim() || undefined,
+        notes: costForm.notes.trim(),
       };
       if (editingCostItem) await updateDepartureCostItem(id, editingCostItem.id, payload);
       else await createDepartureCostItem(id, payload);
@@ -847,6 +849,7 @@ export default function DepartureDetail() {
     } catch (err: any) {
       setProfitError((err?.response?.data?.code || err?.code) === 'PAYABLE_COST_LOCKED' ? t.supplierPayables.sourceLocked : err?.response?.data?.message || err?.message || t.departure.finance.saveError);
     } finally {
+      costSaveLock.current = false;
       setCostSaving(false);
     }
   };
@@ -1614,7 +1617,7 @@ export default function DepartureDetail() {
                   ) : (
                     <div className="divide-y divide-gray-100 dark:divide-gray-800">
                       {profitability.costItems.map((item) => (
-                        <div key={item.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div key={item.id} data-cost-item-id={item.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
                               <Badge color="light" size="sm">{(t.departure.finance.categories as Record<string, string>)[item.category] || item.category}</Badge>
@@ -1882,8 +1885,8 @@ export default function DepartureDetail() {
 
       <Modal
         isOpen={showCostModal}
-        onClose={() => setShowCostModal(false)}
-        className="max-w-md"
+        onClose={() => { if (!costSaveLock.current) setShowCostModal(false); }}
+        className="mx-4 max-h-[calc(100dvh-2rem)] max-w-md overflow-y-auto"
       >
         <div className="p-6">
           {profitError && <p role="alert" className="mb-3 text-sm text-red-600">{profitError}</p>}
@@ -1892,10 +1895,11 @@ export default function DepartureDetail() {
           </h2>
           <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">{t.departure.finance.costModalDescription}</p>
 
-          <div className="space-y-4">
+          <fieldset disabled={costSaving} className="min-w-0 space-y-4">
             <div>
-              <Label>{t.departure.finance.category}</Label>
+              <Label htmlFor="cost-category">{t.departure.finance.category}</Label>
               <Select
+                id="cost-category"
                 value={costForm.category}
                 onChange={(value) => setCostForm((prev) => ({ ...prev, category: value as DepartureCostCategory }))}
                 options={costCategories.map((category) => ({
@@ -1905,23 +1909,23 @@ export default function DepartureDetail() {
               />
             </div>
             <div>
-              <Label>{t.departure.finance.label}</Label>
-              <Input value={costForm.label} onChange={(e) => setCostForm((prev) => ({ ...prev, label: e.target.value }))} />
+              <Label htmlFor="cost-label">{t.departure.finance.label}</Label>
+              <Input id="cost-label" value={costForm.label} onChange={(e) => setCostForm((prev) => ({ ...prev, label: e.target.value }))} />
             </div>
             <div>
               <label htmlFor="cost-supplier" className="mb-1 block text-sm">{t.supplierPayables.supplier}</label>
               <select id="cost-supplier" value={costForm.supplierId} onChange={e => setCostForm(prev => ({ ...prev, supplierId: e.target.value }))}
-                className="w-full min-w-0 rounded-lg border border-gray-300 p-2 dark:border-gray-700 dark:bg-gray-900">
+                className="h-11 w-full min-w-0 rounded-lg border border-gray-300 p-2 dark:border-gray-700 dark:bg-gray-900">
                 <option value="">{t.supplierPayables.noSupplier}</option>
                 {costForm.supplierId && !costSuppliers.some(s => s.id === costForm.supplierId) && <option value={costForm.supplierId}>{editingCostItem?.supplierName || costForm.supplierId}</option>}
                 {costSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
               {costSupplierError && <p role="alert" className="mt-1 text-sm text-red-600">{t.supplierPayables.supplierLoadError}</p>}
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <Label>{t.departure.finance.quantity}</Label>
-                <Input type="number" min="0.01" step={0.01} value={costForm.quantity} onChange={(e) => setCostForm((prev) => ({ ...prev, quantity: e.target.value }))} />
+                <Label htmlFor="cost-quantity">{t.departure.finance.quantity}</Label>
+                <Input id="cost-quantity" type="number" min="0.01" step={0.01} value={costForm.quantity} onChange={(e) => setCostForm((prev) => ({ ...prev, quantity: e.target.value }))} />
               </div>
               <div>
                 <Label htmlFor="cost-unit-cost">{t.departure.finance.unitCost}</Label>
@@ -1929,10 +1933,10 @@ export default function DepartureDetail() {
               </div>
             </div>
             <div>
-              <Label>{t.departure.finance.notes}</Label>
-              <Input value={costForm.notes} onChange={(e) => setCostForm((prev) => ({ ...prev, notes: e.target.value }))} />
+              <Label htmlFor="cost-notes">{t.departure.finance.notes}</Label>
+              <Input id="cost-notes" value={costForm.notes} onChange={(e) => setCostForm((prev) => ({ ...prev, notes: e.target.value }))} />
             </div>
-          </div>
+          </fieldset>
 
           <div className="mt-6 flex justify-end gap-3">
             <Button variant="outline" onClick={() => setShowCostModal(false)} disabled={costSaving}>{t.common.cancel}</Button>

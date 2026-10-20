@@ -1,0 +1,33 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:31) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+[WebServer] (node:44) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:44) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 18 tests using 1 worker
+
+(node:64) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 nmt-analytics-admin/e2e/finance-forms/portal.spec.ts:2:101 › public supplier portal fail recovery currency and documents en light 390 (2.8s)
+  ✓   2 nmt-analytics-admin/e2e/finance-forms/portal.spec.ts:2:101 › public supplier portal fail recovery currency and documents en light 768 (1.4s)
+  ✓   3 nmt-analytics-admin/e2e/finance-forms/portal.spec.ts:2:101 › public supplier portal fail recovery currency and documents en light 1440 (1.2s)
+  ✓   4 nmt-analytics-admin/e2e/finance-forms/portal.spec.ts:2:101 › public supplier portal fail recovery currency and documents en dark 390 (1.2s)
+  ✓   5 nmt-analytics-admin/e2e/finance-forms/portal.spec.ts:2:101 › public supplier portal fail recovery currency and documents en dark 768 (1.4s)
+  ✓   6 nmt-analytics-admin/e2e/finance-forms/portal.spec.ts:2:101 › public supplier portal fail recovery currency and documents en dark 1440 (1.7s)
+  ✓   7 nmt-analytics-admin/e2e/finance-forms/portal.spec.ts:2:101 › public supplier portal fail recovery currency and documents bs light 390 (1.4s)
+  ✓   8 nmt-analytics-admin/e2e/finance-forms/portal.spec.ts:2:101 › public supplier portal fail recovery currency and documents bs light 768 (1.4s)
+  ✓   9 nmt-analytics-admin/e2e/finance-forms/portal.spec.ts:2:101 › public supplier portal fail recovery currency and documents bs light 1440 (1.5s)
+  ✓  10 nmt-analytics-admin/e2e/finance-forms/portal.spec.ts:2:101 › public supplier portal fail recovery currency and documents bs dark 390 (1.4s)
+  ✓  11 nmt-analytics-admin/e2e/finance-forms/portal.spec.ts:2:101 › public supplier portal fail recovery currency and documents bs dark 768 (1.5s)
+  ✓  12 nmt-analytics-admin/e2e/finance-forms/portal.spec.ts:2:101 › public supplier portal fail recovery currency and documents bs dark 1440 (930ms)
+  ✓  13 nmt-analytics-admin/e2e/finance-forms/subagents.spec.ts:2:71 › subagent validation cancel recovery light 390 (822ms)
+  ✓  14 nmt-analytics-admin/e2e/finance-forms/subagents.spec.ts:2:71 › subagent validation cancel recovery light 768 (802ms)
+  ✓  15 nmt-analytics-admin/e2e/finance-forms/subagents.spec.ts:2:71 › subagent validation cancel recovery light 1440 (988ms)
+  ✓  16 nmt-analytics-admin/e2e/finance-forms/subagents.spec.ts:2:71 › subagent validation cancel recovery dark 390 (839ms)
+  ✓  17 nmt-analytics-admin/e2e/finance-forms/subagents.spec.ts:2:71 › subagent validation cancel recovery dark 768 (843ms)
+  ✓  18 nmt-analytics-admin/e2e/finance-forms/subagents.spec.ts:2:71 › subagent validation cancel recovery dark 1440 (868ms)
+
+  18 passed (25.7s)

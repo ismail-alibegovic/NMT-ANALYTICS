@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import Button from '../ui/button/Button';
 import { Modal } from '../ui/modal';
 import { useT } from '../../lib/i18n/context';
@@ -28,6 +28,7 @@ export default function SupplierPayablesPanel({ departureId, costs, onChanged }:
   departureId: string; costs: DepartureCostItem[]; onChanged: () => void;
 }) {
   const { t, lang } = useT(); const c = t.supplierPayables;
+  const saveLock = useRef(false);
   const [rows, setRows] = useState<SupplierPayable[] | null>(null);
   const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -67,11 +68,13 @@ export default function SupplierPayablesPanel({ departureId, costs, onChanged }:
     return c.saveError;
   }
   async function commit(request: Pending) {
+    if (saveLock.current) return;
+    saveLock.current = true;
     setSaving(true); setError('');
     try {
       // Persist BEFORE sending: a lost response/reload must reuse the same request and payload.
       sessionStorage.setItem(storageKey(departureId), JSON.stringify(request));
-    } catch { setError(c.storageError); setSaving(false); return; }
+    } catch { setError(c.storageError); saveLock.current = false; setSaving(false); return; }
     setPending(request);
     try {
       if (request.action === 'issue') await issueSupplierPayable(departureId, request.body);
@@ -84,7 +87,7 @@ export default function SupplierPayablesPanel({ departureId, costs, onChanged }:
       const status = e?.status ?? e?.response?.status;
       if (status >= 400 && status < 500) clearPending();
       await reload();
-    } finally { setSaving(false); }
+    } finally { saveLock.current = false; setSaving(false); }
   }
   function open(next: Form) {
     setError(''); setForm(next); setCostId(''); setDueDate(''); setAmount(''); setPaymentDate(''); setReference(''); setNote('');
@@ -105,7 +108,7 @@ export default function SupplierPayablesPanel({ departureId, costs, onChanged }:
   const money = (value: number, currency: string) => `${value.toLocaleString(lang === 'bs' ? 'bs-BA' : 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
   const classes = 'min-w-0 w-full rounded-lg border border-gray-300 p-2 dark:border-gray-700 dark:bg-gray-900';
   const title = form?.kind === 'issue' ? c.issue : form?.kind === 'payment' ? c.record : form?.kind === 'reversal' ? c.reverse : c.cancel;
-  return <section className="min-w-0 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]" aria-label={c.title}>
+  return <section className="min-w-0 text-gray-900 dark:text-gray-100 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]" aria-label={c.title}>
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold dark:text-white">{c.title}</h2>
       <Button onClick={() => open({ kind: 'issue' })} disabled={loading || saving || !!pending || !rows || !eligible.length}>{c.issue}</Button></div>
     <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{c.description}</p>
@@ -139,7 +142,7 @@ export default function SupplierPayablesPanel({ departureId, costs, onChanged }:
           </details>
         </article>)}
       </div>}
-    <Modal isOpen={!!form} onClose={() => { if (!saving) setForm(null); }} className="m-4 max-w-lg" title={title}>
+    <Modal isOpen={!!form} onClose={() => { if (!saveLock.current) setForm(null); }} className="m-4 max-w-lg" title={title}>
       <form onSubmit={e => { e.preventDefault(); submit(); }} className="grid max-h-[80vh] min-w-0 gap-4 overflow-y-auto p-6">
         <h3 className="font-semibold">{title}</h3>
         {form?.kind === 'issue' ? <>
@@ -156,7 +159,7 @@ export default function SupplierPayablesPanel({ departureId, costs, onChanged }:
         </>}
         {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
         {pending && <p className="text-sm">{c.pending}</p>}
-        <div className="flex flex-wrap justify-end gap-2"><Button variant="outline" type="button" disabled={saving} onClick={() => setForm(null)}>{c.close}</Button>
+        <div className="flex flex-wrap justify-end gap-2"><Button variant="outline" type="button" disabled={saving} onClick={() => { if (!saveLock.current) setForm(null); }}>{c.close}</Button>
           <Button type="submit" disabled={saving}>{saving ? c.saving : pending ? c.retryPending : c.confirm}</Button></div>
       </form>
     </Modal>

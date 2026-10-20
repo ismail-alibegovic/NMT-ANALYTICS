@@ -1,0 +1,61 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> travline-admin@2.0.2 test:e2e
+> playwright test --list
+
+Listing tests:
+  [chromium] › pilot-auth-provider.spec.ts:8:1 › isolated Auth signup confirmation and recovery work through captured SMTP
+  [chromium] › pilot-browser-sale.spec.ts:8:3 › completes a real New Sale and verifies its documents at 1440px
+  [chromium] › pilot-browser-sale.spec.ts:8:3 › completes a real New Sale and verifies its documents at 390px
+  [chromium] › pilot-complete-scenarios.spec.ts:47:3 › Complete Business Scenarios (M13, M15, M19, M20, M24) › executes complete flight tour scenario with manifest documents and traveler passports
+  [chromium] › pilot-complete-scenarios.spec.ts:197:3 › Complete Business Scenarios (M13, M15, M19, M20, M24) › executes tailor-made DMC workflow with supplier costs, profitability and cancellation capacity release
+  [chromium] › pilot-finance-audit.spec.ts:15:71 › real payment installment edit refund reload light 390
+  [chromium] › pilot-finance-audit.spec.ts:15:71 › real payment installment edit refund reload light 768
+  [chromium] › pilot-finance-audit.spec.ts:15:71 › real payment installment edit refund reload light 1440
+  [chromium] › pilot-finance-audit.spec.ts:15:71 › real payment installment edit refund reload dark 390
+  [chromium] › pilot-finance-audit.spec.ts:15:71 › real payment installment edit refund reload dark 768
+  [chromium] › pilot-finance-audit.spec.ts:15:71 › real payment installment edit refund reload dark 1440
+  [chromium] › pilot-finance-audit.spec.ts:54:1 › refund eligibility concurrent refunds tenant isolation reports and ledger agree
+  [chromium] › pilot-finance-audit.spec.ts:69:71 › real financial report and authenticated CSV light 390
+  [chromium] › pilot-finance-audit.spec.ts:69:71 › real financial report and authenticated CSV light 768
+  [chromium] › pilot-finance-audit.spec.ts:69:71 › real financial report and authenticated CSV light 1440
+  [chromium] › pilot-finance-audit.spec.ts:69:71 › real financial report and authenticated CSV dark 390
+  [chromium] › pilot-finance-audit.spec.ts:69:71 › real financial report and authenticated CSV dark 768
+  [chromium] › pilot-finance-audit.spec.ts:69:71 › real financial report and authenticated CSV dark 1440
+  [chromium] › pilot-import-security.spec.ts:45:3 › Import security (isolated Supabase) › agent is forbidden; manager imports; other tenant neither sees nor blocks; duplicates and reservations are rejected
+  [chromium] › pilot-inquiry-quotation.spec.ts:10:3 › preserves inquiry and quotation version in bs at 1440px
+  [chromium] › pilot-inquiry-quotation.spec.ts:10:3 › preserves inquiry and quotation version in en at 390px
+  [chromium] › pilot-payment-idempotency.spec.ts:6:1 › concurrent payment retries create one ledger entry and preserve tenant isolation
+  [chromium] › pilot-phase2.spec.ts:147:3 › Travline BAM-only bus-tour pilot acceptance phase 2 › enforces manager/staff permissions and keeps disabled automatic allocation unavailable
+  [chromium] › pilot-phase2.spec.ts:177:3 › Travline BAM-only bus-tour pilot acceptance phase 2 › creates a package and departure, then completes New Sale with passengers and a group
+  [chromium] › pilot-phase2.spec.ts:196:3 › Travline BAM-only bus-tour pilot acceptance phase 2 › enforces duplicate sales, departure capacity, and rollback-safe retry behavior
+  [chromium] › pilot-phase2.spec.ts:249:3 › Travline BAM-only bus-tour pilot acceptance phase 2 › enforces manual bus seating, occupied seats, locked seats, and concurrent assignment conflicts
+  [chromium] › pilot-phase2.spec.ts:275:3 › Travline BAM-only bus-tour pilot acceptance phase 2 › assigns rooms manually with capacity enforcement and tenant rejection
+  [chromium] › pilot-phase2.spec.ts:315:3 › Travline BAM-only bus-tour pilot acceptance phase 2 › records canonical payments, rejects overpayment, and preserves totals during concurrent attempts
+  [chromium] › pilot-phase2.spec.ts:334:3 › Travline BAM-only bus-tour pilot acceptance phase 2 › rejects invalid installment creation and recovers a failed installment exactly once
+  [chromium] › pilot-phase2.spec.ts:397:3 › Travline BAM-only bus-tour pilot acceptance phase 2 › releases concurrent sale retry holds so remaining capacity is still bookable
+  [chromium] › pilot-phase2.spec.ts:422:3 › Travline BAM-only bus-tour pilot acceptance phase 2 › tracks supplier confirmation status/history, canonical documents, and profitability
+  [chromium] › pilot-public-booking.spec.ts:32:3 › public form embeds in a third-party iframe and creates a tenant-scoped inquiry in bs at 1440px
+  [chromium] › pilot-public-booking.spec.ts:32:3 › public form embeds in a third-party iframe and creates a tenant-scoped inquiry in en at 390px
+  [chromium] › pilot-quotation-booking.spec.ts:25:2 › books accepted quotation and preserves price in bs at 1440px
+  [chromium] › pilot-quotation-booking.spec.ts:25:2 › books accepted quotation and preserves price in en at 390px
+  [chromium] › pilot-quotation-booking.spec.ts:56:1 › serializes first conversion and rejects incompatible, foreign and full requests
+  [chromium] › pilot-quotation-lock.spec.ts:24:3 › locks accepted standalone quotation in bs at 1440px
+  [chromium] › pilot-quotation-lock.spec.ts:24:3 › locks accepted standalone quotation in en at 390px
+  [chromium] › pilot-quotation-lock.spec.ts:67:1 › approval serializes concurrent item editing and rejects empty or mixed-currency pricing
+  [chromium] › pilot-quotation-lock.spec.ts:96:1 › creates complete unique snapshots concurrently and leaves no record on item failure
+  [chromium] › pilot-recovery.spec.ts:3:1 › recovers a saved sale once, preserves passengers and permits payment only after completion
+  [chromium] › pilot-supplier-payables.spec.ts:25:3 › issues pays reverses and cancels a supplier obligation in en at 390px light
+  [chromium] › pilot-supplier-payables.spec.ts:25:3 › issues pays reverses and cancels a supplier obligation in en at 768px light
+  [chromium] › pilot-supplier-payables.spec.ts:25:3 › issues pays reverses and cancels a supplier obligation in en at 1440px light
+  [chromium] › pilot-supplier-payables.spec.ts:25:3 › issues pays reverses and cancels a supplier obligation in bs at 390px dark
+  [chromium] › pilot-supplier-payables.spec.ts:25:3 › issues pays reverses and cancels a supplier obligation in bs at 768px dark
+  [chromium] › pilot-supplier-payables.spec.ts:25:3 › issues pays reverses and cancels a supplier obligation in bs at 1440px dark
+  [chromium] › pilot-supplier-payables.spec.ts:138:1 › supplier ledger serializes payments and rejects foreign roles organizations and excess money
+  [chromium] › pilot-today.spec.ts:9:3 › Today opens outstanding supplier confirmations in bs at 1440px
+  [chromium] › pilot-today.spec.ts:9:3 › Today opens outstanding supplier confirmations in en at 390px
+  [chromium] › pilot.spec.ts:72:3 › Travline browser pilot acceptance › manager can authenticate through the real staging session
+  [chromium] › pilot.spec.ts:88:3 › Travline API pilot acceptance › New Sale retries are idempotent and concurrency-safe
+  [chromium] › pilot.spec.ts:118:3 › Travline API pilot acceptance › different idempotency keys create independent reservations within capacity
+  [chromium] › pilot.spec.ts:141:3 › Travline API pilot acceptance › tenant isolation rejects a reservation created by another tenant
+Total: 54 tests in 15 files
