@@ -46,7 +46,7 @@ describe('shared form control contracts', () => {
   });
   it('modal names the dialog, preserves opt-in scrolling and closes with Escape', () => {
     const onClose = vi.fn();
-    render(<Modal isOpen onClose={onClose} title="Flight" scrollable closeLabel="Zatvori"><p>Fields</p></Modal>);
+    render(<Modal isOpen onClose={onClose} title="Flight" scrollable closeLabel="Zatvori"><p>Fields</p></Modal>, {wrapper:providers});
     expect(screen.getByRole('dialog', { name: 'Flight' })).toHaveClass('overflow-y-auto');
     expect(screen.getByRole('button', { name: 'Zatvori' })).toHaveAttribute('type','button');
     fireEvent.keyDown(document, {key:'Escape'});

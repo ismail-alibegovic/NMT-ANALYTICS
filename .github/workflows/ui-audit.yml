@@ -33,22 +33,3 @@ jobs:
             nmt-analytics-admin/audit-ui-report/
             nmt-analytics-admin/test-results/
           retention-days: 14
-  waiver-migration-authoring:
-    name: Temporary isolated waiver migration authoring
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: nmt-analytics-api
-    steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: 2.109.0
-      - name: Verify CLI and create the next migration filename
-        run: |
-          supabase --version
-          supabase migration --help
-          supabase migration new --help
-          supabase migration new reconcile_waiver_contract
-          curl --fail --silent --show-error https://supabase.com/changelog.md --output "$RUNNER_TEMP/supabase-changelog.md"
-          head -n 80 "$RUNNER_TEMP/supabase-changelog.md"

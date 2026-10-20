@@ -10,7 +10,7 @@ for(const theme of ['light','dark'])for(const width of [390,768,1440]){
   await expect(page.getByLabel('Name',{exact:false})).toHaveValue('Original');
   await page.getByLabel('Name',{exact:false}).fill('Updated synthetic name');
   await page.getByRole('button',{name:'Save',exact:true}).click();
-  await expect(page.getByText('Synthetic save rejected',{exact:true})).toBeVisible();
+  await expect(page.getByRole('alert').filter({hasText:'Synthetic save rejected'})).toBeVisible();
   await expect(page.getByLabel('Name',{exact:false})).toHaveValue('Updated synthetic name');
   await expect(page.getByLabel('Saved')).toHaveText('');
   await page.screenshot({path:info.outputPath('failed-save.png')});
@@ -53,7 +53,7 @@ for(const theme of ['light','dark'])test(`${theme}: pending submit rejects dupli
   await expect(page.getByRole('heading',{name:'Edit synthetic record'})).toBeVisible();
   expect(attempts).toBe(1);
  }finally{release();}
- await expect(page.getByText('Synthetic save rejected',{exact:true})).toBeVisible();
+ await expect(page.getByRole('alert').filter({hasText:'Synthetic save rejected'})).toBeVisible();
  await page.getByRole('button',{name:'Cancel',exact:true}).click();
  await page.getByRole('button',{name:'Edit record'}).click();
  await expect(page.getByLabel('Name',{exact:false})).toHaveValue('Original');
