@@ -82,7 +82,7 @@ describe('persisted reservation completion', () => {
     const response = await request(app).post('/api/reservations').send(body);
     expect(response.status).toBe(500);
     expect(state.persisted).toBe('recovery_required');
-    expect(state.writes.at(-1)).toEqual({
+    expect(state.writes[state.writes.length - 1]).toEqual({
       payload: { creation_state: 'recovery_required', creation_error_stage: 'completion' },
       filters: [['id', reservationId], ['org_id', 'org-1']],
     });
