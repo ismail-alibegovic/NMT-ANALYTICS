@@ -1,6 +1,6 @@
 # Waiver consent audit
 
-Status: implementation prepared; CI evidence pending. This file is not a completion certificate.
+Verification status is recorded for the final head in PR #140 and its CI artifacts. This file describes coverage and rollout limits; it is not a stand-alone release certificate.
 
 | Confirmed defect | Repair | Required evidence |
 | --- | --- | --- |

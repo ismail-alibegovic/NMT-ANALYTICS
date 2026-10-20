@@ -17,7 +17,7 @@ BEGIN
   SELECT count(*) INTO signed_count FROM public.waiver_tokens w
     JOIN public.excursion_passengers p ON p.id = w.passenger_id AND p.org_id = w.org_id
     WHERE p.full_name LIKE 'Waiver audit%' AND w.consumed_at IS NOT NULL;
-  IF signed_count < 13 THEN RAISE EXCEPTION 'WAIVER_ACCEPTANCE_INCOMPLETE: % signed', signed_count; END IF;
+  IF signed_count < 14 THEN RAISE EXCEPTION 'WAIVER_ACCEPTANCE_INCOMPLETE: % signed', signed_count; END IF;
   IF EXISTS (
     SELECT 1 FROM public.waiver_tokens w
     JOIN public.excursion_passengers p ON p.id = w.passenger_id AND p.org_id = w.org_id

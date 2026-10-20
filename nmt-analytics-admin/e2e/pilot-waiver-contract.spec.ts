@@ -106,10 +106,10 @@ test('waiver API preserves snapshots, single-use state, tenant isolation and con
   await info.attach('waiver-api-evidence', { body: JSON.stringify({ issue: issued.map(r => r.status()), sign: signed.map(r => r.status()), revokeRace: revocation.status(), signRace: signature.status(), foreignIssue: 404, foreignPdf: 404, snapshotPreserved: true }), contentType: 'application/json' });
 });
 const text = {
-  en: { edit: 'Edit template', title: 'Title', body: 'Terms', save: 'Save', departure: 'Departure', passenger: 'Passenger', issue: 'Issue consent link', name: 'Full name', agree: 'I have read the terms and confirm my consent.', submit: 'Confirm consent', done: 'Consent recorded' },
-  bs: { edit: 'Uredi predložak', title: 'Naslov', body: 'Uslovi', save: 'Sačuvaj', departure: 'Polazak', passenger: 'Putnik', issue: 'Izdaj link za pristanak', name: 'Puno ime', agree: 'Pročitao/la sam uslove i potvrđujem svoj pristanak.', submit: 'Potvrdi pristanak', done: 'Pristanak evidentiran' },
+  en: { copy: 'Copy link', edit: 'Edit template', title: 'Title', body: 'Terms', save: 'Save', departure: 'Departure', passenger: 'Passenger', issue: 'Issue consent link', name: 'Full name', agree: 'I have read the terms and confirm my consent.', submit: 'Confirm consent', done: 'Consent recorded' },
+  bs: { copy: 'Kopiraj link', edit: 'Uredi predložak', title: 'Naslov', body: 'Uslovi', save: 'Sačuvaj', departure: 'Polazak', passenger: 'Putnik', issue: 'Izdaj link za pristanak', name: 'Puno ime', agree: 'Pročitao/la sam uslove i potvrđujem svoj pristanak.', submit: 'Potvrdi pristanak', done: 'Pristanak evidentiran' },
 };
-for (const lang of ['en', 'bs'] as const) for (const theme of ['light', 'dark']) for (const width of [390, 768, 1440]) test(`waiver editing, issue, failed-sign recovery and reload ${lang} ${theme} ${width}`, async ({ page, request }, info) => {
+for (const lang of ['en', 'bs'] as const) for (const theme of ['light', 'dark']) for (const width of [390, 768, 1440]) test(`waiver editing, issue, failed-sign recovery and reload ${lang} ${theme} ${width}`, async ({ page, request, context }, info) => {
   test.setTimeout(120_000); const c = text[lang];
   const marker = 'Waiver audit browser ' + randomUUID();
   const slot = await passenger(request, marker);
@@ -132,10 +132,27 @@ for (const lang of ['en', 'bs'] as const) for (const theme of ['light', 'dark'])
   await page.reload(); await expect(page.getByText(updatedTitle, { exact: true })).toBeVisible();
   await page.getByLabel(c.departure, { exact: true }).selectOption(slot.departure.id);
   await page.getByLabel(c.passenger, { exact: true }).selectOption(slot.passenger.id);
+  let issueRequests = 0; let releaseIssue!: () => void;
+  const issueGate = new Promise<void>(resolve => { releaseIssue = resolve; });
+  await page.route('**/api/waivers/issue', async route => {
+    if (route.request().method() === 'POST') { issueRequests++; await issueGate; }
+    return route.continue();
+  });
   const issued = page.waitForResponse(r => r.url().endsWith('/api/waivers/issue') && r.request().method() === 'POST');
-  await page.getByRole('button', { name: c.issue, exact: true }).click(); const issuedResponse = await issued; expect(issuedResponse.status()).toBe(201);
+  await page.getByRole('button', { name: c.issue, exact: true }).click();
+  try {
+    await expect.poll(() => issueRequests).toBe(1);
+    await expect(page.locator('button[type="submit"]')).toBeDisabled();
+    await page.getByLabel(c.passenger, { exact: true }).evaluate(select => select.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    expect(issueRequests).toBe(1);
+  } finally { releaseIssue(); }
+  const issuedResponse = await issued; expect(issuedResponse.status()).toBe(201);
   const waiver = await issuedResponse.json(); const token = waiver.sign_url.split('/').pop();
   await expect(page.getByRole('textbox', { name: c.issue, exact: true })).toHaveValue(new URL(waiver.sign_url, page.url()).href);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.getByRole('button', { name: c.copy, exact: true }).click();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(new URL(waiver.sign_url, page.url()).href);
+
   await page.reload(); expect(await page.content()).not.toContain(token);
   await page.goto(waiver.sign_url);
   await expect(page.getByRole('heading', { name: updatedTitle, exact: true })).toBeVisible();
@@ -168,4 +185,21 @@ for (const lang of ['en', 'bs'] as const) for (const theme of ['light', 'dark'])
   await page.reload(); await expect(page.getByRole('heading', { name: c.done, exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.screenshot({ path: info.outputPath('waiver-signed.png'), fullPage: true });
+});
+
+test('public consent can be completed with keyboard and a typed name without a drawing', async ({ page, request }) => {
+  test.setTimeout(90_000);
+  const marker = 'Waiver audit keyboard ' + randomUUID();
+  const slot = await passenger(request, marker);
+  const waiver = await create(request, '/waivers/issue', { passenger_id: slot.passenger.id });
+  await page.addInitScript(() => localStorage.setItem('travline_lang', 'en'));
+  await page.goto(waiver.sign_url);
+  await page.getByLabel('Full name', { exact: true }).fill(marker);
+  await page.getByLabel('Synthetic required declaration', { exact: false }).focus(); await page.keyboard.press('Space');
+  await page.getByLabel('I have read the terms and confirm my consent.', { exact: true }).focus(); await page.keyboard.press('Space');
+  const signed = page.waitForResponse(r => r.url().endsWith('/sign') && r.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Confirm consent', exact: true }).focus(); await page.keyboard.press('Enter');
+  const response = await signed; expect(response.status()).toBe(200);
+  const payload = response.request().postDataJSON(); expect(payload.signer_name).toBe(marker); expect(payload.signature_png).toBeUndefined();
+  await expect(page.getByRole('heading', { name: 'Consent recorded', exact: true })).toBeVisible();
 });
