@@ -33,7 +33,7 @@ for(const lang of ['en','bs'])test(`departure pending save blocks duplicate subm
  });
  await page.goto('/e2e-dates/fixtures/departure.html?transport=1');
  const dialog=page.getByRole('dialog',{name:'Edit synthetic departure',exact:true});
- await dialog.getByLabel('Polazak',{exact:false}).fill('2027-07-15T10:15');
+ await dialog.getByLabel(/^Polazak\b/).fill('2027-07-15T10:15');
  await dialog.locator('form').evaluate(form=>{
   form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
   form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
@@ -46,7 +46,7 @@ for(const lang of ['en','bs'])test(`departure pending save blocks duplicate subm
   await expect(page.getByLabel('Close requests')).toHaveText('0');
  }finally{release();}
  await expect(dialog.getByRole('alert')).toBeVisible();
- await expect(dialog.getByLabel('Polazak',{exact:false})).toHaveValue('2027-07-15T10:15');
+ await expect(dialog.getByLabel(/^Polazak\b/)).toHaveValue('2027-07-15T10:15');
  await expect(page.getByLabel('Saved departure')).toHaveText('');
  await dialog.getByRole('button',{name:'Sačuvaj',exact:true}).click();
  await expect(page.getByLabel('Saved departure')).toHaveText('2027-07-15T08:15:00.000Z');
@@ -62,7 +62,7 @@ test('departure required fields have accessible labels and reject invalid values
  expect(await capacity.evaluate(input=>(input as HTMLInputElement).checkValidity())).toBe(false);
  expect(requests).toBe(0);
  await capacity.fill('8');
- const departure=page.getByLabel('Polazak',{exact:false});await departure.fill('');
+ const departure=page.getByLabel(/^Polazak\b/);await departure.fill('');
  await page.getByRole('button',{name:'Sačuvaj',exact:true}).click();
  expect(await departure.evaluate(input=>(input as HTMLInputElement).checkValidity())).toBe(false);
  expect(requests).toBe(0);
