@@ -47,7 +47,7 @@ const historySelect = `
   )
 `;
 
-router.use(authenticateToken, requireOrgContext);
+router.use('/communication-history', authenticateToken, requireOrgContext);
 
 router.get('/communication-history', async (req: Request, res: Response) => {
   const parsed = querySchema.safeParse(req.query);

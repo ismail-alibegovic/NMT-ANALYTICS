@@ -47,13 +47,7 @@ export function handleSupabaseError(res: Response, error: any, message = 'Databa
   console.error(`[Supabase Error] ${message}:`, error);
   // Normalize pg/supabase errors
   const code = error.code || 'DATABASE_ERROR';
-  const details = error.details || error.message || String(error);
-  const hint = error.hint || undefined;
-
-  return res.status(500).json({
-    message,
-    code,
-    details,
-    hint
-  });
+  if (code === 'PGRST116') return res.status(404).json({ code: 'NOT_FOUND', message: 'Resource not found' });
+  // Database diagnostics stay server-side; they can contain row values and SQL.
+  return res.status(500).json({ message, code });
 }

@@ -1122,7 +1122,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
       const { data: agentRows, error: agErr } = await supabaseAdmin
         .from('profiles')
         .select('id, full_name')
-        .in('id', agentUuids);
+        .in('id', agentUuids).eq('org_id', orgId);
       if (!agErr && agentRows) {
         for (const a of agentRows) agentNameByUuid[a.id] = a.full_name;
       }
@@ -1138,7 +1138,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
       const { data: agentRows, error: agentErr } = await supabaseAdmin
         .from('profiles')
         .select('id, full_name')
-        .in('id', agentIds);
+        .in('id', agentIds).eq('org_id', orgId);
       if (agentErr) console.error('Agent fetch (non-fatal):', agentErr);
       if (agentRows) for (const a of agentRows) agentNameById[a.id] = a.full_name;
     }
@@ -1204,7 +1204,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
         .eq('org_id', orgId)
         .eq('departure_id', id)
         .order('hotel_allocation_id', { ascending: true })
-        .in('reservation_id', reservationIds);
+        .in('reservation_id', reservationIds).eq('org_id', orgId);
       if (requirementErr) console.error('Reservation accommodation fetch (non-fatal):', requirementErr);
       for (const row of requirementRows || []) {
         (accommodationRequirementsByReservation[row.reservation_id] ||= []).push(row);
@@ -1218,7 +1218,7 @@ router.get('/departures/:id/passengers', authenticateToken, requireOrgContext, a
       const { data: payRows, error: payErr } = await supabaseAdmin
         .from('payments')
         .select('id, reservation_id, amount, payment_date, status, currency, payment_method, refunded_at, refund_reason')
-        .in('reservation_id', reservationIds)
+        .in('reservation_id', reservationIds).eq('org_id', orgId)
         .order('payment_date', { ascending: false });
       if (payErr) console.error('Payments fetch (non-fatal):', payErr);
       if (payRows) payments = payRows;
@@ -1436,7 +1436,7 @@ router.get('/departures/:id/groups', authenticateToken, requireOrgContext, async
       const { data: agentRows, error: agentErr } = await supabaseAdmin
         .from('profiles')
         .select('id, full_name')
-        .in('id', agentIds2);
+        .in('id', agentIds2).eq('org_id', orgId);
       if (agentErr) console.error('Agent fetch (non-fatal):', agentErr);
       if (agentRows) for (const a of agentRows) agentMap[a.id] = a.full_name;
     }

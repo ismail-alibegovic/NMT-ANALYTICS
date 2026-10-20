@@ -582,6 +582,12 @@ router.post('/reservations', authenticateToken, requireOrgContext, requireMinimu
     }
 
     const { departureId, status, partySize, customerId, upsert, options, notes, hotelName, roomType, checkIn, checkOut, tourGuide, customerEmail, assignedTo, passengers, create_passenger_group, group_name, installmentCount, accommodationRequirements, selectedAddons, ...rest } = validationResult.data;
+    if (assignedTo) {
+      const { data: assignee, error: assigneeError } = await supabaseAdmin.from('profiles')
+        .select('id').eq('id', assignedTo).eq('org_id', req.orgId!).maybeSingle();
+      if (assigneeError || !assignee) return apiError(res, 404, 'ASSIGNEE_NOT_FOUND', 'Assigned user not found in this organization');
+    }
+
     const orgId = req.orgId!;
     const idempotencyKey = normalizeSaleIdempotencyKey(req.header(SALE_IDEMPOTENCY_HEADER));
     const requestFingerprint = saleRequestFingerprint(validationResult.data as Record<string, unknown>);

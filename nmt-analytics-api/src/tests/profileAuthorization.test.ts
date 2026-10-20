@@ -1,0 +1,13 @@
+import {beforeAll,beforeEach,expect,it,vi} from 'vitest';
+import express from 'express';import request from 'supertest';
+const h=vi.hoisted(()=>({rows:[] as any[],writes:0}));
+vi.mock('../middleware/authenticateToken',()=>({authenticateToken:(q:any,_s:any,n:any)=>{q.user={id:'own',role:q.headers['x-role']||'agent'};q.orgId='org-a';n();}}));
+vi.mock('../middleware/requireOrgContext',()=>({requireOrgContext:(_q:any,_s:any,n:any)=>n()}));
+vi.mock('../lib/auth-helpers',()=>({getUserContext:vi.fn()}));
+vi.mock('../lib/supabase',()=>({handleSupabaseError:vi.fn(),supabaseAdmin:{from:(table:string)=>{const filters:Record<string,unknown>={};let patch:any;const q:any={select:()=>q,eq:(k:string,v:unknown)=>{filters[k]=v;return q;},update:(p:any)=>{patch=p;return q;},single:async()=>{if(table==='organizations')return {data:{id:'org-a',name:'Synthetic',slug:'synthetic'},error:null};const row=h.rows.find(r=>Object.entries(filters).every(([k,v])=>r[k]===v));if(row&&patch){h.writes++;Object.assign(row,patch);}return {data:row||null,error:null};}};return q;}}}));
+let app:express.Express;beforeAll(async()=>{app=express();app.use(express.json());app.use('/api',(await import('../routes/me')).default);});
+beforeEach(()=>{h.writes=0;h.rows=[{id:'own',org_id:'org-a',role:'agent',full_name:'Original'},{id:'foreign',org_id:'org-b',role:'director',full_name:'Foreign secret'}];});
+it.each(['director','manager','agent'])('%s may update own display name only',async role=>{const r=await request(app).patch('/api/me/profile').set('x-role',role).send({full_name:' Updated '});expect(r.status).toBe(200);expect(h.rows[0]).toMatchObject({role:'agent',org_id:'org-a',full_name:'Updated'});expect(h.rows[1].full_name).toBe('Foreign secret');});
+it.each(['id','org_id','role','email'])('rejects mass assignment of %s before a write',async field=>{const r=await request(app).patch('/api/me/profile').send({full_name:'Ignored',[field]:'foreign'});expect(r.status).toBe(400);expect(h.writes).toBe(0);});
+it('concurrent escalation attempts never change role or organization',async()=>{const r=await Promise.all([request(app).patch('/api/me/profile').send({full_name:'Allowed'}),request(app).patch('/api/me/profile').send({role:'director',org_id:'org-b'})]);expect(r.map(v=>v.status).sort()).toEqual([200,400]);expect(h.rows[0]).toMatchObject({role:'agent',org_id:'org-a',full_name:'Allowed'});expect(h.writes).toBe(1);});
+it('profile response cannot include a different tenant profile',async()=>{const r=await request(app).get('/api/me/profile');expect(r.status).toBe(200);expect(JSON.stringify(r.body)).not.toContain('Foreign secret');});

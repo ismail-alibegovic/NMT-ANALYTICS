@@ -97,6 +97,9 @@ async function seed() {
   if (financeModuleError) throw financeModuleError;
   const financeDirectorId = await ensureUser({ email: 'director@finance-audit.test', role: 'director', orgId: FINANCE_ORG, fullName: 'Synthetic Finance Director' });
 
+  await ensureUser({ email: 'manager@security-audit.test', role: 'manager', orgId: FINANCE_ORG, fullName: 'Synthetic Audit Manager' });
+  await ensureUser({ email: 'agent@security-audit.test', role: 'agent', orgId: FINANCE_ORG, fullName: 'Synthetic Audit Agent' });
+
   const managerId = await ensureUser({
     email: 'manager@pilot-a.test', role: 'manager', orgId: ORG_A, fullName: 'Pilot A Manager',
   });

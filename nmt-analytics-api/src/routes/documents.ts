@@ -9,6 +9,14 @@ import PDFDocument from 'pdfkit';
 import multer from 'multer';
 
 const router = Router();
+function ownsStoragePath(path: string, orgId: string): boolean {
+  // Reject URL/path normalization tricks before using the privileged client.
+  return path.startsWith(`${orgId}/`) && !/[\\%]/.test(path)
+    && !path.split('/').some(segment => segment === '.' || segment === '..');
+}
+function apiErrorForStorage(res: Response) {
+  return res.status(403).json({ code: 'DOCUMENT_PATH_FORBIDDEN', message: 'Document storage path is outside this organization' });
+}
 
 // Audit wrappers for document operations
 const auditDocumentCreate = auditLog('CREATE', 'document', undefined, (req) => req.file?.originalname);
@@ -38,7 +46,7 @@ const generateVoucherSchema = z.object({
  * GET /api/documents
  * List documents for the organization.
  */
-router.get('/documents', authenticateToken, requireOrgContext, async (req: any, res: Response) => {
+router.get('/documents', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req: any, res: Response) => {
   try {
     const orgId = req.orgId!;
 
@@ -150,6 +158,9 @@ router.delete('/documents/:id', auditDocumentDelete, authenticateToken, requireO
     }
 
     // 2. Remove from Storage
+    if (document.storage_path && !ownsStoragePath(document.storage_path, orgId)) {
+      return apiErrorForStorage(res);
+    }
     if (document.storage_path) {
       const { error: storageErr } = await supabaseAdmin
         .storage
@@ -184,7 +195,7 @@ router.delete('/documents/:id', auditDocumentDelete, authenticateToken, requireO
 /**
  * GET /api/documents/:id/download
  */
-router.get('/documents/:id/download', authenticateToken, requireOrgContext, async (req: any, res: Response) => {
+router.get('/documents/:id/download', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req: any, res: Response) => {
   try {
     const { id } = req.params;
     const orgId = req.orgId!;
@@ -201,6 +212,9 @@ router.get('/documents/:id/download', authenticateToken, requireOrgContext, asyn
     }
 
     // Storage Download
+    if (document.storage_path && !ownsStoragePath(document.storage_path, orgId)) {
+      return apiErrorForStorage(res);
+    }
     if (document.storage_path) {
       const { data, error: storageErr } = await supabaseAdmin
         .storage

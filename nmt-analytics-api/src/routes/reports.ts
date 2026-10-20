@@ -11,7 +11,7 @@ import { buildCurrencyBreakdown, normalizeCurrency, scalarForCurrencyBreakdown, 
 const router = Router();
 
 // All report routes require manager or higher
-router.use(authenticateToken, requireOrgContext, requireMinimumRole("manager"));
+router.use('/reports', authenticateToken, requireOrgContext, requireMinimumRole("manager"));
 
 const querySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional(),

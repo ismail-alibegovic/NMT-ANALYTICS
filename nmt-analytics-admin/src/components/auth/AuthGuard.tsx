@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useApp } from "../../context/AppContext";
 import { logger } from "../../utils/logger";
-import { hasAccess } from "../../types/roles";
+import { hasAccess, isUserRole } from "../../types/roles";
 import type { UserRole } from "../../types/roles";
 
 interface AuthGuardProps {
@@ -26,6 +26,13 @@ const routeModuleRequirements: { prefix: string; module: string }[] = [
 
 // ── Role-keyed routes ───────────────────────────────────────────────
 const routeRequirements: { prefix: string; minRole: UserRole }[] = [
+  { prefix: "/finance", minRole: "manager" },
+  { prefix: "/operations/commission-rules", minRole: "director" },
+  { prefix: "/operations/subagents", minRole: "manager" },
+  { prefix: "/operations/receipts", minRole: "manager" },
+  { prefix: "/operations/flights", minRole: "manager" },
+  { prefix: "/operations/hotels", minRole: "manager" },
+  { prefix: "/operations/excursions", minRole: "manager" },
   { prefix: "/admin/audit-logs", minRole: "director" },
   { prefix: "/settings", minRole: "director" },
   { prefix: "/payments", minRole: "manager" },
@@ -66,6 +73,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     }
 
     if (!loading && !profileLoading && userContext) {
+      if (!isUserRole(userContext.role)) { navigate('/auth/signin', { replace: true }); return; }
       const requiredRole = getRequiredRole(location.pathname);
       if (requiredRole && !hasAccess(requiredRole, userContext.role)) {
         logger.warn(`[AuthGuard] Blocked ${userContext.role} from ${location.pathname}`);
@@ -92,7 +100,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  if (!userContext) return null;
+  if (!userContext || !isUserRole(userContext.role)) return null;
 
   const requiredRole = getRequiredRole(location.pathname);
   if (requiredRole && !hasAccess(requiredRole, userContext.role)) return null;

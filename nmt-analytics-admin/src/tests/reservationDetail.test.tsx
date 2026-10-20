@@ -7,6 +7,9 @@ vi.mock("../components/common/PageMeta", () => ({
   default: ({ title }: any) => <title>{title}</title>,
 }));
 
+const actor = vi.hoisted(() => ({role: "manager"}));
+vi.mock("../context/AppContext", () => ({useApp: () => ({userContext: {role: actor.role}})}));
+
 vi.mock("../context/ToastContext", () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn() }),
 }));
@@ -120,6 +123,7 @@ function renderPage(id: string) {
 describe("ReservationDetail", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    actor.role = "manager";
     mockGetReservation.mockResolvedValue(BASE_RESERVATION);
     mockGetAccommodation.mockResolvedValue([]);
     mockGetDeparturePassengers.mockResolvedValue({ manifest: [] });
@@ -154,6 +158,16 @@ describe("ReservationDetail", () => {
         status: "completed",
       },
     });
+  });
+
+  it("keeps Agent booking balances readable while disabling financial writes", async () => {
+    actor.role = "agent";
+    renderPage("res-abc12345");
+    await screen.findByText("Ahmed Hodžić");
+    expect(screen.getByRole("button", {name: "Faktura"})).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", {name: "Uplate"}));
+    expect(screen.getByRole("button", {name: "Evidentiraj uplatu"})).toBeDisabled();
+    expect(screen.getByText("Finansije rezervacije")).toBeInTheDocument();
   });
 
   it("renders package and departure links when IDs are present", async () => {

@@ -250,6 +250,7 @@ router.post('/public/reserve', strictRateLimit, async (req: Request, res: Respon
     });
 
     if (error) {
+      if (error.message?.includes('DEPARTURE_NOT_FOUND')) return apiError(res, 404, 'DEPARTURE_NOT_FOUND', 'Departure not found');
       if (error.message?.includes('CAPACITY_FULL')) {
         return apiError(res, 400, 'CAPACITY_FULL', 'Nažalost, ovaj polazak je popunjen.');
       }
@@ -267,55 +268,7 @@ router.post('/public/reserve', strictRateLimit, async (req: Request, res: Respon
 
 export default router;
 
-/** POST /api/public/hotel-bookings - public hotel room booking */
-const hotelBookingSchema = z.object({
-  orgId: z.string().uuid(),
-  hotelId: z.string().uuid(),
-  roomType: z.string().min(1),
-  checkIn: z.string().min(1),
-  checkOut: z.string().min(1),
-  guestName: z.string().min(1),
-  guestPhone: z.string().min(1),
-});
-
-router.post('/public/hotel-bookings', strictRateLimit, async (req: Request, res: Response) => {
-  try {
-    const input = hotelBookingSchema.parse(req.body);
-
-    // Check room availability
-    const { data: room, error: roomErr } = await supabaseAdmin
-      .from('hotel_rooms')
-      .select('id, available, total')
-      .eq('hotel_id', input.hotelId)
-      .eq('room_type', input.roomType)
-      .single();
-
-    if (roomErr || !room) {
-      return apiError(res, 404, 'ROOM_NOT_FOUND', 'Soba nije pronađena.');
-    }
-    if (room.available < 1) {
-      return apiError(res, 400, 'NO_AVAILABILITY', 'Nema slobodnih soba za odabrani period.');
-    }
-
-    // Decrement availability
-    const { error: updateErr } = await supabaseAdmin
-      .from('hotel_rooms')
-      .update({ available: room.available - 1 })
-      .eq('id', room.id);
-
-    if (updateErr) {
-      return apiError(res, 500, 'DB_ERROR', 'Greška pri rezervaciji sobe.');
-    }
-
-    return res.status(201).json({
-      success: true,
-      message: 'Booking request received',
-      roomType: input.roomType,
-    });
-  } catch (err: any) {
-    if (err instanceof z.ZodError) {
-      return apiError(res, 400, 'VALIDATION_ERROR', 'Molimo popunite sva obavezna polja.');
-    }
-    return apiError(res, 500, 'INTERNAL_ERROR', 'Interna greška.');
-  }
-});
+/** This legacy endpoint decremented inventory without creating a booking or
+ * checking tenant ownership. No current client uses it. Use configured public forms. */
+router.post('/public/hotel-bookings', strictRateLimit, (_req, res: Response) =>
+  apiError(res, 410, 'LEGACY_HOTEL_BOOKING_DISABLED', 'Use a configured public booking form.'));

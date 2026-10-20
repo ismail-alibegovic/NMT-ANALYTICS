@@ -64,7 +64,7 @@ function transformRule(r: any) {
 }
 
 /** GET /api/commission-rules */
-router.get('/commission-rules', authenticateToken, requireOrgContext, async (req, res: Response) => {
+router.get('/commission-rules', authenticateToken, requireOrgContext, requireMinimumRole('director'), async (req, res: Response) => {
   try {
     const r = listQuerySchema.safeParse(req.query);
     if (!r.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', r.error.issues);
@@ -96,7 +96,7 @@ router.get('/commission-rules', authenticateToken, requireOrgContext, async (req
 });
 
 /** GET /api/commission-rules/preview — compute effective commission & markup for a booking scenario */
-router.get('/commission-rules/preview', authenticateToken, requireOrgContext, async (req, res: Response) => {
+router.get('/commission-rules/preview', authenticateToken, requireOrgContext, requireMinimumRole('director'), async (req, res: Response) => {
   try {
     const params = z
       .object({
