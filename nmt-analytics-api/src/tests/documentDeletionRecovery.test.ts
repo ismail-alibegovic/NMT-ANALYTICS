@@ -16,6 +16,8 @@ test('storage failure preserves the document record for a safe delete retry',asy
 });
 test('foreign tenant cannot remove the file or document record',async()=>{expect((await request(app).delete('/api/documents/synthetic').set('x-org','foreign')).status).toBe(404);expect(h.remove).not.toHaveBeenCalled();expect(h.deleted).toBe(false);});
 
-test('a foreign Storage path cannot be deleted even from an owned document row',async()=>{h.path='foreign/private.pdf';h.fail=false;const r=await request(app).delete('/api/documents/synthetic');expect(r.status).toBe(403);expect(h.remove).not.toHaveBeenCalled();expect(h.deleted).toBe(false);});
-
-test('a foreign Storage path cannot be downloaded even from an owned document row',async()=>{h.path='foreign/private.pdf';const r=await request(app).get('/api/documents/synthetic/download');expect(r.status).toBe(403);expect(h.remove).not.toHaveBeenCalled();});
+test.each(['foreign/private.pdf','org/../foreign/private.pdf','org/%2e%2e/foreign/private.pdf','org/..\\foreign/private.pdf'])('rejects unowned or noncanonical Storage path %s for download and delete',async path=>{
+ h.path=path;h.fail=false;
+ const responses=await Promise.all([request(app).delete('/api/documents/synthetic'),request(app).get('/api/documents/synthetic/download')]);
+ expect(responses.map(r=>r.status)).toEqual([403,403]);expect(h.remove).not.toHaveBeenCalled();expect(h.deleted).toBe(false);
+});

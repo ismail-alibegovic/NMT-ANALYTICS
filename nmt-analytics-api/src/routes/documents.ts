@@ -9,6 +9,11 @@ import PDFDocument from 'pdfkit';
 import multer from 'multer';
 
 const router = Router();
+function ownsStoragePath(path: string, orgId: string): boolean {
+  // Reject URL/path normalization tricks before using the privileged client.
+  return path.startsWith(`${orgId}/`) && !/[\\%]/.test(path)
+    && !path.split('/').some(segment => segment === '.' || segment === '..');
+}
 function apiErrorForStorage(res: Response) {
   return res.status(403).json({ code: 'DOCUMENT_PATH_FORBIDDEN', message: 'Document storage path is outside this organization' });
 }
@@ -153,7 +158,7 @@ router.delete('/documents/:id', auditDocumentDelete, authenticateToken, requireO
     }
 
     // 2. Remove from Storage
-    if (document.storage_path && !document.storage_path.startsWith(`${orgId}/`)) {
+    if (document.storage_path && !ownsStoragePath(document.storage_path, orgId)) {
       return apiErrorForStorage(res);
     }
     if (document.storage_path) {
@@ -207,7 +212,7 @@ router.get('/documents/:id/download', authenticateToken, requireOrgContext, requ
     }
 
     // Storage Download
-    if (document.storage_path && !document.storage_path.startsWith(`${orgId}/`)) {
+    if (document.storage_path && !ownsStoragePath(document.storage_path, orgId)) {
       return apiErrorForStorage(res);
     }
     if (document.storage_path) {
