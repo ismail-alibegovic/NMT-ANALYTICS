@@ -32,7 +32,7 @@ Recovery: on transaction failure, stop; confirm rollback and history consistency
 - recompute_group_member_count(): SECURITY DEFINER trigger exposed to anon/authenticated; migration 20261016110719 revokes execution while retaining trigger semantics and service access. Its trigger return type limits direct RPC execution, but excessive grants remain unnecessary exposure.
 - prevent_supplier_confirmation_event_mutation(): mutable search_path and browser EXECUTE; same migration pins pg_catalog/public and revokes clients.
 - All other inspected public SECURITY DEFINER functions deny browser EXECUTE and have configured search_path. Public CREATE is denied to browser roles. RLS without client policies on API-only tables is intentional fail-closed, not a reason to grant access.
-- Leaked-password protection is disabled. Project organization is Free. Verify feature availability in the owner dashboard; if upgrade is required, owner must approve billing before activation. Enable through supported Auth configuration only after explicit approval, then test safe synthetic password rejection in staging. No production Auth setting changed.
+- Leaked-password protection is disabled. Project organization is Free. Supabase documentation confirms leaked-password protection requires Pro or above (https://supabase.com/docs/guides/auth/password-security); owner must approve billing before activation. Enable through supported Auth configuration only after explicit approval, then test safe synthetic password rejection in staging. No production Auth setting changed.
 
 ## Vercel packaging
 
@@ -42,7 +42,7 @@ Root api/index.ts had no tsconfig and Vercel used different compiler defaults fr
 
 ## Monitoring activation and alert ownership
 
-Prepared code: safe Sentry beforeSend, early serverless initialization, handled 5xx capture, structured 401/403/5xx outcome logs, route templates and validated correlation IDs, no raw global error payload. Real SDK in-memory transport test verifies sanitization; this is not an external Sentry receipt. Existing API and SPA privacy regression suites remain required.
+Prepared code: safe Sentry beforeSend, early serverless initialization, handled 5xx capture, structured 401/403/5xx outcome logs, route templates and validated correlation IDs, no raw global, shared database or authentication error payload. Aggregate production checks found zero payment/reservation tenant mismatches, payment currency mismatches, invalid payment amounts, unscoped payments/reservations and direct browser table grants. Real SDK in-memory transport test verifies sanitization; this is not an external Sentry receipt. Existing API and SPA privacy regression suites remain required.
 
 External activation remains NOT VERIFIED: owner must supply API SENTRY_DSN through Vercel protected environment settings, choose SENTRY_ENVIRONMENT and immutable SENTRY_RELEASE, and optionally configure VITE_SENTRY_DSN through a reviewed rebuild. Never paste credentials into PRs. Configure an approved Sentry project, retention/access policy and alert destination; no account, destination or credentials are invented.
 

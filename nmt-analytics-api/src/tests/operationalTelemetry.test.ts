@@ -42,3 +42,12 @@ it('delivers a sanitized event through the real Sentry SDK to an in-memory trans
   expect(output).toContain('finance');
   await client.close();
 });
+
+it('never logs database error row details or caller context', async () => {
+  const { handleSupabaseError } = await import('../lib/supabase');
+  const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const response = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+  handleSupabaseError(response as any, { code: '23505', message: 'private-passenger', details: 'private-payment' }, 'private-context');
+  expect(error).toHaveBeenCalledWith(JSON.stringify({ event: 'database_failure', code: '23505' }));
+  expect(JSON.stringify(error.mock.calls)).not.toContain('private-');
+});
