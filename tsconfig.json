@@ -4,6 +4,6 @@
     "rootDir": ".",
     "noEmit": true
   },
-  "include": ["api/**/*.ts", "nmt-analytics-api/src/**/*.ts"],
+  "include": ["api/**/*.ts", "nmt-analytics-api/src/types/**/*.d.ts"],
   "exclude": ["node_modules", "nmt-analytics-api/node_modules", "nmt-analytics-api/dist"]
 }
