@@ -91,6 +91,9 @@ test('waiver API preserves snapshots, single-use state, tenant isolation and con
   expect((await request.get(api + '/api/waivers/' + waiver.waiver_id + '/pdf', { headers: agent })).status()).toBe(200);
   const agentIssued = await create(request, '/waivers/issue', { passenger_id: slot.passenger.id }, agent);
   expect((await request.post(api + '/api/waivers/' + agentIssued.waiver_id + '/revoke', { headers: agent })).status()).toBe(204);
+  const revokedUrl = api + '/api/public/waiver/' + agentIssued.sign_url.split('/').pop();
+  expect((await request.get(revokedUrl)).status()).toBe(404);
+  expect((await request.post(revokedUrl + '/sign', { data: { signer_name: 'Revoked synthetic signer', agreed: true, declarations: { health: true } } })).status()).toBe(404);
   const [batchTarget, unrelated] = await Promise.all([
     passenger(request, 'Waiver audit batch target ' + randomUUID()),
     passenger(request, 'Waiver audit unrelated departure ' + randomUUID()),
@@ -149,16 +152,23 @@ for (const lang of ['en', 'bs'] as const) for (const theme of ['light', 'dark'])
   let issueRequests = 0; let releaseIssue!: () => void;
   const issueGate = new Promise<void>(resolve => { releaseIssue = resolve; });
   await page.route('**/api/waivers/issue', async route => {
-    if (route.request().method() === 'POST') { issueRequests++; await issueGate; }
+    if (route.request().method() === 'POST') {
+      if (++issueRequests === 1) return route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"Synthetic issue failure"}' });
+      await issueGate;
+    }
     return route.continue();
   });
+  await page.getByRole('button', { name: c.issue, exact: true }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.getByLabel(c.departure, { exact: true })).toHaveValue(slot.departure.id);
+  await expect(page.getByLabel(c.passenger, { exact: true })).toHaveValue(slot.passenger.id);
   const issued = page.waitForResponse(r => r.url().endsWith('/api/waivers/issue') && r.request().method() === 'POST');
   await page.getByRole('button', { name: c.issue, exact: true }).click();
   try {
-    await expect.poll(() => issueRequests).toBe(1);
+    await expect.poll(() => issueRequests).toBe(2);
     await expect(page.locator('button[type="submit"]')).toBeDisabled();
     await page.getByLabel(c.passenger, { exact: true }).evaluate(select => select.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
-    expect(issueRequests).toBe(1);
+    expect(issueRequests).toBe(2);
   } finally { releaseIssue(); }
   const issuedResponse = await issued; expect(issuedResponse.status()).toBe(201);
   const waiver = await issuedResponse.json(); const token = waiver.sign_url.split('/').pop();
@@ -201,19 +211,24 @@ for (const lang of ['en', 'bs'] as const) for (const theme of ['light', 'dark'])
   await page.screenshot({ path: info.outputPath('waiver-signed.png'), fullPage: true });
 });
 
-test('public consent can be completed with keyboard and a typed name without a drawing', async ({ page, request }) => {
+for (const lang of ['en', 'bs'] as const) for (const theme of ['light', 'dark']) for (const width of [390, 768, 1440]) test(`public consent with keyboard and typed name ${lang} ${theme} ${width}`, async ({ page, request }) => {
   test.setTimeout(90_000);
+  const c = text[lang];
   const marker = 'Waiver audit keyboard ' + randomUUID();
   const slot = await passenger(request, marker);
   const waiver = await create(request, '/waivers/issue', { passenger_id: slot.passenger.id });
-  await page.addInitScript(() => localStorage.setItem('travline_lang', 'en'));
+  await page.setViewportSize({ width, height: 900 });
+  await page.addInitScript(({ lang, theme }) => { localStorage.setItem('travline_lang', lang); localStorage.setItem('theme', theme); }, { lang, theme });
   await page.goto(waiver.sign_url);
-  await page.getByLabel('Full name', { exact: true }).fill(marker);
+  await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /dark/ : /^$/);
+  await page.getByLabel(c.name, { exact: true }).fill(marker);
   await page.getByLabel('Synthetic required declaration', { exact: false }).focus(); await page.keyboard.press('Space');
-  await page.getByLabel('I have read the terms and confirm my consent.', { exact: true }).focus(); await page.keyboard.press('Space');
+  await page.getByLabel(c.agree, { exact: true }).focus(); await page.keyboard.press('Space');
   const signed = page.waitForResponse(r => r.url().endsWith('/sign') && r.request().method() === 'POST');
-  await page.getByRole('button', { name: 'Confirm consent', exact: true }).focus(); await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: c.submit, exact: true }).focus(); await page.keyboard.press('Enter');
   const response = await signed; expect(response.status()).toBe(200);
   const payload = response.request().postDataJSON(); expect(payload.signer_name).toBe(marker); expect(payload.signature_png).toBeUndefined();
-  await expect(page.getByRole('heading', { name: 'Consent recorded', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: c.done, exact: true })).toBeVisible();
+  await page.reload(); await expect(page.getByRole('heading', { name: c.done, exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
