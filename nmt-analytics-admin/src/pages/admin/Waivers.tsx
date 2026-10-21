@@ -106,12 +106,14 @@ export default function WaiversPage() {
         <h2 className="text-lg font-semibold">{c.issue}</h2>
         {!templates.some(t => t.is_active) && <p>{c.missing}</p>}
         <form onSubmit={issue} className="space-y-4">
-          <label className="block">{c.departure}<select required disabled={busy} value={departure} onChange={e => setDeparture(e.target.value)} className={field}>
+          <label htmlFor="waiver-departure" className="block">{c.departure}</label>
+          <select id="waiver-departure" required disabled={busy} value={departure} onChange={e => setDeparture(e.target.value)} className={field}>
             <option value="">{c.select}</option>{departures.map(d => <option value={d.id} key={d.id}>{d.package_name} · {new Date(d.depart_at).toLocaleString(lang === "bs" ? "bs-BA" : "en-GB")}</option>)}
-          </select></label>
-          <label className="block">{c.passenger}<select required disabled={busy || !selected} value={passenger} onChange={e => setPassenger(e.target.value)} className={field}>
+          </select>
+          <label htmlFor="waiver-passenger" className="block">{c.passenger}</label>
+          <select id="waiver-passenger" required disabled={busy || !selected} value={passenger} onChange={e => setPassenger(e.target.value)} className={field}>
             <option value="">{c.select}</option>{selected?.passengers.map(p => <option value={p.passengerId} key={p.passengerId}>{p.fullName}</option>)}
-          </select></label>
+          </select>
           {selected && !selected.passengers.length && <p>{c.noPassengers}</p>}
           <button type="submit" className={button} disabled={busy || !passenger || !templates.some(t => t.is_active)}>{busy ? c.saving : c.issue}</button>
         </form>
