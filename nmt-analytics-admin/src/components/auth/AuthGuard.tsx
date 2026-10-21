@@ -32,6 +32,7 @@ const routeRequirements: { prefix: string; minRole: UserRole }[] = [
   { prefix: "/operations/receipts", minRole: "manager" },
   { prefix: "/operations/flights", minRole: "manager" },
   { prefix: "/operations/hotels", minRole: "manager" },
+  { prefix: "/admin/waivers", minRole: "manager" },
   { prefix: "/operations/excursions", minRole: "manager" },
   { prefix: "/admin/audit-logs", minRole: "director" },
   { prefix: "/settings", minRole: "director" },

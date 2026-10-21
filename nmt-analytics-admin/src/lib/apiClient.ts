@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse, AxiosError, InternalAxiosRequestConfig, AxiosRequestConfig } from 'axios';
 import { logger } from '../utils/logger';
+import { redactCapabilityPath } from './sentryPrivacy';
 import { captureError } from './sentry';
 import { handleExpiredSession, markSessionEstablished } from './authSession';
 
@@ -144,13 +145,13 @@ api.interceptors.request.use(
     if (token) {
       // Ensure we use the latest token and force override any existing header
       config.headers.Authorization = `Bearer ${token}`;
-      logger.log(`[api-client] ✅ Token attached (${token.substring(0, 20)}...)`);
+      logger.log('[api-client] Token attached');
     } else {
       logger.warn('[api-client] ⚠️  No token found - request will fail if endpoint requires auth');
     }
 
     const fullUrl = joinUrl(base, config.url || '');
-    logger.log(`[api-client] ${config.method?.toUpperCase()} ${fullUrl}`, {
+    logger.log(`[api-client] ${config.method?.toUpperCase()} ${redactCapabilityPath(fullUrl)}`, {
       hasAuth: !!token,
       headers: config.headers.Authorization ? 'Bearer ***' : 'none'
     });

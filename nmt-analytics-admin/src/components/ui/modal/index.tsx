@@ -1,4 +1,10 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useId } from "react";
+import { useT } from "../../../lib/i18n";
+
+// Only mounted, open dialogs own focus and the body scroll lock.
+const openModals: HTMLDivElement[] = [];
+let previousBodyOverflow = "";
+const focusableSelector = 'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 interface ModalProps {
   isOpen: boolean;
@@ -24,69 +30,74 @@ export const Modal: React.FC<ModalProps> = ({
   closeLabel,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  const titleId = useId();
+  const { t } = useT();
 
-  // Opt-in form dialogs keep keyboard focus inside their scrollable surface.
-  useEffect(() => {
-    if (!isOpen || !scrollable) return;
-    const previous = document.activeElement as HTMLElement | null;
-    const dialog = modalRef.current;
-    if (!dialog) return;
-    const focusable = () => Array.from(dialog.querySelectorAll<HTMLElement>(
-      'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]',
-    )).filter(el => el.getClientRects().length > 0);
-    focusable()[0]?.focus();
-    const trap = (event: KeyboardEvent) => {
-      if (event.key !== "Tab") return;
-      const elements = focusable();
-      const first = elements[0];
-      const last = elements[elements.length - 1];
-      if (!first) { event.preventDefault(); return; }
-      if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
-        event.preventDefault(); last.focus();
-      } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
-        event.preventDefault(); first.focus();
-      }
-    };
-    document.addEventListener("keydown", trap);
-    return () => {
-      document.removeEventListener("keydown", trap);
-      previous?.focus();
-    };
-  }, [isOpen, scrollable]);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("keydown", handleEscape);
-    }
-
-    return () => {
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [isOpen, onClose]);
-
-  useEffect(() => {
-    if (isOpen) {
+    const modal = modalRef.current;
+    if (!isOpen || !modal) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (openModals.length === 0) {
+      previousBodyOverflow = document.body.style.overflow;
       document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
     }
-
-    return () => {
-      document.body.style.overflow = "unset";
+    openModals.push(modal);
+    // Legacy callers render their own heading instead of passing `title`.
+    const heading = modal.querySelector<HTMLElement>('h1, h2, h3, h4');
+    if (heading) {
+      if (!heading.id) heading.id = titleId;
+      modal.setAttribute('aria-labelledby', heading.id);
+    }
+    const isTop = () => openModals[openModals.length - 1] === modal;
+    const focusables = () => Array.from(modal.querySelectorAll<HTMLElement>(focusableSelector))
+      .filter(el => el.tabIndex >= 0 && el.getClientRects().length > 0 && !el.closest('[inert]'));
+    modal.focus({ preventScroll: true });
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isTop()) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        closeRef.current();
+      } else if (event.key === "Tab") {
+        const elements = focusables();
+        const first = elements[0];
+        const last = elements[elements.length - 1];
+        if (!first) {
+          event.preventDefault();
+          modal.focus();
+        } else if (event.shiftKey && (document.activeElement === first || document.activeElement === modal)) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === modal)) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
     };
-  }, [isOpen]);
+    const containFocus = (event: FocusEvent) => {
+      if (isTop() && !modal.contains(event.target as Node)) modal.focus({ preventScroll: true });
+    };
+    document.addEventListener("keydown", handleKeyDown, true);
+    document.addEventListener("focusin", containFocus);
+    return () => {
+      const wasTop = isTop();
+      const index = openModals.indexOf(modal);
+      if (index !== -1) openModals.splice(index, 1);
+      document.removeEventListener("keydown", handleKeyDown, true);
+      document.removeEventListener("focusin", containFocus);
+      if (openModals.length === 0) document.body.style.overflow = previousBodyOverflow;
+      if (wasTop && previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+    };
+  }, [isOpen, titleId]);
 
   if (!isOpen) return null;
 
   const contentClasses = isFullscreen
-    ? "w-full h-full"
-    : "relative w-full rounded-3xl bg-white  dark:bg-gray-900";
+    ? "relative w-full h-full overflow-y-auto"
+    : "relative w-full max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl bg-white dark:bg-gray-900";
 
   return (
     <div className="fixed inset-0 flex items-center justify-center overflow-y-auto modal z-99999">
@@ -100,14 +111,15 @@ export const Modal: React.FC<ModalProps> = ({
         ref={modalRef}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-labelledby={title ? titleId : undefined}
+        tabIndex={-1}
         className={`${contentClasses} text-gray-900 dark:text-gray-100 ${scrollable ? "mx-3 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain" : ""} ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {showCloseButton && (
           <button
             type="button"
-            aria-label={closeLabel || (document.documentElement.lang === "bs" ? "Zatvori" : "Close")}
+            aria-label={closeLabel || t.common.close}
             onClick={onClose}
             className="absolute right-3 top-3 z-999 flex h-9.5 w-9.5 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white sm:right-6 sm:top-6 sm:h-11 sm:w-11"
           >
@@ -129,7 +141,7 @@ export const Modal: React.FC<ModalProps> = ({
         )}
         {title && (
           <div className="p-6 pb-4 pr-16 sm:pr-20 border-b border-gray-100 dark:border-gray-800">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white">{title}</h3>
+            <h3 id={titleId} className="text-xl font-bold text-gray-900 dark:text-white">{title}</h3>
           </div>
         )}
         <div>{children}</div>

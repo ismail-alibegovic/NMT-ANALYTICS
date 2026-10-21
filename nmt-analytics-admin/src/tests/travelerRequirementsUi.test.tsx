@@ -269,12 +269,18 @@ describe('TravelerRequirements UI — DepartureFormModal', () => {
     // inherit radio is checked
     expect(screen.getByLabelText('Koristi pravila paketa')).toBeChecked();
 
+    // A valid departure is required before testing inherited traveler rules.
+    fireEvent.change(screen.getByLabelText(/^Paket/), { target: { value: 'pkg-1' } });
+    fireEvent.change(screen.getByLabelText(/^Polazak/), { target: { value: '2027-07-15T09:00' } });
+    fireEvent.change(screen.getByLabelText(/^Povratak/), { target: { value: '2027-07-16T09:00' } });
+    fireEvent.change(screen.getByLabelText(/^Kapacitet/), { target: { value: '8' } });
     fireEvent.click(screen.getByRole('button', { name: 'Dodaj' }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
-      packageId: '',
+      packageId: 'pkg-1',
     }));
+    expect(screen.getByLabelText('Koristi pravila paketa')).toBeChecked();
   });
 
   it('existing departure with null requirements shows inherit mode', async () => {

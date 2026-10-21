@@ -1,306 +1,122 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useParams } from "react-router";
+import { Helmet } from "react-helmet-async";
 import PageMeta from "../components/common/PageMeta";
+import { useT } from "../lib/i18n";
+import api from "../lib/apiClient";
 
-interface WaiverData {
-  template_title: string;
-  template_body: string;
-  passenger_name: string;
-  org_name: string | null;
-  package_name: string | null;
-  destination: string | null;
-  depart_at: string | null;
-  status: "pending" | "signed" | "expired" | "revoked" | "not_found";
-  signed_at: string | null;
-  signed_ip: string | null;
-  expires_at: string | null;
-}
-
-const STATUS_META: Record<string, { label: string; color: string }> = {
-  pending:   { label: "Čeka potpis",            color: "amber"    },
-  signed:    { label: "Potpisano",              color: "emerald"  },
-  expired:   { label: "Isteklo",                 color: "rose"     },
-  revoked:   { label: "Povučeno",                color: "rose"     },
-  not_found: { label: "Nepoznati zahtjev",       color: "slate"    },
+type Declaration = { id: string; label: string; required?: boolean };
+type Waiver = {
+  template_title: string; template_body: string; passenger_name: string;
+  package_name: string | null; destination: string | null; expires_at: string;
+  declarations: Declaration[];
 };
-
-function fmtDate(d: string | null) {
-  if (!d) return null;
-  return new Date(d).toLocaleString("bs-BA", { dateStyle: "medium", timeStyle: "short" });
-}
-
+const copy = {
+  en: {
+    title: "Passenger consent", loading: "Loading consent…", unavailable: "This consent link is invalid or no longer available. Contact your agency.",
+    name: "Full name", agree: "I have read the terms and confirm my consent.", signature: "Drawn signature (optional)",
+    typed: "Your full name is recorded with your consent. You may also draw a signature.",
+    clear: "Clear signature", submit: "Confirm consent", saving: "Saving…", failed: "Consent could not be saved. Your entries are preserved; please retry.",
+    done: "Consent recorded", doneBody: "This consent has been signed. The link cannot be used again.", expires: "Link expires",
+  },
+  bs: {
+    title: "Pristanak putnika", loading: "Učitavanje pristanka…", unavailable: "Link za pristanak nije važeći ili više nije dostupan. Kontaktirajte agenciju.",
+    name: "Puno ime", agree: "Pročitao/la sam uslove i potvrđujem svoj pristanak.", signature: "Nacrtani potpis (opcionalno)",
+    typed: "Vaše puno ime se evidentira uz pristanak. Možete dodati i nacrtani potpis.",
+    clear: "Obriši potpis", submit: "Potvrdi pristanak", saving: "Snimanje…", failed: "Pristanak nije sačuvan. Uneseni podaci su zadržani; pokušajte ponovo.",
+    done: "Pristanak evidentiran", doneBody: "Pristanak je potpisan. Link se ne može ponovo koristiti.", expires: "Link ističe",
+  },
+};
 export default function PublicSignWaiver() {
-  const token = window.location.pathname.split("/").pop() || "";
-  const [data, setData] = useState<WaiverData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [agree, setAgree] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [signed, setSigned] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const drawingRef = useRef(false);
-  const hasSignatureRef = useRef(false);
-
+  const { token = "" } = useParams();
+  const { lang } = useT(); const c = copy[lang];
+  const [waiver, setWaiver] = useState<Waiver | null>(null);
+  const [loading, setLoading] = useState(true), [unavailable, setUnavailable] = useState(false);
+  const [done, setDone] = useState(false), [error, setError] = useState(false);
+  const [name, setName] = useState(""), [agreed, setAgreed] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false), [hasDrawing, setHasDrawing] = useState(false);
+  const locked = useRef(false), canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    (async () => {
-      try {
-        const api = (await import("../lib/apiClient")).default;
-        const res = await api.get(`/public/waiver/${token}`);
-        const d = res.data;
-        setData(d);
-        if (d.passenger_name) setName(d.passenger_name);
-        if (d.status === "signed") setSigned(true);
-      } catch (e: any) {
-        setError(e?.response?.data?.message || "Nije moguće učitati waiver.");
-      } finally {
-        setLoading(false);
+    let active = true;
+    setLoading(true); setUnavailable(false); setDone(false); setWaiver(null); setError(false);
+    setAgreed(false); setAnswers({}); setHasDrawing(false);
+    api.get<Waiver>(`/public/waiver/${encodeURIComponent(token)}`).then(({ data }) => {
+      if (active) { setWaiver(data); setName(data.passenger_name || ""); }
+    }).catch((e: any) => {
+      if (active) {
+        if (e?.response?.data?.code === "ALREADY_SIGNED") setDone(true);
+        else setUnavailable(true);
       }
-    })();
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [token]);
-
-  // Signature canvas handlers
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.strokeStyle = "#1f2937";
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
-
-    let lastPoint: { x: number; y: number } | null = null;
-
-    const getPoint = (e: PointerEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const pad = canvas.current, ctx = pad?.getContext("2d");
+    if (!pad || !ctx) return;
+    ctx.strokeStyle = "#1f2937"; ctx.lineWidth = 2; ctx.lineCap = "round";
+    let previous: { x: number; y: number } | null = null;
+    const point = (e: PointerEvent) => {
+      const box = pad.getBoundingClientRect();
+      return { x: (e.clientX - box.left) * pad.width / box.width, y: (e.clientY - box.top) * pad.height / box.height };
     };
-
-    const start = (e: PointerEvent) => {
-      drawingRef.current = true;
-      lastPoint = getPoint(e);
-      hasSignatureRef.current = true;
-    };
+    const start = (e: PointerEvent) => { if (locked.current) return; previous = point(e); pad.setPointerCapture(e.pointerId); };
     const move = (e: PointerEvent) => {
-      if (!drawingRef.current || !lastPoint) return;
-      const p = getPoint(e);
-      ctx.beginPath();
-      ctx.moveTo(lastPoint.x, lastPoint.y);
-      ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-      lastPoint = p;
+      if (!previous || locked.current) return;
+      const p = point(e); ctx.beginPath(); ctx.moveTo(previous.x, previous.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+      previous = p; setHasDrawing(true);
     };
-    const end = () => {
-      drawingRef.current = false;
-      lastPoint = null;
-    };
-
-    canvas.addEventListener("pointerdown", start);
-    canvas.addEventListener("pointermove", move);
-    canvas.addEventListener("pointerup", end);
-    canvas.addEventListener("pointerleave", end);
+    const end = () => { previous = null; };
+    pad.addEventListener("pointerdown", start); pad.addEventListener("pointermove", move);
+    pad.addEventListener("pointerup", end); pad.addEventListener("pointercancel", end);
     return () => {
-      canvas.removeEventListener("pointerdown", start);
-      canvas.removeEventListener("pointermove", move);
-      canvas.removeEventListener("pointerup", end);
-      canvas.removeEventListener("pointerleave", end);
+      pad.removeEventListener("pointerdown", start); pad.removeEventListener("pointermove", move);
+      pad.removeEventListener("pointerup", end); pad.removeEventListener("pointercancel", end);
     };
-  }, [loading, signed]);
-
-  const clearSignature = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    hasSignatureRef.current = false;
+  }, [waiver, done, loading]);
+  const clear = () => {
+    const pad = canvas.current; if (!pad || locked.current) return;
+    pad.getContext("2d")?.clearRect(0, 0, pad.width, pad.height); setHasDrawing(false);
   };
-
-  const submit = async () => {
-    if (!name.trim() || !agree) return;
-    if (!hasSignatureRef.current) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const dataUrl = canvas.toDataURL("image/png");
-    // Strip the data: prefix to send raw base64 payload
-    const signatureData = dataUrl.replace(/^data:image\/png;base64,/, "");
-
-    setSubmitting(true);
+  const valid = !!name.trim() && agreed && (waiver?.declarations || []).every(d => !d.required || answers[d.id] === true);
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault(); if (!valid || locked.current) return;
+    locked.current = true; setSaving(true); setError(false);
     try {
-      const api = (await import("../lib/apiClient")).default;
-      await api.post(`/public/waiver/${token}/sign`, {
-        signed_name: name.trim(),
-        signature_image: signatureData,
+      await api.post(`/public/waiver/${encodeURIComponent(token)}/sign`, {
+        signer_name: name.trim(), agreed: true, declarations: answers,
+        ...(hasDrawing && canvas.current ? { signature_png: canvas.current.toDataURL("image/png").split(",")[1] } : {}),
       });
-      setSigned(true);
+      setDone(true);
     } catch (e: any) {
-      setError(e?.response?.data?.message || "Slanje nije uspjelo.");
-    } finally {
-      setSubmitting(false);
-    }
+      if (e?.response?.data?.code === "ALREADY_SIGNED") setDone(true);
+      else setError(true);
+    } finally { locked.current = false; setSaving(false); }
   };
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-      </main>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="max-w-md bg-white border border-slate-200 rounded-2xl p-8 text-center">
-          <div className="text-4xl mb-3">⚠️</div>
-          <h1 className="text-xl font-semibold text-slate-900 mb-2">Greška</h1>
-          <p className="text-sm text-slate-600">{error || "Nepoznata greška"}</p>
-        </div>
-      </main>
-    );
-  }
-
-  const status = STATUS_META[data.status] || STATUS_META.not_found;
-  const isPending = data.status === "pending";
-  const canSign = isPending && name.trim() && agree && hasSignatureRef.current && !submitting;
-
-  return (
-    <>
-      <PageMeta title={`${data.template_title} | Travline`} description="Digitalni pristanak putnika" />
-      <main className="min-h-screen bg-slate-50 py-8 px-4">
-        <div className="max-w-2xl mx-auto">
-          {/* Header card with org branding accent */}
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-            <div className="h-1.5 bg-blue-600" />
-            <div className="px-6 sm:px-8 py-6">
-              <div className="flex items-start justify-between gap-4 mb-1">
-                <h1 className="text-2xl font-bold text-slate-900">{data.template_title}</h1>
-                <span className={`shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-${status.color}-100 text-${status.color}-700`}>
-                  {status.label}
-                </span>
-              </div>
-              {data.org_name && (
-                <p className="text-sm text-slate-500 mb-4">{data.org_name}</p>
-              )}
-
-              {/* Trip context */}
-              {(data.package_name || data.destination || data.depart_at) && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 text-sm">
-                  {data.package_name && (
-                    <div className="bg-slate-50 rounded-lg p-3">
-                      <div className="text-xs text-slate-400 mb-0.5">Aranžman</div>
-                      <div className="font-medium text-slate-700">{data.package_name}</div>
-                    </div>
-                  )}
-                  {data.destination && (
-                    <div className="bg-slate-50 rounded-lg p-3">
-                      <div className="text-xs text-slate-400 mb-0.5">Destinacija</div>
-                      <div className="font-medium text-slate-700">{data.destination}</div>
-                    </div>
-                  )}
-                  {data.depart_at && (
-                    <div className="bg-slate-50 rounded-lg p-3">
-                      <div className="text-xs text-slate-400 mb-0.5">Polazak</div>
-                      <div className="font-medium text-slate-700">{fmtDate(data.depart_at)}</div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Waiver body */}
-              <div className="prose prose-sm prose-slate max-w-none mb-6">
-                <p className="whitespace-pre-line text-slate-700 leading-relaxed">{data.template_body}</p>
-              </div>
-
-              {data.expires_at && isPending && (
-                <p className="text-xs text-slate-500 mb-4">
-                  Link ističe {fmtDate(data.expires_at)}.
-                </p>
-              )}
-
-              {signed && data.signed_at && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 mb-2">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="size-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-emerald-800">Pristanak potvrđen</div>
-                      <div className="text-xs text-emerald-600">Potpisano {fmtDate(data.signed_at)}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {isPending && !signed && (
-                <>
-                  {/* Name */}
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Puno ime
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Vaše puno ime"
-                    className="w-full px-3 py-2 mb-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-900"
-                  />
-
-                  {/* Signature pad */}
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Potpišite ovdje
-                  </label>
-                  <div className="border border-slate-300 rounded-lg mb-2 bg-white relative">
-                    <canvas
-                      ref={canvasRef}
-                      width={600}
-                      height={180}
-                      className="w-full touch-none cursor-crosshair"
-                      style={{ aspectRatio: "10 / 3" }}
-                    />
-                    <button
-                      onClick={clearSignature}
-                      className="absolute top-2 right-2 text-xs text-slate-500 hover:text-slate-700 bg-white/80 backdrop-blur-sm px-2 py-1 rounded"
-                    >
-                      Obriši
-                    </button>
-                  </div>
-
-                  {/* Agreement checkbox */}
-                  <label className="flex items-start gap-3 mt-4 text-sm text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={agree}
-                      onChange={(e) => setAgree(e.target.checked)}
-                      className="mt-0.5 size-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span>Pročitao/la sam i razumio/la gore navedeni tekst, te svojim potpisom dajem pristanak.</span>
-                  </label>
-
-                  <button
-                    onClick={submit}
-                    disabled={!canSign}
-                    className="mt-5 w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {submitting ? "Slanje..." : "Pošalji pristanak"}
-                  </button>
-                </>
-              )}
-
-              {(data.status === "expired" || data.status === "revoked") && (
-                <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-sm text-rose-700">
-                  Ovaj link više nije važeći. Kontaktirajte agenciju za novi link.
-                </div>
-              )}
-            </div>
-          </div>
-          <p className="text-center text-xs text-slate-400 mt-6">
-            Travline · Digitalni pristanak
-          </p>
-        </div>
-      </main>
-    </>
-  );
+  return <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 dark:bg-gray-950 dark:text-gray-100">
+    <Helmet><meta name="referrer" content="no-referrer" /></Helmet>
+    <PageMeta title={c.title + " | Travline"} description={c.title} />
+    <section className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900 sm:p-8">
+      {loading ? <p role="status">{c.loading}</p> : done ? <div role="status"><h1 className="text-2xl font-bold">{c.done}</h1><p className="mt-4">{c.doneBody}</p></div> :
+        unavailable || !waiver ? <p role="alert">{c.unavailable}</p> : <>
+          <h1 className="break-words text-2xl font-bold">{waiver.template_title}</h1>
+          <p className="mt-3 break-words">{[waiver.package_name, waiver.destination].filter(Boolean).join(" · ")}</p>
+          <p className="my-6 whitespace-pre-wrap break-words leading-relaxed">{waiver.template_body}</p>
+          <p className="mb-5 text-sm">{c.expires}: {new Date(waiver.expires_at).toLocaleString(lang === "bs" ? "bs-BA" : "en-GB")}</p>
+          <form onSubmit={submit} className="space-y-4">
+            <label className="block">{c.name}<input required maxLength={200} autoComplete="name" disabled={saving} value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white p-3 dark:border-gray-600 dark:bg-gray-800" /></label>
+            <p className="text-sm">{c.typed}</p>
+            <fieldset disabled={saving} className="space-y-3">
+              {(waiver.declarations || []).map(d => <label key={d.id} className="flex items-start gap-3"><input type="checkbox" required={d.required} checked={!!answers[d.id]} onChange={e => setAnswers(old => ({ ...old, [d.id]: e.target.checked }))} className="mt-1" /><span>{d.label}{d.required ? " *" : ""}</span></label>)}
+              <label className="flex items-start gap-3"><input type="checkbox" required checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-1" /><span>{c.agree}</span></label>
+            </fieldset>
+            <p id="signature-label">{c.signature}</p>
+            <canvas ref={canvas} width={600} height={180} aria-labelledby="signature-label" className="block w-full touch-none rounded-lg border border-slate-300 bg-white" style={{ aspectRatio: "10 / 3" }} />
+            <button type="button" disabled={saving || !hasDrawing} onClick={clear} className="rounded-lg border px-3 py-2 disabled:opacity-50">{c.clear}</button>
+            {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-800 dark:bg-red-950 dark:text-red-200">{c.failed}</p>}
+            <button type="submit" disabled={!valid || saving} className="block w-full rounded-lg bg-blue-600 p-3 font-medium text-white disabled:opacity-50">{saving ? c.saving : c.submit}</button>
+          </form>
+        </>}
+    </section>
+  </main>;
 }

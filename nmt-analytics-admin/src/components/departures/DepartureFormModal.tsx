@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useId } from "react";
+import { useT } from "../../lib/i18n";
+import { toDateTimeInput, fromDateTimeInput } from "../../utils/dateTimeInput";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
@@ -25,6 +27,10 @@ export default function DepartureFormModal({
   isOpen, onClose, title, packages, editingDeparture,
   onSubmit, loading, travelerMode, setTravelerMode, travelerReq, setTravelerReq,
 }: Props) {
+  const { lang } = useT();
+  const formId = useId();
+  const submitLock = useRef(false);
+  const [saveError, setSaveError] = useState(false);
   const [packageId, setPackageId] = useState("");
   const [departAt, setDepartAt] = useState("");
   const [returnAt, setReturnAt] = useState("");
@@ -36,10 +42,11 @@ export default function DepartureFormModal({
 
   useEffect(() => {
     if (!isOpen) return;
+    setSaveError(false);
     if (editingDeparture) {
       setPackageId(editingDeparture.package_id);
-      setDepartAt(editingDeparture.depart_at?.slice(0, 16) || "");
-      setReturnAt(editingDeparture.return_at?.slice(0, 16) || "");
+      setDepartAt(toDateTimeInput(editingDeparture.depart_at));
+      setReturnAt(toDateTimeInput(editingDeparture.return_at));
       setCapacity(editingDeparture.capacity);
       setBooked(editingDeparture.booked);
       setStatus(editingDeparture.status);
@@ -57,61 +64,74 @@ export default function DepartureFormModal({
 
   const selectedPackage = packages.find((p) => p.id === packageId) ?? null;
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submitLock.current || loading || !e.currentTarget.checkValidity()) return;
+    submitLock.current = true;
+    setSaveError(false);
     setSubmitting(true);
     try {
       await onSubmit({
         packageId,
-        departAt,
-        returnAt,
+        departAt: editingDeparture?.depart_at && departAt === toDateTimeInput(editingDeparture.depart_at)
+          ? new Date(editingDeparture.depart_at).toISOString() : fromDateTimeInput(departAt),
+        returnAt: editingDeparture?.return_at && returnAt === toDateTimeInput(editingDeparture.return_at)
+          ? new Date(editingDeparture.return_at).toISOString() : fromDateTimeInput(returnAt),
         capacity,
         status,
         booked,
         transport_type: transportType,
       });
+    } catch {
+      setSaveError(true);
     } finally {
+      submitLock.current = false;
       setSubmitting(false);
     }
   }
 
+  const closeForm = () => { if (!submitLock.current && !loading) onClose(); };
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-2xl">
+    <Modal isOpen={isOpen} onClose={closeForm} className="max-w-2xl">
       <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
         <h2 className="text-xl font-semibold text-gray-800 dark:text-white/90">{title}</h2>
 
+        <fieldset disabled={submitting || loading} className="space-y-5">
         {/* Basic fields */}
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paket <span className="text-error-500">*</span></label>
+            <label htmlFor={`${formId}-package`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paket <span className="text-error-500">*</span></label>
             <Select
+              id={`${formId}-package`}
+              required
               value={packageId}
               onChange={setPackageId}
               options={packages.map((p) => ({ value: p.id, label: `${p.name} - ${p.destination}` }))}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Polazak <span className="text-error-500">*</span></label>
-              <Input type="datetime-local" value={departAt} onChange={(e: any) => setDepartAt(e.target.value)} />
+              <label htmlFor={`${formId}-depart`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Polazak <span className="text-error-500">*</span></label>
+              <Input id={`${formId}-depart`} required type="datetime-local" value={departAt} onChange={(e: any) => setDepartAt(e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Povratak <span className="text-error-500">*</span></label>
-              <Input type="datetime-local" value={returnAt} onChange={(e: any) => setReturnAt(e.target.value)} />
+              <label htmlFor={`${formId}-return`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Povratak <span className="text-error-500">*</span></label>
+              <Input id={`${formId}-return`} required min={departAt || undefined} type="datetime-local" value={returnAt} onChange={(e: any) => setReturnAt(e.target.value)} />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kapacitet <span className="text-error-500">*</span></label>
-              <Input type="number" value={capacity === "" ? "" : String(capacity)} onChange={(e: any) => setCapacity(e.target.value === "" ? "" : Number(e.target.value))} />
+              <label htmlFor={`${formId}-capacity`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kapacitet <span className="text-error-500">*</span></label>
+              <Input id={`${formId}-capacity`} required min={1} type="number" value={capacity === "" ? "" : String(capacity)} onChange={(e: any) => setCapacity(e.target.value === "" ? "" : Number(e.target.value))} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Zauzeto</label>
-              <Input type="number" value={booked === "" ? "" : String(booked)} onChange={(e: any) => setBooked(e.target.value === "" ? "" : Number(e.target.value))} />
+              <label htmlFor={`${formId}-booked`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Zauzeto</label>
+              <Input id={`${formId}-booked`} min={0} max={capacity === "" ? undefined : capacity} type="number" value={booked === "" ? "" : String(booked)} onChange={(e: any) => setBooked(e.target.value === "" ? "" : Number(e.target.value))} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+              <label htmlFor={`${formId}-status`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
               <Select
+                id={`${formId}-status`}
                 value={status}
                 onChange={setStatus}
                 options={[
@@ -123,8 +143,9 @@ export default function DepartureFormModal({
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prijevoz</label>
+            <label htmlFor={`${formId}-transport`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prijevoz</label>
             <Select
+              id={`${formId}-transport`}
               value={transportType}
               onChange={setTransportType}
               options={[
@@ -183,14 +204,18 @@ export default function DepartureFormModal({
           )}
         </div>
 
+        {saveError && <p role="alert" className="rounded-lg bg-error-50 p-3 text-sm text-error-700 dark:bg-error-500/10 dark:text-error-400">
+          {lang === "bs" ? "Polazak nije sačuvan. Uneseni podaci su zadržani; pokušajte ponovo." : "Departure could not be saved. Your entries are preserved; please retry."}
+        </p>}
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting || loading}>
+          <Button type="button" variant="outline" onClick={closeForm} disabled={submitting || loading}>
             Odustani
           </Button>
           <Button type="submit" disabled={submitting || loading}>
             {editingDeparture ? "Sačuvaj" : "Dodaj"}
           </Button>
         </div>
+        </fieldset>
       </form>
     </Modal>
   );

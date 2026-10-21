@@ -15,7 +15,7 @@ export interface WaiverStatus {
   passenger_id: string;
   passenger_name: string;
   reservation_id: string;
-  status: 'pending' | 'signed' | 'expired' | 'not_issued';
+  status: 'pending' | 'signed' | 'expired' | 'revoked' | 'not_issued';
   signed_at: string | null;
   issued_at: string | null;
   expires_at: string | null;
@@ -24,7 +24,7 @@ export interface WaiverStatus {
 }
 
 export const listWaiverTemplates = async (): Promise<WaiverTemplate[]> => {
-  const { data } = await get<WaiverTemplate[]>('/waivers/templates');
+  const { data } = await get<WaiverTemplate[]>('/waiver-templates');
   return data || [];
 };
 
@@ -32,7 +32,7 @@ export const createWaiverTemplate = async (payload: {
   title: string;
   body_text: string;
 }): Promise<WaiverTemplate> => {
-  const { data } = await post<WaiverTemplate>('/waivers/templates', payload);
+  const { data } = await post<WaiverTemplate>('/waiver-templates', payload);
   return data;
 };
 
@@ -40,12 +40,12 @@ export const updateWaiverTemplate = async (
   id: string,
   payload: Partial<Pick<WaiverTemplate, 'title' | 'body_text' | 'is_active'>>,
 ): Promise<WaiverTemplate> => {
-  const { data } = await patch<WaiverTemplate>(`/waivers/templates/${id}`, payload);
+  const { data } = await patch<WaiverTemplate>(`/waiver-templates/${id}`, payload);
   return data;
 };
 
 export const deleteWaiverTemplate = async (id: string): Promise<void> => {
-  await del(`/waivers/templates/${id}`);
+  await del(`/waiver-templates/${id}`);
 };
 
 export const issueWaiver = async (payload: {
@@ -66,8 +66,13 @@ export const issueWaiver = async (payload: {
 };
 
 export const getDepartureWaiverStatus = async (departureId: string): Promise<WaiverStatus[]> => {
-  const { data } = await get<WaiverStatus[]>(`/departures/${departureId}/waivers`);
-  return data || [];
+  const { data } = await get<any[]>(`/waivers/by-departure/${departureId}`);
+  return (data || []).map(row => ({
+    waiver_id: row.id, passenger_id: row.passenger_id,
+    passenger_name: row.passenger_name_snapshot, reservation_id: row.reservation_id,
+    status: row.status, signed_at: row.signed_at, issued_at: row.created_at,
+    expires_at: row.expires_at, sign_url: null, template_title: row.template_title,
+  }));
 };
 
 export const sendWaiverEmail = async (waiverId: string): Promise<void> => {
@@ -75,7 +80,7 @@ export const sendWaiverEmail = async (waiverId: string): Promise<void> => {
 };
 
 export const revokeWaiver = async (waiverId: string): Promise<void> => {
-  await del(`/waivers/${waiverId}`);
+  await post(`/waivers/${waiverId}/revoke`, {});
 };
 
 // ── Public signing (no auth) ───────────────────────────────
@@ -94,15 +99,15 @@ export interface PublicWaiver {
 
 export async function fetchPublicWaiver(token: string): Promise<{ waiver: PublicWaiver | null; token: string }> {
   const api = (await import('../lib/apiClient')).default;
-  const { data } = await api.get(`/public/waiver/${token}`);
-  return { waiver: data?.waiver || null, token };
+  const { data } = await api.get(`/public/waiver/${encodeURIComponent(token)}`);
+  return { waiver: data ? { ...data, waiver_id: data.id } : null, token };
 }
 
 export async function signPublicWaiver(
   token: string,
-  payload: { signature_text: string },
+  payload: { signer_name: string; agreed: true; signature_png?: string; declarations?: Record<string, boolean> },
 ): Promise<{ signed_at: string }> {
   const api = (await import('../lib/apiClient')).default;
-  const { data } = await api.post(`/public/waiver/${token}/sign`, payload);
+  const { data } = await api.post(`/public/waiver/${encodeURIComponent(token)}/sign`, payload);
   return data;
 }

@@ -6,7 +6,7 @@ vi.mock('../context/AppContext',()=>({useApp:()=>({userContext:{role:state.role,
 import AuthGuard from '../components/auth/AuthGuard';
 import ModuleGuard from '../components/auth/ModuleGuard';
 afterEach(cleanup);beforeEach(()=>{state.role='agent';state.loading=false;});
-const restricted=[['/finance','manager'],['/payments','manager'],['/reports','manager'],['/admin/documents','manager'],['/admin/audit-logs','director'],['/settings','director'],['/operations/commission-rules','director'],['/operations/subagents','manager'],['/operations/receipts','manager'],['/operations/flights','manager'],['/operations/hotels','manager'],['/operations/excursions','manager']];
+const restricted=[['/admin/waivers','manager'],['/finance','manager'],['/payments','manager'],['/reports','manager'],['/admin/documents','manager'],['/admin/audit-logs','director'],['/settings','director'],['/operations/commission-rules','director'],['/operations/subagents','manager'],['/operations/receipts','manager'],['/operations/flights','manager'],['/operations/hotels','manager'],['/operations/excursions','manager']];
 for(const role of ['director','manager','agent'])for(const [path,min] of restricted)it(`${role} direct route ${path}`,()=>{
  state.role=role;render(<MemoryRouter initialEntries={[path]}><Routes><Route path={path} element={<AuthGuard><span>protected content</span></AuthGuard>}/><Route path="/" element={<span>denied</span>}/></Routes></MemoryRouter>);
  const allowed=role==='director'||(role==='manager'&&min==='manager');expect(Boolean(screen.queryByText('protected content'))).toBe(allowed);
