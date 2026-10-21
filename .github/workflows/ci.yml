@@ -33,7 +33,9 @@ jobs:
       - run: npm ci
 
       - name: Typecheck Vercel entrypoint with strict API configuration
-        run: ./node_modules/.bin/tsc --project ../tsconfig.json --noEmit
+        run: |
+          ./node_modules/.bin/tsc --project ../tsconfig.json --noEmit
+          ./node_modules/.bin/tsc --project ../tsconfig.json --noEmit --module NodeNext --moduleResolution NodeNext
 
       - run: npm run build
         env:

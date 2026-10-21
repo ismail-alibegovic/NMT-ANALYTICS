@@ -38,7 +38,7 @@ Recovery: on transaction failure, stop; confirm rollback and history consistency
 
 Before: 16 TS diagnostics, comprising 13 TS2339 discriminated-union narrowing failures and 3 TS2835 dynamic-import extension failures. Files: publicFormsHandlers (1), reservations (5), import (1), accommodation (6), waivers (1), orgBranding (1), fiscal/registry (1).
 
-Root api/index.ts had no tsconfig and Vercel used different compiler defaults from the strict CommonJS API build. Root tsconfig now extends the API configuration; CI and Vercel explicitly typecheck the serverless entrypoint. No strictness disabled, assertions/casts added or domain implementations rewritten. Preview packaging must show zero diagnostics before merge. The serverless entrypoint now imports instrumentation before Express.
+Root api/index.ts had no tsconfig and Vercel used different compiler defaults from the strict CommonJS API build. Root tsconfig now extends the API configuration; CI and Vercel explicitly typecheck the serverless entrypoint. Preview evidence showed Vercel function packaging still uses NodeNext/default narrowing independently of the explicit build check. Boolean discriminants now use explicit true/false comparisons and three relative dynamic imports use emitted .js extensions, compatible with both compilers. No strictness disabled or casts added; business decisions unchanged. Preview packaging must show zero diagnostics before merge. The serverless entrypoint now imports instrumentation before Express.
 
 ## Monitoring activation and alert ownership
 

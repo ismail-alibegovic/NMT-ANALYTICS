@@ -14,7 +14,7 @@ export interface OrgBranding {
  * (merged with defaults so missing blocks auto-fill). One Supabase round-trip.
  */
 export async function getOrgBranding(orgId: string): Promise<OrgBranding> {
-  const { supabaseAdmin } = await import('./supabase');
+  const { supabaseAdmin } = await import('./supabase.js');
   const { data } = await supabaseAdmin
     .from('org_branding')
     .select('primary_color, accent_color, display_name, logo_url, pdf_template_config')

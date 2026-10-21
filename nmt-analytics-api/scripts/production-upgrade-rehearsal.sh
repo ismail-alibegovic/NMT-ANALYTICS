@@ -49,9 +49,10 @@ psql -X -v ON_ERROR_STOP=1 -d "$DB" -f "$ROOT/scripts/database-function-security
 archive="$(mktemp)"
 trap 'rm -f "$archive"' EXIT
 start=$SECONDS
-docker run --rm --network host -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD postgres:17 pg_dump -Fc --no-owner --no-privileges -d "$DB" > "$archive"
+docker run --rm --network host -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD postgres:17 pg_dump -Fc --no-owner -d "$DB" > "$archive"
 createdb "$RESTORED"
-docker run --rm -i --network host -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD postgres:17 pg_restore --exit-on-error --no-owner --no-privileges -d "$RESTORED" < "$archive"
+docker run --rm -i --network host -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD postgres:17 pg_restore --exit-on-error --no-owner -d "$RESTORED" < "$archive"
 [[ "$(fingerprint "$RESTORED")" == "$before" ]]
 psql -X -v ON_ERROR_STOP=1 -d "$RESTORED" -c "DO \$\$ BEGIN IF (SELECT count(*) FROM public.waiver_tokens)<>2 THEN RAISE EXCEPTION 'Consent history missing after restore'; END IF; END \$\$;" >/dev/null
+psql -X -v ON_ERROR_STOP=1 -d "$RESTORED" -f "$ROOT/scripts/database-function-security.sql" >/dev/null
 echo "PASS: 110-to-114 upgrade; legacy consent preservation/revocation; financial row fingerprints unchanged; four FKs validated; logical restore in $((SECONDS-start)) seconds. Synthetic only; not a production RTO measurement."
