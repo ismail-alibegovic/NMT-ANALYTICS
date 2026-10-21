@@ -185,7 +185,7 @@ app.use(sentryErrorHandler);
 
 // Global error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('[GLOBAL ERROR]', err.stack || err);
+  console.error(JSON.stringify({ event: 'unhandled_api_error', requestId: req.requestId }));
 
   if (err.status === 429 || err.message?.includes('Too many')) {
     return res.status(429).json({ code: 'RATE_LIMITED', message: errorMessages.RATE_LIMITED });

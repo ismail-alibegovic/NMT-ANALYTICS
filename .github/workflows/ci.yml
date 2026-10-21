@@ -32,6 +32,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Typecheck Vercel entrypoint with strict API configuration
+        run: ./node_modules/.bin/tsc --project ../tsconfig.json --noEmit
+
       - run: npm run build
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -140,6 +143,15 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
           MIGRATION_REPLAY_DB: travline_replay
+
+      - name: Rehearse production upgrade and isolated logical restore
+        run: bash nmt-analytics-api/scripts/production-upgrade-rehearsal.sh
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          TRAVLINE_ISOLATED_REHEARSAL: "1"
 
   docker-build:
     name: Docker Build Check
