@@ -45,9 +45,13 @@ export const supabaseAdmin = supabaseServiceKey
  */
 export function handleSupabaseError(res: Response, error: any, message = 'Database operation failed') {
   // PostgreSQL/provider details can contain row values and credentials.
-  const logCode = typeof error?.code === 'string' && /^[A-Z0-9]{5}$/.test(error.code)
+  const logCode = typeof error?.code === 'string' && /^(?:[A-Z0-9]{5}|PGRST[0-9]{3})$/.test(error.code)
     ? error.code : 'DATABASE_ERROR';
-  console.error(JSON.stringify({ event: 'database_failure', code: logCode }));
+  const transportFailure = typeof error?.message === 'string'
+    && /^(?:TypeError: fetch failed|FetchError:|AbortError:)/.test(error.message);
+  console.error(JSON.stringify({ event: 'database_failure', code: logCode,
+    category: transportFailure ? 'transport' : logCode === 'DATABASE_ERROR' ? 'unknown' : 'database',
+  }));
   // Normalize pg/supabase errors
   const code = error.code || 'DATABASE_ERROR';
   if (code === 'PGRST116') return res.status(404).json({ code: 'NOT_FOUND', message: 'Resource not found' });

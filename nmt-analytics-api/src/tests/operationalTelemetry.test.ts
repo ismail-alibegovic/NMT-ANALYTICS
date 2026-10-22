@@ -48,6 +48,21 @@ it('never logs database error row details or caller context', async () => {
   const error = vi.spyOn(console, 'error').mockImplementation(() => {});
   const response = { status: vi.fn().mockReturnThis(), json: vi.fn() };
   handleSupabaseError(response as any, { code: '23505', message: 'private-passenger', details: 'private-payment' }, 'private-context');
-  expect(error).toHaveBeenCalledWith(JSON.stringify({ event: 'database_failure', code: '23505' }));
+  expect(error).toHaveBeenCalledWith(JSON.stringify({ event: 'database_failure', code: '23505', category: 'database' }));
+  expect(JSON.stringify(error.mock.calls)).not.toContain('private-');
+});
+
+it('retains safe provider codes and transport classification without raw errors', async () => {
+  const { handleSupabaseError } = await import('../lib/supabase');
+  const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const response = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+  handleSupabaseError(response as any, { code: 'PGRST116', message: 'private-row' });
+  handleSupabaseError(response as any, { code: '', message: 'TypeError: fetch failed', details: 'private-url-token' });
+  handleSupabaseError(response as any, { code: 'private-code', message: 'private-passenger' });
+  expect(error.mock.calls.map(([entry]) => JSON.parse(entry))).toEqual([
+    { event: 'database_failure', code: 'PGRST116', category: 'database' },
+    { event: 'database_failure', code: 'DATABASE_ERROR', category: 'transport' },
+    { event: 'database_failure', code: 'DATABASE_ERROR', category: 'unknown' },
+  ]);
   expect(JSON.stringify(error.mock.calls)).not.toContain('private-');
 });
