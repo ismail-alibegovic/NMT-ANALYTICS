@@ -1,0 +1,13 @@
+# Isolated database security and recovery checks
+
+These checks use synthetic data only. They do not certify a hosted project's recovery settings or authorize production changes.
+
+`storage-api-only-security.sql` runs after the complete migration history on a disposable database. It introduces a permissive Storage policy inside a rollback-only transaction and verifies that the application restrictive policy still denies document SELECT, INSERT, UPDATE and DELETE for both browser roles. It also verifies the API service role can operate on the synthetic object. Both PostgreSQL migration replay and isolated Supabase acceptance run this check.
+
+`isolated-recovery-rehearsal.sh` runs in the PostgreSQL replay CI job. It requires `TRAVLINE_ISOLATED_RECOVERY=1`, `PGHOST=localhost` and `MIGRATION_REPLAY_DB=travline_replay`. It refuses an existing destination database, dumps the synthetic source, restores to a new database, compares public table counts and a sentinel, and runs function/tenant/Storage regressions on the restored database. Temporary dumps and the destination are removed on exit. Do not invoke it against a database holding real records, or use it as a production restore command.
+
+Managed backups and PITR must be checked separately through the hosting account's backup inventory: record successful backup timestamps, retention, earliest/latest recovery points, plan eligibility and restoration limits. Database backup metadata does not recover Storage object bytes; inventory and back up object contents separately. Preserve Auth/service configuration and secrets through an approved secure configuration procedure. Hosted recovery verification requires a separate isolated Supabase destination, restored objects and authenticated workflow tests. Record measured RPO/RTO only after that rehearsal.
+
+For any production migration: independently inspect migration history and partial effects, verify a recoverable backup, agree a write freeze/lock window, review data rewrites and ACL changes, and obtain explicit owner approval. Use a migration-aware runner with atomic SQL/history handling; never repair history to pretend unapplied SQL ran. Recheck catalog definitions, ACLs, RLS, indexes, constraints, triggers and migration parity afterwards. Historical NOT VALID foreign keys require a separate orphan review before validation. Production restore is a distinct approval because it can discard writes made after the recovery point.
+
+References: [Supabase backups](https://supabase.com/docs/guides/platform/backups), [backup and restore](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore).

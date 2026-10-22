@@ -141,6 +141,16 @@ jobs:
           PGPASSWORD: postgres
           MIGRATION_REPLAY_DB: travline_replay
 
+      - name: Rehearse logical recovery on synthetic replay database
+        run: ./nmt-analytics-api/scripts/isolated-recovery-rehearsal.sh
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          MIGRATION_REPLAY_DB: travline_replay
+          TRAVLINE_ISOLATED_RECOVERY: "1"
+
   docker-build:
     name: Docker Build Check
     runs-on: ubuntu-latest

@@ -91,6 +91,9 @@ jobs:
       - name: Verify API-only authorization database boundaries
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/authorization-security.sql
 
+      - name: Verify document Storage policies against permissive-policy bypass
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/storage-api-only-security.sql
+
       - name: Create isolated API and admin environment
         run: |
           cat > nmt-analytics-api/.env <<EOF
