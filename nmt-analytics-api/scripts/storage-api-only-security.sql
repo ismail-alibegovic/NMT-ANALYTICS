@@ -1,5 +1,9 @@
 -- Disposable database only: synthetic objects, grants and policies roll back.
 BEGIN;
+-- Newer Storage versions reject all raw SQL DELETE statements independently of
+-- RLS. Permit only this rollback-only synthetic fixture so denial below proves
+-- the restrictive policy, rather than the platform's statement-level guard.
+SET LOCAL storage.allow_delete_query = 'true';
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 GRANT USAGE ON SCHEMA storage TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON storage.objects TO anon, authenticated, service_role;
