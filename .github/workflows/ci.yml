@@ -32,6 +32,11 @@ jobs:
 
       - run: npm ci
 
+      - name: Typecheck strict serverless entrypoint and NodeNext packaging
+        run: |
+          ./node_modules/.bin/tsc --project ../tsconfig.json --noEmit
+          ./node_modules/.bin/tsc --project ../tsconfig.json --noEmit --module NodeNext --moduleResolution NodeNext
+
       - run: npm run build
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -140,6 +145,18 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
           MIGRATION_REPLAY_DB: travline_replay
+
+      - name: Rehearse logical recovery on synthetic replay database
+        env:
+          REPLAY_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          # Use the server image's own clients: Ubuntu's default pg_dump is 16.
+          docker exec "$REPLAY_CONTAINER" mkdir -p /tmp/travline-phase1
+          docker cp nmt-analytics-api/scripts "$REPLAY_CONTAINER:/tmp/travline-phase1/scripts"
+          docker exec \
+            -e PGHOST=localhost -e PGPORT=5432 -e PGUSER=postgres -e PGPASSWORD=postgres \
+            -e MIGRATION_REPLAY_DB=travline_replay -e TRAVLINE_ISOLATED_RECOVERY=1 \
+            "$REPLAY_CONTAINER" bash /tmp/travline-phase1/scripts/isolated-recovery-rehearsal.sh
 
   docker-build:
     name: Docker Build Check

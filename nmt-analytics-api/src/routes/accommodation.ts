@@ -253,7 +253,7 @@ router.post(
         return apiError(res, 409, 'ROOM_SLOT_FULL', 'Room slot is full');
       }
       const validation = await validateSlotPassengerCompatibility(orgId, slot, parsed.data.passengerId);
-      if (!validation.ok) return apiError(res, validation.error.status, validation.error.code, validation.error.message);
+      if (validation.ok === false) return apiError(res, validation.error.status, validation.error.code, validation.error.message);
 
       const { data, error } = await supabaseAdmin
         .from('departure_room_slot_assignments')
@@ -351,7 +351,7 @@ router.post(
         return apiError(res, 409, 'ROOM_SLOT_FULL', 'Room slot is full');
       }
       const validation = await validateSlotPassengerCompatibility(orgId, slot, assignment.passenger_id);
-      if (!validation.ok) return apiError(res, validation.error.status, validation.error.code, validation.error.message);
+      if (validation.ok === false) return apiError(res, validation.error.status, validation.error.code, validation.error.message);
 
       const { data, error } = await supabaseAdmin
         .from('departure_room_slot_assignments')

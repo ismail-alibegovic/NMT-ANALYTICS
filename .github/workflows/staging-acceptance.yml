@@ -50,14 +50,6 @@ jobs:
         working-directory: nmt-analytics-admin
         run: npm ci
 
-      - name: Install Playwright Chromium
-        working-directory: nmt-analytics-admin
-        run: npx playwright install --with-deps chromium
-
-      - name: Browser form contract regressions (isolated fixture transport)
-        working-directory: nmt-analytics-admin
-        run: npm run test:forms
-
       - name: Start isolated Supabase PostgreSQL 17, Auth, Storage and SMTP
         working-directory: nmt-analytics-api
         run: |
@@ -90,6 +82,23 @@ jobs:
 
       - name: Verify API-only authorization database boundaries
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/authorization-security.sql
+
+      - name: Verify document Storage policies against permissive-policy bypass
+        # Fixture DDL needs the local platform owner; postgres intentionally does
+        # not own managed Storage tables. The actual assertions SET ROLE to the
+        # browser/API roles, and every temporary change rolls back.
+        run: |
+          docker exec -i -e PGPASSWORD=postgres supabase_db_nmt-analytics-api \
+            psql -h 127.0.0.1 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 \
+            < nmt-analytics-api/scripts/storage-api-only-security.sql
+
+      - name: Install Playwright Chromium
+        working-directory: nmt-analytics-admin
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser form contract regressions (isolated fixture transport)
+        working-directory: nmt-analytics-admin
+        run: npm run test:forms
 
       - name: Create isolated API and admin environment
         run: |

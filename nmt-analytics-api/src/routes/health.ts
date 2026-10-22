@@ -19,8 +19,8 @@ router.get('/health', async (req: Request, res: Response) => {
       .limit(1);
 
     if (error) {
-      console.error('[HEALTH] Supabase test failed:', error);
-      return apiError(res, 500, "INTERNAL_ERROR", "Supabase connectivity test failed", error.message);
+      console.error(JSON.stringify({ event: 'health_failure', category: 'database', requestId: req.requestId }));
+      return apiError(res, 500, "INTERNAL_ERROR", "Supabase connectivity test failed");
     }
 
     res.json({
@@ -37,8 +37,8 @@ router.get('/health', async (req: Request, res: Response) => {
       time: new Date().toISOString()
     });
   } catch (err: any) {
-    console.error('[HEALTH] Unexpected error:', err);
-    apiError(res, 500, "INTERNAL_ERROR", "Unexpected health check error", err.message);
+    console.error(JSON.stringify({ event: 'health_failure', category: 'unexpected', requestId: req.requestId }));
+    apiError(res, 500, "INTERNAL_ERROR", "Unexpected health check error");
   }
 });
 

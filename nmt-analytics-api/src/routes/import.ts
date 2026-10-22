@@ -181,7 +181,7 @@ router.post(
       const invalidRows: InvalidRow[] = [];
       rawRows.forEach((raw, index) => {
         const result = validate(applyColumnMap(raw, columnMap));
-        if (result.ok) candidates.push({ row: index + 1, data: result.data });
+        if (result.ok === true) candidates.push({ row: index + 1, data: result.data });
         else invalidRows.push({ row: index + 1, errors: result.errors });
       });
 
