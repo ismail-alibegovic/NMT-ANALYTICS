@@ -285,7 +285,7 @@ describe('PackageEditorModal', () => {
     );
 
     await waitFor(() => expect(getHotels).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByRole('button', { name: 'Create new hotel' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Create new hotel' }));
     expect(screen.getByRole('heading', { name: 'Create hotel' })).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText('Hotel Bosna'), { target: { value: 'Hotel Novi' } });
     fireEvent.change(screen.getByPlaceholderText('Sarajevo'), { target: { value: 'Mostar' } });
@@ -399,7 +399,7 @@ describe('PackageEditorModal', () => {
     );
 
     await waitFor(() => expect(getHotels).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByRole('button', { name: 'Create new hotel' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Create new hotel' }));
     fireEvent.change(screen.getByPlaceholderText('Hotel Bosna'), { target: { value: 'Hotel Novi' } });
     fireEvent.change(screen.getByPlaceholderText('Sarajevo'), { target: { value: 'Mostar' } });
     const createHotelButtons = screen.getAllByRole('button', { name: 'Create hotel' });
@@ -438,7 +438,7 @@ describe('PackageEditorModal', () => {
     );
 
     await waitFor(() => expect(getHotels).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByRole('button', { name: 'Create new hotel' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Create new hotel' }));
     fireEvent.change(screen.getByPlaceholderText('Hotel Bosna'), { target: { value: 'Hotel Novi' } });
     fireEvent.change(screen.getByPlaceholderText('Sarajevo'), { target: { value: 'Mostar' } });
     const createHotelButtons = screen.getAllByRole('button', { name: 'Create hotel' });
