@@ -1,0 +1,37 @@
+name: Production availability
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-health.yml'
+      - 'scripts/production-health.py'
+      - 'scripts/tests/test_production_health.py'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-health.yml'
+      - 'scripts/production-health.py'
+      - 'scripts/tests/test_production_health.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-availability-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  health:
+    name: Production availability
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Verify probe behavior
+        run: python3 -m unittest discover -s scripts/tests -p 'test_production_health.py'
+      - name: Check production availability without business writes
+        run: python3 scripts/production-health.py

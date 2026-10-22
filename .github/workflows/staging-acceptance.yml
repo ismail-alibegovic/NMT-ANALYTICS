@@ -59,7 +59,9 @@ jobs:
           : > "$RUNNER_TEMP/supabase-start.log"
           for attempt in 1 2 3; do
             attempt_log="$RUNNER_TEMP/supabase-start-$attempt.log"
-            if npm run staging:up > "$attempt_log" 2>&1; then
+            # Acceptance uses API file logs, not the optional local analytics
+            # collector. Keep DB/Auth/Storage/SMTP and their health checks.
+            if supabase start --exclude analytics,vector > "$attempt_log" 2>&1; then
               cat "$attempt_log" >> "$RUNNER_TEMP/supabase-start.log"
               break
             else
