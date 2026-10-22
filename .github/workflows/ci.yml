@@ -130,7 +130,8 @@ jobs:
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
 
       - name: Replay Supabase migrations from zero
         run: ./nmt-analytics-api/scripts/migration-replay.sh
