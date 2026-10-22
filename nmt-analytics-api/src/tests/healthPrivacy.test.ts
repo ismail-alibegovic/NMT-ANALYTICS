@@ -1,0 +1,21 @@
+import { afterEach, expect, it, vi } from 'vitest';
+import express from 'express';
+import request from 'supertest';
+const h = vi.hoisted(() => ({ limit: vi.fn() }));
+vi.mock('../lib/supabase', () => ({ supabaseAdmin: { from: () => ({ select: () => ({ limit: h.limit }) }) } }));
+vi.mock('../instrument', () => ({ sentryEnabled: false }));
+vi.mock('../lib/email/activateSmtpProvider', () => ({ isSmtpProviderConfigured: () => false }));
+import health from '../routes/health';
+afterEach(() => vi.restoreAllMocks());
+for (const mode of ['database', 'unexpected']) it(`keeps ${mode} health failure private`, async () => {
+  const secret = 'private-passenger-and-credential';
+  if (mode === 'database') h.limit.mockResolvedValue({ error: { message: secret, details: secret } });
+  else h.limit.mockRejectedValue(new Error(secret));
+  const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const app = express(); app.use('/api', health);
+  const response = await request(app).get('/api/health');
+  expect(response.status).toBe(500);
+  expect(JSON.stringify(response.body)).not.toContain(secret);
+  expect(JSON.stringify(error.mock.calls)).not.toContain(secret);
+  expect(JSON.parse(error.mock.calls[0][0])).toMatchObject({ event: 'health_failure', category: mode });
+});

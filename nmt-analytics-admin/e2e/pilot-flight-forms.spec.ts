@@ -20,7 +20,10 @@ for (const theme of ['light','dark']) for (const width of [390,768,1440]) {
   await expect(page).not.toHaveURL(/\/auth\/signin/);
   const token=await page.evaluate(()=>localStorage.getItem('nmt_auth_token'));
   expect(token).toBeTruthy();
-  const headers={Authorization:`Bearer ${token}`};
+  // Direct fixture requests are separated by the full browser workflow.
+  // Fresh sockets avoid an idle keep-alive closure race on the final GET.
+  // Browser traffic, write requests and persistence assertions stay unchanged.
+  const headers={Authorization:`Bearer ${token}`,Connection:'close'};
   const context=await request.get(`${base}/api/me/context`,{headers});
   expect(context.status()).toBe(200);
   expect((await context.json()).modules, 'Dedicated Flight fixture must have travel_core').toContain('travel_core');

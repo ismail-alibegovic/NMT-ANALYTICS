@@ -1,7 +1,7 @@
 /** Remove bearer capabilities embedded in paths before logging or telemetry. */
 export function redactCapabilityPath(path: string): string {
   return path.split(/[?#]/)[0].replace(
-    /((?:\/api)?\/public\/waiver|\/waiver)\/[^/]+/g,
+    /((?:\/api)?\/public\/waiver|\/waiver|\/portal\/subagent)\/[^/]+/g,
     '$1/[redacted]',
   );
 }
@@ -25,7 +25,9 @@ export function sanitizeSentryEvent<T>(event: T): T {
     op: value.contexts.trace.op,
   } } : {};
   if (value.tags) value.tags = Object.fromEntries(Object.entries(value.tags)
-    .filter(([key]) => ['tenant.org_id', 'user.role'].includes(key)));
+    .filter(([key, entry]) => ['tenant.org_id', 'user.role'].includes(key)
+      || (key === 'operation.area' && ['api', 'finance'].includes(String(entry)))
+      || (key === 'http.status_code' && /^5\d\d$/.test(String(entry)))));
   if (value.transaction) value.transaction = safeUrl(value.transaction);
   if (value.breadcrumbs) value.breadcrumbs = value.breadcrumbs.map((breadcrumb: Record<string, unknown>) => ({
     category: breadcrumb.category, level: breadcrumb.level, timestamp: breadcrumb.timestamp,

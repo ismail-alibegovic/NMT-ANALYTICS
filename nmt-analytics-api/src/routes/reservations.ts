@@ -610,10 +610,10 @@ router.post('/reservations', authenticateToken, requireOrgContext, requireMinimu
     }
 
     const departureCurrency = await resolveDeparturePackageCurrency(orgId, departureId);
-    if (departureCurrency && !departureCurrency.ok && departureCurrency.code === 'DEPARTURE_NOT_FOUND') {
+    if (departureCurrency && departureCurrency.ok === false && departureCurrency.code === 'DEPARTURE_NOT_FOUND') {
       return apiError(res, 404, "DEPARTURE_NOT_FOUND", "Departure not found");
     }
-    if (departureCurrency && !departureCurrency.ok) {
+    if (departureCurrency && departureCurrency.ok === false) {
       return apiError(res, 400, departureCurrency.code, "Departure package currency could not be resolved");
     }
     if (departureCurrency?.ok && rest.currency && rest.currency !== departureCurrency.currency) {
@@ -1200,13 +1200,13 @@ router.patch('/reservations/:id', authenticateToken, requireOrgContext, requireM
     const oldDepartureCurrency = oldDepId ? await resolveDeparturePackageCurrency(orgId, oldDepId) : null;
     const newDepartureCurrency = newDepId ? await resolveDeparturePackageCurrency(orgId, newDepId) : null;
 
-    if (newDepartureCurrency && !newDepartureCurrency.ok && newDepartureCurrency.code === 'DEPARTURE_NOT_FOUND') {
+    if (newDepartureCurrency && newDepartureCurrency.ok === false && newDepartureCurrency.code === 'DEPARTURE_NOT_FOUND') {
       return apiError(res, 404, "DEPARTURE_NOT_FOUND", "Departure not found");
     }
-    if (newDepartureCurrency && !newDepartureCurrency.ok) {
+    if (newDepartureCurrency && newDepartureCurrency.ok === false) {
       return apiError(res, 400, newDepartureCurrency.code, "Departure package currency could not be resolved");
     }
-    if (oldDepartureCurrency && !oldDepartureCurrency.ok) {
+    if (oldDepartureCurrency && oldDepartureCurrency.ok === false) {
       return apiError(res, 400, oldDepartureCurrency.code, "Current departure package currency could not be resolved");
     }
 

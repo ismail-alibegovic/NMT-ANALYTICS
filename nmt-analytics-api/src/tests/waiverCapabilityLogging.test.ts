@@ -13,6 +13,6 @@ it('never writes a public consent capability to access logs', async () => {
     expect(spy).toHaveBeenCalled();
     const logs = spy.mock.calls.flat().join(' ');
     expect(logs).not.toContain(token);
-    expect(logs).toContain('/api/public/waiver/[redacted]/sign');
+    expect(logs).toContain('/api/public/waiver/:token/sign');
   } finally { spy.mockRestore(); }
 });

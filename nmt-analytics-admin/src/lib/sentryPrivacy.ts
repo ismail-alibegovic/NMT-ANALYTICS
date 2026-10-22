@@ -1,7 +1,7 @@
 /** Remove bearer capabilities embedded in paths before logging or telemetry. */
 export function redactCapabilityPath(path: string): string {
   return path.split(/[?#]/)[0].replace(
-    /((?:\/api)?\/public\/waiver|\/waiver)\/[^/]+/g,
+    /((?:\/api)?\/public\/waiver|\/waiver|\/portal\/subagent)\/[^/]+/g,
     '$1/[redacted]',
   );
 }

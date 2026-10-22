@@ -50,19 +50,28 @@ jobs:
         working-directory: nmt-analytics-admin
         run: npm ci
 
-      - name: Install Playwright Chromium
-        working-directory: nmt-analytics-admin
-        run: npx playwright install --with-deps chromium
-
-      - name: Browser form contract regressions (isolated fixture transport)
-        working-directory: nmt-analytics-admin
-        run: npm run test:forms
-
       - name: Start isolated Supabase PostgreSQL 17, Auth, Storage and SMTP
         working-directory: nmt-analytics-api
         run: |
           supabase stop --no-backup >/dev/null 2>&1 || true
-          npm run staging:up > "$RUNNER_TEMP/supabase-start.log" 2>&1
+          # Keep successful image pulls on this runner when registries throttle
+          # a cold start. Never retry schema, service-health or test failures.
+          : > "$RUNNER_TEMP/supabase-start.log"
+          for attempt in 1 2 3; do
+            attempt_log="$RUNNER_TEMP/supabase-start-$attempt.log"
+            if npm run staging:up > "$attempt_log" 2>&1; then
+              cat "$attempt_log" >> "$RUNNER_TEMP/supabase-start.log"
+              break
+            else
+              start_status=$?
+              cat "$attempt_log" >> "$RUNNER_TEMP/supabase-start.log"
+              if [ "$attempt" -eq 3 ] || ! grep -qi 'failed to pull.*image' "$attempt_log" || ! grep -qi 'toomanyrequests' "$attempt_log"; then
+                exit "$start_status"
+              fi
+              echo "Registry throttled isolated image pulls; retrying startup on the same runner ($attempt/3)."
+              sleep 15
+            fi
+          done
           supabase status -o env > "$RUNNER_TEMP/supabase.env"
           env_value() {
             grep "^$1=" "$RUNNER_TEMP/supabase.env" | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'
@@ -90,6 +99,23 @@ jobs:
 
       - name: Verify API-only authorization database boundaries
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/authorization-security.sql
+
+      - name: Verify document Storage policies against permissive-policy bypass
+        # Fixture DDL needs the local platform owner; postgres intentionally does
+        # not own managed Storage tables. The actual assertions SET ROLE to the
+        # browser/API roles, and every temporary change rolls back.
+        run: |
+          docker exec -i -e PGPASSWORD=postgres supabase_db_nmt-analytics-api \
+            psql -h 127.0.0.1 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 \
+            < nmt-analytics-api/scripts/storage-api-only-security.sql
+
+      - name: Install Playwright Chromium
+        working-directory: nmt-analytics-admin
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser form contract regressions (isolated fixture transport)
+        working-directory: nmt-analytics-admin
+        run: npm run test:forms
 
       - name: Create isolated API and admin environment
         run: |

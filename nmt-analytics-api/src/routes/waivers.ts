@@ -524,7 +524,7 @@ router.get(
 
     // Inline PDF generation — keep light, no separate module yet
     const PDFDocument = (await import('pdfkit')).default;
-    const { registerUnicodeFonts } = await import('../lib/pdfFonts');
+    const { registerUnicodeFonts } = await import('../lib/pdfFonts.js');
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     registerUnicodeFonts(doc);
     const buffers: Buffer[] = [];

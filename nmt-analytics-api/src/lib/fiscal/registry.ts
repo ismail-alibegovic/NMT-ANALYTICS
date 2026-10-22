@@ -28,7 +28,7 @@ class FiscalRegistry {
 
   /** Resolve the provider(s) for an organization based on their configured fiscal_market(s). */
   async getForOrg(orgId: string): Promise<FiscalProvider[]> {
-    const { supabaseAdmin } = await import('../supabase');
+    const { supabaseAdmin } = await import('../supabase.js');
     const { data } = await supabaseAdmin
       .from('org_settings')
       .select('fiscal_market')

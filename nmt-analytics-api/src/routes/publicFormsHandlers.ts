@@ -298,7 +298,7 @@ export async function submitPublicForm(req: any, res: Response) {
   if (!form.active) return apiError(res, 404, 'NOT_FOUND', 'Form not available');
 
   const parsedFields = validateFieldDefinitions(form.fields);
-  if (!parsedFields.valid) {
+  if (parsedFields.valid === false) {
     return apiError(res, 400, 'VALIDATION_ERROR', parsedFields.message);
   }
 
