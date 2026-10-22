@@ -130,8 +130,7 @@ jobs:
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client-17
-          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          sudo apt-get install -y postgresql-client
 
       - name: Replay Supabase migrations from zero
         run: ./nmt-analytics-api/scripts/migration-replay.sh
@@ -143,14 +142,16 @@ jobs:
           MIGRATION_REPLAY_DB: travline_replay
 
       - name: Rehearse logical recovery on synthetic replay database
-        run: ./nmt-analytics-api/scripts/isolated-recovery-rehearsal.sh
         env:
-          PGHOST: localhost
-          PGPORT: "5432"
-          PGUSER: postgres
-          PGPASSWORD: postgres
-          MIGRATION_REPLAY_DB: travline_replay
-          TRAVLINE_ISOLATED_RECOVERY: "1"
+          REPLAY_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          # Use the server image's own clients: Ubuntu's default pg_dump is 16.
+          docker exec "$REPLAY_CONTAINER" mkdir -p /tmp/travline-phase1
+          docker cp nmt-analytics-api/scripts "$REPLAY_CONTAINER:/tmp/travline-phase1/scripts"
+          docker exec \
+            -e PGHOST=localhost -e PGPORT=5432 -e PGUSER=postgres -e PGPASSWORD=postgres \
+            -e MIGRATION_REPLAY_DB=travline_replay -e TRAVLINE_ISOLATED_RECOVERY=1 \
+            "$REPLAY_CONTAINER" bash /tmp/travline-phase1/scripts/isolated-recovery-rehearsal.sh
 
   docker-build:
     name: Docker Build Check
