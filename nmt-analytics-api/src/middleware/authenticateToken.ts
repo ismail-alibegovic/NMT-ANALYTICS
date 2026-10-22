@@ -34,7 +34,7 @@ export async function authenticateToken(
           console.warn(`[AUTH] DEV_BYPASS: No organizations found in database. Create one or set DEV_ORG_ID.`);
         }
       } catch (err) {
-        console.error(`[AUTH] DEV_BYPASS: Failed to fetch organization:`, err);
+        console.error(JSON.stringify({ event: 'authentication_failure', requestId: req.requestId }));
       }
     }
 
@@ -56,7 +56,7 @@ export async function authenticateToken(
     const { data, error } = await supabaseAdmin.auth.getUser(token);
 
     if (error) {
-      console.error(`[AUTH] Request ${req.requestId}: Supabase auth error: ${error.message}`);
+      console.error(JSON.stringify({ event: 'authentication_failure', requestId: req.requestId }));
       return apiError(res, 401, "UNAUTHORIZED", "Invalid or expired token", error.message);
     }
 
@@ -143,7 +143,7 @@ export async function authenticateToken(
               console.log(`[AUTH] DEV_AUTO_BOOTSTRAP: Bootstrap complete for user ${data.user.id}`);
               return next();
             } catch (bootstrapErr) {
-              console.error(`[AUTH] DEV_AUTO_BOOTSTRAP: Bootstrap failed:`, bootstrapErr);
+              console.error(JSON.stringify({ event: 'authentication_failure', requestId: req.requestId }));
               return apiError(res, 500, "BOOTSTRAP_ERROR", "Failed to auto-bootstrap user context", bootstrapErr instanceof Error ? bootstrapErr.message : String(bootstrapErr));
             }
           }
@@ -169,14 +169,14 @@ export async function authenticateToken(
 
         next();
       } catch (profileErr) {
-        console.error(`[AUTH] Request ${req.requestId}: Error fetching profile:`, profileErr);
+        console.error(JSON.stringify({ event: 'authentication_failure', requestId: req.requestId }));
         return apiError(res, 500, "INTERNAL_ERROR", "Internal server error fetching user context", profileErr instanceof Error ? profileErr.message : String(profileErr));
       }
     } else {
       return apiError(res, 401, "UNAUTHORIZED", "User not found in auth");
     }
   } catch (err) {
-    console.error(`[AUTH] Request ${req.requestId}: Error authenticating token:`, err);
+    console.error(JSON.stringify({ event: 'authentication_failure', requestId: req.requestId }));
     return apiError(res, 500, "INTERNAL_ERROR", "Internal server error during auth", err instanceof Error ? err.message : String(err));
   }
 }
