@@ -32,7 +32,10 @@ fingerprint() {
  psql -X -At -v ON_ERROR_STOP=1 -d "$1" -c "SELECT md5(coalesce(string_agg(row_to_json(t)::text, E'\\n' ORDER BY id),'')) FROM public.payments t; SELECT md5(coalesce(string_agg(row_to_json(t)::text, E'\\n' ORDER BY id),'')) FROM public.reservations t;"
 }
 before="$(fingerprint "$DB")"
-for f in "$ROOT"/supabase/migrations/202610{16,20}*.sql; do psql -X -v ON_ERROR_STOP=1 -1 -d "$DB" -f "$f" >/dev/null; done
+for f in "$ROOT"/supabase/migrations/*.sql; do
+ [[ "$(basename "$f")" < 20261016000000 ]] && continue
+ psql -X -v ON_ERROR_STOP=1 -1 -d "$DB" -f "$f" >/dev/null
+done
 [[ "$(fingerprint "$DB")" == "$before" ]]
 psql -X -v ON_ERROR_STOP=1 -d "$DB" <<'SQL'
 DO $$ BEGIN
@@ -55,4 +58,4 @@ docker run --rm -i --network host -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD po
 [[ "$(fingerprint "$RESTORED")" == "$before" ]]
 psql -X -v ON_ERROR_STOP=1 -d "$RESTORED" -c "DO \$\$ BEGIN IF (SELECT count(*) FROM public.waiver_tokens)<>2 THEN RAISE EXCEPTION 'Consent history missing after restore'; END IF; END \$\$;" >/dev/null
 psql -X -v ON_ERROR_STOP=1 -d "$RESTORED" -f "$ROOT/scripts/database-function-security.sql" >/dev/null
-echo "PASS: 110-to-114 upgrade; legacy consent preservation/revocation; financial row fingerprints unchanged; four FKs validated; logical restore in $((SECONDS-start)) seconds. Synthetic only; not a production RTO measurement."
+echo "PASS: 110-to-current upgrade; legacy consent preservation/revocation; financial row fingerprints unchanged; four FKs validated; logical restore in $((SECONDS-start)) seconds. Synthetic only; not a production RTO measurement."

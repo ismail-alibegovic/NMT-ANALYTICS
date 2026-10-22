@@ -1,6 +1,6 @@
 # Production activation controls
 
-The release includes 114 migration files. The four previously pending versions are `20261016000000`, `20261016110719`, `20261020125419`, and `20261020201438`. The immutable checksums are in `production-migration-sha256.txt`.
+The original release includes 114 migration files. The four previously pending versions are `20261016000000`, `20261016110719`, `20261020125419`, and `20261020201438`. The immutable checksums are in `production-migration-sha256.txt`. A separate append-only migration, `20261022192823`, validates the four consent tenant foreign keys with bounded lock/statement timeouts, bringing the repository total to 115. The populated upgrade rehearsal includes all subsequent migrations. Apply this validation only after the updated isolated replay/upgrade checks pass.
 
 When a provider migration runner generates a timestamp instead of accepting the repository version, preserve provenance: apply the exact reviewed SQL through the migration runner, confirm success, compare the recorded SQL bytes/hash with the reviewed file, and only then align that successful history entry to its canonical repository version. Require the expected generated version/name/hash and absence of the canonical version in the guarded update. Never insert an applied history entry for failed or unexecuted SQL. Verify the exact version set and catalog state afterward.
 
