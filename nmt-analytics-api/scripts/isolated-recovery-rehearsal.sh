@@ -7,7 +7,7 @@ if [[ "${TRAVLINE_ISOLATED_RECOVERY:-}" != 1 || "${PGHOST:-}" != localhost || "$
   exit 1
 fi
 # Reject URL/database overrides; libpq service files must not redirect this test.
-unset PGSERVICE PGSERVICEFILE PGDATABASE
+unset PGSERVICE PGSERVICEFILE PGDATABASE PGHOSTADDR
 SOURCE=travline_replay
 TARGET=travline_phase1_restore
 if [[ "$(psql -X -At -d "$SOURCE" -c "SELECT count(*) FROM pg_database WHERE datname='$TARGET'")" != 0 ]]; then
