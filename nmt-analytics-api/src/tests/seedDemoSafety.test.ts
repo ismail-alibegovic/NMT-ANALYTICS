@@ -1,138 +1,251 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { supabaseAdmin } from '../lib/supabase';
-import { assertEmptyDemoTarget } from '../scripts/seed_demo';
+import { assertNoForeignSeedDependents, resolveGoldenDemoTargetOrg } from '../scripts/seed_demo';
 
 vi.mock('../lib/supabase', () => ({ supabaseAdmin: { from: vi.fn() } }));
 
-type QueryRecord = { table: string; orgId?: string; columns?: string; limited: boolean };
+type QueryRecord = {
+  table: string;
+  columns?: string;
+  eq: { column: string; value: unknown }[];
+  inFilters: { column: string; values: string[] }[];
+  notFilters: { column: string; values: string }[];
+  mutation?: string;
+};
 
-describe('demo seed non-destructive preflight', () => {
-  const queries: QueryRecord[] = [];
-  let occupied: string | undefined;
-  let failure: string | undefined;
-  let missingData = false;
-  let registryRows: { entity: string; record_id: string }[] = [];
-  let departureRows: { id: string; package_id: string }[] = [];
-  let reservationDepartureRows: { id: string; departure_id: string }[] = [];
-  let reservationCustomerRows: { id: string; customer_id: string }[] = [];
+const expectOrgScoped = (queries: QueryRecord[], orgId: string) => {
+  expect(queries.length).toBeGreaterThan(0);
+  for (const query of queries) {
+    expect(query.eq.some((filter) => filter.column === 'org_id' && filter.value === orgId)).toBe(true);
+  }
+};
 
-  const resultFor = (query: QueryRecord) => {
-    if (query.limited) {
-      if (missingData) return { data: null, error: null };
-      if (query.table === failure) return { data: null, error: { message: 'unavailable' } };
-      return { data: query.table === occupied ? [{ id: 'existing-record' }] : [], error: null };
-    }
-    if (query.table === failure) return { data: null, error: { message: 'unavailable' } };
-    if (query.table === 'seed_owned_records') return { data: registryRows, error: null };
-    if (query.table === 'departures') return { data: departureRows, error: null };
-    if (query.table === 'reservations' && query.columns?.includes('departure_id')) return { data: reservationDepartureRows, error: null };
-    if (query.table === 'reservations' && query.columns?.includes('customer_id')) return { data: reservationCustomerRows, error: null };
-    return { data: [], error: null };
+describe('golden demo seed: target organization resolution', () => {
+  const scenarios = [
+    { DEMO_TARGET_ORG_ID: '', DEMO_RESET_CONFIRMATION: '' },
+    { DEMO_TARGET_ORG_ID: 'org-1', DEMO_RESET_CONFIRMATION: '' },
+    { DEMO_TARGET_ORG_ID: 'org-1', DEMO_RESET_CONFIRMATION: 'YES' },
+  ];
+  const expectations = [
+    /DEMO_TARGET_ORG_ID is required/,
+    /DEMO_RESET_CONFIRMATION must be set to YES_RESET_DEMO_DATA/,
+    /DEMO_RESET_CONFIRMATION must be set to YES_RESET_DEMO_DATA/,
+  ];
+
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it.each(scenarios.map((scenario, index) => [index, scenario, expectations[index]] as const))(
+    'refuses ambiguous or unconfirmed targets (case %i)',
+    async (_index, env, expected) => {
+      vi.stubEnv('DEMO_TARGET_ORG_ID', env.DEMO_TARGET_ORG_ID);
+      vi.stubEnv('DEMO_RESET_CONFIRMATION', env.DEMO_RESET_CONFIRMATION);
+      await expect(resolveGoldenDemoTargetOrg()).rejects.toThrow(expected);
+    },
+  );
+
+  it('refuses an unknown organization id without querying other organizations', async () => {
+    vi.stubEnv('DEMO_TARGET_ORG_ID', 'org-missing');
+    vi.stubEnv('DEMO_RESET_CONFIRMATION', 'YES_RESET_DEMO_DATA');
+    const queries: QueryRecord[] = [];
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      const query: QueryRecord = { table, eq: [], inFilters: [], notFilters: [] };
+      queries.push(query);
+      const chain: any = {
+        select: (columns: string) => {
+          query.columns = columns;
+          return chain;
+        },
+        eq: (column: string, value: unknown) => {
+          query.eq.push({ column, value });
+          return chain;
+        },
+        maybeSingle: () => Promise.resolve({ data: null, error: null }),
+        then: (resolve: (value: unknown) => unknown) => resolve({ data: null, error: null }),
+      };
+      return chain;
+    });
+
+    await expect(resolveGoldenDemoTargetOrg()).rejects.toThrow(/does not reference an existing organization/);
+    expect(queries).toHaveLength(1);
+    expect(queries[0].table).toBe('organizations');
+    expect(queries[0].eq).toEqual([{ column: 'id', value: 'org-missing' }]);
+  });
+
+  it('returns the confirmed target and never re-scopes to another organization', async () => {
+    vi.stubEnv('DEMO_TARGET_ORG_ID', 'org-1');
+    vi.stubEnv('DEMO_RESET_CONFIRMATION', 'YES_RESET_DEMO_DATA');
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      expect(table).toBe('organizations');
+      const chain: any = {
+        select: () => chain,
+        eq: () => chain,
+        maybeSingle: () =>
+          Promise.resolve({
+            data: { id: 'org-1', name: 'Other Agency', slug: 'other-agency', currency: 'EUR', timezone: 'UTC' },
+            error: null,
+          }),
+      };
+      return chain;
+    });
+
+    await expect(resolveGoldenDemoTargetOrg()).resolves.toEqual({ orgId: 'org-1', isLegacyDemoOrg: false });
+  });
+});
+
+describe('golden demo seed: non-destructive preflight for seed-owned records', () => {
+  let queries: QueryRecord[];
+  let foreignRows: Record<string, { id: string }[]>;
+  let failingTable: string | undefined;
+
+  const owned = {
+    packages: ['p-seed-1'],
+    hotels: [],
+    flights: [],
+    customers: ['c-seed-1'],
+    reservations: ['r-seed-1'],
+    trip_passenger_groups: [],
+    departures: ['d-seed-1'],
+    package_hotels: [],
+    hotel_allocations: [],
+    departure_room_slots: [],
+    departure_room_slot_assignments: [],
+    reservation_accommodation_requirements: [],
+    departure_passengers: [],
+    payments: [],
+    transactions: [],
+    departure_flights: [],
+    trip_passenger_group_members: [],
   };
 
   beforeEach(() => {
-    queries.length = 0;
-    occupied = undefined;
-    failure = undefined;
-    missingData = false;
-    registryRows = [];
-    departureRows = [];
-    reservationDepartureRows = [];
-    reservationCustomerRows = [];
+    queries = [];
+    foreignRows = {};
+    failingTable = undefined;
     vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
-      const query: QueryRecord = { table, orgId: undefined, columns: undefined, limited: false };
+      const query: QueryRecord = { table, eq: [], inFilters: [], notFilters: [] };
       queries.push(query);
       const chain: any = {
-        select: vi.fn((columns: string) => {
+        select: (columns: string) => {
           query.columns = columns;
           return chain;
-        }),
-        eq: vi.fn((column: string, value: unknown) => {
-          if (column === 'org_id') query.orgId = value as string;
+        },
+        eq: (column: string, value: unknown) => {
+          query.eq.push({ column, value });
           return chain;
-        }),
-        limit: vi.fn(() => {
-          query.limited = true;
-          return Promise.resolve(resultFor(query));
-        }),
+        },
+        in: (column: string, values: string[]) => {
+          query.inFilters.push({ column, values });
+          return chain;
+        },
+        not: (column: string, _operator: string, values: string) => {
+          query.notFilters.push({ column, values });
+          return chain;
+        },
+        then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) => {
+          if (table === failingTable) {
+            return Promise.resolve({ data: null, error: { message: 'unavailable' } }).then(resolve, reject);
+          }
+          let rows = foreignRows[table] ?? [];
+          for (const notFilter of query.notFilters) {
+            const excluded = notFilter.values.replace(/^[(]|[)]$/g, '').split(',').filter(Boolean);
+            rows = rows.filter((row: any) => !excluded.includes(row[notFilter.column]));
+          }
+          return Promise.resolve({ data: rows, error: null }).then(resolve, reject);
+        },
       };
-      chain.then = (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
-        Promise.resolve(resultFor(query)).then(resolve, reject);
       return chain;
     });
   });
 
-  it('permits an empty target and scopes every read to that organization', async () => {
-    await expect(assertEmptyDemoTarget('demo-org')).resolves.toBeUndefined();
-    expect(queries).toHaveLength(17);
-    expect(queries.every(query => query.orgId === 'demo-org' && query.limited)).toBe(true);
-  });
-
-  it.each(['seed_owned_records', 'departures', 'reservations', 'payments', 'departure_room_slot_assignments'])('refuses existing %s without any mutation capability', async table => {
-    occupied = table;
-    await expect(assertEmptyDemoTarget('demo-org')).rejects.toThrow('Reset is disabled');
-    expect(queries[queries.length - 1]?.table).toBe(table);
-  });
-
-  it('refuses database errors', async () => {
-    failure = 'seed_owned_records';
-    await expect(assertEmptyDemoTarget('demo-org')).rejects.toThrow('unavailable');
-  });
-
-  it('refuses a missing query result', async () => {
-    missingData = true;
-    await expect(assertEmptyDemoTarget('demo-org')).rejects.toThrow('not confirmed empty');
-  });
-
-  it('refuses an interrupted run on the next invocation', async () => {
-    await assertEmptyDemoTarget('demo-org');
-    occupied = 'packages';
-    await expect(assertEmptyDemoTarget('demo-org')).rejects.toThrow('Reset is disabled');
-  });
-
-  it('reports user-created records that depend on seed-owned data', async () => {
-    occupied = 'departures';
-    registryRows = [
-      { entity: 'packages', record_id: 'seed-pkg-1' },
-      { entity: 'departures', record_id: 'seed-dep-1' },
-      { entity: 'customers', record_id: 'seed-cust-1' },
-      { entity: 'reservations', record_id: 'seed-res-1' },
-    ];
-    departureRows = [{ id: 'user-dep-1', package_id: 'seed-pkg-1' }];
-    reservationDepartureRows = [{ id: 'user-res-1', departure_id: 'seed-dep-1' }];
-    reservationCustomerRows = [{ id: 'user-res-2', customer_id: 'seed-cust-1' }];
-
-    await expect(assertEmptyDemoTarget('demo-org')).rejects.toThrow(
-      'Golden demo seed refused to reset seed-owned records',
+  it('refuses user-created departures attached to seed-owned packages', async () => {
+    foreignRows = { departures: [{ id: 'user-dep-1' }] };
+    await expect(assertNoForeignSeedDependents('org-1', owned)).rejects.toThrow(
+      /Golden demo seed refused to reset seed-owned records: user-created departures reference seed-owned packages/,
     );
-    await expect(assertEmptyDemoTarget('demo-org')).rejects.toThrow('user-created departures reference seed-owned packages.');
-    await expect(assertEmptyDemoTarget('demo-org')).rejects.toThrow('user-created reservations are attached to seed-owned departures.');
-    await expect(assertEmptyDemoTarget('demo-org')).rejects.toThrow('user-created reservations reference seed-owned customers.');
+    const probe = queries.find((query) => query.table === 'departures');
+    expect(probe?.inFilters[0]).toEqual({ column: 'package_id', values: ['p-seed-1'] });
+    expect(probe?.notFilters[0]).toEqual({ column: 'id', values: '(d-seed-1)' });
+    expectOrgScoped(queries, 'org-1');
   });
 
-  it('does not report seed-owned records as user-created dependencies', async () => {
-    occupied = 'departures';
-    registryRows = [
-      { entity: 'packages', record_id: 'seed-pkg-1' },
-      { entity: 'departures', record_id: 'seed-dep-1' },
-      { entity: 'customers', record_id: 'seed-cust-1' },
-      { entity: 'reservations', record_id: 'seed-res-1' },
-    ];
-    departureRows = [{ id: 'seed-dep-1', package_id: 'seed-pkg-1' }];
-    reservationDepartureRows = [{ id: 'seed-res-1', departure_id: 'seed-dep-1' }];
-    reservationCustomerRows = [{ id: 'seed-res-1', customer_id: 'seed-cust-1' }];
-
-    await expect(assertEmptyDemoTarget('demo-org')).rejects.toThrow('Golden demo seed refused to reset seed-owned records');
-    await expect(assertEmptyDemoTarget('demo-org')).rejects.toThrow('Reset is disabled');
-    await expect(assertEmptyDemoTarget('demo-org')).rejects.not.toThrow('user-created');
+  it('refuses user-created reservations attached to seed-owned departures', async () => {
+    foreignRows = { departures: [], reservations: [{ id: 'user-res-1' }] };
+    await expect(assertNoForeignSeedDependents('org-1', owned)).rejects.toThrow(
+      /user-created reservations are attached to seed-owned departures/,
+    );
+    const probes = queries.filter((query) => query.table === 'reservations');
+    expect(probes[0]?.inFilters[0]).toEqual({ column: 'departure_id', values: ['d-seed-1'] });
+    expectOrgScoped(queries, 'org-1');
   });
 
-  it('scopes dependency reads to the target organization only', async () => {
-    occupied = 'departures';
-    registryRows = [{ entity: 'packages', record_id: 'seed-pkg-1' }];
-    departureRows = [{ id: 'user-dep-1', package_id: 'seed-pkg-1' }];
-    await expect(assertEmptyDemoTarget('demo-org')).rejects.toThrow('Reset is disabled');
-    expect(queries.length).toBeGreaterThan(17);
-    expect(queries.every(query => query.orgId === 'demo-org')).toBe(true);
+  it('refuses user-created reservations referencing seed-owned customers', async () => {
+    foreignRows = { departures: [], reservations: [{ id: 'user-res-2' }] };
+    const reservationQueries: QueryRecord[] = [];
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      const query: QueryRecord = { table, eq: [], inFilters: [], notFilters: [] };
+      queries.push(query);
+      if (table === 'reservations') reservationQueries.push(query);
+      const chain: any = {
+        select: (columns: string) => {
+          query.columns = columns;
+          return chain;
+        },
+        eq: (column: string, value: unknown) => {
+          query.eq.push({ column, value });
+          return chain;
+        },
+        in: (column: string, values: string[]) => {
+          query.inFilters.push({ column, values });
+          return chain;
+        },
+        not: (column: string, _operator: string, values: string) => {
+          query.notFilters.push({ column, values });
+          return chain;
+        },
+        then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) => {
+          const isCustomerProbe = query.inFilters.some((filter) => filter.column === 'customer_id');
+          const rows =
+            table === 'reservations' && isCustomerProbe
+              ? [{ id: 'user-res-2' }]
+              : table === 'reservations'
+                ? []
+                : [];
+          return Promise.resolve({ data: rows, error: null }).then(resolve, reject);
+        },
+      };
+      return chain;
+    });
+
+    await expect(assertNoForeignSeedDependents('org-1', owned)).rejects.toThrow(
+      /user-created reservations reference seed-owned customers/,
+    );
+    const customerProbe = reservationQueries.find((query) =>
+      query.inFilters.some((filter) => filter.column === 'customer_id'),
+    );
+    expect(customerProbe?.inFilters[0]).toEqual({ column: 'customer_id', values: ['c-seed-1'] });
+    expectOrgScoped(queries, 'org-1');
+  });
+
+  it('permits the cleanup when only seed-owned records reference each other', async () => {
+    foreignRows = { departures: [{ id: 'd-seed-1' }] };
+    await expect(assertNoForeignSeedDependents('org-1', owned)).resolves.toBeUndefined();
+    expectOrgScoped(queries, 'org-1');
+  });
+
+  it('fails closed on database errors instead of proceeding to cleanup', async () => {
+    failingTable = 'reservations';
+    await expect(assertNoForeignSeedDependents('org-1', owned)).rejects.toThrow(
+      /check foreign dependents in reservations: unavailable/,
+    );
+  });
+
+  it('never issues a mutation while verifying dependents', async () => {
+    await expect(assertNoForeignSeedDependents('org-1', owned)).resolves.toBeUndefined();
+    for (const query of queries) {
+      expect(query.mutation).toBeUndefined();
+      expect(query.columns).toBe('id');
+    }
   });
 });
