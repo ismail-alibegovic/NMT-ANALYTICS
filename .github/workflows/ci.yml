@@ -146,6 +146,15 @@ jobs:
           PGPASSWORD: postgres
           MIGRATION_REPLAY_DB: travline_replay
 
+      - name: Rehearse 110-to-114 upgrade with existing synthetic records
+        run: bash nmt-analytics-api/scripts/production-upgrade-rehearsal.sh
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          TRAVLINE_ISOLATED_REHEARSAL: "1"
+
       - name: Rehearse logical recovery on synthetic replay database
         env:
           REPLAY_CONTAINER: ${{ job.services.postgres.id }}
