@@ -50,14 +50,6 @@ jobs:
         working-directory: nmt-analytics-admin
         run: npm ci
 
-      - name: Install Playwright Chromium
-        working-directory: nmt-analytics-admin
-        run: npx playwright install --with-deps chromium
-
-      - name: Browser form contract regressions (isolated fixture transport)
-        working-directory: nmt-analytics-admin
-        run: npm run test:forms
-
       - name: Start isolated Supabase PostgreSQL 17, Auth, Storage and SMTP
         working-directory: nmt-analytics-api
         run: |
@@ -93,6 +85,14 @@ jobs:
 
       - name: Verify document Storage policies against permissive-policy bypass
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/storage-api-only-security.sql
+
+      - name: Install Playwright Chromium
+        working-directory: nmt-analytics-admin
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser form contract regressions (isolated fixture transport)
+        working-directory: nmt-analytics-admin
+        run: npm run test:forms
 
       - name: Create isolated API and admin environment
         run: |
