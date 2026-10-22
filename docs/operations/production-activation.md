@@ -19,3 +19,5 @@ Configure production-only `CRON_SECRET` as a sensitive value and leave `COMMUNIC
 API Sentry requires `SENTRY_DSN`, `SENTRY_ENVIRONMENT=production` and an immutable `SENTRY_RELEASE`; browser ingestion additionally requires a reviewed `VITE_SENTRY_DSN` rebuild. Verify redaction, event receipt and actual alert delivery using a separate non-production environment. SMTP requires a verified sender and `SMTP_CONFIG`; SMS requires the chosen provider credentials/sender. Do not enable mock providers in production or invent credentials.
 
 Supabase Auth leaked-password protection is a hosted Auth setting requiring an eligible plan and configuration access. It cannot be enabled with business-table SQL. Verify that setting in the hosting account and confirm the security advisor clears after activation.
+
+CI acceptance excludes only the optional local Supabase analytics/vector collector. Run 39840541232 exhausted bounded registry retries pulling vector (artifact 12453452999) before any test. PostgreSQL, Auth, Storage, SMTP and core service health checks remain enabled; API logs remain captured as artifacts. No ignore-health-check flag or test exclusion is used.
