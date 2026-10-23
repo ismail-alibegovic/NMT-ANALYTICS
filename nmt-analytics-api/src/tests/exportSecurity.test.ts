@@ -55,3 +55,13 @@ it('retains actionable client validation details', async () => {
   apiError(response, 422, 'VALIDATION_ERROR', 'Invalid input', [{ path: 'amount' }]);
   expect(response.json).toHaveBeenCalledWith({ code: 'VALIDATION_ERROR', message: 'Invalid input', details: [{ path: 'amount' }] });
 });
+
+it('preserves saved-sale recovery without exposing the database cause', async () => {
+  const { apiError } = await import('../lib/errors');
+  const response: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+  const reservationId = '12345678-1234-4234-8234-123456789abc';
+  apiError(response, 500, 'INSTALLMENT_SCHEDULE_CREATE_FAILED', 'Sale requires recovery', {
+    stage: 'installments', reservationId, cause: 'private passenger SECRET-123', hint: 'private SQL',
+  });
+  expect(response.json).toHaveBeenCalledWith({ code: 'INSTALLMENT_SCHEDULE_CREATE_FAILED', message: 'Sale requires recovery', details: { stage: 'installments', reservationId } });
+});
