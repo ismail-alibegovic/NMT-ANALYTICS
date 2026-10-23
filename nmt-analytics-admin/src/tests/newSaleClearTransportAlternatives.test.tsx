@@ -84,6 +84,7 @@ function renderWizard(initialPackageId?: string) {
 
 describe('NewSaleWizard — clear transport alternatives', () => {
   beforeEach(() => {
+    localStorage.setItem('travline_lang', 'bs');
     vi.clearAllMocks();
     getDepartureAccommodationOptions.mockResolvedValue({ items: [] });
     getPackageServices.mockResolvedValue([]);

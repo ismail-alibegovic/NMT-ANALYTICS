@@ -55,6 +55,7 @@ const accommodationOption = {
 
 describe("NewSaleWizard — accommodation resolution race", () => {
   beforeEach(() => {
+    localStorage.setItem('travline_lang', 'bs');
     vi.clearAllMocks();
     getPackages.mockResolvedValue({ data: [pkg] });
     getDepartures.mockResolvedValue({ data: [departure] });

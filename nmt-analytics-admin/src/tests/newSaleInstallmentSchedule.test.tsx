@@ -109,6 +109,7 @@ async function submitSale() {
 
 describe('NewSaleWizard — M14.1 canonical installment schedule', () => {
   beforeEach(() => {
+    localStorage.setItem('travline_lang', 'bs');
     vi.clearAllMocks();
     getPackages.mockResolvedValue({ data: [pkg] });
     getDepartures.mockResolvedValue({ data: [departure] });
