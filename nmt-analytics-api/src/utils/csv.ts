@@ -7,7 +7,9 @@ export function escapeCSVValue(value: any): string {
         return '';
     }
 
-    const stringValue = String(value);
+    // Quoting does not prevent spreadsheet formula execution. Preserve numbers.
+    const stringValue = typeof value === 'string' && /^(?:[\t\r\n]|\s*[=+@-])/.test(value)
+        ? "'" + value : String(value);
 
     // If the value contains quotes, commas, or newlines, wrap it in double quotes 
     // and escape existing double quotes by doubling them.

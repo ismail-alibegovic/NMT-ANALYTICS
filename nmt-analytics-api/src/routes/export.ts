@@ -5,6 +5,7 @@ import { requireOrgContext } from '../middleware/requireOrgContext';
 import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
 import { apiError } from '../lib/errors';
 import archiver from 'archiver';
+import { generateCSV } from '../utils/csv';
 
 const router = Router();
 
@@ -228,10 +229,7 @@ router.get('/export/customers.csv', authenticateToken, requireOrgContext, async 
       customer.created_at
     ]);
 
-    const csvContent = [
-      csvHeaders.join(','),
-      ...csvRows.map(row => row.map(field => `"${field}"`).join(','))
-    ].join('\n');
+    const csvContent = generateCSV(csvHeaders, csvRows);
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="customers_export.csv"');
@@ -311,10 +309,7 @@ router.get('/export/packages.csv', authenticateToken, requireOrgContext, async (
       pkg.created_at
     ]);
 
-    const csvContent = [
-      csvHeaders.join(','),
-      ...csvRows.map(row => row.map(field => `"${field}"`).join(','))
-    ].join('\n');
+    const csvContent = generateCSV(csvHeaders, csvRows);
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="packages_export.csv"');
@@ -386,10 +381,7 @@ router.get('/export/departures.csv', authenticateToken, requireOrgContext, async
       dep.created_at
     ]);
 
-    const csvContent = [
-      csvHeaders.join(','),
-      ...csvRows.map(row => row.map(field => `"${field}"`).join(','))
-    ].join('\n');
+    const csvContent = generateCSV(csvHeaders, csvRows);
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="departures_export.csv"');
@@ -472,10 +464,7 @@ router.get('/export/reservations.csv', authenticateToken, requireOrgContext, asy
       res.created_at
     ]);
 
-    const csvContent = [
-      csvHeaders.join(','),
-      ...csvRows.map(row => row.map(field => `"${field}"`).join(','))
-    ].join('\n');
+    const csvContent = generateCSV(csvHeaders, csvRows);
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="reservations_export.csv"');
@@ -535,10 +524,7 @@ router.get('/export/transactions.csv', authenticateToken, requireOrgContext, req
       tx.created_at
     ]);
 
-    const csvContent = [
-      csvHeaders.join(','),
-      ...csvRows.map(row => row.map(field => `"${field}"`).join(','))
-    ].join('\n');
+    const csvContent = generateCSV(csvHeaders, csvRows);
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="transactions_export.csv"');
@@ -552,20 +538,7 @@ router.get('/export/transactions.csv', authenticateToken, requireOrgContext, req
 
 // ── Helper: convert array of objects to CSV ──────────────────────────────
 function toCSV(data: Record<string, any>[], headers: string[]): string {
-  const BOM = '\ufeff';
-  const rows = data.map(row =>
-    headers.map(h => {
-      const v = row[h];
-      if (v === null || v === undefined) return '';
-      const s = String(v);
-      // Escape quotes and wrap in quotes if contains comma, quote, or newline
-      if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
-        return `"${s.replace(/"/g, '""')}"`;
-      }
-      return s;
-    }).join(',')
-  );
-  return BOM + headers.join(',') + '\n' + rows.join('\n');
+  return '\ufeff' + generateCSV(headers, data.map(row => headers.map(h => row[h])));
 }
 
 export default router;
