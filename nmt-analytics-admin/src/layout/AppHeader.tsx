@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { Link } from "react-router";
 import { useSidebar } from "../context/SidebarContext";
+import LanguageToggleButton from "../components/common/LanguageToggleButton";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import GlobalSearch from "../components/common/GlobalSearch";
 import NotificationDropdown from "../components/header/NotificationDropdown";
@@ -15,7 +16,7 @@ const AppHeader: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar, activeScope } = useSidebar();
-  const { setLang, lang, t } = useT();
+  const { t } = useT();
   const { openQuickCreate } = useQuickCreate();
 
   const hasSidebar = activeScope !== null;
@@ -30,10 +31,6 @@ const AppHeader: React.FC = () => {
 
   const toggleApplicationMenu = () => {
     setApplicationMenuOpen(!isApplicationMenuOpen);
-  };
-
-  const toggleLanguage = () => {
-    setLang(lang === 'en' ? 'bs' : 'en');
   };
 
   useEffect(() => {
@@ -173,13 +170,7 @@ const AppHeader: React.FC = () => {
             {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}
-            <button
-  onClick={toggleLanguage}
-  className="relative flex items-center justify-center h-11 w-11 rounded-full border border-gray-200 bg-white text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
-  title={lang === "en" ? "Switch to Bosnian" : "Switch to English"}
->
-  {lang === "en" ? "BS" : "EN"}
-</button>
+            <LanguageToggleButton />
             <NotificationDropdown />
             {/* <!-- Notification Menu Area --> */}
           </div>

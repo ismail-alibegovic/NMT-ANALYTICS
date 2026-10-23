@@ -22,25 +22,23 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored === 'bs' || stored === 'en') return stored;
-      return navigator.language?.startsWith('bs') ? 'bs' : 'en';
-    } catch {
-      return 'en';
-    }
+    } catch { /* Storage may be unavailable; still respect browser language. */ }
+    return navigator.language?.startsWith('bs') ? 'bs' : 'en';
   });
 
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
-    try { localStorage.setItem(STORAGE_KEY, l); } catch { /* noop */ }
   }, []);
 
   const toggleLang = useCallback(() => {
-    setLang(lang === 'bs' ? 'en' : 'bs');
-  }, [lang, setLang]);
+    setLangState(current => current === 'bs' ? 'en' : 'bs');
+  }, []);
 
   const t = translations[lang];
 
   useEffect(() => {
     document.documentElement.lang = lang;
+    try { localStorage.setItem(STORAGE_KEY, lang); } catch { /* Selection remains usable without storage. */ }
   }, [lang]);
 
   return (
