@@ -11,10 +11,10 @@ Reports monetary formatting, dictionary coverage, shared language selection and 
 | Admin source file | Candidate count | First candidate lines |
 | --- | ---: | --- |
 | `src/components/reservations/NewSaleWizard.tsx` | 99 (historical baseline; addressed in I18N-04B, CI pending) | 824, 853, 859, 860, 884 |
-| `src/pages/ReservationDetail.tsx` | 54 | 228, 234, 236, 350, 357 |
+| `src/pages/ReservationDetail.tsx` | 54 (historical baseline; addressed in I18N-04C, CI pending) | 228, 234, 236, 350, 357 |
 | `src/pages/admin/Settings.tsx` | 37 | 526, 528, 540, 554, 555 |
 | `src/pages/admin/UnifiedPayments.tsx` | 34 | 262, 265, 266, 271, 272 |
-| `src/components/reservations/EditReservationModal.tsx` | 33 | 313, 323, 327, 334, 336 |
+| `src/components/reservations/EditReservationModal.tsx` | 33 (historical baseline; addressed in I18N-04D, CI pending) | 313, 323, 327, 334, 336 |
 | `src/pages/operations/Excursions.tsx` | 32 | 115, 116, 120, 141, 142 |
 | `src/pages/admin/Integrations.tsx` | 29 | 107, 110, 120, 124, 135 |
 | `src/pages/Reservations.tsx` | 23 | 345, 400, 402, 418, 420 |
@@ -139,3 +139,5 @@ Occurrence counts may include both a call and its explicit locale; they are revi
 ## Release evidence required
 
 For each domain: identify reachable screens/roles; classify all candidates; add BS/EN keys without changing stable identifiers; test validation/toasts/errors/empty/loading/success states; verify immediate switching plus reload; check mobile/tablet/desktop and both themes; record unit/browser commands and PR/merge evidence in the final roadmap. Backend messages, PDF and CSV text need an explicit localization contract instead of translating stable API error codes. No production seed/reset is required for translation work.
+
+Reservation Detail page/tabs/contract display is translated on `fix/i18n-reservation-detail`; EditReservationModal and Reservations list remain open. Counts/line numbers above remain an audit baseline, not current untranslated totals. See the final roadmap for executed checks and merge status.

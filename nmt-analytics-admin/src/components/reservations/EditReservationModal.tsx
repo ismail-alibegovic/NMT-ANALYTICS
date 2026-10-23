@@ -1,5 +1,6 @@
+import { formatCurrency } from "../../utils/business";
 import { useT } from "../../lib/i18n/context";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useId } from "react";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
@@ -58,9 +59,21 @@ export default function EditReservationModal({
 }: EditReservationModalProps) {
   const { success: showSuccess, error: showError } = useToast();
 
-  const { t } = useT();
+  const { t, lang } = useT();
+  const w = t.reservationEditor;
+  const formId = useId();
+  const loadErrorCopy = useRef(w.errorLoad);
+  useEffect(() => { loadErrorCopy.current = w.errorLoad; }, [w.errorLoad]);
+  const fill = (template: string, params: Record<string, string | number>) => template.replace(/\{(\w+)\}/g, (token, key: string) => String(params[key] ?? token));
+  const money = (amount: number, currency = reservationCurrency) => formatCurrency(amount, currency, lang === 'bs' ? 'bs-BA' : 'en-GB');
+  const dateLabel = (value: string) => {
+    const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value);
+    if (!Number.isFinite(date.getTime())) return '—';
+    const day = String(date.getDate()).padStart(2, '0'), month = String(date.getMonth() + 1).padStart(2, '0');
+    return lang === 'bs' ? `${day}.${month}.${date.getFullYear()}.` : `${day}/${month}/${date.getFullYear()}`;
+  };
   const [quotationId,setQuotationId]=useState<string|null>(null);
-  const [quoteCurrency,setQuoteCurrency]=useState("BAM");
+  const [reservationCurrency,setReservationCurrency]=useState("BAM");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -76,16 +89,16 @@ export default function EditReservationModal({
   const [status, setStatus] = useState<string>("pending");
   const [accommodationOptions, setAccommodationOptions] = useState<DepartureAccommodationOption[]>([]);
   const [accommodationLoading, setAccommodationLoading] = useState(false);
-  const [accommodationError, setAccommodationError] = useState<string | null>(null);
+  const [accommodationError, setAccommodationError] = useState<'errorReservationAccommodation' | 'errorDepartureAccommodation' | null>(null);
   const [accommodationLines, setAccommodationLines] = useState<AccommodationLineDraft[]>([]);
   const [purchasedAddons, setPurchasedAddons] = useState<PurchasedAddonSnapshot[]>([]);
   const [purchasedAddonsTotal, setPurchasedAddonsTotal] = useState(0);
 
   const statusOptions = [
-    { value: "pending", label: "Na čekanju" },
-    { value: "confirmed", label: "Potvrđeno" },
-    { value: "cancelled", label: "Otkazano" },
-    { value: "completed", label: "Završeno" },
+    { value: "pending", label: w.pending },
+    { value: "confirmed", label: w.confirmed },
+    { value: "cancelled", label: w.cancelled },
+    { value: "completed", label: w.completed },
   ];
 
   const accommodationCoverage = accommodationLines.reduce((sum, line) => sum + line.guestsExpected, 0);
@@ -123,7 +136,7 @@ export default function EditReservationModal({
     getReservation(reservationId)
       .then(async (res) => {
         setQuotationId(res.quotationId || null);
-        setQuoteCurrency(res.currency);
+        setReservationCurrency(res.currency);
         setCustomerName(res.customerName);
         setCustomerPhone(res.customerPhone || "");
         setPartySize(res.participants || res.partySize || 1);
@@ -171,10 +184,10 @@ export default function EditReservationModal({
             passengerIds: requirement.passengerIds || [],
           })));
         } catch {
-          setAccommodationError("Smještaj za rezervaciju nije moguće učitati");
+          setAccommodationError("errorReservationAccommodation");
         }
       })
-      .catch(() => showError("Failed to load reservation"))
+      .catch(() => showError(loadErrorCopy.current))
       .finally(() => setLoading(false));
   }, [isOpen, reservationId, showError]);
 
@@ -206,10 +219,10 @@ export default function EditReservationModal({
         setReservationPassengers((manifest.manifest || []).filter((passenger) => passenger.reservationId === reservationId && !!passenger.passengerId));
         setAccommodationError(null);
       })
-      .catch((err) => {
+      .catch(() => {
         setAccommodationOptions([]);
         setReservationPassengers([]);
-        setAccommodationError(err?.message || "Smještaj za polazak nije moguće učitati");
+        setAccommodationError("errorDepartureAccommodation");
       })
       .finally(() => setAccommodationLoading(false));
   }, [isOpen, departureId, reservationId]);
@@ -251,7 +264,7 @@ export default function EditReservationModal({
   const handleSubmit = async () => {
     if (!reservationId) return;
     if (!customerName) {
-      showError("Ime klijenta je obavezno");
+      showError(w.nameRequired);
       return;
     }
     if (accommodationLines.length > 0) {
@@ -263,15 +276,15 @@ export default function EditReservationModal({
         line.guestsExpected > capacity
       ));
       if (lineError) {
-        showError("Smještajne linije nisu validne");
+        showError(w.invalidLines);
         return;
       }
       if (accommodationCoverage !== partySize) {
-        showError("Smještaj mora pokriti sve putnike u rezervaciji");
+        showError(w.coverageRequired);
         return;
       }
       if (!passengerMappingValid) {
-        showError("Svaki putnik mora biti dodijeljen tačno jednoj liniji smještaja");
+        showError(w.assignmentRequired);
         return;
       }
     }
@@ -299,18 +312,18 @@ export default function EditReservationModal({
         await deleteReservationAccommodation(reservationId);
       }
 
-      showSuccess("Rezervacija ažurirana");
+      showSuccess(w.saved);
       onSuccess();
       onClose();
-    } catch (err: any) {
-      showError(err?.message || "Greška pri ažuriranju");
+    } catch {
+      showError(w.errorUpdate);
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-3xl" title="Uredi rezervaciju">
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-3xl" title={w.title}>
       <div className="p-6 pt-4 space-y-5">
         {loading ? (
           <div className="flex items-center justify-center p-10">
@@ -320,31 +333,31 @@ export default function EditReservationModal({
           <>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Ime i prezime</Label>
-                <Input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+                <Label htmlFor={`${formId}-fullName`}>{w.fullName}</Label>
+                <Input id={`${formId}-fullName`} type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
               </div>
               <div>
-                <Label>Telefon</Label>
-                <Input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
+                <Label htmlFor={`${formId}-phone`}>{w.phone}</Label>
+                <Input id={`${formId}-phone`} type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Aranžman</Label>
-                <select value={packageId} onChange={(e) => setPackageId(e.target.value)} className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                  <option value="">-- Bez promjene --</option>
+                <Label htmlFor={`${formId}-package`}>{w.package}</Label>
+                <select id={`${formId}-package`} value={packageId} onChange={(e) => setPackageId(e.target.value)} className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                  <option value="">{w.noChange}</option>
                   {packages.map((pkg) => (
                     <option key={pkg.id} value={pkg.id}>{pkg.name} - {pkg.destination}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <Label>Polazak</Label>
-                <select value={departureId} onChange={(e) => setDepartureId(e.target.value)} disabled={!packageId} className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 disabled:opacity-50">
-                  <option value="">-- Bez polaska --</option>
+                <Label htmlFor={`${formId}-departure`}>{w.departure}</Label>
+                <select id={`${formId}-departure`} value={departureId} onChange={(e) => setDepartureId(e.target.value)} disabled={!packageId} className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 disabled:opacity-50">
+                  <option value="">{w.noDeparture}</option>
                   {departures.filter((d) => d.status === "active").map((d) => (
-                    <option key={d.id} value={d.id}>{new Date(d.depart_at).toLocaleDateString("bs-BA")} ({d.booked}/{d.capacity})</option>
+                    <option key={d.id} value={d.id}>{dateLabel(d.depart_at)} ({d.booked}/{d.capacity})</option>
                   ))}
                 </select>
               </div>
@@ -352,17 +365,17 @@ export default function EditReservationModal({
 
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label>Broj osoba</Label>
-                <Input type="number" min="1" value={String(partySize)} onChange={(e) => setPartySize(Math.max(1, parseInt(e.target.value) || 1))} />
+                <Label htmlFor={`${formId}-partySize`}>{w.partySize}</Label>
+                <Input id={`${formId}-partySize`} type="number" min="1" value={String(partySize)} onChange={(e) => setPartySize(Math.max(1, parseInt(e.target.value) || 1))} />
               </div>
               <div>
-                <Label>{quotationId ? `${t.quotations.sellTotal} (${quoteCurrency})` : "Iznos (BAM)"}</Label>
+                <Label htmlFor={`${formId}-amount`}>{quotationId ? `${t.quotations.sellTotal} (${reservationCurrency})` : fill(w.amount, { currency: reservationCurrency })}</Label>
                 {quotationId && <p className="mb-2 text-sm text-gray-500">{t.quotations.bookingTermsLocked}</p>}
-                <Input type="number" min="0" disabled={!!quotationId} value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} />
+                <Input id={`${formId}-amount`} type="number" min="0" disabled={!!quotationId} value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} />
               </div>
               <div>
-                <Label>Status</Label>
-                <Select options={statusOptions} placeholder="Odaberite status" defaultValue={status} onChange={(value) => setStatus(value)} />
+                <Label htmlFor={`${formId}-status`}>{w.status}</Label>
+                <Select id={`${formId}-status`} options={statusOptions} placeholder={w.selectStatus} defaultValue={status} onChange={(value) => setStatus(value)} />
               </div>
             </div>
 
@@ -370,15 +383,15 @@ export default function EditReservationModal({
               <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
                 <div className="mb-3 flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Smještaj</h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Uredite kompletan skup smještajnih linija za ovu rezervaciju.</p>
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{w.accommodation}</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{w.accommodationHint}</p>
                   </div>
                 </div>
 
-                {accommodationLoading && <p className="text-sm text-gray-500">Učitavanje smještaja...</p>}
-                {accommodationError && <p className="text-sm text-red-600">{accommodationError}</p>}
+                {accommodationLoading && <p className="text-sm text-gray-500">{w.loadingAccommodation}</p>}
+                {accommodationError && <p className="text-sm text-red-600">{w[accommodationError]}</p>}
                 {!accommodationLoading && accommodationOptions.length === 0 && !accommodationError && (
-                  <p className="text-sm text-gray-500">Ovaj polazak nema konfigurisan hotelski allotment.</p>
+                  <p className="text-sm text-gray-500">{w.noAccommodation}</p>
                 )}
 
                 {accommodationOptions.length > 0 && (
@@ -390,44 +403,45 @@ export default function EditReservationModal({
                       return (
                         <div key={`edit-line-${index}`} className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-3">
                           <div className="flex items-center justify-between">
-                            <h5 className="font-medium text-gray-900 dark:text-white">Smještaj {index + 1}</h5>
-                            <button type="button" className="text-xs font-medium text-red-600" onClick={() => removeAccommodationLine(index)}>Ukloni</button>
+                            <h5 className="font-medium text-gray-900 dark:text-white">{w.accommodation} {index + 1}</h5>
+                            <button type="button" className="text-xs font-medium text-red-600" onClick={() => removeAccommodationLine(index)}>{w.remove}</button>
                           </div>
 
                           <select
+                            aria-label={fill(w.lineTitle, { number: index + 1 })}
                             value={line.hotelAllocationId}
                             onChange={(e) => updateAccommodationLine(index, { hotelAllocationId: e.target.value, passengerIds: [] })}
                             className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                           >
-                            <option value="">-- Bez smještaja --</option>
+                            <option value="">{w.noAccommodationLine}</option>
                             {accommodationOptions.map((accommodationOption) => (
                               <option key={accommodationOption.id} value={accommodationOption.id}>
-                                {accommodationOption.hotel?.name || "Hotel"} · {accommodationOption.roomLabel} · dostupno {accommodationOption.availableRooms}
+                                {fill(w.roomOption, { hotel: accommodationOption.hotel?.name || w.hotel, room: accommodationOption.roomLabel || "—", count: accommodationOption.availableRooms })}
                               </option>
                             ))}
                           </select>
 
                           <div className="grid grid-cols-3 gap-4">
                             <div>
-                              <Label>Broj soba</Label>
-                              <Input type="number" min="1" max={String(Math.max(1, maxRooms))} value={String(line.roomCount)} onChange={(e) => updateAccommodationLine(index, { roomCount: Math.max(1, parseInt(e.target.value) || 1) })} />
-                              <p className="mt-1 text-xs text-gray-500">Dostupno: {maxRooms}</p>
+                              <Label htmlFor={`${formId}-roomCount-${index}`}>{w.roomCount}</Label>
+                              <Input id={`${formId}-roomCount-${index}`} type="number" min="1" max={String(Math.max(1, maxRooms))} value={String(line.roomCount)} onChange={(e) => updateAccommodationLine(index, { roomCount: Math.max(1, parseInt(e.target.value) || 1) })} />
+                              <p className="mt-1 text-xs text-gray-500">{w.available} {maxRooms}</p>
                             </div>
                             <div>
-                              <Label>Putnika</Label>
-                              <Input type="number" min="1" max={String(partySize)} value={String(line.guestsExpected)} onChange={(e) => updateAccommodationLine(index, { guestsExpected: Math.max(1, parseInt(e.target.value) || 1) })} />
-                              <p className="mt-1 text-xs text-gray-500">Kapacitet: {capacity}</p>
+                              <Label htmlFor={`${formId}-travelers-${index}`}>{w.travelers}</Label>
+                              <Input id={`${formId}-travelers-${index}`} type="number" min="1" max={String(partySize)} value={String(line.guestsExpected)} onChange={(e) => updateAccommodationLine(index, { guestsExpected: Math.max(1, parseInt(e.target.value) || 1) })} />
+                              <p className="mt-1 text-xs text-gray-500">{w.capacity} {capacity}</p>
                             </div>
                             <div>
-                              <Label>Cijena smještaja</Label>
+                              <Label>{w.accommodationPrice}</Label>
                               <div className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-200">
-                                {(option?.unitSellPrice || 0) * line.roomCount} BAM
+                                {money((option?.unitSellPrice || 0) * line.roomCount)}
                               </div>
                             </div>
                           </div>
 
                           <div>
-                            <Label>Dodijeljeni putnici</Label>
+                            <Label>{w.assignedTravelers}</Label>
                             <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
                               {reservationPassengers.map((passenger) => {
                                 const passengerId = passenger.passengerId || passenger.id || "";
@@ -448,8 +462,8 @@ export default function EditReservationModal({
                           </div>
 
                           <div>
-                            <Label>Napomena za smještaj</Label>
-                            <textarea
+                            <Label htmlFor={`${formId}-note-${index}`}>{w.accommodationNote}</Label>
+                            <textarea id={`${formId}-note-${index}`}
                               value={line.notes}
                               onChange={(e) => updateAccommodationLine(index, { notes: e.target.value })}
                               rows={2}
@@ -461,13 +475,13 @@ export default function EditReservationModal({
                     })}
 
                     <button type="button" className="text-sm font-medium text-brand-600" onClick={addAccommodationLine}>
-                      + Dodaj još smještaja
+                      {w.addAccommodation}
                     </button>
 
                     <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
-                      <p className="text-sm text-gray-700 dark:text-gray-200">Ukupno pokriveno: {accommodationCoverage} / {partySize}</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-200">{w.covered} {accommodationCoverage} / {partySize}</p>
                       {!passengerMappingValid && accommodationLines.length > 0 && (
-                        <p className="mt-1 text-sm text-red-600">Svaki putnik mora biti dodijeljen tačno jednoj liniji smještaja.</p>
+                        <p className="mt-1 text-sm text-red-600">{w.assignmentHint}</p>
                       )}
                     </div>
                   </div>
@@ -477,31 +491,31 @@ export default function EditReservationModal({
 
             {purchasedAddons.length > 0 && (
               <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Dodatne usluge</h4>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Snapshot dodatnih usluga kupljenih pri rezervaciji.</p>
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{w.addons}</h4>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{w.snapshotHint}</p>
                 <div className="mt-3 space-y-2">
                   {purchasedAddons.map((addon) => (
                     <div key={addon.service_id} className="flex items-start justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-gray-900">
                       <div>
-                        <p className="font-medium text-gray-900 dark:text-white">{addon.provider_name || addon.service_type || "Dodatna usluga"}</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{addon.provider_name || addon.service_type || w.addon}</p>
                         {addon.description ? <p className="text-xs text-gray-500 dark:text-gray-400">{addon.description}</p> : null}
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{addon.quantity} × {addon.unit_price} {addon.currency}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{addon.quantity} × {money(addon.unit_price, addon.currency)}</p>
                       </div>
-                      <p className="font-semibold text-gray-900 dark:text-white">{addon.line_total} {addon.currency}</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">{money(addon.line_total, addon.currency)}</p>
                     </div>
                   ))}
                 </div>
                 <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 text-sm dark:border-gray-800">
-                  <span className="font-medium text-gray-700 dark:text-gray-300">Dodatne usluge ukupno</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">{purchasedAddonsTotal} {purchasedAddons[0]?.currency || "BAM"}</span>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">{w.addonsTotal}</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{money(purchasedAddonsTotal)}</span>
                 </div>
               </div>
             )}
 
             <div className="flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
-              <Button variant="outline" onClick={onClose} disabled={submitting}>Odustani</Button>
+              <Button variant="outline" onClick={onClose} disabled={submitting}>{w.cancel}</Button>
               <Button onClick={handleSubmit} disabled={submitting || loading}>
-                {submitting ? "Spremanje..." : "Spremi izmjene"}
+                {submitting ? w.saving : w.save}
               </Button>
             </div>
           </>
