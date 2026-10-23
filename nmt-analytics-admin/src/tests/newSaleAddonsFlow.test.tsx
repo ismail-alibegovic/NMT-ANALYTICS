@@ -194,11 +194,12 @@ async function fillTraveler() {
 async function goToAddons() {
   await fillTraveler();
   fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
-  expect(await screen.findByRole('heading', { name: 'Add-ons' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Dodatne usluge' })).toBeInTheDocument();
 }
 
 describe('NewSaleWizard — M05.1 optional add-ons', () => {
   beforeEach(() => {
+    localStorage.setItem('travline_lang', 'bs');
     vi.clearAllMocks();
     getPackages.mockResolvedValue({ data: [packageA, packageB] });
     getDepartures.mockImplementation(({ packageId }: any) => Promise.resolve({ data: departuresForPackage(packageId) }));
@@ -233,7 +234,7 @@ describe('NewSaleWizard — M05.1 optional add-ons', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
 
-    expect(await screen.findByRole('heading', { name: 'Add-ons' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Dodatne usluge' })).toBeInTheDocument();
     expect(screen.getByText('Travel insurance')).toBeInTheDocument();
   });
 
@@ -272,7 +273,7 @@ describe('NewSaleWizard — M05.1 optional add-ons', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
 
-    expect(await screen.findByRole('heading', { name: 'Add-ons' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Dodatne usluge' })).toBeInTheDocument();
     expect(screen.getByText('Travel insurance')).toBeInTheDocument();
   });
 
@@ -306,7 +307,7 @@ describe('NewSaleWizard — M05.1 optional add-ons', () => {
     fireEvent.change(screen.getByPlaceholderText('Putnik 1 - puno ime'), { target: { value: 'Amina Hadžić' } });
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
 
-    expect(await screen.findByRole('heading', { name: 'Add-ons' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Dodatne usluge' })).toBeInTheDocument();
     expect(screen.getByText('Bosphorus excursion')).toBeInTheDocument();
     expect(screen.queryByText('Travel insurance')).not.toBeInTheDocument();
   });
@@ -326,7 +327,7 @@ describe('NewSaleWizard — M05.1 optional add-ons', () => {
     renderWizard();
 
     await fillTraveler();
-    expect(screen.queryByText('Add-ons')).not.toBeInTheDocument();
+    expect(screen.queryByText('Dodatne usluge')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
 
     expect(await screen.findByText('Ukupan iznos (BAM)')).toBeInTheDocument();
@@ -342,7 +343,7 @@ describe('NewSaleWizard — M05.1 optional add-ons', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
 
     expect(await screen.findByText('Ukupan iznos (BAM)')).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Add-ons' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Dodatne usluge' })).not.toBeInTheDocument();
     expect(screen.queryByText('Nije moguće učitati dodatne usluge za ovaj paket.')).not.toBeInTheDocument();
   });
 
@@ -355,11 +356,11 @@ describe('NewSaleWizard — M05.1 optional add-ons', () => {
 
     fireEvent.click(insuranceCheckbox);
     expect(insuranceCheckbox).toBeChecked();
-    expect(screen.getByText('Ukupno 50 BAM')).toBeInTheDocument();
+    expect(screen.getByText("Ukupno 50,00 KM")).toBeInTheDocument();
 
     fireEvent.click(insuranceCheckbox);
     expect(insuranceCheckbox).not.toBeChecked();
-    expect(screen.queryByText('Ukupno 50 BAM')).not.toBeInTheDocument();
+    expect(screen.queryByText("Ukupno 50,00 KM")).not.toBeInTheDocument();
   });
 
   it('adds selected add-ons to the displayed total without double-counting included services', async () => {
@@ -370,13 +371,13 @@ describe('NewSaleWizard — M05.1 optional add-ons', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Odaberi Airport transfer' }));
     fireEvent.change(screen.getAllByDisplayValue('1')[1], { target: { value: '2' } });
 
-    expect(screen.getByText('Add-ons ukupno').parentElement).toHaveTextContent('100 BAM');
+    expect(screen.getByText('Dodatne usluge ukupno').parentElement).toHaveTextContent("100,00 KM");
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
 
     expect(await screen.findByText('Ukupan iznos (BAM)')).toBeInTheDocument();
-    const paymentAddonsRows = screen.getAllByText('Add-ons');
-    expect(paymentAddonsRows[paymentAddonsRows.length - 1].parentElement).toHaveTextContent('100 BAM');
-    expect(screen.getByText('Ukupno').parentElement).toHaveTextContent('1100 BAM');
+    const paymentAddonsRows = screen.getAllByText('Dodatne usluge');
+    expect(paymentAddonsRows[paymentAddonsRows.length - 1].parentElement).toHaveTextContent("100,00 KM");
+    expect(screen.getByText('Ukupno').parentElement).toHaveTextContent("1.100,00 KM");
   });
 
   it('shows selected add-ons on Review and submits selected add-ons with the full total', async () => {
@@ -390,11 +391,11 @@ describe('NewSaleWizard — M05.1 optional add-ons', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
 
     expect(await screen.findByText('Pregled prodaje')).toBeInTheDocument();
-    const reviewAddonsRows = screen.getAllByText('Add-ons');
-    expect(reviewAddonsRows[reviewAddonsRows.length - 1].parentElement).toHaveTextContent('Travel insurance × 1 — 50 BAM');
-    expect(reviewAddonsRows[reviewAddonsRows.length - 1].parentElement).toHaveTextContent('Airport transfer × 2 — 50 BAM');
-    expect(screen.getByText('Add-ons ukupno').parentElement).toHaveTextContent('100 BAM');
-    expect(screen.getByText('Ukupno').parentElement).toHaveTextContent('1100 BAM');
+    const reviewAddonsRows = screen.getAllByText('Dodatne usluge');
+    expect(reviewAddonsRows[reviewAddonsRows.length - 1].parentElement).toHaveTextContent("Travel insurance × 1 — 50,00 KM");
+    expect(reviewAddonsRows[reviewAddonsRows.length - 1].parentElement).toHaveTextContent("Airport transfer × 2 — 50,00 KM");
+    expect(screen.getByText('Dodatne usluge ukupno').parentElement).toHaveTextContent("100,00 KM");
+    expect(screen.getByText('Ukupno').parentElement).toHaveTextContent("1.100,00 KM");
 
     fireEvent.click(screen.getByRole('button', { name: 'Potvrdi prodaju' }));
     await waitFor(() => expect(createReservation).toHaveBeenCalledTimes(1));
@@ -433,10 +434,10 @@ describe('NewSaleWizard — M05.1 optional add-ons', () => {
     fireEvent.change(screen.getByPlaceholderText('Putnik 1 - puno ime'), { target: { value: 'Amina Hadžić' } });
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
 
-    expect(await screen.findByRole('heading', { name: 'Add-ons' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Dodatne usluge' })).toBeInTheDocument();
     expect(screen.getByText('Bosphorus excursion')).toBeInTheDocument();
     expect(screen.queryByText('Travel insurance')).not.toBeInTheDocument();
     const dialog = screen.getByRole('dialog');
-    expect(within(dialog).queryByText('Ukupno 50 BAM')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("Ukupno 50,00 KM")).not.toBeInTheDocument();
   });
 });

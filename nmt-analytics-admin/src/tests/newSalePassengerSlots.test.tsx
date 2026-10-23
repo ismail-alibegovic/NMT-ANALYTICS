@@ -88,6 +88,7 @@ async function goToTravelers() {
 
 describe('NewSaleWizard — passenger slot initialization', () => {
   beforeEach(() => {
+    localStorage.setItem('travline_lang', 'bs');
     vi.clearAllMocks();
     getPackages.mockResolvedValue({ data: [pkg] });
     getDepartures.mockResolvedValue({ data: [busDeparture] });

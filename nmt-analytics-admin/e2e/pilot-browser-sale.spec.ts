@@ -11,7 +11,7 @@ for (const theme of ['light', 'dark']) for (const viewport of [{ width: 1440, he
     await page.setViewportSize(viewport);
     // Seed once; subsequent reload checks must prove actual theme persistence.
     await page.goto('/auth/signin');
-    await page.evaluate(theme => localStorage.setItem('theme', theme), theme);
+    await page.evaluate(theme => { localStorage.setItem('theme', theme); localStorage.setItem('travline_lang', 'en'); }, theme);
     const login = await request.post(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
       headers: { apikey: process.env.E2E_SUPABASE_ANON_KEY! },
       data: { email: process.env.E2E_MANAGER_EMAIL, password: process.env.E2E_MANAGER_PASSWORD },
@@ -40,35 +40,35 @@ for (const theme of ['light', 'dark']) for (const viewport of [{ width: 1440, he
     await page.goto(`/reservations?departureId=${departureId}`);
     await page.getByRole('button', { name: '+ Nova rezervacija', exact: true }).click();
     const wizard = page.locator('.modal');
-    await expect(wizard.getByText('Nova prodaja', { exact: true })).toBeVisible();
+    await expect(wizard.getByText("New sale", { exact: true })).toBeVisible();
     await expect(wizard.getByRole('button').filter({ hasText: marker })).toBeVisible();
     // Drive the actual selection rather than racing asynchronous URL preselection.
     await wizard.getByRole('button').filter({ hasText: marker }).click();
-    const departureChoice = wizard.getByRole('button').filter({ hasText: '2027-07-15 → 2027-07-15' });
+    const departureChoice = wizard.getByRole('button').filter({ hasText: '15/07/2027 → 15/07/2027' });
     await expect(departureChoice).toBeVisible();
     await departureChoice.click();
-    await wizard.getByRole('button', { name: 'Dalje', exact: true }).click();
-    await wizard.getByRole('button', { name: 'Dalje', exact: true }).click();
-    await expect(wizard.getByText('Unesite ime klijenta.', { exact: true })).toBeVisible();
-    await wizard.getByPlaceholder('Npr. Ahmed Hodžić').fill(marker);
-    await wizard.getByRole('button', { name: 'Dalje', exact: true }).click();
-    await expect(wizard.getByText('Unesite telefon.', { exact: true })).toBeVisible();
+    await wizard.getByRole('button', { name: "Next", exact: true }).click();
+    await wizard.getByRole('button', { name: "Next", exact: true }).click();
+    await expect(wizard.getByText("Enter the client name.", { exact: true })).toBeVisible();
+    await wizard.getByPlaceholder("e.g. Ahmed Hodžić").fill(marker);
+    await wizard.getByRole('button', { name: "Next", exact: true }).click();
+    await expect(wizard.getByText("Enter the phone number.", { exact: true })).toBeVisible();
     await wizard.getByPlaceholder('+387 61 234 567').fill('+38761000002');
     await wizard.getByRole('spinbutton').fill('2');
-    await wizard.getByPlaceholder('Putnik 1 - puno ime').fill(`${marker} A`);
-    await wizard.getByPlaceholder('Putnik 2 - puno ime').fill(`${marker} B`);
+    await wizard.getByPlaceholder('Traveler 1 - full name').fill(`${marker} A`);
+    await wizard.getByPlaceholder('Traveler 2 - full name').fill(`${marker} B`);
     // The wizard intentionally rejects progression until package services resolve.
-    await expect(wizard.getByText('Dodatne usluge se još učitavaju...', { exact: true })).toBeHidden({ timeout: 15_000 });
-    await wizard.getByRole('button', { name: 'Dalje', exact: true }).click();
-    await expect(wizard.getByText('Način plaćanja', { exact: true })).toBeVisible();
-    await wizard.getByRole('button', { name: 'Nazad', exact: true }).click();
-    await expect(wizard.getByPlaceholder('Npr. Ahmed Hodžić')).toHaveValue(marker);
+    await expect(wizard.getByText("Package services are still loading...", { exact: true })).toBeHidden({ timeout: 15_000 });
+    await wizard.getByRole('button', { name: "Next", exact: true }).click();
+    await expect(wizard.getByText("Payment plan", { exact: true })).toBeVisible();
+    await wizard.getByRole('button', { name: "Back", exact: true }).click();
+    await expect(wizard.getByPlaceholder("e.g. Ahmed Hodžić")).toHaveValue(marker);
     await expect(wizard.getByPlaceholder('+387 61 234 567')).toHaveValue('+38761000002');
-    await expect(wizard.getByPlaceholder('Putnik 2 - puno ime')).toHaveValue(`${marker} B`);
-    await wizard.getByRole('button', { name: 'Dalje', exact: true }).click();
+    await expect(wizard.getByPlaceholder('Traveler 2 - full name')).toHaveValue(`${marker} B`);
+    await wizard.getByRole('button', { name: "Next", exact: true }).click();
     await wizard.getByPlaceholder('0.00').fill('360');
-    await wizard.getByRole('button', { name: 'Dalje', exact: true }).click();
-    await expect(wizard.getByText('Pregled prodaje', { exact: true })).toBeVisible();
+    await wizard.getByRole('button', { name: "Next", exact: true }).click();
+    await expect(wizard.getByText("Sale review", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /dark/ : /^$/);
     await page.screenshot({ path: testInfo.outputPath('sale-review.png'), fullPage: true });
@@ -83,12 +83,12 @@ for (const theme of ['light', 'dark']) for (const viewport of [{ width: 1440, he
       await route.continue();
     });
     const saleResponse = page.waitForResponse(response => response.url().endsWith('/api/reservations') && response.request().method() === 'POST');
-    await wizard.getByRole('button', { name: 'Potvrdi prodaju', exact: true }).click();
+    await wizard.getByRole('button', { name: "Confirm sale", exact: true }).click();
     try {
       await expect.poll(() => createRequests).toBe(1);
       // A real pending HTTP request keeps the submit control disabled.
       // No synthetic response replaces the API or database operation.
-      await expect(wizard.getByRole('button', { name: 'Kreiranje...', exact: true })).toBeDisabled();
+      await expect(wizard.getByRole('button', { name: "Creating...", exact: true })).toBeDisabled();
     } finally {
       releasePost();
     }

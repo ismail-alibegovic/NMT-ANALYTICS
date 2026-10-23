@@ -94,6 +94,7 @@ function renderWizard() {
 
 describe('NewSaleWizard — M03.1 step structure', () => {
   beforeEach(() => {
+    localStorage.setItem('travline_lang', 'bs');
     vi.clearAllMocks();
     getPackages.mockResolvedValue({ data: [pkg] });
     getDepartures.mockResolvedValue({ data: [busDeparture] });

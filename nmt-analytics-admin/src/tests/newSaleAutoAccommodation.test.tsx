@@ -138,6 +138,7 @@ function selectAccommodationCard(label: RegExp | string) {
 
 describe('NewSaleWizard — M04.1c auto accommodation', () => {
   beforeEach(() => {
+    localStorage.setItem('travline_lang', 'bs');
     vi.clearAllMocks();
     getPackages.mockResolvedValue({ data: [pkg] });
     getDepartures.mockResolvedValue({ data: [departure] });
@@ -156,7 +157,7 @@ describe('NewSaleWizard — M04.1c auto accommodation', () => {
     expect(screen.getByText('Kapacitet sobe')).toBeInTheDocument();
     expect(screen.getByText('Slobodno soba')).toBeInTheDocument();
     expect(screen.getByText('Ukupno pokriveno: 1 / 1 putnika')).toBeInTheDocument();
-    expect(screen.getByText('590 BAM')).toBeInTheDocument();
+    expect(screen.getByText("590,00 KM")).toBeInTheDocument();
   });
 
   it('2 travelers + Double => roomCount 1', async () => {
@@ -166,7 +167,7 @@ describe('NewSaleWizard — M04.1c auto accommodation', () => {
     selectAccommodationCard(/Double/);
 
     expect(screen.getByText('Ukupno pokriveno: 2 / 2 putnika')).toBeInTheDocument();
-    expect(screen.getByText('790 BAM')).toBeInTheDocument();
+    expect(screen.getByText("790,00 KM")).toBeInTheDocument();
     expect(screen.getByText('Potrebno soba').parentElement).toHaveTextContent('1');
     expect(screen.getByText('Kapacitet sobe').parentElement).toHaveTextContent('2');
   });
@@ -178,7 +179,7 @@ describe('NewSaleWizard — M04.1c auto accommodation', () => {
     selectAccommodationCard(/Double/);
 
     expect(screen.getByText('Ukupno pokriveno: 4 / 4 putnika')).toBeInTheDocument();
-    expect(screen.getByText('1580 BAM')).toBeInTheDocument();
+    expect(screen.getByText("1.580,00 KM")).toBeInTheDocument();
     expect(screen.getByText('Putnika').parentElement).toHaveTextContent('4');
     expect(screen.getByText('Potrebno soba').parentElement).toHaveTextContent('2');
   });
@@ -228,7 +229,7 @@ describe('NewSaleWizard — M04.1c auto accommodation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dalje' }));
 
     expect(await screen.findByText('Ukupno pokriveno: 4 / 4 putnika')).toBeInTheDocument();
-    expect(screen.getByText('1580 BAM')).toBeInTheDocument();
+    expect(screen.getByText("1.580,00 KM")).toBeInTheDocument();
   });
 
   it('blocks Next when any passenger name is empty', async () => {
