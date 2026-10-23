@@ -9,7 +9,10 @@ it('does not inherit developer .env overrides in the test environment', () => {
   expect(config.NODE_ENV).toBe('test');
   expect(config.DEV_BYPASS_AUTH).toBe(false);
   expect(config.DEV_AUTO_BOOTSTRAP).toBe(false);
-  expect(process.env.DEV_BYPASS_AUTH).toBeUndefined();
+  expect(process.env.DEV_BYPASS_AUTH).toBe('false');
+  expect(process.env.DEV_AUTO_BOOTSTRAP).toBe('false');
+  expect(config.SUPABASE_URL).toBe('http://127.0.0.1:54321');
+  expect(config.SUPABASE_SERVICE_ROLE_KEY).toBe(process.env.TRAVLINE_SUPABASE_SERVICE_ROLE_KEY);
   expect(process.env.SUPABASE_URL).toBe('http://127.0.0.1:54321');
 });
 it('keeps unknown API routes JSON and protected context anonymous-safe', async () => {
