@@ -1,6 +1,6 @@
 # Final I18N-01 — Reports monetary locale
 
-**Status:** IMPLEMENTED LOCALLY — awaiting PR/required CI and merge
+**Status:** IMPLEMENTED LOCALLY — PR #151 open — awaiting required CI and merge
 **Priority:** P1
 **Branch:** `fix/final-roadmap-i18n`
 **Roadmap:** `docs/TRAVLINE_FINAL_ROADMAP.md`, Phase 1 I18N-01; existing roadmap BS/EN quality requirements.
@@ -36,4 +36,4 @@ Admin: locked install, lint, full tests, build; targeted formatter/Reports/chart
 
 ## Completion record
 
-Record exact files, commands/counts, browser scope, warnings/limitations, branch, commit, PR and merge status in the master roadmap and final report. No merge until required CI is observed green. Local acceptance passed: API 1,004; admin 484; targeted 53; Reports browser 4; shared UI browser 8. Final lint: zero errors/51 existing warnings. Full evidence and exact changed files are in the master roadmap. PR/merge and required remote CI remain pending due GitHub API Forbidden; no production or database changes performed.
+Record exact files, commands/counts, browser scope, warnings/limitations, branch, commit, PR and merge status in the master roadmap and final report. No merge until required CI is observed green. Local acceptance passed: API 1,004; admin 484; targeted 53; Reports browser 4; shared UI browser 8. Final lint: zero errors/51 existing warnings. Full evidence and exact changed files are in the master roadmap. PR #151 is open; required remote CI and merge remain pending (earlier API blocker resolved); no production or database changes performed.
