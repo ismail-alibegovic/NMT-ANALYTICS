@@ -147,6 +147,7 @@ Exact files in this slice:
 - `nmt-analytics-admin/e2e-ui/fixtures/language.html`
 - `nmt-analytics-admin/e2e-ui/fixtures/language.tsx`
 - `nmt-analytics-admin/e2e-ui/language.spec.ts`
+- `nmt-analytics-admin/e2e/pilot-language.spec.ts`
 
 Integration order remains [#151](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/151) → [#152](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/152) → [#153](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/153), with required CI before every merge. At latest observation #151 passed API/admin, migrations/rehearsals, Docker, shared UI including Reports, UI audit and preview; isolated Supabase acceptance remained running. No merge is claimed. Finish the auth/public route matrix with isolated test accounts, then I18N-04 domain slices, starting CustomerDetail and sales. Keep all other literal/locale/export/PDF findings open; neither this provider fix nor dictionary parity completes Phase 1.
 
@@ -154,3 +155,8 @@ Integration order remains [#151](https://github.com/ismail-alibegovic/NMT-ANALYT
 ### Current resume checkpoint
 
 Latest source branch is `fix/i18n-language-switch`; working tree was clean after commits/pushes. PRs #152/#153 are drafts against main with explicit dependencies; their incremental diffs become focused after preceding PRs merge. Do not merge a descendant before its predecessor. Required staging acceptance for #151 was still installing Playwright at the last observation; no failure or completed acceptance result was claimed. Read current exact-head GitHub checks before any merge. The next source-level work is the remaining I18N-03 auth/public route matrix, then I18N-04 CustomerDetail/sales translation slices from the inventory. Full Phase 1 and all later phases remain open. No published environment or Zo runtime is certified by these PRs.
+
+
+I18N-03 route-matrix follow-up: `nmt-analytics-admin/e2e/pilot-language.spec.ts` adds **four** localhost-only public → signup-confirmed login → header switch → Reports/reload → public route while authenticated → real logout → public/reload scenarios, covering initial BS/EN and both themes at desktop width. Every scenario owns a separate synthetic account so sign-out cannot revoke the shared acceptance manager sessions. Local Auth/API/Mailpit endpoints are mandatory; verification links must match local Auth origin; trace/video/screenshots are disabled for credential-bearing steps. Standard staging acceptance discovers the file automatically. `playwright ... --list` confirmed all four scenarios; lint passed. They are **not locally executed or claimed passed** because the current machine has no isolated Auth bindings. Required isolated CI execution remains pending. Existing mobile shared-switch scenarios are separate from this desktop authenticated route matrix.
+
+Newly confirmed follow-up finding for the CustomerDetail slice: its summary reduces up to 50 reservation rows across currencies and formats the result as default BAM, and timeline reservation amounts omit record currency. Translate the screen only with an explicit disposition of these pre-existing misleading totals; add mixed-currency/pagination regression coverage in a scoped task and do not silently preserve or disguise the defect as translated financial output. No customer/financial data was modified during this audit.

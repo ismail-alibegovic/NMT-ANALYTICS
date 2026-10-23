@@ -25,3 +25,6 @@ Test browser/stored-language fallback, invalid stored preference, blocked read/w
 ## Completion record
 
 Regression baseline: 2 failed/7 passed; corrected provider plus dictionary tests: 26 passed. Full admin: 507 passed, lint zero errors/51 existing warnings, build passed. Shared UI browser: 12 passed (four language-switch and eight existing modal cases). Full evidence and exact files are in the final roadmap. No migration or production actions. [Draft PR #153](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/153) is open; remote CI/integration pending behind #151/#152. Remaining authenticated/public navigation matrix and per-domain literal/formatting work must remain explicit.
+
+
+Authenticated/public matrix: four guarded localhost-only scenarios added in `e2e/pilot-language.spec.ts`, discovered by the existing staging workflow. They use their own synthetic signup-confirmed accounts, both initial languages/themes, actual UI login/switch/reload/logout, and disabled credential recording. Discovery confirmed four tests; execution awaits isolated CI and must not be described as passed from a list-only command.
