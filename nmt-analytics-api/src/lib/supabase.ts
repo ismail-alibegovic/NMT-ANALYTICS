@@ -1,14 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
+import '../environment';
 import path from 'path';
 import { Response } from 'express';
-
-if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
-  dotenv.config({
-    path: path.resolve(__dirname, '../../.env'),
-    override: true,
-  });
-}
 
 const supabaseUrl = process.env.TRAVLINE_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.TRAVLINE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
