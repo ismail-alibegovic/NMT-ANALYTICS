@@ -1,7 +1,11 @@
 // dotenv is loaded here rather than in index.ts because this module reads
 // SENTRY_DSN at import time and must run before express is loaded.
 import dotenv from 'dotenv';
-if (process.env.NODE_ENV !== 'test') {
+// A local developer `.env` is a development convenience only. In production the
+// process environment is the single source of truth (service env vars); loading a
+// file here would let a stray developer `NODE_ENV=development` / `DEV_BYPASS_AUTH=true`
+// value reach a production boot. Mirrors the guard already used in src/lib/supabase.ts.
+if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'production') {
   dotenv.config();
 }
 import { sanitizeSentryEvent, isValidSentryDsn } from './lib/sentryPrivacy';
