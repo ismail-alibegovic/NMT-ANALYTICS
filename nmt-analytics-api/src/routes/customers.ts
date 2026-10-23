@@ -132,21 +132,23 @@ router.get('/customers/:id/timeline', authenticateToken, requireOrgContext, asyn
     const customerId = req.params.id;
 
     // Fetch audit logs for this customer
-    const { data: auditLogs } = await supabaseAdmin
+    const { data: auditLogs, error: auditError } = await supabaseAdmin
       .from('audit_logs')
       .select('*')
       .eq('org_id', orgId)
       .eq('entity_id', customerId)
       .order('created_at', { ascending: false })
       .limit(50);
+    if (auditError) return handleSupabaseError(res, auditError, 'Failed to fetch customer timeline');
 
     // Fetch reservations for this customer
-    const { data: reservations } = await supabaseAdmin
+    const { data: reservations, error: reservationError } = await supabaseAdmin
       .from('reservations')
-      .select('id, status, total_amount, paid_amount, created_at, updated_at')
+      .select('id, status, total_amount, paid_amount, currency, created_at, updated_at')
       .eq('org_id', orgId)
       .eq('customer_id', customerId)
       .order('created_at', { ascending: false });
+    if (reservationError) return handleSupabaseError(res, reservationError, 'Failed to fetch customer timeline');
 
     // Build combined timeline
     const timeline: any[] = [];
@@ -172,6 +174,7 @@ router.get('/customers/:id/timeline', authenticateToken, requireOrgContext, asyn
           status: resv.status,
           totalAmount: resv.total_amount,
           paidAmount: resv.paid_amount,
+          currency: resv.currency,
         },
         createdAt: resv.created_at,
       });
@@ -181,7 +184,7 @@ router.get('/customers/:id/timeline', authenticateToken, requireOrgContext, asyn
 
     res.json(timeline);
   } catch (err: any) {
-    apiError(res, 500, "INTERNAL_ERROR", "Failed to fetch timeline", err.message);
+    apiError(res, 500, "INTERNAL_ERROR", "Failed to fetch timeline");
   }
 });
 

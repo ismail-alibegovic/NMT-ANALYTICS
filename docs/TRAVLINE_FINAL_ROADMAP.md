@@ -29,7 +29,7 @@ Paths prefixed `src/` above are relative to the named admin/API component.
 | I18N-01 / PR OPEN (#151; CI pending) | Reports monetary and chart calendar-day locale: admin `src/utils/business.ts`, `src/pages/Reports.tsx`, `src/components/analytics/RevenueChart.tsx`. Keep the legacy formatter default for unrelated callers; add BS/EN chart month labels because Chromium Bosnian month data falls back to generic M04-style labels. | Baseline inspection | BS/EN totals, table and chart follow selected language immediately and after reload; actual BAM/EUR identity, mixed-currency guards and amounts preserved; no calendar-day drift west of UTC. Browser CLDR fallback uses Bosnian separators and unambiguous currency codes (KM/€ retained); other currencies may use ISO codes when native Bosnian symbols are unavailable. Unit formatter/Reports/chart regressions plus browser BS/EN, light/dark, mobile/desktop. |
 | I18N-02 / DRAFT PR #152 (dependency #151 pending) | Translation coverage contract: `src/lib/i18n/{en,bs}.ts`, `src/tests/i18nParity.test.ts`; inventory nested value types, empty strings, interpolation tokens and hardcoded user-facing strings. | I18N-01 | Existing keys remain compatible; nonempty strings and placeholder parity enforced across dictionaries; report literal inventory with explicit technical/proper-name exceptions; failing fixtures prove the coverage checker detects defects. |
 | I18N-03 / PARTIAL (draft PR #153; route matrix open) | Language persistence/switching: `src/lib/i18n/context.tsx`, `src/layout/AppHeader.tsx`, auth/public screens and `src/pages/admin/Settings.tsx`. Confirm defects before changing behavior. | I18N-02 | Stored/browser fallback, reload, blocked storage, document language, public/authenticated transitions and accessible switch verified in BS/EN. Provider/component tests and browser navigation tests; no session reload loop. |
-| I18N-04 / OPEN | Translate one domain per PR: first `src/pages/CustomerDetail.tsx`, then sales/reservations, departure operations, finance/docs, settings/public screens. Audit UI validation/toasts/empty states, API message presentation and exports/PDF locale contracts. | I18N-02, I18N-03 | Each domain has an explicit literal checklist; changed screens contain no unintended mixed language. Component failure/success-state tests and BS/EN browser checks for each PR. Preserve stored status codes and API contracts. |
+| I18N-04 / IN PROGRESS (CustomerDetail implemented locally; remaining domains open) | Translate one domain per PR: first `src/pages/CustomerDetail.tsx`, then sales/reservations, departure operations, finance/docs, settings/public screens. Audit UI validation/toasts/empty states, API message presentation and exports/PDF locale contracts. | I18N-02, I18N-03 | Each domain has an explicit literal checklist; changed screens contain no unintended mixed language. Component failure/success-state tests and BS/EN browser checks for each PR. Preserve stored status codes and API contracts. |
 | I18N-05 / OPEN | Locale formatting inventory: `src/utils/{business,paymentDate,dateTimeInput}.ts` and remaining per-screen `Intl`/`toLocale*` calls. | I18N-01, domain slices | Dates, calendar days, numbers, percentages and currency follow an agreed BS/EN convention without timezone drift or currency conversion. Boundary/timezone tests and live-switch browser tests. Do not mass-replace parsing or financial calculations. |
 
 Exit: domain checklist complete, no unexplained translation gaps, language-switch regressions green, locale rules documented and BS/EN workflow evidence recorded.
@@ -160,3 +160,40 @@ Latest source branch is `fix/i18n-language-switch`; working tree was clean after
 I18N-03 route-matrix follow-up: `nmt-analytics-admin/e2e/pilot-language.spec.ts` adds **four** localhost-only public → signup-confirmed login → header switch → Reports/reload → public route while authenticated → real logout → public/reload scenarios, covering initial BS/EN and both themes at desktop width. Every scenario owns a separate synthetic account so sign-out cannot revoke the shared acceptance manager sessions. Local Auth/API/Mailpit endpoints are mandatory; verification links must match local Auth origin; trace/video/screenshots are disabled for credential-bearing steps. Standard staging acceptance discovers the file automatically. `playwright ... --list` confirmed all four scenarios; lint passed. They are **not locally executed or claimed passed** because the current machine has no isolated Auth bindings. Required isolated CI execution remains pending. Existing mobile shared-switch scenarios are separate from this desktop authenticated route matrix.
 
 Newly confirmed follow-up finding for the CustomerDetail slice: its summary reduces up to 50 reservation rows across currencies and formats the result as default BAM, and timeline reservation amounts omit record currency. Translate the screen only with an explicit disposition of these pre-existing misleading totals; add mixed-currency/pagination regression coverage in a scoped task and do not silently preserve or disguise the defect as translated financial output. No customer/financial data was modified during this audit.
+
+
+### I18N-04A — CustomerDetail screen and currency display
+
+Branch: `fix/i18n-customer-detail`, after #151–#153. Existing screen translated in BS/EN: tabs, columns, metadata, customer/status labels, timeline action/type/details, summaries, empty states, loading and retry/not-found states. Live language changes update labels/amounts without refetching. Numeric Bosnian/English dates are explicit; date-only bookings keep their calendar day west of UTC while timestamps remain local instants. Existing cards/tabs/table/theme layout is preserved.
+
+The confirmed currency defect was pulled forward from SEC-02 within the scoped specification `docs/tasks/active/final-i18n-customer-detail.md`: summaries separate loaded rows by currency, disclose loaded count versus server count, exclude missing-currency rows with an explicit notice and leave incomplete monetary fields unavailable. No currency conversion, full-history aggregate claim or stored financial recalculation. Timeline API reads now include existing reservation currency and return an error on failed underlying reads; organization/customer filters are retained. Superseded customer requests cannot overwrite the current route, and child-read failures cannot masquerade as a genuine customer 404.
+
+Evidence:
+
+- Reproducer against old API: **4 failed / 1 passed**. Old UI: **7 failed / 1 passed**.
+- Targeted timeline route: **5 passed**, including two-tenant query scoping, customer scoping, original currency and safe read-error behavior. Authentication itself remains covered by the existing auth suites; these route fixtures mock identity deliberately.
+- Full API: build, root strict + NodeNext serverless type checks and **113 files / 1,009 tests passed**.
+- Full admin: lint **zero errors / 51 existing warnings**, build and **69 files / 517 tests passed**. Includes ten CustomerDetail component regressions plus the complete dictionary contract.
+- Actual CustomerDetail browser fixture: **7 passed** (both languages, light/dark at 390/768/1440, west-of-UTC date-only dates, currency-separated summary/table/timeline, live switching without refetch, pagination notice and failed-read retry). Reports regression rerun: **4 passed**. Combined command: `FORMS_CHROMIUM_PATH=<official Chrome executable> npm exec -- playwright test -c playwright.finance-forms.config.ts customer-detail-locale.spec.ts reports-locale.spec.ts`.
+- Registered CustomerDetail locale scenarios beside Reports in CI's shared UI browser job; standard staging finance-form acceptance also discovers them.
+- No migrations, schema changes, seeds/reset, production/customer writes, auth/permission changes or Zo runtime changes. API changes are additive read output plus safe read failures. `git diff --check` passed.
+
+Exact changed files:
+
+- `.github/workflows/ci.yml`
+- `docs/TRAVLINE_FINAL_ROADMAP.md`
+- `docs/operations/final-i18n-inventory.md`
+- `docs/tasks/active/final-i18n-customer-detail.md`
+- `nmt-analytics-admin/src/lib/i18n/en.ts`
+- `nmt-analytics-admin/src/lib/i18n/bs.ts`
+- `nmt-analytics-admin/src/pages/CustomerDetail.tsx`
+- `nmt-analytics-admin/src/tests/customerDetailLocale.test.tsx`
+- `nmt-analytics-admin/e2e/finance-forms/customer-detail-locale.html`
+- `nmt-analytics-admin/e2e/finance-forms/customer-detail-locale.tsx`
+- `nmt-analytics-admin/e2e/finance-forms/customer-detail-locale.spec.ts`
+- `nmt-analytics-api/src/routes/customers.ts`
+- `nmt-analytics-api/src/tests/customerTimelineCurrency.test.ts`
+
+PR/merge and required exact-head CI pending. Continue integration in dependency order; do not mark I18N-04 or Phase 1 complete from this one screen. Next domain: the existing NewSaleWizard (trip/travelers/accommodation/add-ons/payment/review), which still contains hardcoded Bosnian labels/validation/messages despite an existing i18n provider. Its conditional behavior, capacity/finance/idempotency/recovery rules and current acceptance tests must remain intact; translate it as one scoped workflow and make legacy language assumptions explicit in tests.
+
+Current source resume checkpoint supersedes the earlier provider-only checkpoint: branch `fix/i18n-customer-detail`; foundation PRs #151–#153 remain dependencies. Read current GitHub check states before merging; no merge is claimed in this record. Full Phase 1 and later phases remain open.
