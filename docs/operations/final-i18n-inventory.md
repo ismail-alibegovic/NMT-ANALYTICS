@@ -6,12 +6,12 @@ The dictionaries contain 2,786 leaf values each; the inspection found no empty s
 
 A TypeScript AST scan found **660 candidate JSX literals across 67 files** outside tests, translation dictionaries and icons. Candidates include proper names/technical labels and are not all confirmed defects. Counts include JSX text and literal placeholder/title/aria-label/alt attributes and string expressions; the scan does **not** capture all object labels, toasts, validation messages, template literals or API/PDF/export copy. Those require domain inspection. Each row below remains OPEN until manually classified and verified in BS/EN.
 
-Reports monetary formatting and shared language selection have focused PRs; CustomerDetail is implemented on `fix/i18n-customer-detail`, with local unit/browser verification and remote integration pending; see `docs/TRAVLINE_FINAL_ROADMAP.md` for validation and PR status. Preserve existing visual design, domain identifiers and customer-entered content.
+Reports monetary formatting, dictionary coverage, shared language selection and CustomerDetail are merged in PRs #151–#154. NewSaleWizard is translated on `fix/i18n-new-sale-wizard` with local regression verification; see `docs/TRAVLINE_FINAL_ROADMAP.md` for validation and PR status. Preserve existing visual design, domain identifiers and customer-entered content.
 
 | Admin source file | Candidate count | First candidate lines |
 | --- | ---: | --- |
-| `src/components/reservations/NewSaleWizard.tsx` | 99 | 824, 853, 859, 860, 884 |
-| `src/pages/ReservationDetail.tsx` | 54 | 228, 234, 236, 350, 357 |
+| `src/components/reservations/NewSaleWizard.tsx` | 99 (historical baseline; addressed in I18N-04B, CI pending) | 824, 853, 859, 860, 884 |
+| `src/pages/ReservationDetail.tsx` | 54 (historical baseline; addressed in I18N-04C, CI pending) | 228, 234, 236, 350, 357 |
 | `src/pages/admin/Settings.tsx` | 37 | 526, 528, 540, 554, 555 |
 | `src/pages/admin/UnifiedPayments.tsx` | 34 | 262, 265, 266, 271, 272 |
 | `src/components/reservations/EditReservationModal.tsx` | 33 | 313, 323, 327, 334, 336 |
@@ -139,3 +139,5 @@ Occurrence counts may include both a call and its explicit locale; they are revi
 ## Release evidence required
 
 For each domain: identify reachable screens/roles; classify all candidates; add BS/EN keys without changing stable identifiers; test validation/toasts/errors/empty/loading/success states; verify immediate switching plus reload; check mobile/tablet/desktop and both themes; record unit/browser commands and PR/merge evidence in the final roadmap. Backend messages, PDF and CSV text need an explicit localization contract instead of translating stable API error codes. No production seed/reset is required for translation work.
+
+Reservation Detail page/tabs/contract display is translated on `fix/i18n-reservation-detail`; EditReservationModal and Reservations list remain open. Counts/line numbers above remain an audit baseline, not current untranslated totals. See the final roadmap for executed checks and merge status.

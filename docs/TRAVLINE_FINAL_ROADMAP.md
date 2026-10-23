@@ -26,10 +26,10 @@ Paths prefixed `src/` above are relative to the named admin/API component.
 
 | ID / status | Scope and exact implementation anchors | Dependencies | Acceptance / required automated tests |
 | --- | --- | --- | --- |
-| I18N-01 / PR OPEN (#151; CI pending) | Reports monetary and chart calendar-day locale: admin `src/utils/business.ts`, `src/pages/Reports.tsx`, `src/components/analytics/RevenueChart.tsx`. Keep the legacy formatter default for unrelated callers; add BS/EN chart month labels because Chromium Bosnian month data falls back to generic M04-style labels. | Baseline inspection | BS/EN totals, table and chart follow selected language immediately and after reload; actual BAM/EUR identity, mixed-currency guards and amounts preserved; no calendar-day drift west of UTC. Browser CLDR fallback uses Bosnian separators and unambiguous currency codes (KM/€ retained); other currencies may use ISO codes when native Bosnian symbols are unavailable. Unit formatter/Reports/chart regressions plus browser BS/EN, light/dark, mobile/desktop. |
-| I18N-02 / DRAFT PR #152 (dependency #151 pending) | Translation coverage contract: `src/lib/i18n/{en,bs}.ts`, `src/tests/i18nParity.test.ts`; inventory nested value types, empty strings, interpolation tokens and hardcoded user-facing strings. | I18N-01 | Existing keys remain compatible; nonempty strings and placeholder parity enforced across dictionaries; report literal inventory with explicit technical/proper-name exceptions; failing fixtures prove the coverage checker detects defects. |
-| I18N-03 / PARTIAL (draft PR #153; route matrix open) | Language persistence/switching: `src/lib/i18n/context.tsx`, `src/layout/AppHeader.tsx`, auth/public screens and `src/pages/admin/Settings.tsx`. Confirm defects before changing behavior. | I18N-02 | Stored/browser fallback, reload, blocked storage, document language, public/authenticated transitions and accessible switch verified in BS/EN. Provider/component tests and browser navigation tests; no session reload loop. |
-| I18N-04 / IN PROGRESS (CustomerDetail implemented locally; remaining domains open) | Translate one domain per PR: first `src/pages/CustomerDetail.tsx`, then sales/reservations, departure operations, finance/docs, settings/public screens. Audit UI validation/toasts/empty states, API message presentation and exports/PDF locale contracts. | I18N-02, I18N-03 | Each domain has an explicit literal checklist; changed screens contain no unintended mixed language. Component failure/success-state tests and BS/EN browser checks for each PR. Preserve stored status codes and API contracts. |
+| I18N-01 / MERGED (#151; required CI passed) | Reports monetary and chart calendar-day locale: admin `src/utils/business.ts`, `src/pages/Reports.tsx`, `src/components/analytics/RevenueChart.tsx`. Keep the legacy formatter default for unrelated callers; add BS/EN chart month labels because Chromium Bosnian month data falls back to generic M04-style labels. | Baseline inspection | BS/EN totals, table and chart follow selected language immediately and after reload; actual BAM/EUR identity, mixed-currency guards and amounts preserved; no calendar-day drift west of UTC. Browser CLDR fallback uses Bosnian separators and unambiguous currency codes (KM/€ retained); other currencies may use ISO codes when native Bosnian symbols are unavailable. Unit formatter/Reports/chart regressions plus browser BS/EN, light/dark, mobile/desktop. |
+| I18N-02 / MERGED (#152; required CI passed) | Translation coverage contract: `src/lib/i18n/{en,bs}.ts`, `src/tests/i18nParity.test.ts`; inventory nested value types, empty strings, interpolation tokens and hardcoded user-facing strings. | I18N-01 | Existing keys remain compatible; nonempty strings and placeholder parity enforced across dictionaries; report literal inventory with explicit technical/proper-name exceptions; failing fixtures prove the coverage checker detects defects. |
+| I18N-03 / MERGED core provider/switch + route matrix (#153) | Language persistence/switching: `src/lib/i18n/context.tsx`, `src/layout/AppHeader.tsx`, auth/public screens and `src/pages/admin/Settings.tsx`. Confirm defects before changing behavior. | I18N-02 | Stored/browser fallback, reload, blocked storage, document language, public/authenticated transitions and accessible switch verified in BS/EN. Provider/component tests and browser navigation tests; no session reload loop. |
+| I18N-04 / IN PROGRESS (CustomerDetail merged #154; New Sale active; other domains open) | Translate one domain per PR: first `src/pages/CustomerDetail.tsx`, then sales/reservations, departure operations, finance/docs, settings/public screens. Audit UI validation/toasts/empty states, API message presentation and exports/PDF locale contracts. | I18N-02, I18N-03 | Each domain has an explicit literal checklist; changed screens contain no unintended mixed language. Component failure/success-state tests and BS/EN browser checks for each PR. Preserve stored status codes and API contracts. |
 | I18N-05 / OPEN | Locale formatting inventory: `src/utils/{business,paymentDate,dateTimeInput}.ts` and remaining per-screen `Intl`/`toLocale*` calls. | I18N-01, domain slices | Dates, calendar days, numbers, percentages and currency follow an agreed BS/EN convention without timezone drift or currency conversion. Boundary/timezone tests and live-switch browser tests. Do not mass-replace parsing or financial calculations. |
 
 Exit: domain checklist complete, no unexplained translation gaps, language-switch regressions green, locale rules documented and BS/EN workflow evidence recorded.
@@ -197,3 +197,100 @@ Exact changed files:
 PR/merge and required exact-head CI pending. Continue integration in dependency order; do not mark I18N-04 or Phase 1 complete from this one screen. Next domain: the existing NewSaleWizard (trip/travelers/accommodation/add-ons/payment/review), which still contains hardcoded Bosnian labels/validation/messages despite an existing i18n provider. Its conditional behavior, capacity/finance/idempotency/recovery rules and current acceptance tests must remain intact; translate it as one scoped workflow and make legacy language assumptions explicit in tests.
 
 Current source resume checkpoint supersedes the earlier provider-only checkpoint: branch `fix/i18n-customer-detail`; foundation PRs #151–#153 remain dependencies. Read current GitHub check states before merging; no merge is claimed in this record. Full Phase 1 and later phases remain open.
+
+
+### Integration update — PR #151 merged
+
+PR [#151](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/151) merged as `dbb512372a019c9f8dffa6f40118a8a9533400f4` after all required checks passed on `f2c38f4f4b6f2eea87677f1715689fa1ea6efe6c`: CI [40033876796](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40033876796), isolated acceptance [40033876477](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40033876477), UI audit and preview. This certifies those isolated/local workflows, not Zo runtime. #152/#153 and [CustomerDetail draft #154](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/154) remain separate dependent work.
+
+Current active source branch: `fix/i18n-new-sale-wizard`, created from fresh origin/main at `dbb5123`. The scoped specification is `docs/tasks/active/final-i18n-new-sale-wizard.md`; earlier I18N-04A source remains preserved on its separate branch/PR. Latest detailed roadmap records from those branches are retained here.
+
+
+### Integration update — foundation and CustomerDetail PRs merged
+
+- [#152](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/152) merged as `1011feeabf1679de25885b4564abc0d786438892` after required checks passed on `de1b2a0ea1ecd9db3a01cb4e02c5648f4896fbea`.
+- [#153](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/153) merged as `422651c396ce5dc385b4356082be0ca7d7d56e21` after required checks passed on `2d4b12e3359449646178a9d32d6fae7efcfc5aa0`: CI [40035375596](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40035375596), isolated acceptance [40035375513](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40035375513). Downloaded job logs confirmed **26 form-contract, 152 finance-form and 195 authenticated acceptance scenarios passed**, including all four new initial-BS/EN, light/dark public/authenticated language lifecycles. This supersedes the earlier pending execution note. The separate artifact download was network-denied; job logs supplied the required execution evidence. The exact Azure artifact hostname was added to the environment draft without replacing other network rules; draft persistence does not prove runtime application/publication.
+- [#154](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/154) merged as `8cf3f1a43390db48569bd52be3ac0c8c21757204` after required checks passed on `b6b6177724aa3d4c40f568d0c493b087d4269626`: CI [40036545455](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40036545455), isolated acceptance [40036546248](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40036546248), UI audit and preview. CustomerDetail currency/translation repairs are now in main.
+
+Wizard work was preserved in a named local stash while this branch fast-forwarded to verified latest main `8cf3f1a`. Its changes were reapplied; only CI registration and roadmap text overlapped, resolved by retaining Reports, CustomerDetail and New Sale browser checks plus all prior evidence. No application source from the merged PRs was discarded. Current active source is `fix/i18n-new-sale-wizard`; verify the combined tests before committing/opening its PR. All earlier pending integration notes are historical observations superseded by this update. Full Phase 1 and later phases remain open.
+
+
+### I18N-04B — New Sale Wizard verification on integrated main
+
+Current branch: `fix/i18n-new-sale-wizard`, based on verified `8cf3f1a` main. The existing six-step conditional sale workflow now uses BS/EN dictionaries for labels, accessible names, placeholders, validation, notifications, review and locale money/date display. Visible validation translates immediately while entered drafts survive language changes. Traveler readiness and room counts use Bosnian plural forms. Existing pricing, capacity, document requirements, accommodation assignment, installments and idempotency/recovery rules remain covered; persisted booking snapshot labels and machine identifiers retain their previous contract. Unknown errors use translated fallback rather than raw API diagnostics.
+
+Evidence after integrating foundation and CustomerDetail changes:
+
+- Before repair, all three new component regressions failed; afterward the focused wizard suite passed **63 tests across 11 files**. Existing business assertions remain; tests explicitly select their language.
+- Combined admin: **70 files / 520 tests passed**, production build passed, lint **zero errors / 51 existing warnings**. Dictionary structure/token coverage includes the new namespace.
+- Actual wizard browser fixture: **8 full-flow scenarios passed**, BS/EN × light/dark × 390/1440; mandatory document details, selected hotel inventory, optional insurance, visible validation/live preference change with draft retention, no language-triggered fetch, unchanged numeric total and structured reservation payload. Preference changes are simulated through fixture context events inside the real modal focus trap; shared-header switching has separate real keyboard/browser coverage. Synthetic transport only; no customer writes.
+- Combined Reports + CustomerDetail + New Sale browser suite: **19 passed**. Shared UI/language keyboard regression suite: **12 passed**.
+- Real authenticated sale acceptance keeps existing single-POST, API/database, contract/PDF and finance assertions, now explicitly choosing English and matching translated wizard controls. Its local execution requires unavailable isolated Auth/DB/Storage/SMTP bindings; exact-head GitHub acceptance remains the merge gate.
+- CI registration retains all three locale suites. No migrations, seeds/reset, auth/RLS/tenant changes, dependencies or Zo runtime operations. API is unchanged from verified #154; fresh API build and **113 files / 1,009 tests passed**.
+
+PR and exact-head remote CI pending. Full Phase 1 remains open; next priorities are the Reservations list/edit workflow and ReservationDetail, followed by the remaining inventory. No later phase is certified by this translation PR.
+
+Exact I18N-04B changed files (repository-relative):
+
+- `.github/workflows/ci.yml`
+- `docs/TRAVLINE_FINAL_ROADMAP.md`
+- `docs/operations/final-i18n-inventory.md`
+- `docs/tasks/active/final-i18n-new-sale-wizard.md`
+- `nmt-analytics-admin/e2e/finance-forms/new-sale-locale.html`
+- `nmt-analytics-admin/e2e/finance-forms/new-sale-locale.spec.ts`
+- `nmt-analytics-admin/e2e/finance-forms/new-sale-locale.tsx`
+- `nmt-analytics-admin/e2e/pilot-browser-sale.spec.ts`
+- `nmt-analytics-admin/src/components/reservations/NewSaleWizard.tsx`
+- `nmt-analytics-admin/src/lib/i18n/bs.ts`
+- `nmt-analytics-admin/src/lib/i18n/en.ts`
+- `nmt-analytics-admin/src/tests/newSaleAccommodationFlow.test.tsx`
+- `nmt-analytics-admin/src/tests/newSaleAccommodationResolution.test.tsx`
+- `nmt-analytics-admin/src/tests/newSaleAddonsFlow.test.tsx`
+- `nmt-analytics-admin/src/tests/newSaleAutoAccommodation.test.tsx`
+- `nmt-analytics-admin/src/tests/newSaleClearTransportAlternatives.test.tsx`
+- `nmt-analytics-admin/src/tests/newSaleDepartureTransport.test.tsx`
+- `nmt-analytics-admin/src/tests/newSaleInstallmentSchedule.test.tsx`
+- `nmt-analytics-admin/src/tests/newSalePassengerSlots.test.tsx`
+- `nmt-analytics-admin/src/tests/newSaleTravelerReadiness.test.tsx`
+- `nmt-analytics-admin/src/tests/newSaleWizardLocale.test.tsx`
+- `nmt-analytics-admin/src/tests/newSaleWizardStructure.test.tsx`
+
+
+### I18N-04C — Reservation Detail implementation checkpoint
+
+New Sale [PR #155](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/155), head `f58c7bc3d5b89f05a7886a7c39ea09a9bbbe5f4f`, is open: build/unit/browser/migration/Docker/preview checks passed; isolated acceptance remains pending at this observation. Merge requires every required exact-head check. A temporary cloud disconnection interrupted subsequent work; the restored checkout retained its scoped task and tests.
+
+Current branch: `fix/i18n-reservation-detail`, initially fresh main `8cf3f1a`; spec `docs/tasks/active/final-i18n-reservation-detail.md`. The existing five tabs, document/readiness/status labels, financial summaries, sold-service display, downloads and contract dialog now follow BS/EN. Calendar-only dates retain their day west of UTC, money retains source currency/numeric amounts, and live switching retains the selected tab without refetching. Unknown service errors use translated fallbacks. Preserved manager financial-write restrictions, incomplete-sale gating, reservation-filtered manifest, canonical accommodation, top-level sold snapshot and payment/contract payloads. EditReservationModal remains a separate open translation task. No API, schema/auth/RLS, dependency, seed/reset, customer-data or Zo runtime changes.
+
+Evidence:
+
+- Three new locale regressions failed against the original page and passed after repair. A fourth covers localized contract failure without raw diagnostics. Existing tests explicitly select Bosnian while retaining business assertions.
+- Full admin before the additional error regression: **70 files / 520 tests passed**, lint **zero errors / 51 existing warnings**, production build passed. Final focused/combined runs are being completed.
+- Actual Reservation Detail browser fixture: **8 passed**, BS/EN × light/dark × 390/1440, America/Los_Angeles. Covered overview, passenger filtering/document dates, installments, Agent payment restrictions, canonical hotel/add-on currency, live switching with retained Services tab/no refetch, Documents and contract-generation payload. Synthetic transport only.
+- Authenticated finance acceptance now matches its explicitly English Payments/Record payment controls. Quotation conversion acceptance selects the edit button for its existing BS/EN scenario. Original API/database/ledger/refund/idempotency/locked-quotation assertions remain. Local isolated Auth/DB credentials are unavailable; remote acceptance is the merge gate.
+- CI locale matching uses `locale.spec.ts`, retaining earlier suites and discovering subsequent locale fixtures. Combined browser command and fresh API baseline are being finalized.
+
+Deferred confirmed Phase 2 finding: ReservationDetail swallows manifest/accommodation/installment read failures and can show apparent empty data. Repair these read states with failure/retry tests in a focused functional task. This translation PR does not certify those error states.
+
+Next: integrate verified #155 main, complete combined checks, open Reservation Detail PR, then Reservations list/EditReservationModal. Full Phase 1 and all later phases remain open; hosted demo/Zo runtime remain unverified.
+
+Final local checkpoint for I18N-04C: **37 focused tests passed** (existing ReservationDetail behavior, four locale/error regressions and full dictionary contract); **19 combined Reports/CustomerDetail/ReservationDetail browser scenarios passed** using the exact new CI selector `locale.spec.ts`; fresh API build and **113 files / 1,009 tests passed**. Browser fixture identity is synthetic Agent context; the existing unit suite separately verifies manager/Agent payment permissions. No authentication/RLS isolation claim is inferred from the fixture.
+
+Final admin rerun including the error regression: **70 files / 521 tests passed**, lint **zero errors / 51 existing warnings**, production build passed. `git diff --check` passed. Full Phase 1 remains open.
+
+Exact I18N-04C changed files (repository-relative):
+
+- `.github/workflows/ci.yml`
+- `docs/TRAVLINE_FINAL_ROADMAP.md`
+- `docs/operations/final-i18n-inventory.md`
+- `docs/tasks/active/final-i18n-reservation-detail.md`
+- `nmt-analytics-admin/e2e/finance-forms/reservation-detail-locale.html`
+- `nmt-analytics-admin/e2e/finance-forms/reservation-detail-locale.spec.ts`
+- `nmt-analytics-admin/e2e/finance-forms/reservation-detail-locale.tsx`
+- `nmt-analytics-admin/e2e/pilot-finance-audit.spec.ts`
+- `nmt-analytics-admin/e2e/pilot-quotation-booking.spec.ts`
+- `nmt-analytics-admin/src/lib/i18n/bs.ts`
+- `nmt-analytics-admin/src/lib/i18n/en.ts`
+- `nmt-analytics-admin/src/pages/ReservationDetail.tsx`
+- `nmt-analytics-admin/src/tests/reservationDetail.test.tsx`
+- `nmt-analytics-admin/src/tests/reservationDetailLocale.test.tsx`

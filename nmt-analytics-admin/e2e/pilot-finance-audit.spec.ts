@@ -18,11 +18,11 @@ for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`real
  await page.setViewportSize({width,height:900});await page.goto('/auth/signin');await page.locator('#signin-email').fill(process.env.E2E_MANAGER_EMAIL!);await page.locator('#signin-password').fill(process.env.E2E_MANAGER_PASSWORD!);await page.getByRole('button',{name:/sign in/i}).click();await expect(page).not.toHaveURL(/\/auth\/signin/);
  await page.evaluate(theme=>{localStorage.setItem('travline_lang','en');localStorage.setItem('theme',theme);},theme);
  await page.goto(`/reservations/${res.id}`);await page.evaluate(theme=>document.documentElement.classList.toggle('dark',theme==='dark'),theme);
- await page.getByRole('button',{name:'Uplate',exact:true}).click();await page.getByRole('button',{name:'Evidentiraj uplatu',exact:true}).click();
+ await page.getByRole('button',{name:'Payments',exact:true}).click();await page.getByRole('button',{name:'Record payment',exact:true}).click();
  const form=page.getByRole('form',{name:'Add Payment',exact:true});
  if(theme==='dark')expect(await form.locator('label').evaluateAll(nodes=>nodes.every(e=>Number(getComputedStyle(e).color.match(/\d+/)?.[0])>=150))).toBe(true);await expect(form.getByLabel('Amount *',{exact:true})).toHaveValue('90');
  await form.getByLabel('Amount *',{exact:true}).fill('12');await form.getByLabel('Method',{exact:true}).selectOption('cash');await form.getByRole('button',{name:'Cancel',exact:true}).click();
- await page.getByRole('button',{name:'Evidentiraj uplatu',exact:true}).click();await expect(form.getByLabel('Amount *',{exact:true})).toHaveValue('90');await expect(form.getByLabel('Method',{exact:true})).toHaveValue('');
+ await page.getByRole('button',{name:'Record payment',exact:true}).click();await expect(form.getByLabel('Amount *',{exact:true})).toHaveValue('90');await expect(form.getByLabel('Method',{exact:true})).toHaveValue('');
  let intercepted=0;await page.route('**/api/payments',async route=>{if(route.request().method()!=='POST'){await route.continue();return;}intercepted++;if(intercepted===1)await route.fulfill({status:503,json:{error:{code:'AUDIT_SYNTHETIC_FAILURE',message:'Synthetic failure'}}});else {await new Promise(r=>setTimeout(r,300));await route.continue();}});
  await form.getByLabel('Method',{exact:true}).selectOption('bank_transfer');await form.getByLabel('Date *',{exact:true}).fill('2041-04-23');
  await form.getByRole('button',{name:'Add Payment',exact:true}).click();await expect(form.getByRole('alert')).toBeVisible();await expect(form.getByLabel('Amount *',{exact:true})).toHaveValue('90');
@@ -30,7 +30,7 @@ for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`real
  const paying=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith('/api/payments')&&r.status()===201);
  await form.evaluate(e=>{e.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));e.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
  await page.keyboard.press('Escape');await expect(form).toBeVisible();const paid=await json(await paying);expect(intercepted).toBe(2);expect(paid.reservation.paidAmount).toBe(90);await expect(form).toBeHidden();
- await page.reload();await page.getByRole('button',{name:'Uplate',exact:true}).click();const schedule=await json(await request.get(`${api}/api/reservations/${res.id}/installments`,{headers}),200);expect(schedule.installments.filter((p:any)=>p.status==='succeeded')).toHaveLength(1);expect(schedule.paidAmount).toBe(90);expect(schedule.balanceDue).toBe(90);
+ await page.reload();await page.getByRole('button',{name:'Payments',exact:true}).click();const schedule=await json(await request.get(`${api}/api/reservations/${res.id}/installments`,{headers}),200);expect(schedule.installments.filter((p:any)=>p.status==='succeeded')).toHaveLength(1);expect(schedule.paidAmount).toBe(90);expect(schedule.balanceDue).toBe(90);
  await testInfo.attach(`payment-${theme}-${width}`,{body:await page.screenshot(),contentType:'image/png'});
  // Open the actual list payment editor, then verify correction and refund against the ledger.
  await page.goto(`/reservations?departureId=${dep.id}`);await page.getByPlaceholder('Traži klijenta ili telefon...').fill(marker);

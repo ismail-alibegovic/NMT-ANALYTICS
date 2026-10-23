@@ -220,7 +220,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test -c playwright.ui.config.ts
       - name: BS/EN locale browser regressions
-        run: npx playwright test -c playwright.finance-forms.config.ts reports-locale.spec.ts customer-detail-locale.spec.ts
+        run: npx playwright test -c playwright.finance-forms.config.ts locale.spec.ts
       - uses: actions/upload-artifact@v4
         if: always()
         with:

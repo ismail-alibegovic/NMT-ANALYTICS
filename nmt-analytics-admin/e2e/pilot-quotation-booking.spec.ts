@@ -49,7 +49,7 @@ for(const scenario of [{lang:'bs',width:1440},{lang:'en',width:390}] as const){
   expect((await request.delete(`${api}/api/reservations/${booking.reservation.id}`,{headers})).status()).toBe(409);
   await page.getByRole('link',{name:c.openBooking,exact:true}).click();
   await expect(page.getByRole('link',{name:c.sourceQuotation,exact:true})).toHaveAttribute('href',`/quotations/${seeded.quote.id}`);
-  await page.getByRole('button',{name:'Uredi rezervaciju',exact:true}).click();
+  await page.getByRole('button',{name:scenario.lang==='bs'?'Uredi rezervaciju':'Edit reservation',exact:true}).click();
   await expect(page.locator('.modal input[disabled][type="number"]')).toHaveValue('176');
  });
 }
