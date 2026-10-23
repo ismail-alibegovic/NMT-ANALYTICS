@@ -38,7 +38,7 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
     const chartHeight = 300;
     // Leave room for the complete currency label, including large amounts.
     const axisLabels = [0, 0.25, 0.5, 0.75, 1].map(ratio => ({
-        ratio, label: formatCurrency(maxValue * ratio, currency),
+        ratio, label: formatCurrency(maxValue * ratio, currency, lang === 'bs' ? 'bs-BA' : 'en-GB'),
     }));
     const chartPadding = { top: 20, right: 20, bottom: 40,
         left: Math.max(96, ...axisLabels.map(({ label }) => label.length * 8 + 16)),
@@ -148,7 +148,7 @@ export default function RevenueChart({ data, loading, currency = 'BAM' }: Revenu
                                 textAnchor="middle"
                                 className="text-xs fill-gray-600 dark:fill-gray-400"
                             >
-                                {new Date(point.date).toLocaleDateString(lang === 'bs' ? 'bs-BA' : 'en-GB', { month: 'short', day: 'numeric' })}
+                                {`${new Date(point.date).getUTCDate()}${lang === 'bs' ? '.' : ''} ${t.reports.shortMonths[new Date(point.date).getUTCMonth()]}`}
                             </text>
                         </g>
                     );

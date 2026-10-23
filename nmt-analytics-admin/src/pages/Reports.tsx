@@ -20,7 +20,8 @@ import {
 } from '../api/analytics';
 
 export default function Reports() {
-    const { t } = useT();
+    const { t, lang } = useT();
+    const locale = lang === 'bs' ? 'bs-BA' : 'en-GB';
     const requestVersion = useRef(0);
     const filterId = useId();
     const [loadError, setLoadError] = useState(false);
@@ -52,7 +53,7 @@ export default function Reports() {
     const effectiveCurrency = selectedCurrency || overview?.currency || (availableCurrencies.length === 1 ? availableCurrencies[0] : null);
     const reportCurrency = effectiveCurrency || "BAM";
     const needsCurrencySelection = hasMixedCurrencies && !selectedCurrency;
-    const money = (value: number | null | undefined) => value === null || value === undefined || needsCurrencySelection ? t.reports.selectCurrency : formatCurrency(value, reportCurrency);
+    const money = (value: number | null | undefined) => value === null || value === undefined || needsCurrencySelection ? t.reports.selectCurrency : formatCurrency(value, reportCurrency, locale);
 
     // Fetch analytics data
     const fetchAnalytics = async () => {
@@ -132,7 +133,7 @@ export default function Reports() {
             header: t.reports.totalRevenueColumn,
             render: (val, row) => (
                 <div className="text-right font-semibold text-brand-600 dark:text-brand-400">
-                    {formatCurrency(val, row.currency || reportCurrency)}
+                    {formatCurrency(val, row.currency || reportCurrency, locale)}
                 </div>
             )
         },
@@ -141,7 +142,7 @@ export default function Reports() {
             header: t.reports.paidColumn,
             render: (val, row) => (
                 <div className="text-right text-success-600 dark:text-success-400 font-medium">
-                    {formatCurrency(val, row.currency || reportCurrency)}
+                    {formatCurrency(val, row.currency || reportCurrency, locale)}
                 </div>
             )
         },
@@ -153,7 +154,7 @@ export default function Reports() {
                     ? 'text-error-600 dark:text-error-400'
                     : 'text-success-600 dark:text-success-400'
                     }`}>
-                    {formatCurrency(val, row.currency || reportCurrency)}
+                    {formatCurrency(val, row.currency || reportCurrency, locale)}
                 </div>
             )
         },

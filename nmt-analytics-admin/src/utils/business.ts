@@ -82,13 +82,24 @@ export function getDepartureStatus(booked: number, capacity: number): OccupancyI
 /**
  * Formats currency amounts consistently.
  */
-export function formatCurrency(amount: number | null | undefined, currency = 'BAM'): string {
-    // Use bs-BA for local formatting
-    const formatter = new Intl.NumberFormat('bs-BA', {
+export function formatCurrency(amount: number | null | undefined, currency = 'BAM', locale?: string): string {
+    const formatter = new Intl.NumberFormat(locale || 'bs-BA', {
         style: 'currency',
         currency,
     });
 
+    // Some Chromium builds advertise bs-BA but ship root CLDR number data.
+    // Only explicit locale callers opt into this compatibility path; legacy
+    // callers keep their existing default. Use the same decimal/group pattern
+    // and explicit currency codes when a Bosnian symbol is unavailable.
+    if (locale === 'bs-BA' && new Intl.NumberFormat(locale).formatToParts(1.5)
+        .find(part => part.type === 'decimal')?.value !== ',') {
+        const symbols: Record<string, string> = { BAM: 'KM', EUR: '€' };
+        return new Intl.NumberFormat('de-DE', { style: 'currency', currency, currencyDisplay: 'code' })
+            .formatToParts(amount || 0)
+            .map(part => part.type === 'currency' ? (symbols[part.value] || part.value) : part.value)
+            .join('');
+    }
     return formatter.format(amount || 0);
 }
 

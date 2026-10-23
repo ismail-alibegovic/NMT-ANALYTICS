@@ -494,6 +494,7 @@ export const en = {
     },
   },
   reports: {
+    shortMonths: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
     selectCurrency: 'Select currency', mixedCurrencies: 'Mixed currencies', selectForChart: 'Select a currency to view the revenue chart.', selectForRanking: 'Select a currency to view monetary package rankings.', unknownPackage: 'Unknown Package', authRequired: 'Authentication required', pleaseSignIn: 'Please sign in', perReservation: 'Per reservation', noData: 'No data', noReservations: 'No reservations for the selected period.',
 
     loadError: 'Report data could not be loaded. Previous figures are hidden to avoid showing stale balances.', retry: 'Retry', exportError: 'Report export failed. Please retry.',
