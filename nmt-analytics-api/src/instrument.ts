@@ -1,9 +1,5 @@
-// dotenv is loaded here rather than in index.ts because this module reads
-// SENTRY_DSN at import time and must run before express is loaded.
-import dotenv from 'dotenv';
-if (process.env.NODE_ENV !== 'test') {
-  dotenv.config();
-}
+// Initialize the same environment boundary before reading monitoring settings.
+import './environment';
 import { sanitizeSentryEvent, isValidSentryDsn } from './lib/sentryPrivacy';
 import * as Sentry from '@sentry/node';
 

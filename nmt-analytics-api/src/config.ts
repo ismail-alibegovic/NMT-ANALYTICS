@@ -1,14 +1,5 @@
 import { z } from 'zod';
-import dotenv from 'dotenv';
-import path from 'path';
-
-if (process.env.NODE_ENV !== 'production') {
-  const envFile = process.env.NODE_ENV === 'test' ? '.env.test' : '.env';
-  dotenv.config({
-    path: path.resolve(process.cwd(), envFile),
-    override: true,
-  });
-}
+import './environment';
 
 const rawEnv = {
   ...process.env,

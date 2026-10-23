@@ -3,30 +3,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 
-set -a
+# Process variables override file values. Never execute configuration as shell.
+# Node 20.6+ supports --env-file; the production launcher fixes the runtime mode.
+export NODE_ENV=production
 if [ -f "$ROOT/nmt-analytics-api/.env.production.local" ]; then
-  . "$ROOT/nmt-analytics-api/.env.production.local"
+  exec node --env-file="$ROOT/nmt-analytics-api/.env.production.local" "$ROOT/scripts/start-production.cjs"
 elif [ -f "$ROOT/.env" ]; then
-  . "$ROOT/.env"
+  exec node --env-file="$ROOT/.env" "$ROOT/scripts/start-production.cjs"
 fi
-set +a
-
-export NODE_ENV="${NODE_ENV:-production}"
-export PORT="${PORT:-3001}"
-export ADMIN_URL="${ADMIN_URL:-http://localhost:${PORT}}"
-export DEV_BYPASS_AUTH="${DEV_BYPASS_AUTH:-false}"
-export DEV_AUTO_BOOTSTRAP="${DEV_AUTO_BOOTSTRAP:-false}"
-
-cd "$ROOT/nmt-analytics-admin"
-if [ ! -d node_modules ]; then npm ci; fi
-VITE_SUPABASE_URL="${TRAVLINE_SUPABASE_URL:-${SUPABASE_URL:-}}" \
-VITE_SUPABASE_ANON_KEY="${TRAVLINE_SUPABASE_ANON_KEY:-${SUPABASE_ANON_KEY:-}}" \
-VITE_API_URL="/api" \
-VITE_SENTRY_DSN="${VITE_SENTRY_DSN:-}" \
-VITE_APP_VERSION="${VITE_APP_VERSION:-travline-admin@1.0.0}" \
-npm run build
-
-cd "$ROOT/nmt-analytics-api"
-if [ ! -d node_modules ]; then npm ci; fi
-npm run build
-exec npm start
+exec node "$ROOT/scripts/start-production.cjs"
