@@ -219,9 +219,13 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test -c playwright.ui.config.ts
+      - name: Reports BS/EN locale browser regressions
+        run: npx playwright test -c playwright.finance-forms.config.ts reports-locale.spec.ts
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: shared-ui-browser-evidence
-          path: nmt-analytics-admin/test-results/
+          path: |
+            nmt-analytics-admin/test-results/
+            nmt-analytics-admin/finance-form-results/
           retention-days: 14

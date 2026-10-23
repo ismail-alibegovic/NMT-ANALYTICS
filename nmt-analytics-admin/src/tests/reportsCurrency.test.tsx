@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider } from '../lib/i18n/context';
+import { I18nProvider, useT } from '../lib/i18n/context';
 import Reports from '../pages/Reports';
 
 let overviewResponse: any;
@@ -98,6 +98,7 @@ function seedMixed() {
 beforeEach(() => {
   vi.clearAllMocks();
   seedSingle('BAM');
+  localStorage.setItem('travline_lang', 'en');
 });
 
 describe('Reports currency handling', () => {
@@ -108,7 +109,7 @@ describe('Reports currency handling', () => {
     await waitFor(() => {
       expect(screen.getByTestId('revenue-chart')).toHaveAttribute('data-currency', 'BAM');
     });
-    expect((await screen.findAllByText(/100,00\s*KM/)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/BAM\s*100\.00/)).length).toBeGreaterThan(0);
   });
 
   it('renders single EUR reports as EUR and not KM', async () => {
@@ -118,7 +119,7 @@ describe('Reports currency handling', () => {
     await waitFor(() => {
       expect(screen.getByTestId('revenue-chart')).toHaveAttribute('data-currency', 'EUR');
     });
-    await screen.findAllByText(/200,00\s*€/);
+    await screen.findAllByText(/€200\.00/);
     expect(screen.queryByText(/200,00\s*KM/)).not.toBeInTheDocument();
   });
 
@@ -158,9 +159,9 @@ describe('Reports currency handling', () => {
     render(<I18nProvider><Reports /></I18nProvider>);
     await screen.findByRole('alert');
     expect(screen.getByRole('button', { name: 'Export Overview CSV' })).toBeDisabled();
-    expect(screen.queryByText(/100,00\s*KM/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/BAM\s*100\.00/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    await screen.findAllByText(/100,00\s*KM/);
+    await screen.findAllByText(/BAM\s*100\.00/);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
   it('exports through the authenticated API client with the current filters', async () => {
@@ -168,9 +169,32 @@ describe('Reports currency handling', () => {
     URL.createObjectURL = vi.fn(() => 'blob:isolated-csv'); URL.revokeObjectURL = vi.fn();
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     render(<I18nProvider><Reports /></I18nProvider>);
-    await screen.findAllByText(/100,00\s*KM/);
+    await screen.findAllByText(/BAM\s*100\.00/);
     fireEvent.click(screen.getByRole('button', { name: 'Export Overview CSV' }));
     await waitFor(() => expect(exportGet).toHaveBeenCalledWith('/analytics/overview.csv', expect.objectContaining({ responseType: 'blob', params: expect.objectContaining({ from: expect.any(String), to: expect.any(String) }) })));
   });
 
+});
+
+function LanguageSwitch() {
+  const { toggleLang } = useT();
+  return <button onClick={toggleLang}>Switch test language</button>;
+}
+
+it('updates Reports money and labels on language switch without refetching or changing currency', async () => {
+  seedSingle('EUR');
+  localStorage.setItem('travline_lang', 'bs');
+  render(<I18nProvider><LanguageSwitch /><Reports /></I18nProvider>);
+  await screen.findAllByText(/200,00\s*€/);
+  const calls = getAnalyticsOverviewV2.mock.calls.length;
+  fireEvent.click(screen.getByRole('button', { name: 'Switch test language' }));
+  await screen.findAllByText('€200.00');
+  expect(screen.getByRole('heading', { name: 'Reports' })).toBeInTheDocument();
+  expect(screen.queryByText(/200,00\s*€/)).not.toBeInTheDocument();
+  expect(screen.getByTestId('revenue-chart')).toHaveAttribute('data-currency', 'EUR');
+  expect(getAnalyticsOverviewV2).toHaveBeenCalledTimes(calls);
+  expect(localStorage.getItem('travline_lang')).toBe('en');
+  fireEvent.click(screen.getByRole('button', { name: 'Switch test language' }));
+  await screen.findAllByText(/200,00\s*€/);
+  expect(screen.queryByText('€200.00')).not.toBeInTheDocument();
 });

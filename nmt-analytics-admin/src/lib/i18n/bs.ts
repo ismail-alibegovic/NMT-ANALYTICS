@@ -494,6 +494,7 @@ export const bs: Translations = {
     },
   },
   reports: {
+    shortMonths: ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'],
     selectCurrency: 'Odaberite valutu', mixedCurrencies: 'Različite valute', selectForChart: 'Odaberite valutu za prikaz grafikona prihoda.', selectForRanking: 'Odaberite valutu za prikaz rangiranja paketa.', unknownPackage: 'Nepoznat paket', authRequired: 'Potrebna prijava', pleaseSignIn: 'Molimo prijavite se', perReservation: 'Po rezervaciji', noData: 'Nema podataka', noReservations: 'Nema rezervacija za odabrani period.',
 
     loadError: 'Izvještaj nije moguće učitati. Prethodni iznosi su skriveni kako se ne bi prikazivali zastarjeli saldi.', retry: 'Pokušaj ponovo', exportError: 'Izvoz izvještaja nije uspio. Pokušajte ponovo.',

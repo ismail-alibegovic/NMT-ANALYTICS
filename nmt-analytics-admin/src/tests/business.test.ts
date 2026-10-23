@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   normalizeMoney,
   calculateOutstandingAmount,
@@ -114,3 +114,33 @@ describe('formatCurrency', () => {
     expect(formatCurrency(100, 'USD')).not.toContain('KM')
   })
 })
+
+
+describe('explicit currency locale', () => {
+  for (const locale of ['bs-BA', 'en-GB']) {
+    for (const currency of ['BAM', 'EUR']) {
+      for (const amount of [0, 1234567.89, -42.5, null, undefined]) {
+        it(`formats ${amount} ${currency} with ${locale}`, () => {
+          expect(formatCurrency(amount, currency, locale)).toBe(
+            new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount ?? 0),
+          );
+        });
+      }
+    }
+  }
+});
+
+it('keeps explicit Bosnian monetary formatting when browser locale data falls back to root', () => {
+  const NativeNumberFormat = Intl.NumberFormat;
+  const mock = vi.spyOn(Intl, 'NumberFormat').mockImplementation(function (locale, options) {
+    return new NativeNumberFormat(locale === 'bs-BA' ? 'en-US' : locale, options);
+  } as typeof Intl.NumberFormat);
+  try {
+    expect(formatCurrency(1234567.89, 'BAM', 'bs-BA')).toBe('1.234.567,89\u00a0KM');
+    expect(formatCurrency(-1234.5, 'EUR', 'bs-BA')).toBe('-1.234,50\u00a0€');
+    expect(formatCurrency(1234.5, 'eur', 'bs-BA')).toBe('1.234,50\u00a0€');
+    expect(formatCurrency(1234.5, 'USD', 'bs-BA')).toBe('1.234,50\u00a0USD');
+    expect(formatCurrency(0, 'JPY', 'bs-BA')).toBe('0\u00a0JPY');
+    expect(formatCurrency(1234.5, 'EUR', 'en-GB')).toBe('€1,234.50');
+  } finally { mock.mockRestore(); }
+});
