@@ -234,8 +234,8 @@ type SeedOwnedRecordIds = {
   trip_passenger_group_members: string[];
 };
 
-function uniqueIds(values: (string | null | undefined)[]) {
-  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
+export function uniqueIds(values?: (string | null | undefined)[] | null) {
+  return Array.from(new Set((values || []).filter((value): value is string => Boolean(value))));
 }
 
 async function loadSeedRegistryIds(orgId: string): Promise<Record<string, string[]>> {
@@ -264,7 +264,7 @@ async function registerSeedRecord(orgId: string, entity: string, recordId: strin
   if (error) throw new Error(`register golden seed record (${entity}): ${error.message}`);
 }
 
-async function resolveGoldenDemoTargetOrg() {
+export async function resolveGoldenDemoTargetOrg() {
   const targetOrgId = (process.env[DEMO_TARGET_ORG_ID_ENV] || '').trim();
   const resetConfirmation = (process.env[DEMO_RESET_CONFIRMATION_ENV] || '').trim();
 
@@ -390,7 +390,7 @@ async function resolveSeedOwnedRecordIds(orgId: string, isLegacyDemoOrg: boolean
   return ids;
 }
 
-async function assertNoForeignSeedDependents(orgId: string, owned: SeedOwnedRecordIds) {
+export async function assertNoForeignSeedDependents(orgId: string, owned: SeedOwnedRecordIds) {
   const findForeignIds = async (table: string, match: { column: string; values: string[] }, exclude: { column: string; values: string[] }) => {
     if (match.values.length === 0) return [] as string[];
     let query = supabaseAdmin.from(table).select('id').eq('org_id', orgId).in(match.column, match.values);
@@ -807,7 +807,11 @@ async function seed() {
   console.log(`Departures: ${packages.length}`);
 }
 
-seed().catch((error) => {
-  console.error('💥 Demo seed failed:', error);
-  process.exit(1);
-});
+const invokedDirectly = typeof require !== 'undefined' && require.main === module;
+
+if (invokedDirectly) {
+  seed().catch((error) => {
+    console.error('💥 Demo seed failed:', error);
+    process.exit(1);
+  });
+}

@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { Response } from 'express';
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
   dotenv.config({
     path: path.resolve(__dirname, '../../.env'),
     override: true,
