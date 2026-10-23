@@ -6,7 +6,7 @@ The dictionaries contain 2,786 leaf values each; the inspection found no empty s
 
 A TypeScript AST scan found **660 candidate JSX literals across 67 files** outside tests, translation dictionaries and icons. Candidates include proper names/technical labels and are not all confirmed defects. Counts include JSX text and literal placeholder/title/aria-label/alt attributes and string expressions; the scan does **not** capture all object labels, toasts, validation messages, template literals or API/PDF/export copy. Those require domain inspection. Each row below remains OPEN until manually classified and verified in BS/EN.
 
-The first completed slice is Reports monetary formatting; see `docs/TRAVLINE_FINAL_ROADMAP.md` for validation and PR status. Preserve existing visual design, domain identifiers and customer-entered content.
+Reports monetary formatting and shared language selection have focused PRs; CustomerDetail is implemented on `fix/i18n-customer-detail`, with local unit/browser verification and remote integration pending; see `docs/TRAVLINE_FINAL_ROADMAP.md` for validation and PR status. Preserve existing visual design, domain identifiers and customer-entered content.
 
 | Admin source file | Candidate count | First candidate lines |
 | --- | ---: | --- |
@@ -80,7 +80,7 @@ The first completed slice is Reports monetary formatting; see `docs/TRAVLINE_FIN
 
 ## Confirmed gaps and ordered domain review
 
-- `src/pages/CustomerDetail.tsx`: hardcoded Bosnian columns, English summary labels, bs-BA-only local currency/date helpers, and raw status/timeline presentation. Translate with existing dictionaries and add loading/error/success/browser tests before calling it complete.
+- `src/pages/CustomerDetail.tsx` (baseline finding; addressed in I18N-04A branch, not yet certified on main): hardcoded Bosnian columns, English summary labels, bs-BA-only local currency/date helpers, and raw status/timeline presentation. Translate with existing dictionaries and add loading/error/success/browser tests before calling it complete.
 - `src/components/reservations/NewSaleWizard.tsx`, `EditReservationModal.tsx`, `CreateReservationModal.tsx`, `src/pages/ReservationDetail.tsx` and `Reservations.tsx`: highest-priority sales review; candidates need classification alongside conditional accommodation/payment/traveler paths and recovery errors. Do not alter capacity, money, canonical statuses or retry behavior while translating.
 - `src/pages/admin/{Settings,UnifiedPayments,Integrations,AuditLogs,Departures,PdfTemplateEditor}.tsx`: audit nested forms, provider-disabled states, messages, accessible labels, date/currency formatting and destructive-action warnings.
 - `src/pages/operations/{Excursions,CommissionRules,Receipts,Hotels}.tsx`: translate one existing module per focused PR with role/empty/error/success coverage.
