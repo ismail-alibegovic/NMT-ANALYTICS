@@ -8,7 +8,8 @@ export interface ApiError {
 
 export function apiError(res: Response, status: number, code: string, message: string, details?: unknown) {
   const body: ApiError = { code, message };
-  if (details !== undefined) {
+  // Never expose provider/SQL diagnostics on internal failures.
+  if (status < 500 && details !== undefined) {
     body.details = details;
   }
   return res.status(status).json(body);
