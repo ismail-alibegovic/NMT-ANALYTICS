@@ -2,7 +2,6 @@
 // http/express at module-load time, so any application module loaded before
 // this line runs uninstrumented.
 import './instrument';
-import 'dotenv/config';
 import app from './app';
 import { activateSmtpProvider } from './lib/email/activateSmtpProvider';
 import { captureHandled } from './middleware/sentry';

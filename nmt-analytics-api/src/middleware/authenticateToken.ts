@@ -10,7 +10,7 @@ export async function authenticateToken(
   next: NextFunction
 ) {
   // DEV_BYPASS_AUTH: allow testing without a real JWT
-  if (config.DEV_BYPASS_AUTH) {
+  if (config.DEV_BYPASS_AUTH && config.NODE_ENV === 'development') {
     const bypassId = "00000000-0000-0000-0000-000000000000";
     req.user = { id: bypassId, email: "dev-bypass@travline.app", role: "super_admin" };
 
