@@ -5,13 +5,17 @@ import svgr from "vite-plugin-svgr";
 
 
 // https://vite.dev/config/
-export default defineConfig(({ mode, command }) => {
-  if (command === 'build') {
-    const env = loadEnv(mode, process.cwd(), 'VITE_');
-    assertPublicSupabaseKey(env.VITE_SUPABASE_ANON_KEY);
-  }
-  return {
+export default defineConfig({
   plugins: [
+    {
+      name: 'public-supabase-key-boundary',
+      config(_config, { command, mode }) {
+        if (command === 'build') {
+          const env = loadEnv(mode, process.cwd(), 'VITE_');
+          assertPublicSupabaseKey(env.VITE_SUPABASE_ANON_KEY);
+        }
+      },
+    },
     react(),
     svgr({
       svgrOptions: {
@@ -42,5 +46,4 @@ export default defineConfig(({ mode, command }) => {
       },
     },
   },
-  };
 });
