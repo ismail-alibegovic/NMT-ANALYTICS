@@ -2,6 +2,16 @@ import { expect, it } from 'vitest';
 import request from 'supertest';
 import app from '../app';
 import { config } from '../config';
+
+it('does not inherit developer .env overrides in the test environment', () => {
+  // Regression guard: src/instrument.ts and src/lib/supabase.ts used to load the
+  // developer .env before config.ts parsed it, enabling DEV_BYPASS_AUTH in tests.
+  expect(config.NODE_ENV).toBe('test');
+  expect(config.DEV_BYPASS_AUTH).toBe(false);
+  expect(config.DEV_AUTO_BOOTSTRAP).toBe(false);
+  expect(process.env.DEV_BYPASS_AUTH).toBeUndefined();
+  expect(process.env.SUPABASE_URL).toBe('http://127.0.0.1:54321');
+});
 it('keeps unknown API routes JSON and protected context anonymous-safe', async () => {
   const missing = await request(app).get('/api/release-verification-missing');
   expect(missing.status).toBe(404);
