@@ -9,24 +9,32 @@ import { getDepartures, getDepartureAccommodationOptions, Departure, DepartureCa
 import { getCustomers, Customer } from "../../api/customers";
 import { createReservation, type CreateReservationPassengerInput } from "../../api/reservations";
 import { useT } from "../../lib/i18n/context";
+import type { en } from "../../lib/i18n/en";
+import { formatCurrency } from "../../utils/business";
 import { getPackageServices, type PackageService } from "../../api/operations";
 import type { TravelerRequirements } from "../../api/packages";
 
+type WizardCopy = typeof en.newSaleWizard;
+type ValidationNotice = { key: Extract<keyof WizardCopy, `error${string}`>; params?: Record<string, string | number> };
+function fill(template: string, params: Record<string, string | number> = {}) {
+  return template.replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (token, key: string) => String(params[key] ?? token));
+}
+
 type Step = "trip" | "travelers" | "accommodation" | "addons" | "payment" | "review";
 
-function getSteps(hasAccommodation: boolean, hasOptionalAddons: boolean): { key: Step; label: string }[] {
+function getSteps(hasAccommodation: boolean, hasOptionalAddons: boolean, w: WizardCopy): { key: Step; label: string }[] {
   const steps: { key: Step; label: string }[] = [
-    { key: "trip", label: "Putovanje" },
-    { key: "travelers", label: "Klijent i putnici" },
+    { key: "trip", label: w.trip },
+    { key: "travelers", label: w.travelersStep },
   ];
   if (hasAccommodation) {
-    steps.push({ key: "accommodation", label: "Smještaj" });
+    steps.push({ key: "accommodation", label: w.accommodation });
   }
   if (hasOptionalAddons) {
-    steps.push({ key: "addons", label: "Add-ons" });
+    steps.push({ key: "addons", label: w.addons });
   }
-  steps.push({ key: "payment", label: "Cijena i plaćanje" });
-  steps.push({ key: "review", label: "Pregled" });
+  steps.push({ key: "payment", label: w.paymentStep });
+  steps.push({ key: "review", label: w.reviewStep });
   return steps;
 }
 
@@ -86,11 +94,12 @@ function buildAutomaticAccommodationLine(
 }
 
 function getAccommodationInventoryMessage(
+  w: WizardCopy,
   roomLabel: string | undefined,
   neededRooms: number,
   availableRooms: number,
 ) {
-  return `Nema dovoljno slobodnih ${roomLabel || "odabranih"} soba. Potrebno: ${neededRooms}, dostupno: ${availableRooms}.`;
+  return fill(w.errorInventory, { room: roomLabel || w.selectedRooms, needed: neededRooms, available: availableRooms });
 }
 
 interface Props {
@@ -102,7 +111,25 @@ interface Props {
 }
 
 export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPackageId, initialDepartureId }: Props) {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const w: WizardCopy = t.newSaleWizard;
+  const locale = lang === 'bs' ? 'bs-BA' : 'en-GB';
+  const money = (amount: number, currency = packageCurrency) => formatCurrency(amount, currency, locale);
+  const formatDate = (value?: string | null) => {
+    if (!value) return '—';
+    const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value);
+    if (!Number.isFinite(date.getTime())) return '—';
+    const day = String(date.getDate()).padStart(2, '0'), month = String(date.getMonth() + 1).padStart(2, '0');
+    return lang === 'bs' ? `${day}.${month}.${date.getFullYear()}.` : `${day}/${month}/${date.getFullYear()}`;
+  };
+  const roomTypeLabel = (type?: string) => t.packages.editor.roomTypeLabels[type || ''] || w.room;
+  const countForm = (count: number): 'One' | 'Few' | 'Many' => {
+    if (lang !== 'bs') return count === 1 ? 'One' : 'Many';
+    const last = count % 10, lastTwo = count % 100;
+    if (last === 1 && lastTwo !== 11) return 'One';
+    if (last >= 2 && last <= 4 && !(lastTwo >= 12 && lastTwo <= 14)) return 'Few';
+    return 'Many';
+  };
   const { success, error: showError } = useToast();
 
   const [step, setStep] = useState<Step>("trip");
@@ -111,7 +138,11 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [validationMessage, setValidationMessage] = useState("");
+  const [validationNotice, setValidationNotice] = useState<ValidationNotice | null>(null);
+  const validationMessage = validationNotice ? fill(w[validationNotice.key], {
+    ...validationNotice.params,
+    room: validationNotice.params?.room || (validationNotice.params?.roomType ? roomTypeLabel(String(validationNotice.params.roomType)) : w.selectedRooms),
+  }) : '';
   const [recoveryReservationId, setRecoveryReservationId] = useState<string | null>(null);
   const [recoveryMode, setRecoveryMode] = useState<'processing' | 'retry' | 'manual' | null>(null);
   const saleIdempotencyKeyRef = useRef<string>("");
@@ -165,8 +196,8 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     capabilities?.travelerRequirements ||
     noTravelerDocumentsRequired;
   const travelDocumentsRelevant = travelerRequirements.documentType !== "none";
-  const documentNumberLabel = travelerRequirements.documentType === "id_card" ? "Broj lične karte" : "Broj pasoša";
-  const documentNumberPlaceholder = travelerRequirements.documentType === "id_card" ? "Broj lične karte" : "Broj pasoša";
+  const documentNumberLabel = travelerRequirements.documentType === "id_card" ? w.idNumber : w.passportNumber;
+  const documentNumberPlaceholder = travelerRequirements.documentType === "id_card" ? w.idNumber : w.passportNumber;
 
   const variants: Variant[] = Array.isArray(selectedPackage?.variants)
     ? (selectedPackage!.variants as unknown as Variant[])
@@ -190,7 +221,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     .filter((item): item is { service: PackageService; quantity: number } => Boolean(item));
   const addOnsTotal = selectedAddonItems.reduce((sum, item) => sum + (item.service.unitPrice || 0) * item.quantity, 0);
   const hasOptionalAddons = packageServicesResolved === "resolved" && optionalAddons.length > 0;
-  const steps = getSteps(hasAccommodation, hasOptionalAddons);
+  const steps = getSteps(hasAccommodation, hasOptionalAddons, w);
   const preAddonsStep: Step = hasAccommodation ? "accommodation" : "travelers";
   const shouldGatePackageServicesResolution = Boolean(packageId) && step === preAddonsStep;
 
@@ -326,7 +357,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     setPartySize(1); setTotalAmount(""); setNotes("");
     setPassengers([{ full_name: "" }]); setCreateGroup(false); setGroupName("");
     setPaymentPlan("full"); setDepositPct(50); setInstallmentCount(3);
-    setValidationMessage("");
+    setValidationNotice(null);
   }
 
   useEffect(() => {
@@ -344,7 +375,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       const resp = await getPackages({ limit: 200 });
       setPackages(resp.data ?? []);
     } catch {
-      showError("Greška pri učitavanju paketa");
+      showError(w.errorPackages);
     } finally {
       setLoading(false);
     }
@@ -572,60 +603,59 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
     const namedPassengers = passengers.filter((passenger) => passenger.full_name.trim());
     const ready = namedPassengers.filter((passenger) => getTravelerDocumentStatus(passenger) === "ready").length;
     const missing = Math.max(0, partySize - ready);
-    const readyLabel = ready === 1 ? "1 spreman" : `${ready} spremna`;
-    if (missing === 0) return `Putni podaci: ${readyLabel}`;
-    return `Putni podaci: ${readyLabel} · ${missing} dopuniti kasnije`;
+    const readyLabel = fill(w[`ready${countForm(ready)}`], { count: ready });
+    if (missing === 0) return readyLabel;
+    return fill(w.readyWithMissing, { ready: readyLabel, missing });
   }
 
   const stepIndex = steps.findIndex((s) => s.key === step);
 
-  function getValidationMessage(): string {
+  function getValidationMessage(): ValidationNotice | null {
     if (step === "trip") {
-      if (!packageId) return "Odaberite paket.";
-      if (!departureId) return "Odaberite polazak.";
-      return "";
+      if (!packageId) return { key: "errorPackageRequired" };
+      if (!departureId) return { key: "errorDepartureRequired" };
+      return null;
     }
     if (step === "travelers") {
-      if (!customerName.trim()) return "Unesite ime klijenta.";
-      if (!customerPhone.trim()) return "Unesite telefon.";
+      if (!customerName.trim()) return { key: "errorCustomerName" };
+      if (!customerPhone.trim()) return { key: "errorPhone" };
       if (travelDocumentsRelevant) {
         const missingNameIndex = passengers.findIndex((passenger) => !passenger.full_name.trim());
-        if (missingNameIndex >= 0) return `Unesite ime putnika ${missingNameIndex + 1}.`;
+        if (missingNameIndex >= 0) return { key: "errorPassengerName", params: { index: missingNameIndex + 1 } };
         if (!travelerRequirements.allowFillLater) {
           const missingDocumentIndex = passengers.findIndex((passenger) => getTravelerDocumentStatus(passenger) !== "ready");
-          if (missingDocumentIndex >= 0) return `Nedostaju obavezni putni podaci za putnika ${missingDocumentIndex + 1}.`;
+          if (missingDocumentIndex >= 0) return { key: "errorDocument", params: { index: missingDocumentIndex + 1 } };
         }
       }
-      if (accommodationResolved === "loading") return "Smještaj se još učitava...";
-      if (accommodationResolved === "error") return "Nije moguće provjeriti smještaj za ovaj polazak. Pokušajte ponovo.";
-      if (shouldGatePackageServicesResolution && packageServicesResolved === "loading") return "Dodatne usluge se još učitavaju...";
-      if (shouldGatePackageServicesResolution && packageServicesResolved === "error") return "Nije moguće učitati dodatne usluge za ovaj paket.";
-      return "";
+      if (accommodationResolved === "loading") return { key: "errorAccommodationLoading" };
+      if (accommodationResolved === "error") return { key: "errorAccommodation" };
+      if (shouldGatePackageServicesResolution && packageServicesResolved === "loading") return { key: "errorServicesLoading" };
+      if (shouldGatePackageServicesResolution && packageServicesResolved === "error") return { key: "errorServices" };
+      return null;
     }
     if (step === "accommodation") {
       if (accommodationLines.length > 0 && passengers.some((passenger) => !passenger.full_name.trim())) {
-        return "Unesite ime svih putnika prije nastavka sa smještajem.";
+        return { key: "errorAllPassengerNames" };
       }
-      if (shouldGatePackageServicesResolution && packageServicesResolved === "loading") return "Dodatne usluge se još učitavaju...";
-      if (shouldGatePackageServicesResolution && packageServicesResolved === "error") return "Nije moguće učitati dodatne usluge za ovaj paket.";
-      if (accommodationLines.length === 0) return "";
+      if (shouldGatePackageServicesResolution && packageServicesResolved === "loading") return { key: "errorServicesLoading" };
+      if (shouldGatePackageServicesResolution && packageServicesResolved === "error") return { key: "errorServices" };
+      if (accommodationLines.length === 0) return null;
       const inventoryBlockedLine = accommodationLines.find((line) => {
         const validation = getAccommodationLineValidation(line);
         return validation.hasOption && !validation.roomCountValid;
       });
       if (inventoryBlockedLine) {
         const inventoryValidation = getAccommodationLineValidation(inventoryBlockedLine);
-        return getAccommodationInventoryMessage(
-          inventoryValidation.option?.roomLabel || inventoryValidation.option?.roomType,
-          inventoryBlockedLine.roomCount,
-          inventoryValidation.option?.availableRooms || 0,
-        );
+        return { key: "errorInventory", params: {
+          room: inventoryValidation.option?.roomLabel || '', roomType: inventoryValidation.option?.roomType || '',
+          needed: inventoryBlockedLine.roomCount, available: inventoryValidation.option?.availableRooms || 0,
+        } };
       }
-      if (accommodationCoverage !== partySize) return "Smještaj mora pokriti sve putnike.";
-      if (!accommodationPassengerMappingValid) return "Dodijelite svakog putnika tačno jednoj liniji smještaja.";
-      return "";
+      if (accommodationCoverage !== partySize) return { key: "errorCoverage" };
+      if (!accommodationPassengerMappingValid) return { key: "errorAssignment" };
+      return null;
     }
-    return "";
+    return null;
   }
 
   const canNext = (() => {
@@ -662,20 +692,20 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
   function next() {
     if (!canNext) return;
-    setValidationMessage("");
+    setValidationNotice(null);
     setStep(steps[Math.min(stepIndex + 1, steps.length - 1)].key);
   }
   function back() {
-    setValidationMessage("");
+    setValidationNotice(null);
     setStep(steps[Math.max(stepIndex - 1, 0)].key);
   }
 
   function handleNextAttempt() {
     const msg = getValidationMessage();
     if (msg) {
-      setValidationMessage(msg);
+      setValidationNotice(msg);
     } else {
-      setValidationMessage("");
+      setValidationNotice(null);
       next();
     }
   }
@@ -720,6 +750,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         booking_snapshot_version: 1,
         package_id: packageId,
         package_name: selectedPackage?.name,
+        // Preserve the existing stored snapshot contract; UI formatting is separate.
         departure_label: selectedDeparture
           ? `${new Date(selectedDeparture.depart_at).toLocaleDateString("bs-BA")} → ${new Date(selectedDeparture.return_at).toLocaleDateString("bs-BA")}`
           : undefined,
@@ -796,7 +827,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         showError(createdReservation.retryable ? t.saleRecovery.retry : t.saleRecovery.manual);
         return;
       }
-      success("Rezervacija kreirana");
+      success(w.created);
       onCreated?.();
       onClose();
     } catch (e: any) {
@@ -807,11 +838,11 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         setRecoveryMode(retryable ? 'retry' : 'manual');
         showError(retryable ? t.saleRecovery.retry : t.saleRecovery.manual);
       } else if (e?.code === "IDEMPOTENCY_KEY_REQUIRED") {
-        showError("Prodaja nije mogla biti pokrenuta. Pokušajte ponovo.");
+        showError(w.errorStartSale);
       } else if (e?.code === "DEPARTURE_CAPACITY_EXCEEDED") {
-        showError("Nema dovoljno mjesta na odabranom polasku.");
+        showError(w.errorCapacity);
       } else {
-        showError(e?.message ?? "Greška pri kreiranju rezervacije");
+        showError(w.errorCreate);
       }
     } finally {
       setSubmitting(false);
@@ -821,7 +852,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
   if (!isOpen) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-3xl" title="Nova prodaja">
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-3xl" title={w.title}>
       {/* Stepper */}
       <div className="px-6 pt-5">
         <ol className="flex items-center gap-2 text-xs flex-wrap">
@@ -850,14 +881,14 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
       </div>
 
       <div className="p-6 pt-4">
-        {loading && <p className="text-sm text-gray-500">Učitavanje...</p>}
+        {loading && <p className="text-sm text-gray-500">{w.loading}</p>}
 
         {/* Step: Trip — Package + Departure */}
         {step === "trip" && (
           <div className="space-y-4">
             <div>
-              <Label>Aranžman / Paket *</Label>
-              <p className="text-xs text-gray-500 -mt-1">Odaberite ponudu, zatim izaberite termin.</p>
+              <Label>{w.packageLabel}</Label>
+              <p className="text-xs text-gray-500 -mt-1">{w.packageHint}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto mt-2">
                 {packages.map((pkg) => {
                   const active = pkg.id === packageId;
@@ -875,28 +906,28 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                       <div className="font-medium text-sm text-gray-900 dark:text-white">{pkg.name}</div>
                       <div className="text-xs text-gray-500">{pkg.destination}</div>
                       <div className="mt-1 text-sm font-semibold text-brand-600 dark:text-brand-400">
-                        {pkg.price ?? pkg.base_price ?? 0} {pkg.currency ?? "BAM"}
+                        {money(pkg.price ?? pkg.base_price ?? 0, pkg.currency ?? "BAM")}
                       </div>
                     </button>
                   );
                 })}
                 {packages.length === 0 && !loading && (
-                  <p className="text-sm text-gray-500 col-span-2">Nema dostupnih paketa. Dodajte paket u Paketi sekciji.</p>
+                  <p className="text-sm text-gray-500 col-span-2">{w.noPackages}</p>
                 )}
               </div>
             </div>
 
             {packageId && (
               <div>
-                <Label>Termin / Polazak *</Label>
+                <Label>{w.departureLabel}</Label>
                 {activeDepartures.length === 1 && departureId === activeDepartures[0].id && (
-                  <p className="text-xs text-green-600 -mt-0.5 mb-1">✓ Automatski odabran jedini dostupni termin</p>
+                  <p className="text-xs text-green-600 -mt-0.5 mb-1">{w.autoDeparture}</p>
                 )}
                 {availableTransportTypes.length > 1 && (
                   <div className="flex items-center gap-2 mt-1 mb-2">
-                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Dostupan prijevoz:</span>
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{w.availableTransport}</span>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
-                      {availableTransportTypes.map((t) => transportBadge(t)).join(" · ")}
+                      {availableTransportTypes.map((t) => transportBadge(w, t)).join(" · ")}
                     </span>
                   </div>
                 )}
@@ -916,7 +947,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                       >
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm text-gray-900 dark:text-white">
-                            {new Date(d.depart_at).toLocaleDateString("bs-BA")} → {new Date(d.return_at).toLocaleDateString("bs-BA")}
+                            {formatDate(d.depart_at)} → {formatDate(d.return_at)}
                           </div>
                           <div className="flex items-center gap-2 mt-1">
                             <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
@@ -926,7 +957,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                                   ? "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"
                                   : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
                             }`}>
-                              {transportBadge(d.transport_type)}
+                              {transportBadge(w, d.transport_type)}
                             </span>
                           </div>
                         </div>
@@ -938,17 +969,17 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                                 ? "text-amber-600 dark:text-amber-400"
                                 : "text-emerald-600 dark:text-emerald-400"
                           }`}>
-                            {d.capacity - d.booked} mjesta
+                            {d.capacity - d.booked} {w.places}
                           </div>
                           <div className="text-xs text-gray-500">
-                            {d.booked}/{d.capacity} popunjeno
+                            {d.booked}/{d.capacity} {w.booked}
                           </div>
                         </div>
                       </button>
                     );
                   })}
                   {activeDepartures.length === 0 && (
-                    <p className="text-sm text-gray-500">Nema aktivnih termina za ovaj paket.</p>
+                    <p className="text-sm text-gray-500">{w.noDepartures}</p>
                   )}
                 </div>
               </div>
@@ -961,38 +992,38 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
           <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
             {accommodationResolved === "loading" && (
               <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-sm text-gray-500">
-                Smještaj se još učitava...
+                {w.errorAccommodationLoading}
               </div>
             )}
             {accommodationResolved === "error" && (
               <div className="rounded-xl border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-4 space-y-2">
-                <p className="text-sm text-error-600 dark:text-error-400">Nije moguće provjeriti smještaj za ovaj polazak. Pokušajte ponovo.</p>
+                <p className="text-sm text-error-600 dark:text-error-400">{w.errorAccommodation}</p>
                 <button type="button" onClick={retryAccommodation} className="text-sm font-medium text-brand-600 hover:text-brand-500">
-                  Pokušaj ponovo
+                  {w.retryShort}
                 </button>
               </div>
             )}
             {shouldGatePackageServicesResolution && packageServicesResolved === "loading" && (
               <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-sm text-gray-500">
-                Dodatne usluge se još učitavaju...
+                {w.errorServicesLoading}
               </div>
             )}
             {shouldGatePackageServicesResolution && packageServicesResolved === "error" && (
               <div className="rounded-xl border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-4 space-y-2">
-                <p className="text-sm text-error-600 dark:text-error-400">Nije moguće učitati dodatne usluge za ovaj paket.</p>
+                <p className="text-sm text-error-600 dark:text-error-400">{w.errorServices}</p>
                 <button type="button" onClick={retryPackageServices} className="text-sm font-medium text-brand-600 hover:text-brand-500">
-                  Pokušajte ponovo
+                  {w.retry}
                 </button>
               </div>
             )}
             {/* Client section */}
             <div className="space-y-3">
               <div>
-                <Label>Pretraga postojećeg klijenta</Label>
+                <Label>{w.customerSearch}</Label>
                 <div className="relative">
                   <Input
                     type="text"
-                    placeholder="Upiši ime ili telefon..."
+                    placeholder={w.customerSearchPlaceholder}
                     value={customerSearch}
                     onChange={(e) => {
                       setCustomerSearch(e.target.value);
@@ -1016,22 +1047,22 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                   )}
                 </div>
                 {selectedCustomerId && (
-                  <p className="text-xs text-green-600 mt-1">✓ Odabran postojeći: {customerName}</p>
+                  <p className="text-xs text-green-600 mt-1">{w.existingCustomer} {customerName}</p>
                 )}
               </div>
 
               <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <Label>Ime i prezime klijenta *</Label>
+                  <Label>{w.customerName}</Label>
                   <Input
                     type="text"
-                    placeholder="Npr. Ahmed Hodžić"
+                    placeholder={w.customerNamePlaceholder}
                     value={customerName}
                     onChange={(e) => { setCustomerName(e.target.value); setSelectedCustomerId(null); }}
                   />
                 </div>
                 <div>
-                  <Label>Telefon *</Label>
+                  <Label>{w.phoneRequired}</Label>
                   <Input
                     type="tel"
                     placeholder="+387 61 234 567"
@@ -1041,8 +1072,8 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                 </div>
               </div>
               <div>
-                <Label>Email</Label>
-                <Input type="email" placeholder="klijent@email.com" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} />
+                <Label>{w.email}</Label>
+                <Input type="email" placeholder={w.customerEmailPlaceholder} value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} />
               </div>
             </div>
 
@@ -1052,7 +1083,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
             {hasVariants && (
               <div className="space-y-3">
                 <div>
-                  <Label>Opcija paketa</Label>
+                  <Label>{w.packageOption}</Label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
                     {variants.map((v) => {
                       const active = v.id === variantId;
@@ -1067,7 +1098,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                         >
                           <div className="font-medium text-sm text-gray-900 dark:text-white">{v.name}</div>
                           {v.priceModifier ? (
-                            <div className="text-xs text-brand-600 mt-0.5">+{v.priceModifier} {packageCurrency}</div>
+                            <div className="text-xs text-brand-600 mt-0.5">{v.priceModifier > 0 ? '+' : ''}{money(v.priceModifier)}</div>
                           ) : null}
                         </button>
                       );
@@ -1082,16 +1113,16 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
             {/* Passenger entries */}
             <div>
               <div className="flex items-center justify-between">
-                <Label>Putnici ({partySize})</Label>
+                <Label>{w.travelersOpen}{partySize})</Label>
                 <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <span>Broj putnika:</span>
+                  <span>{w.travelerCount}</span>
                   <Input type="number" min="1" max="50" value={String(partySize)} onChange={(e) => setPartySize(Math.max(1, parseInt(e.target.value) || 1))} className="w-20 !py-1.5 !text-xs" />
                 </div>
               </div>
-              <p className="text-xs text-gray-500 -mt-1 mb-2">Klijent/booking holder može biti i jedan od putnika.</p>
+              <p className="text-xs text-gray-500 -mt-1 mb-2">{w.bookingHolderHint}</p>
               {travelDocumentsRelevant && travelerRequirements.allowFillLater && (
                 <div className="mb-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
-                  Podatke putnog dokumenta možete dopuniti kasnije.
+                  {w.fillDocumentsLaterHint}
                 </div>
               )}
               <div className="space-y-2 max-h-[240px] overflow-y-auto">
@@ -1101,7 +1132,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                       <span className="text-xs font-medium text-gray-400 w-5">{i + 1}.</span>
                       <Input
                         type="text"
-                        placeholder={`Putnik ${i + 1} - puno ime`}
+                        placeholder={fill(w.passengerPlaceholder, { index: i + 1 })}
                         value={p.full_name}
                         onChange={(e) => {
                           setPassengers((prev) => {
@@ -1114,7 +1145,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                       />
                       {travelDocumentsRelevant && travelerRequirements.allowFillLater && getTravelerDocumentStatus(p) === "missing" && (
                         <span className="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                          Dopuniti kasnije
+                          {w.fillLater}
                         </span>
                       )}
                     </div>
@@ -1122,7 +1153,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <Input
                           type="text"
-                          aria-label={`${documentNumberLabel} putnika ${i + 1}`}
+                          aria-label={fill(w.documentForTraveler, { document: documentNumberLabel, index: i + 1 })}
                           placeholder={documentNumberPlaceholder}
                           value={p.id_document_number || ""}
                           onChange={(e) => {
@@ -1137,7 +1168,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                         {travelerRequirements.requireExpiry && (
                           <Input
                             type="date"
-                            aria-label={`Datum isteka putnika ${i + 1}`}
+                            aria-label={fill(w.expiryForTraveler, { index: i + 1 })}
                             value={p.id_document_expiry || ""}
                             onChange={(e) => {
                               setPassengers((prev) => {
@@ -1152,8 +1183,8 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                         {travelerRequirements.requireNationality && (
                           <Input
                             type="text"
-                            aria-label={`Državljanstvo putnika ${i + 1}`}
-                            placeholder="Državljanstvo"
+                            aria-label={fill(w.nationalityForTraveler, { index: i + 1 })}
+                            placeholder={w.nationality}
                             value={p.nationality || ""}
                             onChange={(e) => {
                               setPassengers((prev) => {
@@ -1168,7 +1199,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                         {travelerRequirements.requireDateOfBirth && (
                           <Input
                             type="date"
-                            aria-label={`Datum rođenja putnika ${i + 1}`}
+                            aria-label={fill(w.birthForTraveler, { index: i + 1 })}
                             value={p.date_of_birth || ""}
                             onChange={(e) => {
                               setPassengers((prev) => {
@@ -1188,13 +1219,13 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
               {passengers.length > 1 && (
                 <label className="flex items-center gap-2 mt-3 text-sm cursor-pointer">
                   <input type="checkbox" checked={createGroup} onChange={(e) => setCreateGroup(e.target.checked)} className="rounded" />
-                  Putnici putuju zajedno (grupa)
+                  {w.groupTogether}
                 </label>
               )}
               {createGroup && (
                 <Input
                   type="text"
-                  placeholder="Naziv grupe (opcionalno)"
+                  placeholder={w.groupPlaceholder}
                   value={groupName}
                   onChange={(e) => setGroupName(e.target.value)}
                   className="mt-2 !py-1.5 !text-sm"
@@ -1208,41 +1239,41 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         {step === "accommodation" && (
           <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
             <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">Smještaj</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white">{w.accommodation}</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Odaberite hotel i tip sobe iz kapaciteta konkretnog polaska. Broj sobe se dodjeljuje kasnije u rasporedu soba.
+                {w.accommodationHint}
               </p>
             </div>
 
             {shouldGatePackageServicesResolution && packageServicesResolved === "loading" && (
               <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-sm text-gray-500">
-                Dodatne usluge se još učitavaju...
+                {w.errorServicesLoading}
               </div>
             )}
 
             {shouldGatePackageServicesResolution && packageServicesResolved === "error" && (
               <div className="rounded-xl border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-4 space-y-2">
-                <p className="text-sm text-error-600 dark:text-error-400">Nije moguće učitati dodatne usluge za ovaj paket.</p>
+                <p className="text-sm text-error-600 dark:text-error-400">{w.errorServices}</p>
                 <button type="button" onClick={retryPackageServices} className="text-sm font-medium text-brand-600 hover:text-brand-500">
-                  Pokušajte ponovo
+                  {w.retry}
                 </button>
               </div>
             )}
 
-            {accommodationResolved === "loading" && <p className="text-sm text-gray-500">Učitavanje smještaja...</p>}
+            {accommodationResolved === "loading" && <p className="text-sm text-gray-500">{w.loadingAccommodation}</p>}
 
             {accommodationResolved === "error" && (
               <div className="rounded-xl border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-4 space-y-2">
-                <p className="text-sm text-error-600 dark:text-error-400">Nije moguće provjeriti smještaj za ovaj polazak.</p>
+                <p className="text-sm text-error-600 dark:text-error-400">{w.errorAccommodationShort}</p>
                 <button type="button" onClick={retryAccommodation} className="text-sm font-medium text-brand-600 hover:text-brand-500">
-                  Pokušajte ponovo
+                  {w.retry}
                 </button>
               </div>
             )}
 
             {accommodationResolved === "resolved" && accommodationOptions.length === 0 && (
               <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-sm text-gray-500">
-                Ovaj polazak nema konfigurisan hotelski smještaj. Rezervacija se može nastaviti bez smještaja.
+                {w.noAccommodation}
               </div>
             )}
 
@@ -1265,15 +1296,15 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="font-semibold text-gray-900 dark:text-white">{option.hotel?.name || "Hotel"}</p>
-                          <p className="text-sm text-gray-500">{option.roomLabel || option.roomType}</p>
+                          <p className="font-semibold text-gray-900 dark:text-white">{option.hotel?.name || w.hotel}</p>
+                          <p className="text-sm text-gray-500">{option.roomLabel || roomTypeLabel(option.roomType)}</p>
                           <p className="mt-1 text-xs text-gray-500">
-                            Kapacitet {option.capacityPerRoom} · Slobodno {option.availableRooms} · Cijena {option.unitSellPrice} {packageCurrency}
+                            {w.capacity} {option.capacityPerRoom} {w.availablePrefix} {option.availableRooms} {w.pricePrefix} {money(option.unitSellPrice)}
                           </p>
                         </div>
                         {isSelected && (
                           <span className="rounded-full bg-brand-600 px-2 py-1 text-xs font-medium text-white dark:bg-brand-500">
-                            Odabrano
+                            {w.selected}
                           </span>
                         )}
                       </div>
@@ -1290,41 +1321,41 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                   return (
                     <div key={`line-${index}`} className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-medium text-gray-900 dark:text-white">Smještaj {index + 1}</h4>
+                        <h4 className="font-medium text-gray-900 dark:text-white">{w.accommodation} {index + 1}</h4>
                         <button type="button" className="text-xs font-medium text-red-600" onClick={() => removeAccommodationLine(index)}>
-                          Ukloni
+                          {w.remove}
                         </button>
                       </div>
 
                       {option && (
                         <div className="rounded-lg bg-gray-50 px-3 py-2.5 text-sm dark:bg-gray-900">
-                          <span className="font-medium text-gray-900 dark:text-white">{option.hotel?.name || "Hotel"}</span>
-                          <span className="text-gray-500"> · {option.roomLabel || option.roomType} · slobodno {option.availableRooms}</span>
+                          <span className="font-medium text-gray-900 dark:text-white">{option.hotel?.name || w.hotel}</span>
+                          <span className="text-gray-500"> · {option.roomLabel || roomTypeLabel(option.roomType)} {w.availableLowerPrefix} {option.availableRooms}</span>
                         </div>
                       )}
 
                       {isStandardSingleLine ? (
                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                           <div>
-                            <Label>Putnika</Label>
+                            <Label>{w.travelers}</Label>
                             <div className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm dark:border-gray-800">
                               {line.guestsExpected}
                             </div>
                           </div>
                           <div>
-                            <Label>Potrebno soba</Label>
+                            <Label>{w.roomsRequired}</Label>
                             <div className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm dark:border-gray-800">
                               {line.roomCount}
                             </div>
                           </div>
                           <div>
-                            <Label>Kapacitet sobe</Label>
+                            <Label>{w.roomCapacity}</Label>
                             <div className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm dark:border-gray-800">
                               {option?.capacityPerRoom || 1}
                             </div>
                           </div>
                           <div>
-                            <Label>Slobodno soba</Label>
+                            <Label>{w.roomsAvailable}</Label>
                             <div className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm dark:border-gray-800">
                               {option?.availableRooms || 0}
                             </div>
@@ -1333,7 +1364,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div>
-                            <Label>Broj soba</Label>
+                            <Label>{w.roomCount}</Label>
                             <Input
                               type="number"
                               min="1"
@@ -1343,7 +1374,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                             />
                           </div>
                           <div>
-                            <Label>Putnika</Label>
+                            <Label>{w.travelers}</Label>
                             <Input
                               type="number"
                               min="1"
@@ -1353,9 +1384,9 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                             />
                           </div>
                           <div>
-                            <Label>Ukupno</Label>
+                            <Label>{w.total}</Label>
                             <div className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm dark:border-gray-800">
-                              {lineTotal} {packageCurrency}
+                              {money(lineTotal)}
                             </div>
                           </div>
                         </div>
@@ -1363,35 +1394,35 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
                       {isStandardSingleLine && (
                         <div>
-                          <Label>Ukupno</Label>
+                          <Label>{w.total}</Label>
                           <div className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm dark:border-gray-800">
-                            {lineTotal} {packageCurrency}
+                            {money(lineTotal)}
                           </div>
                         </div>
                       )}
 
                       {option && (
                         <p className="text-xs text-gray-500">
-                          Kapacitet linije: {lineCapacity} · Očekivano: {line.guestsExpected} · Dodijeljeno: {validation.assignedCount}
+                          {w.lineCapacity} {lineCapacity} {w.expectedPrefix} {line.guestsExpected} {w.assignedPrefix} {validation.assignedCount}
                         </p>
                       )}
                       {option && !validation.roomCountValid && (
                         <p className="text-sm text-error-600">
-                          {getAccommodationInventoryMessage(option.roomLabel || option.roomType, line.roomCount, option.availableRooms || 0)}
+                          {getAccommodationInventoryMessage(w, option.roomLabel || roomTypeLabel(option.roomType), line.roomCount, option.availableRooms || 0)}
                         </p>
                       )}
                       {option && !validation.guestsExpectedValid && (
-                        <p className="text-sm text-error-600">Ova linija prelazi kapacitet odabranog tipa sobe.</p>
+                        <p className="text-sm text-error-600">{w.errorLineCapacity}</p>
                       )}
                       {option && !validation.passengerCountValid && (
                         <p className="text-sm text-error-600">
-                          Dodijelite tačno {line.guestsExpected} {line.guestsExpected === 1 ? "putnika" : "putnika"} ovoj liniji smještaja.
+                          {fill(w.lineAssignment, { count: line.guestsExpected })}
                         </p>
                       )}
 
                       {!isStandardSingleLine && (
                         <div>
-                          <Label>Dodijeljeni putnici</Label>
+                          <Label>{w.assignedTravelers}</Label>
                           <div className="mt-2 grid grid-cols-1 gap-2">
                             {passengers.map((passenger, passengerIndex) => {
                               const assignedElsewhere = accommodationLines.some((otherLine, otherIndex) => otherIndex !== index && otherLine.passengerIndexes.includes(passengerIndex));
@@ -1405,9 +1436,9 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                                     disabled={assignedElsewhere || lineFull}
                                     onChange={() => toggleAccommodationPassenger(index, passengerIndex)}
                                   />
-                                  <span>{passenger.full_name.trim() || `Putnik ${passengerIndex + 1}`}</span>
-                                  {assignedElsewhere ? <span className="ml-auto text-xs text-gray-500">Dodijeljen drugoj liniji</span> : null}
-                                  {lineFull ? <span className="ml-auto text-xs text-gray-500">Linija popunjena</span> : null}
+                                  <span>{passenger.full_name.trim() || fill(w.passengerFallback, { index: passengerIndex + 1 })}</span>
+                                  {assignedElsewhere ? <span className="ml-auto text-xs text-gray-500">{w.assignedElsewhere}</span> : null}
+                                  {lineFull ? <span className="ml-auto text-xs text-gray-500">{w.lineFull}</span> : null}
                                 </label>
                               );
                             })}
@@ -1416,10 +1447,10 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                       )}
 
                       <div>
-                        <Label>Napomena za smještaj</Label>
+                        <Label>{w.accommodationNote}</Label>
                         <Input
                           type="text"
-                          placeholder="Npr. sobe blizu jedna drugoj, prizemlje..."
+                          placeholder={w.accommodationNotePlaceholder}
                           value={line.notes}
                           onChange={(e) => updateAccommodationLine(index, { notes: e.target.value })}
                         />
@@ -1429,22 +1460,22 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                 })}
 
                 <button type="button" className="text-sm font-medium text-brand-600 dark:text-brand-400" onClick={addAccommodationLine}>
-                  + Dodaj još smještaja
+                  {w.addAccommodation}
                 </button>
 
                 <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-2">
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">Sažetak smještaja</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">{w.accommodationSummary}</div>
                   <div className="text-sm text-gray-600 dark:text-gray-300">
-                    Ukupno pokriveno: {accommodationCoverage} / {partySize} putnika
+                    {w.coveredTotal} {accommodationCoverage} / {partySize} {w.travelersLower}
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-300">
-                    Ukupno smještaj: {accommodationTotal} {packageCurrency}
+                    {w.accommodationTotalLabel} {money(accommodationTotal)}
                   </div>
                   {!accommodationPassengerMappingValid && accommodationLines.length > 0 && (
-                    <p className="text-sm text-error-600">Svaki putnik mora biti dodijeljen tačno jednoj liniji smještaja.</p>
+                    <p className="text-sm text-error-600">{w.everyTravelerAssignment}</p>
                   )}
                   {accommodationCoverage !== partySize && accommodationLines.length > 0 && (
-                    <p className="text-sm text-error-600">Smještaj mora pokriti sve putnike u rezervaciji.</p>
+                    <p className="text-sm text-error-600">{w.allTravelersCovered}</p>
                   )}
                 </div>
               </div>
@@ -1456,19 +1487,19 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         {step === "addons" && (
           <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
             <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">Add-ons</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white">{w.addons}</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Odaberite opcionalne usluge za ovaj paket. Uključene usluge nisu dodatno naplaćene ovdje.
+                {w.addonsHint}
               </p>
             </div>
 
-            {packageServicesResolved === "loading" && <p className="text-sm text-gray-500">Učitavanje dodatnih usluga...</p>}
+            {packageServicesResolved === "loading" && <p className="text-sm text-gray-500">{w.loadingAddons}</p>}
 
             {packageServicesResolved === "error" && (
               <div className="rounded-xl border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-4 space-y-2">
-                <p className="text-sm text-error-600 dark:text-error-400">Nije moguće učitati opcionalne usluge za ovaj paket.</p>
+                <p className="text-sm text-error-600 dark:text-error-400">{w.errorAddons}</p>
                 <button type="button" onClick={retryPackageServices} className="text-sm font-medium text-brand-600 hover:text-brand-500">
-                  Pokušajte ponovo
+                  {w.retry}
                 </button>
               </div>
             )}
@@ -1494,7 +1525,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                           checked={Boolean(selected)}
                           onChange={() => toggleAddon(service.id)}
                           className="mt-1 rounded"
-                          aria-label={`Odaberi ${service.providerName}`}
+                          aria-label={fill(w.chooseProvider, { provider: service.providerName })}
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-3">
@@ -1504,15 +1535,15 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-semibold text-brand-600 dark:text-brand-400">
-                                {service.unitPrice} {service.currency || "BAM"}
+                                {money(service.unitPrice || 0, service.currency || "BAM")}
                               </p>
-                              {selected ? <p className="text-xs text-gray-500">Ukupno {lineTotal} {service.currency || "BAM"}</p> : null}
+                              {selected ? <p className="text-xs text-gray-500">{w.total} {money(lineTotal, service.currency || "BAM")}</p> : null}
                             </div>
                           </div>
                           {service.description ? <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{service.description}</p> : null}
                           {selected && (
                             <div className="mt-3 flex items-center gap-2">
-                              <Label className="!m-0">Količina</Label>
+                              <Label className="!m-0">{w.quantity}</Label>
                               <Input
                                 type="number"
                                 min="1"
@@ -1530,8 +1561,8 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
                 <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4">
                   <div className="flex justify-between text-sm">
-                    <span className="font-medium text-gray-900 dark:text-white">Add-ons ukupno</span>
-                    <span className="font-semibold text-brand-600 dark:text-brand-400">{addOnsTotal} {packageCurrency}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{w.addonsTotal}</span>
+                    <span className="font-semibold text-brand-600 dark:text-brand-400">{money(addOnsTotal)}</span>
                   </div>
                 </div>
               </div>
@@ -1546,7 +1577,7 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 
             <div className="grid grid-cols-1 gap-3">
               <div>
-                <Label>Ukupan iznos ({packageCurrency})</Label>
+                <Label>{w.totalAmountOpen}{packageCurrency})</Label>
                 <Input type="number" min="0" placeholder="0.00" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} />
               </div>
             </div>
@@ -1554,30 +1585,30 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
             {(accommodationTotal > 0 || addOnsTotal > 0) && (
               <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Bazna cijena</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{totalAmount || "0"} {packageCurrency}</span>
+                  <span className="text-gray-500">{w.basePrice}</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{money(Number(totalAmount || 0))}</span>
                 </div>
                 {accommodationTotal > 0 && (
                   <div className="flex justify-between text-sm mt-1">
-                    <span className="text-gray-500">Smještaj</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{accommodationTotal} {packageCurrency}</span>
+                    <span className="text-gray-500">{w.accommodation}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{money(accommodationTotal)}</span>
                   </div>
                 )}
                 {addOnsTotal > 0 && (
                   <div className="flex justify-between text-sm mt-1">
-                    <span className="text-gray-500">Add-ons</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{addOnsTotal} {packageCurrency}</span>
+                    <span className="text-gray-500">{w.addons}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{money(addOnsTotal)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                  <span className="font-medium text-gray-900 dark:text-white">Ukupno</span>
-                  <span className="font-semibold text-brand-600 dark:text-brand-400">{displayedTotal} {packageCurrency}</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{w.total}</span>
+                  <span className="font-semibold text-brand-600 dark:text-brand-400">{money(displayedTotal)}</span>
                 </div>
               </div>
             )}
 
             <div>
-              <Label>Način plaćanja</Label>
+              <Label>{w.paymentPlan}</Label>
               <div className="flex gap-2 mt-2 flex-wrap">
                 {(["full", "deposit", "installments"] as PaymentPlan[]).map((plan) => (
                   <button
@@ -1590,33 +1621,33 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
                         : "border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-400"
                     }`}
                   >
-                    {plan === "full" ? "Puna uplata" : plan === "deposit" ? "Depozit + ostatak" : "Rate"}
+                    {plan === "full" ? w.fullPayment : plan === "deposit" ? w.depositBalance : w.installments}
                   </button>
                 ))}
               </div>
               {paymentPlan === "deposit" && (
                 <div className="mt-2 flex items-center gap-2">
-                  <Label className="!m-0">Depozit %</Label>
+                  <Label className="!m-0">{w.depositPercent}</Label>
                   <Input type="number" min="1" max="99" value={String(depositPct)} onChange={(e) => setDepositPct(Math.min(99, Math.max(1, parseInt(e.target.value) || 10)))} className="w-20 !py-1.5 !text-sm" />
                   <span className="text-xs text-gray-500">
-                    = {Math.round(displayedTotal * (depositPct / 100))} {packageCurrency}
+                    = {money(Math.round(displayedTotal * (depositPct / 100)))}
                   </span>
                 </div>
               )}
               {paymentPlan === "installments" && (
                 <div className="mt-2 flex items-center gap-2">
-                  <Label className="!m-0">Broj rata</Label>
+                  <Label className="!m-0">{w.installmentCount}</Label>
                   <Input type="number" min="2" max="24" value={String(installmentCount)} onChange={(e) => setInstallmentCount(Math.min(24, Math.max(2, parseInt(e.target.value) || 2)))} className="w-20 !py-1.5 !text-sm" />
                   <span className="text-xs text-gray-500">
-                    ≈ {displayedTotal ? Math.round(displayedTotal / installmentCount) : 0} {packageCurrency} / rata
+                    ≈ {money(displayedTotal ? Math.round(displayedTotal / installmentCount) : 0)} {w.perInstallment}
                   </span>
                 </div>
               )}
             </div>
 
             <div>
-              <Label>Napomena</Label>
-              <Input type="text" placeholder="Npr. pomaže pri ulazu u avion..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+              <Label>{w.note}</Label>
+              <Input type="text" placeholder={w.notePlaceholder} value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
           </div>
         )}
@@ -1624,47 +1655,47 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         {/* Step: Review — Read-only summary */}
         {step === "review" && (
           <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
-            <h3 className="font-semibold text-gray-900 dark:text-white">Pregled prodaje</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">{w.saleReview}</h3>
             <dl className="rounded-xl border border-gray-200 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800 text-sm">
-              <Row label="Klijent" value={customerName} />
-              <Row label="Telefon" value={customerPhone} />
-              {customerEmail ? <Row label="Email" value={customerEmail} /> : null}
-              <Row label="Aranžman" value={selectedPackage?.name ?? "—"} />
-              <Row label="Termin" value={selectedDeparture ? `${new Date(selectedDeparture.depart_at).toLocaleDateString("bs-BA")} → ${new Date(selectedDeparture.return_at).toLocaleDateString("bs-BA")}` : "—"} />
-              {variantId ? <Row label="Opcija" value={variants.find((v) => v.id === variantId)?.name ?? "—"} /> : null}
-              <Row label="Prijevoz" value={selectedTransportType === "flight" ? "Avion" : selectedTransportType === "bus" ? "Autobus" : "Bez prijevoza"} />
-              {travelDocumentsRelevant ? <Row label="Putni podaci" value={getTravelerReadinessSummary().replace("Putni podaci: ", "")} /> : null}
+              <Row label={w.client} value={customerName} />
+              <Row label={w.phone} value={customerPhone} />
+              {customerEmail ? <Row label={w.email} value={customerEmail} /> : null}
+              <Row label={w.package} value={selectedPackage?.name ?? "—"} />
+              <Row label={w.departure} value={selectedDeparture ? `${formatDate(selectedDeparture.depart_at)} → ${formatDate(selectedDeparture.return_at)}` : "—"} />
+              {variantId ? <Row label={w.option} value={variants.find((v) => v.id === variantId)?.name ?? "—"} /> : null}
+              <Row label={w.transport} value={selectedTransportType === "flight" ? w.flight : selectedTransportType === "bus" ? w.bus : w.noTransport} />
+              {travelDocumentsRelevant ? <Row label={w.travelDocuments} value={getTravelerReadinessSummary()} /> : null}
               <Row
-                label="Smještaj"
+                label={w.accommodation}
                 value={accommodationLinesWithOption.length > 0
-                  ? accommodationLinesWithOption.map(({ line, option }) => `${option?.hotel?.name || "Hotel"} · ${option?.roomLabel || "—"} · ${line.roomCount} soba`).join(" | ")
+                  ? accommodationLinesWithOption.map(({ line, option }) => `${option?.hotel?.name || w.hotel} · ${option?.roomLabel || "—"} · ${fill(w[`rooms${countForm(line.roomCount)}`], { count: line.roomCount })}`).join(" | ")
                   : "—"}
               />
-              <Row label="Putnici" value={`${partySize} ${passengers.filter((p) => p.full_name.trim()).length > 0 ? `(${passengers.filter((p) => p.full_name.trim()).map((p) => p.full_name).join(", ")})` : ""}`} />
-              {createGroup ? <Row label="Grupa" value={groupName || "Da"} /> : null}
-              {accommodationLinesWithOption.length > 0 ? <Row label="Smještaj ukupno" value={`${accommodationTotal} ${packageCurrency}`} /> : null}
+              <Row label={w.travelersLabel} value={`${partySize} ${passengers.filter((p) => p.full_name.trim()).length > 0 ? `(${passengers.filter((p) => p.full_name.trim()).map((p) => p.full_name).join(", ")})` : ""}`} />
+              {createGroup ? <Row label={w.group} value={groupName || w.yes} /> : null}
+              {accommodationLinesWithOption.length > 0 ? <Row label={w.accommodationTotal} value={money(accommodationTotal)} /> : null}
               {selectedAddonItems.length > 0 ? (
                 <Row
-                  label="Add-ons"
+                  label={w.addons}
                   value={selectedAddonItems
-                    .map(({ service, quantity }) => `${service.providerName} × ${quantity} — ${(service.unitPrice || 0) * quantity} ${service.currency || "BAM"}`)
+                    .map(({ service, quantity }) => `${service.providerName} × ${quantity} — ${money((service.unitPrice || 0) * quantity, service.currency || "BAM")}`)
                     .join(" | ")}
                 />
               ) : null}
-              {selectedAddonItems.length > 0 ? <Row label="Add-ons ukupno" value={`${addOnsTotal} ${packageCurrency}`} /> : null}
-              <Row label="Ukupno" value={`${displayedTotal} ${packageCurrency}`} />
-              <Row label="Plaćanje" value={paymentPlan === "full" ? "Puna uplata" : paymentPlan === "deposit" ? `Depozit ${depositPct}% + ostatak` : `${installmentCount} rata`} />
+              {selectedAddonItems.length > 0 ? <Row label={w.addonsTotal} value={money(addOnsTotal)} /> : null}
+              <Row label={w.total} value={money(displayedTotal)} />
+              <Row label={w.payment} value={paymentPlan === "full" ? w.fullPayment : paymentPlan === "deposit" ? fill(w.depositSummary, { percent: depositPct }) : fill(w.installmentSummary, { count: installmentCount })} />
               {paymentPlan === "deposit" && (
-                <Row label="Iznos depozita" value={`${Math.round(displayedTotal * (depositPct / 100))} ${packageCurrency}`} />
+                <Row label={w.depositAmount} value={money(Math.round(displayedTotal * (depositPct / 100)))} />
               )}
-              {notes ? <Row label="Napomena" value={notes} /> : null}
+              {notes ? <Row label={w.note} value={notes} /> : null}
             </dl>
           </div>
         )}
 
         {/* Validation message */}
         {validationMessage && (
-          <div className="mt-3 rounded-lg border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-3">
+          <div role="alert" className="mt-3 rounded-lg border border-error-200 bg-error-50 dark:bg-error-500/10 dark:border-error-500/20 p-3">
             <p className="text-sm text-error-600 dark:text-error-400">{validationMessage}</p>
           </div>
         )}
@@ -1680,19 +1711,19 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
         {/* Navigation */}
         <div className="flex justify-between gap-3 pt-5 mt-5 border-t border-gray-100 dark:border-gray-800">
           <Button variant="outline" onClick={back} disabled={stepIndex === 0}>
-            Nazad
+            {w.back}
           </Button>
           <div className="flex gap-2">
             <Button variant="outline" onClick={onClose} disabled={submitting}>
-              Odustani
+              {w.cancel}
             </Button>
             {step !== "review" ? (
               <Button onClick={handleNextAttempt} disabled={loading}>
-                Dalje
+                {w.next}
               </Button>
             ) : (
               <Button onClick={submit} disabled={submitting || recoveryMode === 'manual'}>
-                {submitting ? "Kreiranje..." : "Potvrdi prodaju"}
+                {submitting ? w.creating : w.confirm}
               </Button>
             )}
           </div>
@@ -1703,10 +1734,10 @@ export default function NewSaleWizard({ isOpen, onClose, onCreated, initialPacka
 }
 
 
-function transportBadge(type?: string) {
-  if (type === "flight") return "✈️ Avion";
-  if (type === "bus") return "🚌 Autobus";
-  return "Bez prijevoza";
+function transportBadge(w: WizardCopy, type?: string) {
+  if (type === "flight") return w.flightBadge;
+  if (type === "bus") return w.busBadge;
+  return w.noTransport;
 }
 
 function Row({ label, value }: { label: string; value: string }) {

@@ -114,6 +114,7 @@ async function continueToReview() {
 
 describe('NewSaleWizard — M06.2 traveler readiness', () => {
   beforeEach(() => {
+    localStorage.setItem('travline_lang', 'bs');
     vi.clearAllMocks();
     getDepartureAccommodationOptions.mockResolvedValue({ items: [] });
     getPackageServices.mockResolvedValue([]);
@@ -150,7 +151,7 @@ describe('NewSaleWizard — M06.2 traveler readiness', () => {
 
     fillPassenger(2, 'Amina Hodžić');
     await continueToReview();
-    expect(screen.getByText(/1 spreman · 2 dopuniti kasnije|0 spremna · 2 dopuniti kasnije/)).toBeInTheDocument();
+    expect(screen.getByText('0 spremnih · 2 dopuniti kasnije')).toBeInTheDocument();
   });
 
   it('flight fill-later succeeds with traveler name and blank passport/expiry', async () => {

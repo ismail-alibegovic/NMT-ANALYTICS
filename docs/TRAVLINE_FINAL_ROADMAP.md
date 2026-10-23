@@ -294,3 +294,12 @@ Exact I18N-04C changed files (repository-relative):
 - `nmt-analytics-admin/src/pages/ReservationDetail.tsx`
 - `nmt-analytics-admin/src/tests/reservationDetail.test.tsx`
 - `nmt-analytics-admin/src/tests/reservationDetailLocale.test.tsx`
+
+
+### Integration update — New Sale merged; Reservation Detail refreshed
+
+[#155](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/155) merged as `d1c4514c8c395c17757e7ffac328075ded1361ba` after every check passed on `f58c7bc3d5b89f05a7886a7c39ea09a9bbbe5f4f`: CI [40039786774](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40039786774), isolated Supabase acceptance [40039786781](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40039786781) (**20m08s**, success), UI audit and preview. This supersedes prior pending observations; no Zo runtime certification is implied.
+
+Reservation Detail [PR #156](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/156), implementation `efc72538610db356c00f02d202746bdcd6c7709f`, is refreshed with this verified main. CI/roadmap/inventory overlaps retain the generic locale selector and all prior evidence; dictionary source merged automatically. Combined admin/browser checks are rerunning on the integrated source, followed by required exact-head CI before merge. Editor work is safely stashed while completing this integration; it has not been included in #156.
+
+Integrated #156 validation after #155 main: admin **71 files / 524 tests passed**, lint **0 errors / 51 existing warnings**, and **27 locale browser scenarios passed**, covering Reports, CustomerDetail, New Sale and ReservationDetail together. Production build passed. Required exact-head CI remains the merge gate.

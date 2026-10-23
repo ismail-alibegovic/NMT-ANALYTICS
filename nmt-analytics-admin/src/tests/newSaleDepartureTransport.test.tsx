@@ -83,6 +83,7 @@ async function completeSale(
 
 describe('NewSaleWizard — departure transport identity', () => {
   beforeEach(() => {
+    localStorage.setItem('travline_lang', 'bs');
     vi.clearAllMocks();
     getDepartureAccommodationOptions.mockResolvedValue({ items: [] });
     getPackageServices.mockResolvedValue([]);
