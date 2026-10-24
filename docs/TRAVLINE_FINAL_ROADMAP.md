@@ -62,7 +62,7 @@ Release ordering: apply the additive migration through the approved migration pr
 
 ### Current P0 runtime batch — Node 24 alignment
 
-Branch `fix/p0-supported-node-runtime`, base `ad62d77e7aa3c1f7d7b8ffb2bb0f622611a6564b`. Spec: [`p0-supported-node-runtime.md`](tasks/active/p0-supported-node-runtime.md). Status: LOCALLY VERIFIED for installs/API/admin/browser; Docker and exact-head CI pending.
+Branch `fix/p0-supported-node-runtime`, base `ad62d77e7aa3c1f7d7b8ffb2bb0f622611a6564b`. Spec: [`p0-supported-node-runtime.md`](tasks/active/p0-supported-node-runtime.md). Status: **PR OPEN — [#162](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/162)**. Locally verified installs/API/admin/browser; Docker and exact-head CI pending. Resume by checking #162 before creating another PR.
 
 - `.nvmrc`, root/API/admin package engines and lock metadata select Node 24. All dependency resolutions/integrities are unchanged (three lockfiles compared structurally after removing only the new root engine metadata).
 - `.github/workflows/{ci,staging-acceptance,ui-audit}.yml`, API Docker builder/runner and admin Docker builder select Node 24. Both production entry points call `scripts/require-node-runtime.cjs` before build/install/start.

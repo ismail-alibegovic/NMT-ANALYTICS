@@ -1,6 +1,6 @@
 # P0 — Supported, reproducible Node runtime
 
-**Status:** ACTIVE
+**Status:** PR OPEN — [#162](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/162); required exact-head CI pending.
 **Priority:** P0 runtime/security configuration; final roadmap INFRA-01.
 **Branch:** `fix/p0-supported-node-runtime`
 **Base:** verified main after #161; only this task is active for implementation.
