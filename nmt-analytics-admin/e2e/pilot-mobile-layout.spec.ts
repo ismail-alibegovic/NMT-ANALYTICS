@@ -1,4 +1,5 @@
 import {expect,test} from '@playwright/test';
+import {en} from '../src/lib/i18n/en';
 const configured=process.env.E2E_RUN_BROWSER==='1'&&process.env.E2E_MANAGER_EMAIL&&process.env.E2E_MANAGER_PASSWORD&&process.env.E2E_SUPABASE_ANON_KEY&&process.env.E2E_RECOVERY_RESERVATION_ID;
 const api=process.env.E2E_API_URL||'http://127.0.0.1:3001',auth=process.env.E2E_SUPABASE_URL||'http://127.0.0.1:54321';
 for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`cards, commission controls and reservation tabs fit ${theme} ${width}`,async({page,request},info)=>{
@@ -12,7 +13,7 @@ for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`card
   await page.goto(route,{waitUntil:'networkidle'});await expect(page.locator('html')).toHaveClass(theme==='dark'?/dark/:/^$/);
   if(route==='/itineraries'||route==='/quotations')await expect(page.getByRole('heading',{name:marker,exact:true})).toBeVisible();
   if(route.startsWith('/reservations/')){
-   await page.getByRole('button',{name:'Dokumenti',exact:true}).click();await page.getByRole('button',{name:'Pregled',exact:true}).click();
+   await page.getByRole('button',{name:en.reservationDetail.documents,exact:true}).click();await page.getByRole('button',{name:en.reservationDetail.overview,exact:true}).click();
   }
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),route).toBe(true);
   await page.screenshot({path:info.outputPath(`${route.replace(/[^a-z0-9]/gi,'_')}.png`),fullPage:true});

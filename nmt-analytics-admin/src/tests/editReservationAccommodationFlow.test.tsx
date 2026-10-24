@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { I18nProvider } from '../lib/i18n/context';
+import LanguageToggleButton from '../components/common/LanguageToggleButton';
 import EditReservationModal from '../components/reservations/EditReservationModal';
 
 const getPackages = vi.fn();
@@ -109,6 +110,7 @@ const accommodationOptions = [
 describe('EditReservationModal accommodation flow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.setItem("travline_lang", "bs");
     getPackages.mockResolvedValue({ data: [{ id: 'package-1', name: 'Antalya Summer 2027', destination: 'Antalya' }] });
     getDepartures.mockResolvedValue({ data: [departure] });
     getReservation.mockResolvedValue(reservation);
@@ -190,7 +192,7 @@ describe('EditReservationModal accommodation flow', () => {
     await waitFor(() => expect(screen.getAllByRole('checkbox').length).toBe(2));
     fireEvent.click(screen.getByRole('button', { name: 'Spremi izmjene' }));
 
-    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Accommodation overbooked'));
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Rezervacija nije mogla biti ažurirana. Pokušajte ponovo.'));
     expect(onSuccess).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -218,8 +220,44 @@ describe('EditReservationModal accommodation flow', () => {
 
     expect(await screen.findByText('Dodatne usluge')).toBeInTheDocument();
     expect(screen.getByText('Travel insurance')).toBeInTheDocument();
-    expect(screen.getByText('2 × 50 BAM')).toBeInTheDocument();
-    expect(screen.getAllByText('100 BAM').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/2 × 50,00\s*KM/)).toBeInTheDocument();
+    expect(screen.getAllByText(/^100,00\s*KM$/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Dodatne usluge ukupno')).toBeInTheDocument();
   });
+  it('uses the loaded EUR currency and English labels and preserves draft on live switching without reloading', async () => {
+    localStorage.setItem('travline_lang', 'en');
+    getReservation.mockResolvedValueOnce({ ...reservation, currency: 'EUR' });
+    render(<I18nProvider><LanguageToggleButton /><EditReservationModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} reservationId="reservation-1" /></I18nProvider>);
+    await screen.findByRole('dialog', { name: 'Edit reservation' });
+    await screen.findByDisplayValue('Amina Hadžić');
+    expect(screen.getByLabelText('Amount (EUR)')).toHaveValue(1780);
+    expect(screen.getByText('€790.00')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Changed draft' } });
+    const reads = getReservation.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to Bosnian' }));
+    expect(screen.getByLabelText('Ime i prezime')).toHaveValue('Changed draft');
+    expect(screen.getByLabelText('Iznos (EUR)')).toHaveValue(1780);
+    expect(screen.getByText(/790,00\s*€/)).toBeInTheDocument();
+    expect(getReservation).toHaveBeenCalledTimes(reads);
+  });
+  it('translates a stored accommodation read failure after language switching', async () => {
+    localStorage.setItem('travline_lang', 'en');
+    getDepartureAccommodationOptions.mockRejectedValue(new Error('INTERNAL_DIAGNOSTIC'));
+    render(<I18nProvider><LanguageToggleButton /><EditReservationModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} reservationId="reservation-1" /></I18nProvider>);
+    await screen.findByText('Departure accommodation could not be loaded.');
+    expect(screen.queryByText('INTERNAL_DIAGNOSTIC')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to Bosnian' }));
+    expect(screen.getByText('Smještaj za polazak nije moguće učitati.')).toBeInTheDocument();
+  });
+  it('keeps quoted money locked and omits totalAmount from the update payload', async () => {
+    localStorage.setItem('travline_lang', 'en');
+    getReservation.mockResolvedValueOnce({ ...reservation, quotationId: 'quote-1', currency: 'EUR' });
+    render(<I18nProvider><EditReservationModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} reservationId="reservation-1" /></I18nProvider>);
+    const amount = await screen.findByDisplayValue('1780');
+    expect(amount).toBeDisabled();
+    await waitFor(() => expect(screen.getAllByRole('checkbox')).toHaveLength(2));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(updateReservation).toHaveBeenCalledWith('reservation-1', expect.objectContaining({ totalAmount: undefined, partySize: 2, status: 'confirmed' })));
+  });
+
 });

@@ -14,7 +14,7 @@ Reports monetary formatting, dictionary coverage, shared language selection and 
 | `src/pages/ReservationDetail.tsx` | 54 (historical baseline; addressed in I18N-04C, CI pending) | 228, 234, 236, 350, 357 |
 | `src/pages/admin/Settings.tsx` | 37 | 526, 528, 540, 554, 555 |
 | `src/pages/admin/UnifiedPayments.tsx` | 34 | 262, 265, 266, 271, 272 |
-| `src/components/reservations/EditReservationModal.tsx` | 33 | 313, 323, 327, 334, 336 |
+| `src/components/reservations/EditReservationModal.tsx` | 33 (historical baseline; addressed in I18N-04D, CI pending) | 313, 323, 327, 334, 336 |
 | `src/pages/operations/Excursions.tsx` | 32 | 115, 116, 120, 141, 142 |
 | `src/pages/admin/Integrations.tsx` | 29 | 107, 110, 120, 124, 135 |
 | `src/pages/Reservations.tsx` | 23 | 345, 400, 402, 418, 420 |
