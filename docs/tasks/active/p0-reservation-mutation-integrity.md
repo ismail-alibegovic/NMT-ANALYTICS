@@ -1,6 +1,6 @@
 # P0 — Complete reservation mutation integrity
 
-Status: ACTIVE. Branch `fix/p0-reservation-mutation-integrity`, base verified main `53d41ec3f92358b1b800c4f7c15f8239cc30b870` after #162 merged with required checks green. One cohesive P0 API/database outcome, preserving the completed editor.
+Status: PR OPEN — [#163](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/163); exact-head CI pending. Branch `fix/p0-reservation-mutation-integrity`, base verified main `53d41ec3f92358b1b800c4f7c15f8239cc30b870` after #162 merged with required checks green. One cohesive P0 API/database outcome, preserving the completed editor.
 
 ## Goal and acceptance
 Core-only PATCH, single/batch cancellation/reactivation and deletion must commit capacity and the reservation mutation together. A failed DB write must not leave a capacity hold/release. Reject deleting financial history and quotation bookings. Preserve auth/agent/org checks, response shapes, per-item batch outcomes, canonical occupancy/hold logic, audit and existing accommodation/rooming mappings. Reuse #161's transaction rather than duplicate the editor implementation.
