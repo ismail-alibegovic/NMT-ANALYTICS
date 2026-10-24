@@ -110,7 +110,7 @@ async function submitSale() {
 describe('NewSaleWizard — M14.1 canonical installment schedule', () => {
   beforeEach(() => {
     localStorage.setItem('travline_lang', 'bs');
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     getPackages.mockResolvedValue({ data: [pkg] });
     getDepartures.mockResolvedValue({ data: [departure] });
     getDepartureAccommodationOptions.mockResolvedValue({ departureId: 'departure-1', items: [] });
@@ -149,7 +149,7 @@ describe('NewSaleWizard — M14.1 canonical installment schedule', () => {
     await renderWizard(); await fillRequiredSaleFields(); await submitSale();
     await waitFor(() => expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/still being processed|još obrađuje/)));
     expect(toastSuccess).not.toHaveBeenCalled(); expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByRole('link', { name: /Open saved reservation|Otvori sačuvanu rezervaciju/ })).toHaveAttribute('href', '/reservations/reservation-1');
+    expect(await screen.findByRole('link', { name: /Open saved reservation|Otvori sačuvanu rezervaciju/ })).toHaveAttribute('href', '/reservations/reservation-1');
     fireEvent.click(screen.getByRole('button', { name: 'Potvrdi prodaju' }));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(createReservation.mock.calls[0][0].idempotencyKey).toBe(createReservation.mock.calls[1][0].idempotencyKey);
@@ -160,7 +160,7 @@ describe('NewSaleWizard — M14.1 canonical installment schedule', () => {
     createReservation.mockResolvedValue({ id: 'reservation-1', creationState: 'recovery_required', recoveryRequired: true, retryable: false });
     await renderWizard(); await fillRequiredSaleFields(); await submitSale();
     await waitFor(() => expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/needs review|zahtijeva pregled/)));
-    expect(screen.getByRole('button', { name: 'Potvrdi prodaju' })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Potvrdi prodaju' })).toBeDisabled());
     expect(onClose).not.toHaveBeenCalled(); expect(toastSuccess).not.toHaveBeenCalled();
   });
 

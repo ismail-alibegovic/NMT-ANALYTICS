@@ -1,0 +1,11 @@
+# I18N-04D — Reservation editor BS/EN and truthful currency labels
+
+Status: ACTIVE. Branch: `fix/i18n-reservation-editor`, created from fresh origin/main `8cf3f1a`, then fast-forwarded to verified #155 main `d1c4514` while preserving this scoped work. PRs #155/#156 are separate pending required acceptance; integrate their verified main before merge.
+
+Translate the existing EditReservationModal, stored accommodation-read errors, validation and notifications. Locale dates/money and accessible field labels must follow BS/EN without clearing edited drafts or refetching on language changes. Preserve canonical accommodation, passenger assignment/capacity validation, core/accommodation mutation sequence, quoted-booking price lock, stored snapshot data and numeric payloads.
+
+Confirmed display defects: normal EUR reservation input is labelled BAM, accommodation price is suffixed BAM, and the canonical reservation-currency addons_total_at_booking is labelled with the first add-on currency. Use the already loaded reservation currency for those reservation-denominated displays, retain each individual add-on currency, and never convert/recalculate stored money. No API/schema/auth/RLS/seed/runtime changes. The existing partial-success risk when the second mutation fails remains a separate Phase 2 repair; preserve open-on-failure behavior and report a localized failure.
+
+Add regression coverage before repair for English/currency labels, live switch/draft retention/no refetch, translated stored read errors, and unchanged quote lock/payload. Preserve existing three accommodation tests, updating explicit language and display-only expectations. Run admin lint/tests/build, actual modal browser BS/EN/light/dark/mobile/desktop with synthetic API, required CI and isolated acceptance before merge. Record exact files/evidence in final roadmap.
+
+Local completion: three original tests plus three new regressions pass; 29 focused tests, full admin 523 tests/build/lint (0 errors, 51 existing warnings), 27 combined locale browser cases including eight editor cases. API unchanged from the fresh 1,009-test baseline. Exact files and detailed evidence are in the final roadmap. PR/exact-head CI/merge remain pending.

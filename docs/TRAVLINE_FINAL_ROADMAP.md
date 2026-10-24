@@ -372,3 +372,16 @@ Exact I18N-04E changed files (repository-relative):
 - `nmt-analytics-admin/src/lib/i18n/en.ts`
 - `nmt-analytics-admin/src/pages/Reservations.tsx`
 - `nmt-analytics-admin/src/tests/reservationsListLocale.test.tsx`
+
+
+### CI correction — #158 and verified editor main
+
+Editor #157 merged independently as `6dbe3c2dbe6d1d5ea895f616dbd1243401574e2a` after all required checks passed on `f807dce2ba7edaad84da2bb5ad637cea7cdf7849`, including isolated acceptance [40042221361](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40042221361), 26m14s success. This supersedes prior pending observations. #158 now integrates that verified main; dictionaries preserve both reservationList/pagination and reservationEditor. No implementation was discarded to resolve overlap. #156 remains independently open, corrected and refreshed on this main at `5495c78`.
+
+#158 original Test Admin [40043078914](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40043078914) failed in two existing New Sale recovery assertions, despite original local passes. Its original isolated acceptance [40043078907](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40043078907) passed (23m58s). GitHub annotations identify an immediate recovery-link lookup after a toast callback; the following test can inherit unused once-only mock responses because clearAllMocks clears calls rather than implementations. Reset mocks before each setup and await actual recovery link/disabled-button state. Preserve all idempotency/single-submit/no-premature-success/manual-recovery assertions; no product logic, timeouts, retries or test gates change. Four recovery tests pass in normal and shuffled order; the 524-test pre-integration admin suite/build also passed. Combined validation on verified #157 main follows before publishing the correction.
+
+#156's failed acceptance also exposed a confirmed stale test: the mobile audit explicitly selects English but clicks Bosnian Documents/Overview. It now uses English dictionary selectors while retaining authenticated navigation/theme/overflow assertions. New exact-head CI must establish the complete result; do not claim all acceptance failures explained until green.
+
+Logs/artifacts redirect to network-denied Azure hosts; check annotations remain readable. No credentials were requested or exposed. No API, schema, data or Zo runtime changes. Phase 1 remains open, and #156/#158 require fresh exact-head CI before merge.
+
+Post-correction #158 integrated-main checks: lint **0 errors / 51 existing warnings**, **71 files / 527 admin tests passed**, production build passed, and **35 locale browser scenarios passed** (Reports/CustomerDetail/New Sale/editor/list). A temporary permission change blocked local sockets during the first browser attempt; network access was restored through the environment permission tool and this final browser run actually executed. Earlier blocked attempts are not counted as passes. Dictionaries retain both list/pagination and editor namespaces; no source conflict markers remain. API source/migrations/customer data unchanged. Required fresh exact-head GitHub checks remain pending.
