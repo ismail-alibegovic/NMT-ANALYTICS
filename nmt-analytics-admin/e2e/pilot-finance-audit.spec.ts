@@ -12,6 +12,54 @@ async function seed(request:APIRequestContext,headers:Record<string,string>,inst
  const res=await json(await request.post(`${api}/api/reservations`,{headers:{...headers,'Idempotency-Key':randomUUID()},data:{departureId:dep.id,customerName:marker,customerPhone:'+38761000001',partySize:1,reservationAt:`${date}T10:00:00Z`,status:'confirmed',totalAmount:180,currency:'BAM',source:'agent',passengers:[{full_name:marker}],...(installments?{installmentCount:installments}:{})}}));
  return {marker,res,dep,pkg};
 }
+test('cancellation respects seat locks, releases live seats, excludes inactive travelers and preserves history',async({request,baseURL})=>{
+ test.skip(!enabled,'NOT TESTED: disposable local Auth/API required');expect(local(api)&&local(auth)&&local(baseURL!)).toBe(true);
+ const headers=await login(request),marker=`Cancellation audit ${randomUUID()}`;
+ const pkg=await json(await request.post(`${api}/api/packages`,{headers,data:{name:marker,destination:'Synthetic',price:100,currency:'BAM',active:true,transportType:'bus',maxParticipants:8}}));
+ const dep=await json(await request.post(`${api}/api/departures`,{headers,data:{packageId:pkg.id,departAt:'2041-05-23T08:00:00Z',returnAt:'2041-05-23T18:00:00Z',capacity:8,status:'active',transportType:'bus'}}));
+ await json(await request.put(`${api}/api/departures/${dep.id}/vehicle`,{headers,data:{vehicleLabel:'Synthetic bus',capacity:8,layoutType:'standard_2_plus_2'}}),200);
+ const book=async(name:string)=>json(await request.post(`${api}/api/reservations`,{headers:{...headers,'Idempotency-Key':randomUUID()},data:{departureId:dep.id,customerName:name,customerPhone:'+38761000001',partySize:1,reservationAt:'2041-04-23T10:00:00Z',status:'confirmed',totalAmount:100,currency:'BAM',source:'agent',passengers:[{full_name:name}]}}));
+ const first=await book(`${marker} first`);
+ const manifest=async()=>json(await request.get(`${api}/api/departures/${dep.id}/passengers`,{headers}),200);
+ const traveler=(await manifest()).manifest.find((row:any)=>row.reservationId===first.id);expect(traveler.passengerId).toMatch(/^[0-9a-f-]{36}$/i);
+ const seat=(id:string,value:number|null)=>request.patch(`${api}/api/departure-passengers/${id}/seat`,{headers,data:{seatNumber:value}});
+ await json(await seat(traveler.passengerId,1),200);
+ await json(await request.patch(`${api}/api/departure-passengers/${traveler.passengerId}/seat-lock`,{headers,data:{locked:true}}),200);
+ const denied=await request.patch(`${api}/api/reservations/${first.id}/status`,{headers,data:{status:'cancelled'}});expect(denied.status(),await denied.text()).toBe(409);expect((await denied.json()).code).toBe('RESERVATION_OPERATIONAL_ASSIGNMENTS_LOCKED');
+ await json(await request.patch(`${api}/api/departure-passengers/${traveler.passengerId}/seat-lock`,{headers,data:{locked:false}}),200);
+ const cancelled=await json(await request.post(`${api}/api/reservations/batch/status`,{headers,data:{ids:[first.id],status:'cancelled'}}),200);expect(cancelled.summary).toMatchObject({succeeded:1,failed:0});
+ const history=(await manifest()).manifest.find((row:any)=>row.passengerId===traveler.passengerId);expect(history).toBeTruthy();expect(history.seat).toBeNull();
+ const proposal=await json(await request.post(`${api}/api/departures/${dep.id}/seating/proposal`,{headers,data:{}}),200);expect(proposal.summary.totalPassengers).toBe(0);expect(proposal.proposedAssignments).toEqual([]);expect(proposal.preservedAssignments).toEqual([]);
+ const stale=await seat(traveler.passengerId,1);expect(stale.status(),await stale.text()).toBe(409);expect((await stale.json()).code).toBe('RESERVATION_CANCELLED');
+ const next=await book(`${marker} next`);const nextTraveler=(await manifest()).manifest.find((row:any)=>row.reservationId===next.id);await json(await seat(nextTraveler.passengerId,1),200);
+ await json(await request.patch(`${api}/api/reservations/${first.id}/status`,{headers,data:{status:'confirmed'}}),200);
+ const restored=await manifest();expect(restored.manifest.find((row:any)=>row.passengerId===traveler.passengerId).seat).toBeNull();expect(restored.manifest.find((row:any)=>row.passengerId===nextTraveler.passengerId).seat).toBe(1);
+ expect((await json(await request.post(`${api}/api/departures/${dep.id}/seating/proposal`,{headers,data:{}}),200)).summary.totalPassengers).toBe(2);
+});
+test('core edits and deletes preserve paid history and capacity on failure; status paths commit once',async({request,baseURL})=>{
+ test.skip(!enabled,'NOT TESTED: disposable local Auth/API required');expect(local(api)&&local(auth)&&local(baseURL!)).toBe(true);
+ const headers=await login(request);const foreign=await login(request,true);const {res,dep}=await seed(request,headers,0);
+ await json(await request.post(`${api}/api/payments`,{headers,data:{reservation_id:res.id,amount:20,currency:'BAM',payment_date:'2041-04-23',idempotency_key:randomUUID()}}));
+ const read=async()=>json(await request.get(`${api}/api/reservations/${res.id}`,{headers}),200);
+ const trip=async()=>json(await request.get(`${api}/api/departures/${dep.id}`,{headers}),200);
+ const before=await read();expect(before.partySize).toBe(1);expect(before.paidAmount).toBe(20);expect((await trip()).booked).toBe(1);
+ const failed=await request.patch(`${api}/api/reservations/${res.id}`,{headers,data:{partySize:2,totalAmount:10}});
+ expect(failed.status(),await failed.text()).toBe(409);expect((await failed.json()).code).toBe('RESERVATION_CONSTRAINT_CONFLICT');
+ expect(await read()).toMatchObject({partySize:1,totalAmount:180,paidAmount:20,balanceDue:160});expect((await trip()).booked).toBe(1);
+ const forbiddenDelete=await request.delete(`${api}/api/reservations/${res.id}`,{headers:foreign});expect([403,404]).toContain(forbiddenDelete.status());
+ const locked=await request.delete(`${api}/api/reservations/${res.id}`,{headers});expect(locked.status(),await locked.text()).toBe(409);expect((await locked.json()).code).toBe('RESERVATION_FINANCIAL_HISTORY_LOCKED');
+ const payments=await json(await request.get(`${api}/api/payments?reservation_id=${res.id}`,{headers}),200);expect(payments.data).toHaveLength(1);expect(payments.data[0]).toMatchObject({amount:20,status:'succeeded'});
+ await json(await request.patch(`${api}/api/reservations/${res.id}/status`,{headers,data:{status:'cancelled'}}),200);expect((await trip()).booked).toBe(0);
+ const batch=await json(await request.post(`${api}/api/reservations/batch/status`,{headers,data:{ids:[res.id],status:'confirmed'}}),200);expect(batch.summary).toMatchObject({succeeded:1,failed:0});
+ expect(await read()).toMatchObject({status:'confirmed',paidAmount:20});expect((await trip()).booked).toBe(1);
+ const clean=await seed(request,headers,0,'2041-04-24');
+ const move=await request.patch(`${api}/api/reservations/${res.id}`,{headers,data:{departureId:clean.dep.id}});expect(move.status(),await move.text()).toBe(409);expect((await move.json()).code).toBe('RESERVATION_RELATIONSHIP_CONFLICT');
+ expect((await read()).departureId).toBe(dep.id);expect((await trip()).booked).toBe(1);
+ expect((await json(await request.get(`${api}/api/departures/${clean.dep.id}`,{headers}),200)).booked).toBe(1);
+ expect((await request.delete(`${api}/api/reservations/${clean.res.id}`,{headers})).status()).toBe(204);
+ expect((await request.get(`${api}/api/reservations/${clean.res.id}`,{headers})).status()).toBe(404);
+ expect((await json(await request.get(`${api}/api/departures/${clean.dep.id}`,{headers}),200)).booked).toBe(0);
+});
 test('atomic reservation edit rejects failed accommodation and forged tenant without partial core/capacity saves',async({request,baseURL})=>{
  test.skip(!enabled,'NOT TESTED: disposable local Auth/API required');expect(local(api)&&local(auth)&&local(baseURL!)).toBe(true);
  const headers=await login(request);const foreign=await login(request,true);const {res,dep}=await seed(request,headers);

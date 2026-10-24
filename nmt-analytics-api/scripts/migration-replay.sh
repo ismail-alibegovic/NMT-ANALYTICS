@@ -110,6 +110,8 @@ SQL
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/supplier-payables-overview-integrity.sql"
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/database-function-security.sql"
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/reservation-edit-atomicity.sql"
+"${PSQL_BASE[@]}" -f "$ROOT/scripts/reservation-mutation-atomicity.sql"
+"${PSQL_BASE[@]}" -f "$ROOT/scripts/reservation-cancellation-operations.sql"
 echo "Migration Replay PASS: $count migrations executed"
 
 

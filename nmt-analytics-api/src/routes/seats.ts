@@ -275,6 +275,7 @@ router.post(
           return res.status(400).json({ error: "Departure has no vehicle configured" });
         }
         if (
+          errorDetail.includes("RESERVATION_CANCELLED") ||
           errorDetail.includes("PASSENGER_NOT_FOUND") ||
           errorDetail.includes("SEAT_NOT_FOUND") ||
           errorDetail.includes("DUPLICATE_PASSENGER") ||
