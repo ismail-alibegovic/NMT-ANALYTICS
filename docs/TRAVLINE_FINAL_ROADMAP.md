@@ -1,10 +1,10 @@
 # Travline — Final Development Roadmap & Execution Plan
 
-Baseline inspected: `origin/main` at `f6256cb731be8a63b391e17655d1e3449809ef67` (PRs #148–#150 complete). Updated 2026-10-24. Primary deployment: https://travline-sprypine.zocomputer.io.
+Baseline inspected: `origin/main` at `f6256cb731be8a63b391e17655d1e3449809ef67` (PRs #148–#150 complete). Updated 2026-10-25. Primary deployment: https://travline-sprypine.zocomputer.io.
 
 GitHub main is authoritative. Codex owns code, regression tests, focused PRs and CI; Zo owns final hosting and runtime verification. This document orders release completion work within the existing product scope; it does not replace the product canon, architecture, or Master Plan. Create one scoped active specification before each implementation slice. Preserve prior completed work.
 
-## Authoritative product-completion status — 2026-10-24
+## Authoritative product-completion status — 2026-10-25
 
 This section supersedes older phase ordering, per-component PR guidance and pending observations in the historical records below. Follow the user's P0 → P1 → P2 → P3 → P4 order. Do not start further translation slices or create another PR until #158/#159 consolidation is complete. Group subsequent work by product outcome and verify each batch; do not reopen completed audits without a relevant code change or unresolved finding.
 
@@ -62,7 +62,7 @@ Release ordering: apply the additive migration through the approved migration pr
 
 ### Current P0 runtime batch — Node 24 alignment
 
-Branch `fix/p0-supported-node-runtime`, base `ad62d77e7aa3c1f7d7b8ffb2bb0f622611a6564b`. Spec: [`p0-supported-node-runtime.md`](tasks/active/p0-supported-node-runtime.md). Status: **PR OPEN — [#162](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/162)**. Locally verified installs/API/admin/browser; Docker and exact-head CI pending. Resume by checking #162 before creating another PR.
+Branch `fix/p0-supported-node-runtime`, base `ad62d77e7aa3c1f7d7b8ffb2bb0f622611a6564b`. Spec: [`p0-supported-node-runtime.md`](tasks/active/p0-supported-node-runtime.md). Status: **PR OPEN — [#162](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/162)**. Locally verified installs/API/admin/browser; Docker and exact-head CI pending. Latest checked head `b63d4d2` passed Docker, isolated acceptance, migration replay, API and browser gates but Test Admin failed at an async wizard fixture transition. Await all mock read promises before interaction; retain all validation and payload assertions and require fresh exact-head CI. Resume by checking #162 before creating another PR.
 
 - `.nvmrc`, root/API/admin package engines and lock metadata select Node 24. All dependency resolutions/integrities are unchanged (three lockfiles compared structurally after removing only the new root engine metadata).
 - `.github/workflows/{ci,staging-acceptance,ui-audit}.yml`, API Docker builder/runner and admin Docker builder select Node 24. Both production entry points call `scripts/require-node-runtime.cjs` before build/install/start.
