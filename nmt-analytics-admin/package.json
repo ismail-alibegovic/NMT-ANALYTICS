@@ -69,5 +69,8 @@
     "react-helmet-async": {
       "react": "^16.8.0 || ^17 || ^18 || ^19"
     }
+  },
+  "engines": {
+    "node": "24.x"
   }
 }

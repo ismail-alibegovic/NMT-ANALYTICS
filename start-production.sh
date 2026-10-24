@@ -4,7 +4,8 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 
 # Process variables override file values. Never execute configuration as shell.
-# Node 20.6+ supports --env-file; the production launcher fixes the runtime mode.
+# Reject an unsupported runtime before parsing files, installing or building.
+node "$ROOT/scripts/require-node-runtime.cjs"
 export NODE_ENV=production
 if [ -f "$ROOT/nmt-analytics-api/.env.production.local" ]; then
   exec node --env-file="$ROOT/nmt-analytics-api/.env.production.local" "$ROOT/scripts/start-production.cjs"

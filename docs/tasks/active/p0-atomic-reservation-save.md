@@ -1,6 +1,6 @@
 # P0 — Atomic reservation editor save
 
-**Status:** ACTIVE
+**Status:** MERGED / VERIFIED in isolated CI. PR #161; merge `ad62d77e7aa3c1f7d7b8ffb2bb0f622611a6564b`. All required exact-head checks passed on `c217179b537fa72b24dcf1932b8007148088e40f` (CI 40095659271, isolated acceptance 40095659268).
 **Priority:** P0
 **Branch:** `fix/p0-atomic-reservation-save`
 **Roadmap references:** final roadmap P0 write integrity; M02/M04/M07/M14 invariants.

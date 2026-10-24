@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { useT } from '../lib/i18n/context';
 import { render } from './renderWithI18n';
 import NewSaleWizard from '../components/reservations/NewSaleWizard';
@@ -85,8 +85,10 @@ function LanguageSwitch() {
   const { toggleLang } = useT();
   return <button onClick={toggleLang}>Switch test language</button>;
 }
-function renderWizard() {
-  render(
+async function renderWizard() {
+  // Finish mocked departure/accommodation/service reads before interacting.
+  await act(async () => {
+    render(
     <><LanguageSwitch /><NewSaleWizard
       isOpen
       onClose={vi.fn()}
@@ -94,7 +96,8 @@ function renderWizard() {
       initialPackageId="package-1"
       initialDepartureId="departure-1"
     /></>,
-  );
+    );
+  });
 }
 
 
@@ -108,7 +111,7 @@ beforeEach(() => {
 });
 
 it('translates the full simple sale and a visible validation error without clearing its draft', async () => {
-  renderWizard(); await screen.findByText('Antalya Summer 2027');
+  await renderWizard(); await screen.findByText('Antalya Summer 2027');
   expect(screen.getByRole('dialog', { name: 'New sale' })).toBeInTheDocument();
   expect(screen.getByText('Client and travelers')).toBeInTheDocument();
   expect(screen.getByText(/BAM\s*990\.00/)).toBeInTheDocument();
@@ -140,7 +143,7 @@ it('localizes conditional accommodation/add-ons, mandatory documents and the rev
   getDepartures.mockResolvedValue({ data: [{ ...busDeparture, resolvedTravelerRequirements: { documentType: 'id_card', allowFillLater: false, requireExpiry: true, requireNationality: true, requireDateOfBirth: true } }] });
   getDepartureAccommodationOptions.mockResolvedValue({ departureId: 'departure-1', items: [accommodationOption] });
   getPackageServices.mockResolvedValue([{ id: 'insurance', packageId: 'package-1', serviceType: 'insurance', providerName: 'Synthetic Insurance', unitPrice: 20, currency: 'BAM', isOptional: true }]);
-  renderWizard(); await screen.findByText('Antalya Summer 2027');
+  await renderWizard(); await screen.findByText('Antalya Summer 2027');
   await waitFor(() => expect(screen.getByText('Accommodation')).toBeInTheDocument());
   expect(screen.getByText('Add-ons')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -176,7 +179,7 @@ it('localizes conditional accommodation/add-ons, mandatory documents and the rev
 
 it('uses a localized fallback for unrecognized API failures', async () => {
   createReservation.mockRejectedValue(new Error('server-only diagnostic'));
-  renderWizard(); await screen.findByText('Antalya Summer 2027');
+  await renderWizard(); await screen.findByText('Antalya Summer 2027');
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
   fireEvent.change(screen.getByPlaceholderText('e.g. Ahmed Hodžić'), { target: { value: 'Synthetic client' } });
   fireEvent.change(screen.getByPlaceholderText('+387 61 234 567'), { target: { value: '+38761000000' } });
