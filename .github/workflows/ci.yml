@@ -219,8 +219,8 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test -c playwright.ui.config.ts
-      - name: BS/EN locale browser regressions
-        run: npx playwright test -c playwright.finance-forms.config.ts locale.spec.ts
+      - name: Sales reliability and locale browser regressions
+        run: npx playwright test -c playwright.finance-forms.config.ts locale.spec.ts reservation-reliability.spec.ts
       - uses: actions/upload-artifact@v4
         if: always()
         with:

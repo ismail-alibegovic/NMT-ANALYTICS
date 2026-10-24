@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useParams, useNavigate } from "react-router";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
@@ -43,6 +43,9 @@ import { sendReservationManualMessage } from "../api/manualMessaging";
 import EditReservationModal from "../components/reservations/EditReservationModal";
 import AddPaymentModal from "../components/payments/AddPaymentModal";
 
+type ReadSection = 'passengers' | 'accommodation' | 'schedule' | 'contracts';
+const INITIAL_READS: Record<ReadSection, 'loading' | 'ready' | 'error'> = { passengers: 'loading', accommodation: 'loading', schedule: 'loading', contracts: 'loading' };
+
 type Tab = "overview" | "passengers" | "payments" | "services" | "documents";
 
 export default function ReservationDetail() {
@@ -76,9 +79,8 @@ export default function ReservationDetail() {
     bus: w.bus, flight: w.flight, none: w.noTransport,
   };
 
-  const loadErrorCopy = useRef(w.errorLoad);
-  useEffect(() => { loadErrorCopy.current = w.errorLoad; }, [w.errorLoad]);
-  const { userContext } = useApp();
+  const { userContext, user } = useApp();
+  const scope = JSON.stringify([user?.id, userContext?.org?.id]);
   const canManagePayments = hasAccess("manager", userContext?.role);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -102,90 +104,85 @@ export default function ReservationDetail() {
   // Edit modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (!id) return;
-    (async () => {
-      try {
-        const res = await getReservation(id);
-        const departureId = res.departureId;
-        const pax = departureId
-          ? await import("../api/departures").then(async (m) => {
-              try {
-                const manifest = await m.getDeparturePassengers(departureId);
-                return (manifest.manifest || []).filter(
-                  (p: any) => p.reservationId === id || p.reservation_id === id
-                );
-              } catch {
-                return [];
-              }
-            })
-          : [];
+  const generation = useRef(0);
+  const sectionRequests = useRef<Record<ReadSection, number>>({ passengers: 0, accommodation: 0, schedule: 0, contracts: 0 });
+  const [readState, setReadState] = useState({ ...INITIAL_READS });
+  const [coreError, setCoreError] = useState(false);
+  const [loadedScope, setLoadedScope] = useState(scope);
 
-        setReservation(res);
-        setPassengers(pax as unknown as ReservationPassenger[]);
-
-        try {
-          const acc = await getReservationAccommodation(id);
-          setCurrentAccommodation(acc);
-        } catch {
-          setCurrentAccommodation([]);
-        }
-
-        try {
-          const schedule = await getReservationInstallmentSchedule(id);
-          setInstallmentSchedule(schedule);
-        } catch {
-          setInstallmentSchedule(null);
-        }
-
-        // Check for existing contracts
-        try {
-          const contractsRes = await getContracts({ reservationId: id, limit: 5 });
-          setExistingContracts(contractsRes.data || []);
-        } catch {
-          // Non-critical — don't block the page
-        }
-      } catch {
-        showError(loadErrorCopy.current);
-        navigate(-1);
-      } finally {
-        setLoading(false);
+  const readSection = useCallback(async (section: ReadSection, record: Reservation, currentGeneration: number) => {
+    const request = ++sectionRequests.current[section];
+    const current = () => generation.current === currentGeneration && sectionRequests.current[section] === request;
+    setReadState(state => ({ ...state, [section]: 'loading' }));
+    try {
+      let apply: () => void;
+      if (section === 'passengers') {
+        const manifest = record.departureId
+          ? await import('../api/departures').then(api => api.getDeparturePassengers(record.departureId!))
+          : { manifest: [] };
+        const rows = (manifest.manifest || []).filter((row: any) => row.reservationId === record.id || row.reservation_id === record.id);
+        apply = () => setPassengers(rows as unknown as ReservationPassenger[]);
+      } else if (section === 'accommodation') {
+        const rows = await getReservationAccommodation(record.id);
+        apply = () => setCurrentAccommodation(rows);
+      } else if (section === 'schedule') {
+        const schedule = await getReservationInstallmentSchedule(record.id);
+        apply = () => setInstallmentSchedule(schedule);
+      } else {
+        const contracts = await getContracts({ reservationId: record.id, limit: 5 });
+        apply = () => setExistingContracts(contracts.data || []);
       }
-    })();
-  }, [id, navigate, showError]);
+      if (!current()) return;
+      apply();
+      setReadState(state => ({ ...state, [section]: 'ready' }));
+    } catch {
+      if (current()) setReadState(state => ({ ...state, [section]: 'error' }));
+    }
+  }, []);
 
-  const reloadReservation = async () => {
+  const reloadReservation = useCallback(async () => {
     if (!id) return;
-    const res = await getReservation(id);
-    const departureId = res.departureId;
-    const pax = departureId
-      ? await import("../api/departures").then(async (m) => {
-          try {
-            const manifest = await m.getDeparturePassengers(departureId);
-            return (manifest.manifest || []).filter(
-              (p: any) => p.reservationId === id || p.reservation_id === id
-            );
-          } catch {
-            return [];
-          }
-        })
-      : [];
-    setReservation(res);
-    setPassengers(pax as unknown as ReservationPassenger[]);
-
+    const currentGeneration = ++generation.current;
+    setLoading(true);
+    setCoreError(false);
+    setReadState({ ...INITIAL_READS });
     try {
-      const acc = await getReservationAccommodation(id);
-      setCurrentAccommodation(acc);
-    } catch {
-      setCurrentAccommodation([]);
+      const record = await getReservation(id);
+      if (currentGeneration !== generation.current) return;
+      setReservation(record);
+      setLoadedScope(scope);
+      await Promise.all((Object.keys(INITIAL_READS) as ReadSection[]).map(section => readSection(section, record, currentGeneration)));
+    } catch (error: any) {
+      if (currentGeneration !== generation.current) return;
+      setReservation(null);
+      setCoreError((error?.status ?? error?.response?.status) !== 404);
+    } finally {
+      if (currentGeneration === generation.current) setLoading(false);
     }
+  }, [id, scope, readSection]);
 
-    try {
-      const schedule = await getReservationInstallmentSchedule(id);
-      setInstallmentSchedule(schedule);
-    } catch {
-      setInstallmentSchedule(null);
-    }
+  const invalidateReads = useCallback(() => { generation.current++; }, []);
+  useEffect(() => {
+    setContractModalOpen(false);
+    setAddPaymentOpen(false);
+    setEditModalOpen(false);
+    setGeneratedContract(null);
+    setGenerating(false);
+    setSelectedInstallmentId(null);
+    setExistingContracts([]);
+    setActiveTab('overview');
+    void reloadReservation();
+    return invalidateReads;
+  }, [reloadReservation, invalidateReads]);
+
+  const readFeedback = (section: ReadSection) => {
+    if (readState[section] === 'ready') return null;
+    const failed = readState[section] === 'error';
+    const messages = { passengers: w.errorPassengers, accommodation: w.errorAccommodation, schedule: w.errorSchedule, contracts: w.errorContracts };
+    return <div role={failed ? 'alert' : 'status'} className="my-3 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
+      <p>{failed ? messages[section] : w.loading}</p>
+      {failed && <Button size="sm" variant="outline" className="mt-2" onClick={() => { if (reservation) void readSection(section, reservation, generation.current); }}>{w.retry}</Button>}
+    </div>;
   };
 
   const handleDownloadVoucher = async () => {
@@ -215,23 +212,19 @@ export default function ReservationDetail() {
   };
 
   const handleGenerateContract = async () => {
-    if (!id) return;
+    if (!id || !reservation || loading || readState.contracts !== 'ready') return;
+    const currentGeneration = generation.current;
     setGenerating(true);
     try {
       const contract = await apiCreateContract({ reservationId: id });
+      if (currentGeneration !== generation.current) return;
       setGeneratedContract(contract);
       showSuccess(w.contractCreated);
-      // Refresh existing contracts list
-      try {
-        const contractsRes = await getContracts({ reservationId: id, limit: 5 });
-        setExistingContracts(contractsRes.data || []);
-      } catch {
-        // Allow silent failure
-      }
+      await readSection('contracts', reservation, currentGeneration);
     } catch {
-      showError(w.errorContract);
+      if (currentGeneration === generation.current) showError(w.errorContract);
     } finally {
-      setGenerating(false);
+      if (currentGeneration === generation.current) setGenerating(false);
     }
   };
 
@@ -241,7 +234,14 @@ export default function ReservationDetail() {
     navigate(`/operations/contracts?search=${encodeURIComponent(contractId)}`);
   };
 
-  if (loading) return <PageMeta title={w.loading} description="" />;
+  if ((loading && !reservation) || (reservation && (reservation.id !== id || loadedScope !== scope))) return <PageMeta title={w.loading} description="" />;
+  if (coreError) return <div className="p-6">
+    <Button variant="outline" size="sm" onClick={() => navigate(-1)}>{w.back}</Button>
+    <div role="alert" className="mt-4 rounded-xl border border-error-200 p-5 dark:border-error-500/30">
+      <p className="mb-3 text-sm">{w.errorLoad}</p>
+      <Button size="sm" variant="outline" onClick={() => { void reloadReservation(); }}>{w.retry}</Button>
+    </div>
+  </div>;
 
   if (!reservation) {
     return (
@@ -254,6 +254,7 @@ export default function ReservationDetail() {
     );
   }
 
+  const renderedGeneration = generation.current;
   const paid = Number(reservation.paidAmount ?? 0);
   const total = Number(reservation.totalAmount ?? 0);
   const remaining = Math.max(0, total - paid);
@@ -348,7 +349,8 @@ export default function ReservationDetail() {
   return (
     <>
       <PageMeta title={fill(w.reservation, { id: reservationShortId })} description="" />
-      <div className="p-4 sm:p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6" aria-busy={loading}>
+        {loading && <div role="status" className="rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">{w.refreshing}</div>}
         {reservation.quotationId && <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
           <Link className="font-medium text-brand-600 dark:text-brand-400" to={`/quotations/${reservation.quotationId}`}>{copy.quotations.sourceQuotation}</Link>
           <p className="mt-1 text-sm text-gray-500">{copy.quotations.bookingTermsLocked}</p>
@@ -370,14 +372,14 @@ export default function ReservationDetail() {
             {statusLabel(reservation.status)}
           </Badge>
           <div className="ml-auto flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => setEditModalOpen(true)}>
+            <Button size="sm" variant="outline" disabled={loading} onClick={() => setEditModalOpen(true)}>
               <PencilIcon className="size-4" /> {w.edit}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setContractModalOpen(true)}>
+            <Button size="sm" variant="outline" disabled={loading} onClick={() => setContractModalOpen(true)}>
               <FileIcon className="size-4" /> {w.contract}
             </Button>
-            <Button size="sm" variant="outline" onClick={handleDownloadVoucher}>{w.voucher}</Button>
-            <Button size="sm" variant="outline" disabled={!canManagePayments} onClick={handleDownloadInvoice}>{w.invoice}</Button>
+            <Button size="sm" variant="outline" disabled={loading} onClick={handleDownloadVoucher}>{w.voucher}</Button>
+            <Button size="sm" variant="outline" disabled={!canManagePayments || loading} onClick={handleDownloadInvoice}>{w.invoice}</Button>
           </div>
         </div>
 
@@ -451,6 +453,8 @@ export default function ReservationDetail() {
         {/* Passengers Tab */}
         {activeTab === "passengers" && (
           <div>
+            {readFeedback('passengers')}
+            {readState.passengers === 'ready' && (<>
             {passengers.length === 0 ? (
               <EmptyState icon={<GroupIcon className="size-8" />} title={w.noPassengers} description={w.noPassengersHint} />
             ) : (
@@ -473,6 +477,7 @@ export default function ReservationDetail() {
                 <DataTable columns={paxColumns} data={passengers} />
               </>
             )}
+            </>)}
           </div>
         )}
 
@@ -487,7 +492,7 @@ export default function ReservationDetail() {
                 </div>
                 <Button
                   size="sm"
-                  disabled={!canManagePayments || Boolean(reservation.creationState && reservation.creationState !== 'completed')}
+                  disabled={loading || !canManagePayments || readState.schedule !== 'ready' || Boolean(reservation.creationState && reservation.creationState !== 'completed')}
                   onClick={() => {
                     setSelectedInstallmentId(pendingInstallments[0]?.id || null);
                     setAddPaymentOpen(true);
@@ -519,7 +524,8 @@ export default function ReservationDetail() {
 
             <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-200">{w.schedule}</h3>
-              {installments.length === 0 ? (
+              {readFeedback('schedule')}
+              {readState.schedule === 'ready' && (installments.length === 0 ? (
                 <p className="mt-3 text-sm text-gray-500">{w.noSchedule}</p>
               ) : (
                 <div className="mt-4 divide-y divide-gray-100 dark:divide-gray-800">
@@ -545,7 +551,7 @@ export default function ReservationDetail() {
                             <Button
                               size="sm"
                               variant="outline"
-                              disabled={!canManagePayments || Boolean(reservation.creationState && reservation.creationState !== 'completed')}
+                              disabled={loading || !canManagePayments || readState.schedule !== 'ready' || Boolean(reservation.creationState && reservation.creationState !== 'completed')}
                               onClick={() => {
                                 setSelectedInstallmentId(installment.id);
                                 setAddPaymentOpen(true);
@@ -559,7 +565,7 @@ export default function ReservationDetail() {
                     );
                   })}
                 </div>
-              )}
+              ))}
             </div>
           </div>
         )}
@@ -571,7 +577,8 @@ export default function ReservationDetail() {
             <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">{w.soldServices}</h3>
 
-              {!bookingSnapshot && purchasedAddons.length === 0 && currentAccommodation.length === 0 ? (
+              {readFeedback('accommodation')}
+              {readState.accommodation === 'ready' && !bookingSnapshot && purchasedAddons.length === 0 && currentAccommodation.length === 0 ? (
                 <p className="mt-3 text-sm text-gray-500">
                   {w.noServices}
                 </p>
@@ -593,7 +600,7 @@ export default function ReservationDetail() {
                     </>
                   )}
 
-                  {currentAccommodation.length > 0 && (
+                  {readState.accommodation === 'ready' && currentAccommodation.length > 0 && (
                     <div className="sm:col-span-2 mt-2">
                       <dt className="text-gray-500 mb-2">{w.accommodation}</dt>
                       {currentAccommodation.map((line, i) => (
@@ -656,8 +663,8 @@ export default function ReservationDetail() {
         {activeTab === "documents" && (
           <div className="space-y-4">
             <div className="flex gap-3">
-              <Button size="sm" variant="outline" onClick={handleDownloadVoucher}>{w.downloadVoucher}</Button>
-              <Button size="sm" variant="outline" disabled={!canManagePayments} onClick={handleDownloadInvoice}>{w.downloadInvoice}</Button>
+              <Button size="sm" variant="outline" disabled={loading} onClick={handleDownloadVoucher}>{w.downloadVoucher}</Button>
+              <Button size="sm" variant="outline" disabled={!canManagePayments || loading} onClick={handleDownloadInvoice}>{w.downloadInvoice}</Button>
             </div>
             <ManualMessageComposer
               initialEmail={reservationEmail}
@@ -678,6 +685,7 @@ export default function ReservationDetail() {
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
         onSuccess={async () => {
+          if (renderedGeneration !== generation.current) return;
           setEditModalOpen(false);
           try {
             await reloadReservation();
@@ -689,13 +697,16 @@ export default function ReservationDetail() {
       />
 
       <AddPaymentModal
-        isOpen={canManagePayments && addPaymentOpen}
+        isOpen={!loading && canManagePayments && readState.schedule === 'ready' && addPaymentOpen}
         onClose={() => setAddPaymentOpen(false)}
         reservationId={reservation.id}
         reservationCurrency={reservation.currency}
         installmentId={selectedInstallment?.id || null}
         defaultAmount={selectedInstallment?.amount || null}
         onPaymentCreated={async () => {
+          if (renderedGeneration !== generation.current) return;
+          setAddPaymentOpen(false);
+          setSelectedInstallmentId(null);
           try {
             await reloadReservation();
           } catch {
@@ -709,7 +720,8 @@ export default function ReservationDetail() {
         <div className="space-y-4 p-2">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{w.generateContract}</h3>
 
-          {existingContracts.length > 0 && !generatedContract && (
+          {readFeedback('contracts')}
+          {readState.contracts === 'ready' && existingContracts.length > 0 && !generatedContract && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20 p-3">
               <p className="text-sm font-medium text-amber-800 dark:text-amber-200">{w.existingContracts}</p>
               <ul className="mt-2 space-y-1">
@@ -755,7 +767,7 @@ export default function ReservationDetail() {
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setContractModalOpen(false)}>{w.cancel}</Button>
-                <Button variant="primary" onClick={handleGenerateContract} disabled={generating}>
+                <Button variant="primary" onClick={handleGenerateContract} disabled={loading || generating || readState.contracts !== 'ready'}>
                   {generating ? w.generating : w.generate}
                 </Button>
               </div>

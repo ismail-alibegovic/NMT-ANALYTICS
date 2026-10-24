@@ -29,8 +29,9 @@ for (const lang of ['en', 'bs'] as const) for (const theme of ['light', 'dark'])
     await expect(eur.getByText(copy.credit, { exact: true })).toBeVisible();
     await expect(eur.getByRole('button', { name: copy.payments, exact: true })).toHaveCount(0);
     await expect(eur.getByRole('button', { name: copy.invoice, exact: true })).toHaveCount(0);
-    await page.getByLabel(fill(copy.selectRow, { name: 'EUR client' }), { exact: true }).check();
     await page.getByLabel(copy.from, { exact: true }).fill('2041-04-23');
+    await expect.poll(() => queries.some(query => query.get('dateFrom') === '2041-04-23')).toBe(true);
+    await page.getByLabel(fill(copy.selectRow, { name: 'EUR client' }), { exact: true }).check();
     const before = reads;
     await page.getByRole('button', { name: lang === 'bs' ? 'Prebaci na engleski' : 'Switch to Bosnian', exact: true }).click();
     await expect(page.getByLabel(fill(other.selectRow, { name: 'EUR client' }), { exact: true })).toBeChecked();
