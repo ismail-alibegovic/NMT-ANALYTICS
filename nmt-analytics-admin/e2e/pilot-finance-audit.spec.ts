@@ -33,8 +33,8 @@ for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`real
  await page.reload();await page.getByRole('button',{name:'Uplate',exact:true}).click();const schedule=await json(await request.get(`${api}/api/reservations/${res.id}/installments`,{headers}),200);expect(schedule.installments.filter((p:any)=>p.status==='succeeded')).toHaveLength(1);expect(schedule.paidAmount).toBe(90);expect(schedule.balanceDue).toBe(90);
  await testInfo.attach(`payment-${theme}-${width}`,{body:await page.screenshot(),contentType:'image/png'});
  // Open the actual list payment editor, then verify correction and refund against the ledger.
- await page.goto(`/reservations?departureId=${dep.id}`);await page.getByPlaceholder('Traži klijenta ili telefon...').fill(marker);
- const row=page.getByRole('row').filter({hasText:marker});await row.getByRole('button',{name:'Plaćanja',exact:true}).click();
+ await page.goto(`/reservations?departureId=${dep.id}`);await page.getByPlaceholder('Search client or phone...').fill(marker);
+ const row=page.getByRole('row').filter({hasText:marker});await row.getByRole('button',{name:'Payments',exact:true}).click();
  const modal=page.locator('.modal').first();await modal.getByRole('button',{name:'Refund',exact:true}).locator('..').getByRole('button',{name:'Edit',exact:true}).click();
  const edit=page.getByRole('form',{name:'Edit Payment',exact:true});await edit.getByLabel('Method',{exact:true}).selectOption('card');
  await testInfo.attach(`edit-form-${theme}-${width}`,{body:await page.screenshot(),contentType:'image/png'});
@@ -42,7 +42,7 @@ for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`real
  const stored=await json(await request.get(`${api}/api/payments?reservation_id=${res.id}`,{headers}),200);expect(stored.data.find((p:any)=>p.id===paid.payment.id).paymentMethod).toBe('card');
  page.once('dialog',dialog=>dialog.accept('Isolated audit refund'));const refund=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith(`/payments/${paid.payment.id}/refund`));await modal.getByRole('button',{name:'Refund',exact:true}).click();await json(await refund,200);
  const final=await json(await request.get(`${api}/api/reservations/${res.id}`,{headers}),200);expect(final.paidAmount).toBe(0);expect(final.balanceDue).toBe(180);
- await page.reload();await page.getByPlaceholder('Traži klijenta ili telefon...').fill(marker);await page.getByRole('row').filter({hasText:marker}).getByRole('button',{name:'Plaćanja',exact:true}).click();await expect(page.locator('.modal').getByText('Refunded',{exact:true})).toBeVisible();
+ await page.reload();await page.getByPlaceholder('Search client or phone...').fill(marker);await page.getByRole('row').filter({hasText:marker}).getByRole('button',{name:'Payments',exact:true}).click();await expect(page.locator('.modal').getByText('Refunded',{exact:true})).toBeVisible();
  await page.locator('.modal').getByRole('button',{name:'+ Add Payment',exact:true}).click();
  const embedded=page.getByRole('form',{name:'Add Payment',exact:true});await embedded.getByLabel('Amount *',{exact:true}).fill('30');
  await testInfo.attach(`embedded-form-${theme}-${width}`,{body:await page.screenshot(),contentType:'image/png'});

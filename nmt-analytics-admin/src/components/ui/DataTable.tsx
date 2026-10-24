@@ -6,6 +6,7 @@ import {
   TableRow,
   TableCell,
 } from './table';
+import { useT } from '../../lib/i18n/context';
 import Button from './button/Button';
 import EmptyState from './EmptyState';
 
@@ -167,6 +168,9 @@ export function Pagination({
   itemsPerPage,
   onPageChange,
 }: PaginationProps) {
+  const { t, lang } = useT();
+  const w = t.pagination;
+  const count = (value: number) => new Intl.NumberFormat(lang === 'bs' ? 'bs-BA' : 'en-GB', { useGrouping: false }).format(value);
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
@@ -175,7 +179,7 @@ export function Pagination({
   return (
     <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="text-sm text-gray-500 dark:text-gray-400">
-        Showing {startItem}-{endItem} of {totalItems} results
+        {w.summary.replace('{start}', count(startItem)).replace('{end}', count(endItem)).replace('{total}', count(totalItems))}
       </div>
       <div className="flex items-center justify-center gap-2 flex-wrap">
         <Button
@@ -184,7 +188,7 @@ export function Pagination({
           variant="outline"
           size="sm"
         >
-          Previous
+          {w.previous}
         </Button>
 
         <div className="flex items-center gap-1">
@@ -226,7 +230,7 @@ export function Pagination({
           variant="outline"
           size="sm"
         >
-          Next
+          {w.next}
         </Button>
       </div>
     </div>

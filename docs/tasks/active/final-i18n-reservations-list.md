@@ -1,0 +1,11 @@
+# I18N-04E — Reservations list BS/EN and row currency
+
+Status: ACTIVE. Branch: `fix/i18n-reservations-list`, fresh main `d1c4514` (#155 merged). #156/#157 remain separate pending CI.
+
+Translate Reservations page headers, filters, context banner, actions, prompts, batch messages and access/empty/download/error states. Format each row's total/paid/balance with its original currency and selected locale; current table ignores currency and labels EUR as BAM. Preserve backend balance and credit sign/presentation, role-gated finance controls, status enum/mutation payloads, paging/search/departure filters and child workflow entry points. Include the shared Pagination component's footer/controls in BS/EN. Add accessible names for selection/date/status controls.
+
+Preserve architecture; no API/schema/auth/RLS/seed/runtime changes, customer writes or financial recalculation. Add regressions first for mixed BAM/EUR rows/credits, live switching with retained selection/filter values and no refetch, exact batch status payload, role gating and pagination. Browser actual page in BS/EN/light/dark/mobile/desktop with synthetic transport. Keep authenticated sale/finance selectors aligned without weakening ledger or idempotency assertions. Required admin/API baseline and exact-head CI/acceptance before merge.
+
+Confirmed existing Phase 2 findings: status/date filter state changes and clearing filters do not directly refetch; initial fetch effect depends only on auth. Invalidation omits the search query. Failed initial list reads can render an empty result after a toast. Do not claim these workflows verified or silently broaden this translation change into filter/data-loading redesign; record focused failure/retry/filter tasks in roadmap.
+
+Local implementation/validation complete: 4 new regressions failed before repair and now pass, 20 focused tests, 524 full admin tests/build/lint (0 errors, 51 existing warnings), 27 combined locale browser cases including 8 list cases. Exact files and confirmed deferred defects are recorded in the final roadmap. PR/required exact-head CI/merge pending; full Phase 1 remains open.

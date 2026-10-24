@@ -38,7 +38,7 @@ for (const theme of ['light', 'dark']) for (const viewport of [{ width: 1440, he
     await page.getByRole('button', { name: /sign in/i }).click();
     await expect(page).not.toHaveURL(/\/auth\/signin/);
     await page.goto(`/reservations?departureId=${departureId}`);
-    await page.getByRole('button', { name: '+ Nova rezervacija', exact: true }).click();
+    await page.getByRole('button', { name: '+ New reservation', exact: true }).click();
     const wizard = page.locator('.modal');
     await expect(wizard.getByText("New sale", { exact: true })).toBeVisible();
     await expect(wizard.getByRole('button').filter({ hasText: marker })).toBeVisible();
