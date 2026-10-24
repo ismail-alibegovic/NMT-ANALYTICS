@@ -99,6 +99,9 @@ jobs:
           psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
             -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/database-function-security.sql
 
+      - name: Verify atomic reservation editor rollback and tenant boundaries
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/reservation-edit-atomicity.sql
+
       - name: Verify API-only authorization database boundaries
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/authorization-security.sql
 

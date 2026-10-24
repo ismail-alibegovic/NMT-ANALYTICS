@@ -146,7 +146,7 @@ export const createReservationSchema = z.object({
   }
 });
 
-const updateReservationSchema = z.object({
+const coreReservationUpdateSchema = z.object({
   ...ledgerOwnedFields,
   status: z.enum(['pending', 'confirmed', 'cancelled', 'completed']).optional(),
   departureId: z.string().uuid('Invalid departure ID').optional(),
@@ -174,6 +174,10 @@ const accommodationRequirementSchema = z.object({
     notes: z.string().optional().nullable(),
     passengerIds: z.array(z.string().uuid('Invalid passenger ID')).optional(),
   })).default([]),
+});
+
+const updateReservationSchema = coreReservationUpdateSchema.extend({
+  accommodationRequirements: accommodationRequirementSchema.shape.accommodationRequirements.unwrap().nullable().optional(),
 });
 
 async function releaseReservedCapacity(orgId: string, departureId: string, partySize: number) {
@@ -1225,6 +1229,41 @@ router.patch('/reservations/:id', authenticateToken, requireOrgContext, requireM
 
     if (oldDepartureCurrency?.ok && newDepartureCurrency?.ok && oldDepartureCurrency.currency !== newDepartureCurrency.currency) {
       return apiError(res, 400, "RESERVATION_DEPARTURE_CURRENCY_MISMATCH", "Reservation cannot move between departures with different package currencies");
+    }
+
+    if (updates.accommodationRequirements !== undefined) {
+      const fields = {
+        status: updates.status, departure_id: updates.departureId, customer_id: updates.customerId,
+        total_amount: updates.totalAmount, reservation_at: updates.reservationAt, party_size: updates.partySize,
+        customer_name: updates.customerName, customer_phone: updates.customerPhone,
+        currency: newDepartureCurrency?.ok ? newDepartureCurrency.currency : updates.currency, source: updates.source,
+      };
+      const { data, error } = await supabaseAdmin.rpc('edit_reservation_atomic', {
+        p_org_id: orgId, p_reservation_id: id,
+        p_updates: Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)),
+        p_requirements: updates.accommodationRequirements === null ? null : updates.accommodationRequirements.map(line => ({
+          hotel_allocation_id: line.hotelAllocationId, room_count: line.roomCount,
+          guests_expected: line.guestsExpected, notes: line.notes ?? null, passenger_ids: line.passengerIds || [],
+        })),
+      });
+      if (error) {
+        const mapped = mapAccommodationError(error);
+        if (mapped) return apiError(res, mapped.status, mapped.code, mapped.message);
+        const codes: Record<string, [number, string]> = {
+          CAPACITY_FULL: [409, 'DEPARTURE_CAPACITY_EXCEEDED'],
+          DEPARTURE_NOT_FOUND: [404, 'DEPARTURE_NOT_FOUND'], CUSTOMER_NOT_FOUND: [404, 'CUSTOMER_NOT_FOUND'],
+          DEPARTURE_PACKAGE_NOT_FOUND: [409, 'DEPARTURE_PACKAGE_NOT_FOUND'],
+          QUOTATION_BOOKING_LOCKED: [409, 'QUOTATION_BOOKING_LOCKED'],
+          RESERVATION_DEPARTURE_CURRENCY_MISMATCH: [409, 'RESERVATION_DEPARTURE_CURRENCY_MISMATCH'],
+          RESERVATION_CURRENCY_LOCKED: [409, 'RESERVATION_CURRENCY_LOCKED'], CURRENCY_MISMATCH: [400, 'CURRENCY_MISMATCH'],
+          INVALID_ACCOMMODATION_INTENT: [400, 'VALIDATION_ERROR'], INVALID_RESERVATION_UPDATE: [400, 'VALIDATION_ERROR'],
+        };
+        const known = Object.entries(codes).find(([code]) => String(error.message).includes(code));
+        if (known) return apiError(res, known[1][0], known[1][1], 'Reservation edit could not be saved');
+        return handleSupabaseError(res, error, 'Failed to update reservation');
+      }
+      await logAction(req, 'update', 'reservation', id, { oldValues: reservation, newValues: data });
+      return res.json(data);
     }
 
     if (oldDepId === newDepId) {

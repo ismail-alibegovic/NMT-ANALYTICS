@@ -109,6 +109,7 @@ SQL
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/supplier-payables-integrity.sql"
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/supplier-payables-overview-integrity.sql"
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/database-function-security.sql"
+"${PSQL_BASE[@]}" -f "$ROOT/scripts/reservation-edit-atomicity.sql"
 echo "Migration Replay PASS: $count migrations executed"
 
 

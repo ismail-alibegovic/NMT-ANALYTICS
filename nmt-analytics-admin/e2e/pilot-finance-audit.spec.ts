@@ -12,6 +12,20 @@ async function seed(request:APIRequestContext,headers:Record<string,string>,inst
  const res=await json(await request.post(`${api}/api/reservations`,{headers:{...headers,'Idempotency-Key':randomUUID()},data:{departureId:dep.id,customerName:marker,customerPhone:'+38761000001',partySize:1,reservationAt:`${date}T10:00:00Z`,status:'confirmed',totalAmount:180,currency:'BAM',source:'agent',passengers:[{full_name:marker}],...(installments?{installmentCount:installments}:{})}}));
  return {marker,res,dep,pkg};
 }
+test('atomic reservation edit rejects failed accommodation and forged tenant without partial core/capacity saves',async({request,baseURL})=>{
+ test.skip(!enabled,'NOT TESTED: disposable local Auth/API required');expect(local(api)&&local(auth)&&local(baseURL!)).toBe(true);
+ const headers=await login(request);const foreign=await login(request,true);const {res,dep}=await seed(request,headers);
+ const read=async()=>json(await request.get(`${api}/api/reservations/${res.id}`,{headers}),200);
+ const before=await read();const departureBefore=await json(await request.get(`${api}/api/departures/${dep.id}`,{headers}),200);
+ expect(before.partySize).toBe(1);expect(departureBefore.booked).toBe(1);
+ const edit={customerName:'Must not persist',partySize:2,accommodationRequirements:[{hotelAllocationId:randomUUID(),roomCount:1,guestsExpected:2,passengerIds:[]}]};
+ const denied=await request.patch(`${api}/api/reservations/${res.id}`,{headers:foreign,data:edit});expect([403,404]).toContain(denied.status());
+ const rejected=await request.patch(`${api}/api/reservations/${res.id}`,{headers,data:edit});expect(rejected.status(),await rejected.text()).toBe(409);expect((await rejected.json()).code).toBe('PASSENGER_REQUIREMENT_COVERAGE_MISMATCH');
+ const after=await read();expect(after.customerName).toBe(before.customerName);expect(after.partySize).toBe(before.partySize);expect(after.totalAmount).toBe(before.totalAmount);
+ const departureAfter=await json(await request.get(`${api}/api/departures/${dep.id}`,{headers}),200);expect(departureAfter.booked).toBe(departureBefore.booked);
+ await json(await request.patch(`${api}/api/reservations/${res.id}`,{headers,data:{customerName:'Combined saved',accommodationRequirements:[]}}),200);
+ expect((await read()).customerName).toBe('Combined saved');
+});
 for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`real payment installment edit refund reload ${theme} ${width}`,async({page,request,baseURL},testInfo)=>{
  test.skip(!enabled,'NOT TESTED: disposable local Auth/API required');test.setTimeout(90_000);expect(local(api)&&local(auth)&&local(baseURL!)).toBe(true);
  const headers=await login(request);const {marker,res,dep}=await seed(request,headers);
