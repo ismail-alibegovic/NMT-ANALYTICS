@@ -21,7 +21,7 @@ vi.mock("../api/reservations", () => ({
   downloadInvoice: vi.fn(),
   formatReservationCurrency: (v: any, _c?: string) => `${Number(v || 0).toFixed(0)} BAM`,
   formatReservationDate: (v: any) => v || "",
-  reservationPaymentStatusBadge: vi.fn(() => "Plaćeno"),
+  reservationPaymentStatusBadge: vi.fn(() => "Partial"),
 }));
 
 vi.mock("../api/contracts", () => ({
@@ -123,6 +123,7 @@ function renderPage(id: string) {
 describe("ReservationDetail", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    localStorage.setItem("travline_lang", "bs");
     actor.role = "manager";
     mockGetReservation.mockResolvedValue(BASE_RESERVATION);
     mockGetAccommodation.mockResolvedValue([]);
@@ -213,8 +214,8 @@ describe("ReservationDetail", () => {
     });
     fireEvent.click(screen.getByText("Usluge"));
     await waitFor(() => { const dds = document.querySelectorAll("dd.text-gray-900"); expect(Array.from(dds).some(dd => (dd.textContent || "").includes("Hotel Azur"))).toBe(true); });
-    expect(screen.getByText(/1 soba/)).toBeInTheDocument();
-    expect(screen.getByText(/2 putnika/)).toBeInTheDocument();
+    expect(screen.getByText(/Sobe: 1/)).toBeInTheDocument();
+    expect(screen.getByText(/Putnici: 2/)).toBeInTheDocument();
     expect(screen.getByText("Autobus")).toBeInTheDocument();
     expect(screen.queryByText(/Wrong package snapshot hotel/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Old snapshot hotel/)).not.toBeInTheDocument();
@@ -265,10 +266,10 @@ describe("ReservationDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Cijena pri booking-u")).toBeInTheDocument();
     });
-    expect(screen.getByText("800 BAM")).toBeInTheDocument();
-    expect(screen.getByText("200 BAM")).toBeInTheDocument();
-    expect(screen.getByText("100 BAM")).toBeInTheDocument();
-    expect(screen.getByText("1100 BAM")).toBeInTheDocument();
+    expect(screen.getByText(/^800,00\s*KM$/)).toBeInTheDocument();
+    expect(screen.getByText(/^200,00\s*KM$/)).toBeInTheDocument();
+    expect(screen.getByText(/^100,00\s*KM$/)).toBeInTheDocument();
+    expect(screen.getByText(/^1\.100,00\s*KM$/)).toBeInTheDocument();
   });
 
   it("does not crash for old reservation without booking_snapshot", async () => {
@@ -437,14 +438,14 @@ describe("ReservationDetail", () => {
 
     fireEvent.click(screen.getByText("Uplate"));
     expect(await screen.findByText("Finansije rezervacije")).toBeInTheDocument();
-    expect(screen.getByText("Rata 1 · 300 BAM")).toBeInTheDocument();
-    expect(screen.getByText("Rata 2 · 800 BAM")).toBeInTheDocument();
+    expect(screen.getByText(/Rata 1 · 300,00\s*KM/)).toBeInTheDocument();
+    expect(screen.getByText(/Rata 2 · 800,00\s*KM/)).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Evidentiraj" })[0]);
-    await waitFor(() => expect(screen.getAllByText("Add Payment").length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText("Dodaj uplatu").length).toBeGreaterThan(0));
     expect(screen.getByDisplayValue("300")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Add Payment" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dodaj uplatu" }));
 
     await waitFor(() => expect(mockCreatePayment).toHaveBeenCalledWith(expect.objectContaining({
       reservation_id: BASE_RESERVATION.id,
@@ -453,7 +454,7 @@ describe("ReservationDetail", () => {
       currency: "BAM",
       status: "succeeded",
     })));
-    await waitFor(() => expect(screen.getByText("Rata 1 · 300 BAM")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Rata 1 · 300,00\s*KM/)).toBeInTheDocument());
     expect(reservationCall).toBeGreaterThanOrEqual(2);
   });
 

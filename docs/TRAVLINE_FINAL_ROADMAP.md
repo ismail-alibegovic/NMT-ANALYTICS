@@ -305,30 +305,16 @@ Reservation Detail [PR #156](https://github.com/ismail-alibegovic/NMT-ANALYTICS/
 Integrated #156 validation after #155 main: admin **71 files / 524 tests passed**, lint **0 errors / 51 existing warnings**, and **27 locale browser scenarios passed**, covering Reports, CustomerDetail, New Sale and ReservationDetail together. Production build passed. Required exact-head CI remains the merge gate.
 
 
-### I18N-04D — Reservation editor BS/EN and currency display
+### CI correction and verified editor integration — #156/#158
 
-Current branch `fix/i18n-reservation-editor` was fast-forwarded to verified main `d1c4514` after #155; editor changes were reapplied from their named safety stash without conflict. #156 remains a separate PR, refreshed on main at `e713d4d`; it is not included in this editor source.
+Editor [#157](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/157) merged independently as `6dbe3c2dbe6d1d5ea895f616dbd1243401574e2a` after all checks passed on `f807dce2ba7edaad84da2bb5ad637cea7cdf7849`, including isolated acceptance [40042221361](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40042221361) (26m14s). It has no functional dependency on the pending Detail translation. Its implementation/evidence remain recorded in its scoped task and PR. Main is authoritative; no Zo runtime verification is implied.
 
-The existing modal now translates labels, status options, dates, accommodation instructions, validation, notifications and stored read errors. Locale changes preserve drafts and do not refetch. Associated field labels use React-generated unique IDs. Fixes confirmed misleading currency labels using already loaded reservation currency: normal EUR amount/accommodation displays no longer say BAM, and canonical `addons_total_at_booking` is labelled in reservation currency instead of the first add-on's currency. Individual add-on rows retain their own currency. Stored money, quote locks, numeric save payloads and mutation order remain unchanged; no FX calculation is introduced. Unknown errors use localized fallback.
+#156 acceptance [40041943376](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40041943376) failed after earlier local checks passed. Inspection confirmed `e2e/pilot-mobile-layout.spec.ts` explicitly selects English but still clicks hardcoded Bosnian Documents/Overview tabs. Align those selectors with the English dictionary, retaining all authenticated viewport/theme/navigation checks and assertions. Remote acceptance must confirm the correction; do not mark it passed from code inspection.
 
-Evidence before integration: existing three accommodation tests passed; all three new locale/error/quote-lock regressions failed before repair and then passed. **29 focused tests passed** including quotation booking and dictionary contract. Lint/build passed. Actual editor browser fixture **8 passed**, BS/EN × light/dark × 390/1440, west-of-UTC date-only departures, live preference event inside the real modal focus trap, draft retention/no refetch, canonical-versus-add-on currency, four quotation-lock cases, exact reservation/accommodation payloads and successful close. All transport is synthetic. Final combined admin/browser checks after integrating #155 are running.
+#158's Test Admin annotations identify asynchronous recovery assertions in `newSaleInstallmentSchedule.test.tsx`: a notification mock can be observed before React commits the recovery link, and clearAllMocks retains unconsumed once-only responses after a failing test. Await the actual recovery link/disabled button and reset mocks before rebuilding each test's responses. Keep idempotency identity, single API submission, no premature success/close and manual-recovery assertions unchanged. No application behavior, timeouts, retries or gate requirements are changed. Four targeted recovery tests pass in normal and shuffled order; the full 524-test admin suite/build on #158 also passes locally after correction.
 
-Preserved canonical accommodation selection, unique passenger assignment, room capacity/coverage, quoted-booking immutable total, core/accommodation mutation sequence and open-on-failure behavior. No API/schema/auth/RLS/dependency/seed/reset/production/Zo changes. API source remains identical to the fresh build/1,009-test baseline recorded for #156. Existing two-step-save partial-success risk remains a separate Phase 2 functional repair; a localized failure does not claim atomicity.
+CI logs/artifacts currently redirect to network-denied Azure hosts (`productionresultssa10.blob.core.windows.net`, `productionresultssa16.blob.core.windows.net`). GitHub check annotations remain readable and supplied the unit failure locations. Static inspection found the stale browser selectors; a new exact-head CI run remains necessary to establish all acceptance outcomes. Do not infer that every acceptance failure is explained until it passes.
 
-Next: required exact-head CI and isolated acceptance before merge; Reservations list/CreateReservationModal and remaining dictionary/literal inventory remain open. All later phases remain open.
+#156 is now integrating verified #157 main. Dictionaries retain both reservationDetail and reservationEditor namespaces; CI/roadmap overlaps retain all prior verification records and generic locale registration. Combined local checks and exact-head remote CI follow before merge. No API, schema, data or runtime operations are introduced by these test corrections.
 
-Final editor validation after integrating #155: **70 files / 523 admin tests passed**, production build passed, and **27 combined locale browser scenarios passed** (Reports, CustomerDetail, New Sale, editor). Lint rerun returns **zero errors / 51 existing warnings** after exporting the isolated fixture component normally. `git diff --check` passed. The eight editor browser cases include mixed line-versus-canonical currencies and exact save payloads; preference events update actual context while preserving the modal focus trap. Required exact-head CI/isolated acceptance remain pending PR gates.
-
-Exact I18N-04D changed files (repository-relative):
-
-- `.github/workflows/ci.yml`
-- `docs/TRAVLINE_FINAL_ROADMAP.md`
-- `docs/operations/final-i18n-inventory.md`
-- `docs/tasks/active/final-i18n-reservation-editor.md`
-- `nmt-analytics-admin/e2e/finance-forms/reservation-editor-locale.html`
-- `nmt-analytics-admin/e2e/finance-forms/reservation-editor-locale.spec.ts`
-- `nmt-analytics-admin/e2e/finance-forms/reservation-editor-locale.tsx`
-- `nmt-analytics-admin/src/components/reservations/EditReservationModal.tsx`
-- `nmt-analytics-admin/src/lib/i18n/bs.ts`
-- `nmt-analytics-admin/src/lib/i18n/en.ts`
-- `nmt-analytics-admin/src/tests/editReservationAccommodationFlow.test.tsx`
+Post-correction integrated #156 verification: lint **0 errors / 51 existing warnings**, **71 files / 527 admin tests passed**, production build passed, and **35 locale browser scenarios passed** (Reports/CustomerDetail/New Sale/Reservation Detail/editor). Authenticated mobile spec discovery lists **12 scenarios**; these are not claimed locally executed. Remote exact-head acceptance must execute them. No migrations or production data actions.

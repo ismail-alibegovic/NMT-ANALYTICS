@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useParams, useNavigate } from "react-router";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
@@ -12,6 +12,7 @@ import { useApp } from "../context/AppContext";
 import { hasAccess } from "../types/roles";
 import { useToast } from "../context/ToastContext";
 import { useT } from '../lib/i18n/context';
+import { formatCurrency } from '../utils/business';
 import {
   ChevronLeftIcon,
   GroupIcon,
@@ -27,8 +28,6 @@ import {
   ReservationPassenger,
   getReservationAccommodation,
   ReservationAccommodationRequirement,
-  formatReservationCurrency,
-  formatReservationDate,
   reservationPaymentStatusBadge,
 } from "../api/reservations";
 import {
@@ -46,22 +45,39 @@ import AddPaymentModal from "../components/payments/AddPaymentModal";
 
 type Tab = "overview" | "passengers" | "payments" | "services" | "documents";
 
-const tabs: { key: Tab; label: string }[] = [
-  { key: "overview", label: "Pregled" },
-  { key: "passengers", label: "Putnici" },
-  { key: "payments", label: "Uplate" },
-  { key: "services", label: "Usluge" },
-  { key: "documents", label: "Dokumenti" },
-];
-
-const transportLabels: Record<string, string> = {
-  bus: "Autobus",
-  flight: "Avion",
-  none: "Bez prijevoza",
-};
-
 export default function ReservationDetail() {
-  const { t: copy } = useT();
+  const { t: copy, lang } = useT();
+  const w = copy.reservationDetail;
+  const fill = (template: string, params: Record<string, string | number>) => template.replace(/\{(\w+)\}/g, (token, key: string) => String(params[key] ?? token));
+  const locale = lang === 'bs' ? 'bs-BA' : 'en-GB';
+  const formatReservationCurrency = (amount: number, currency = 'BAM') => formatCurrency(amount, currency, locale);
+  const formatReservationDate = (value?: string | null) => {
+    if (!value) return '—';
+    const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value);
+    if (!Number.isFinite(date.getTime())) return '—';
+    const day = String(date.getDate()).padStart(2, '0'), month = String(date.getMonth() + 1).padStart(2, '0');
+    return lang === 'bs' ? `${day}.${month}.${date.getFullYear()}.` : `${day}/${month}/${date.getFullYear()}`;
+  };
+  const statusLabel = (status: string) => ({ confirmed: w.confirmed, pending: w.pending, cancelled: w.cancelled, completed: w.completed, signed: w.signed, draft: w.draft, sent: w.sent, failed: w.failed, refunded: w.refunded } as Record<string, string>)[status] || status;
+  const paymentLabel = (res: Reservation) => ({ Paid: w.paid, Partial: w.partial, Unpaid: w.unpaid } as Record<string, string>)[reservationPaymentStatusBadge(res)] || '—';
+  const readyCount = (count: number) => {
+    const one = lang === 'bs' ? count % 10 === 1 && count % 100 !== 11 : count === 1;
+    const few = lang === 'bs' && count % 10 >= 2 && count % 10 <= 4 && !(count % 100 >= 12 && count % 100 <= 14);
+    return fill(one ? w.readyOne : few ? w.readyFew : w.readyMany, { count });
+  };
+  const tabs: { key: Tab; label: string }[] = [
+    { key: "overview", label: w.overview },
+    { key: "passengers", label: w.passengers },
+    { key: "payments", label: w.payments },
+    { key: "services", label: w.services },
+    { key: "documents", label: w.documents },
+  ];
+  const transportLabels: Record<string, string> = {
+    bus: w.bus, flight: w.flight, none: w.noTransport,
+  };
+
+  const loadErrorCopy = useRef(w.errorLoad);
+  useEffect(() => { loadErrorCopy.current = w.errorLoad; }, [w.errorLoad]);
   const { userContext } = useApp();
   const canManagePayments = hasAccess("manager", userContext?.role);
   const { id } = useParams<{ id: string }>();
@@ -129,8 +145,8 @@ export default function ReservationDetail() {
         } catch {
           // Non-critical — don't block the page
         }
-      } catch (err: any) {
-        showError(err?.message || "Failed to load reservation");
+      } catch {
+        showError(loadErrorCopy.current);
         navigate(-1);
       } finally {
         setLoading(false);
@@ -182,7 +198,7 @@ export default function ReservationDetail() {
       a.download = `voucher-${id}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch { showError("Failed to download voucher"); }
+    } catch { showError(w.errorVoucher); }
   };
 
   const handleDownloadInvoice = async () => {
@@ -195,7 +211,7 @@ export default function ReservationDetail() {
       a.download = `invoice-${id}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch { showError("Failed to download invoice"); }
+    } catch { showError(w.errorInvoice); }
   };
 
   const handleGenerateContract = async () => {
@@ -204,7 +220,7 @@ export default function ReservationDetail() {
     try {
       const contract = await apiCreateContract({ reservationId: id });
       setGeneratedContract(contract);
-      showSuccess("Contract generated");
+      showSuccess(w.contractCreated);
       // Refresh existing contracts list
       try {
         const contractsRes = await getContracts({ reservationId: id, limit: 5 });
@@ -212,8 +228,8 @@ export default function ReservationDetail() {
       } catch {
         // Allow silent failure
       }
-    } catch (err: any) {
-      showError(err?.message || "Failed to generate contract");
+    } catch {
+      showError(w.errorContract);
     } finally {
       setGenerating(false);
     }
@@ -225,15 +241,15 @@ export default function ReservationDetail() {
     navigate(`/operations/contracts?search=${encodeURIComponent(contractId)}`);
   };
 
-  if (loading) return <PageMeta title="Učitavanje..." description="" />;
+  if (loading) return <PageMeta title={w.loading} description="" />;
 
   if (!reservation) {
     return (
       <div className="p-6">
         <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
-          <ChevronLeftIcon className="size-4" /> Nazad
+          <ChevronLeftIcon className="size-4" /> {w.back}
         </Button>
-        <EmptyState icon={<PlugInIcon className="size-8" />} title="Rezervacija nije pronađena" description="Tražena rezervacija ne postoji ili nemate pristup." />
+        <EmptyState icon={<PlugInIcon className="size-8" />} title={w.notFound} description={w.notFoundHint} />
       </div>
     );
   }
@@ -261,11 +277,11 @@ export default function ReservationDetail() {
   const purchasedAddons = options.selected_addons || [];
 
   const readinessLabels: Record<string, { label: string; color: "success" | "warning" | "error" | "info" }> = {
-    ready: { label: "Spremno", color: "success" },
-    missing: { label: "Dopuniti podatke", color: "warning" },
-    expired_before_departure: { label: "Ističe prije polaska", color: "error" },
-    expired_before_return: { label: "Ističe prije povratka", color: "error" },
-    not_required: { label: "Nije potrebno", color: "info" },
+    ready: { label: w.ready, color: "success" },
+    missing: { label: w.missing, color: "warning" },
+    expired_before_departure: { label: w.expiredDeparture, color: "error" },
+    expired_before_return: { label: w.expiredReturn, color: "error" },
+    not_required: { label: w.notRequired, color: "info" },
   };
 
   const readinessCounts = passengers.reduce(
@@ -282,38 +298,38 @@ export default function ReservationDetail() {
   const paxColumns: Column<ReservationPassenger>[] = [
     {
       key: "fullName",
-      header: "Ime i prezime",
+      header: w.fullName,
       render: (_v, item) => String((item as any).fullName ?? (item as any).full_name ?? "—"),
     },
     {
       key: "idDocument",
-      header: "Dokument",
+      header: w.document,
       render: (_v, item) => {
         const type = ((item as any).id_document_type as string) || "";
         const num = ((item as any).id_document_number as string) || "";
         if (!type && !num) return "—";
-        const label = type === "passport" ? "Pasoš" : type === "id_card" ? "LK" : type;
+        const label = type === "passport" ? w.passport : type === "id_card" ? w.identityCard : type;
         return num ? `${label}: ${num}` : label || "—";
       },
     },
     {
       key: "expiry",
-      header: "Ističe",
-      render: (_v, item) => String((item as any).id_document_expiry || "—"),
+      header: w.expiry,
+      render: (_v, item) => formatReservationDate((item as any).id_document_expiry),
     },
     {
       key: "nationality",
-      header: "Državljanstvo",
+      header: w.nationality,
       render: (_v, item) => String((item as any).nationality || "—"),
     },
     {
       key: "dateOfBirth",
-      header: "Datum rođenja",
-      render: (_v, item) => String((item as any).date_of_birth || "—"),
+      header: w.birthDate,
+      render: (_v, item) => formatReservationDate((item as any).date_of_birth),
     },
     {
       key: "readiness",
-      header: "Spremnost",
+      header: w.readiness,
       render: (_v, item) => {
         const s = ((item as any).documentReadinessStatus as string) || "not_required";
         const info = readinessLabels[s] || { label: s, color: "info" as const };
@@ -323,15 +339,15 @@ export default function ReservationDetail() {
   ];
 
   const priceRows = [
-    { label: "Osnovna cijena", key: "base_total_at_booking" },
-    { label: "Smještaj", key: "accommodation_total_at_booking" },
-    { label: "Dodatne usluge", key: "addons_total_at_booking" },
-    { label: "Ukupno pri booking-u", key: "total_at_booking" },
+    { label: w.basePrice, key: "base_total_at_booking" },
+    { label: w.accommodation, key: "accommodation_total_at_booking" },
+    { label: w.addons, key: "addons_total_at_booking" },
+    { label: w.totalAtBooking, key: "total_at_booking" },
   ].filter((row) => bookingSnapshot?.[row.key] !== undefined);
 
   return (
     <>
-      <PageMeta title={`Rezervacija ${reservationShortId}`} description="" />
+      <PageMeta title={fill(w.reservation, { id: reservationShortId })} description="" />
       <div className="p-4 sm:p-6 space-y-6">
         {reservation.quotationId && <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
           <Link className="font-medium text-brand-600 dark:text-brand-400" to={`/quotations/${reservation.quotationId}`}>{copy.quotations.sourceQuotation}</Link>
@@ -345,22 +361,23 @@ export default function ReservationDetail() {
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
             <ChevronLeftIcon className="size-4" />
+            <span className="sr-only">{w.back}</span>
           </Button>
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Rezervacija {reservationShortId}
+            {fill(w.reservation, { id: reservationShortId })}
           </h1>
           <Badge color={reservation.status === "confirmed" ? "success" : reservation.status === "cancelled" ? "error" : reservation.status === "completed" ? "info" : "warning"} size="sm">
-            {reservation.status.toUpperCase()}
+            {statusLabel(reservation.status)}
           </Badge>
           <div className="ml-auto flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => setEditModalOpen(true)}>
-              <PencilIcon className="size-4" /> Uredi rezervaciju
+              <PencilIcon className="size-4" /> {w.edit}
             </Button>
             <Button size="sm" variant="outline" onClick={() => setContractModalOpen(true)}>
-              <FileIcon className="size-4" /> Ugovor
+              <FileIcon className="size-4" /> {w.contract}
             </Button>
-            <Button size="sm" variant="outline" onClick={handleDownloadVoucher}>Vaucer</Button>
-            <Button size="sm" variant="outline" disabled={!canManagePayments} onClick={handleDownloadInvoice}>Faktura</Button>
+            <Button size="sm" variant="outline" onClick={handleDownloadVoucher}>{w.voucher}</Button>
+            <Button size="sm" variant="outline" disabled={!canManagePayments} onClick={handleDownloadInvoice}>{w.invoice}</Button>
           </div>
         </div>
 
@@ -385,12 +402,12 @@ export default function ReservationDetail() {
         {activeTab === "overview" && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-4">
-              <dt className="text-sm text-gray-500">Klijent</dt>
+              <dt className="text-sm text-gray-500">{w.client}</dt>
               <dd className="text-lg font-semibold text-gray-900 dark:text-white">{reservation.customerName}</dd>
               {reservation.customerPhone && <dd className="text-sm text-gray-500">{reservation.customerPhone}</dd>}
             </div>
             <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-4">
-              <dt className="text-sm text-gray-500">Paket</dt>
+              <dt className="text-sm text-gray-500">{w.package}</dt>
               <dd className="text-lg font-semibold text-gray-900 dark:text-white">
                 {reservation.packageId ? (
                   <Link to={`/packages/${reservation.packageId}`} className="text-brand-600 dark:text-brand-400 hover:underline">
@@ -411,22 +428,22 @@ export default function ReservationDetail() {
               )}
             </div>
             <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-4">
-              <dt className="text-sm text-gray-500">Datum</dt>
+              <dt className="text-sm text-gray-500">{w.date}</dt>
               <dd className="text-lg font-semibold text-gray-900 dark:text-white">{formatReservationDate(reservation.reservationAt || reservation.bookingDate)}</dd>
-              <dd className="text-sm text-gray-500">{reservation.partySize || reservation.participants} putnika</dd>
+              <dd className="text-sm text-gray-500">{fill(w.travelerCount, { count: reservation.partySize || reservation.participants || 0 })}</dd>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-4">
-              <dt className="text-sm text-gray-500">Ukupno</dt>
+              <dt className="text-sm text-gray-500">{w.total}</dt>
               <dd className="text-lg font-semibold text-gray-900 dark:text-white">{formatReservationCurrency(total, reservation.currency)}</dd>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-4">
-              <dt className="text-sm text-gray-500">Plaćeno</dt>
+              <dt className="text-sm text-gray-500">{w.paid}</dt>
               <dd className="text-lg font-semibold text-green-600 dark:text-green-400">{formatReservationCurrency(paid, reservation.currency)}</dd>
-              <dd className="text-sm text-gray-500">{paidPct}% — {formatReservationCurrency(remaining, reservation.currency)} preostalo</dd>
+              <dd className="text-sm text-gray-500">{fill(w.balanceSummary, { percent: paidPct, amount: formatReservationCurrency(remaining, reservation.currency) })}</dd>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-4">
-              <dt className="text-sm text-gray-500">Status uplate</dt>
-              <dd className="text-lg font-semibold text-gray-900 dark:text-white">{reservationPaymentStatusBadge(reservation)}</dd>
+              <dt className="text-sm text-gray-500">{w.paymentStatus}</dt>
+              <dd className="text-lg font-semibold text-gray-900 dark:text-white">{paymentLabel(reservation)}</dd>
             </div>
           </div>
         )}
@@ -435,20 +452,20 @@ export default function ReservationDetail() {
         {activeTab === "passengers" && (
           <div>
             {passengers.length === 0 ? (
-              <EmptyState icon={<GroupIcon className="size-8" />} title="Nema putnika" description="Ova rezervacija nema zasebne putničke zapise." />
+              <EmptyState icon={<GroupIcon className="size-8" />} title={w.noPassengers} description={w.noPassengersHint} />
             ) : (
               <>
                 {!allNotRequired && (
                   <div className={`mb-4 rounded-lg border p-3 flex flex-wrap items-center justify-between gap-3 ${needsAttentionCount > 0 ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950" : "border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950"}`}>
                     <div className="text-sm">
-                      <span className="font-medium">Putni podaci:</span>{" "}
-                      {readinessCounts.ready ? `${readinessCounts.ready} ${readinessCounts.ready === 1 ? "spreman" : "spremna"}` : ""}
+                      <span className="font-medium">{w.travelDetails}</span>{" "}
+                      {readinessCounts.ready ? readyCount(readinessCounts.ready) : ""}
                       {readinessCounts.ready && needsAttentionCount > 0 ? " · " : ""}
-                      {needsAttentionCount > 0 ? `${needsAttentionCount} ${needsAttentionCount === 1 ? "zahtijeva pažnju" : "zahtijevaju pažnju"}` : ""}
+                      {needsAttentionCount > 0 ? fill(needsAttentionCount === 1 ? w.attentionOne : w.attentionMany, { count: needsAttentionCount }) : ""}
                     </div>
                     {needsAttentionCount > 0 && reservation.departureId && (
                       <Link to={`/departures/${reservation.departureId}`} className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline">
-                        Otvori polazak
+                        {w.openDeparture}
                       </Link>
                     )}
                   </div>
@@ -465,8 +482,8 @@ export default function ReservationDetail() {
             <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-200">Finansije rezervacije</h3>
-                  <p className="mt-1 text-sm text-gray-500">Kanonski iznosi se računaju iz uspješno primljenih uplata.</p>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-200">{w.finances}</h3>
+                  <p className="mt-1 text-sm text-gray-500">{w.financesHint}</p>
                 </div>
                 <Button
                   size="sm"
@@ -476,34 +493,34 @@ export default function ReservationDetail() {
                     setAddPaymentOpen(true);
                   }}
                 >
-                  Evidentiraj uplatu
+                  {w.recordPayment}
                 </Button>
               </div>
 
               <dl className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-4">
                 <div className="rounded-lg border border-gray-100 p-3 dark:border-gray-800">
-                  <dt className="text-xs text-gray-500">Ukupno</dt>
+                  <dt className="text-xs text-gray-500">{w.total}</dt>
                   <dd className="mt-1 text-base font-semibold text-gray-900 dark:text-white">{formatReservationCurrency(total, reservation.currency)}</dd>
                 </div>
                 <div className="rounded-lg border border-gray-100 p-3 dark:border-gray-800">
-                  <dt className="text-xs text-gray-500">Plaćeno</dt>
+                  <dt className="text-xs text-gray-500">{w.paid}</dt>
                   <dd className="mt-1 text-base font-semibold text-green-600 dark:text-green-400">{formatReservationCurrency(paid, reservation.currency)}</dd>
                 </div>
                 <div className="rounded-lg border border-gray-100 p-3 dark:border-gray-800">
-                  <dt className="text-xs text-gray-500">Preostalo</dt>
+                  <dt className="text-xs text-gray-500">{w.remaining}</dt>
                   <dd className="mt-1 text-base font-semibold text-gray-900 dark:text-white">{formatReservationCurrency(remaining, reservation.currency)}</dd>
                 </div>
                 <div className="rounded-lg border border-gray-100 p-3 dark:border-gray-800">
-                  <dt className="text-xs text-gray-500">Status</dt>
-                  <dd className="mt-1 text-base font-semibold text-gray-900 dark:text-white">{reservationPaymentStatusBadge(reservation)}</dd>
+                  <dt className="text-xs text-gray-500">{w.status}</dt>
+                  <dd className="mt-1 text-base font-semibold text-gray-900 dark:text-white">{paymentLabel(reservation)}</dd>
                 </div>
               </dl>
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-200">Raspored uplata</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-200">{w.schedule}</h3>
               {installments.length === 0 ? (
-                <p className="mt-3 text-sm text-gray-500">Nema definisanog rasporeda rata za ovu rezervaciju.</p>
+                <p className="mt-3 text-sm text-gray-500">{w.noSchedule}</p>
               ) : (
                 <div className="mt-4 divide-y divide-gray-100 dark:divide-gray-800">
                   {installments.map((installment) => {
@@ -513,16 +530,16 @@ export default function ReservationDetail() {
                       <div key={installment.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                         <div>
                           <p className="font-medium text-gray-900 dark:text-white">
-                            Rata {installment.installmentNumber} · {formatReservationCurrency(installment.amount, installment.currency)}
+                            {fill(w.installment, { number: installment.installmentNumber, amount: formatReservationCurrency(installment.amount, installment.currency) })}
                           </p>
                           <p className="text-xs text-gray-500">
-                            Dospijeće: {installment.dueDate || "—"}
-                            {installment.paymentDate ? ` · Primljeno: ${installment.paymentDate}` : ""}
+                            {w.due} {formatReservationDate(installment.dueDate)}
+                            {installment.paymentDate ? fill(w.received, { date: formatReservationDate(installment.paymentDate) }) : ""}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge color={isPaid ? "success" : isPending ? "warning" : "error"} size="sm">
-                            {isPaid ? "Plaćeno" : isPending ? "Na čekanju" : installment.status}
+                            {isPaid ? w.paid : isPending ? w.pending : statusLabel(installment.status)}
                           </Badge>
                           {isPending && (
                             <Button
@@ -534,7 +551,7 @@ export default function ReservationDetail() {
                                 setAddPaymentOpen(true);
                               }}
                             >
-                              Evidentiraj
+                              {w.record}
                             </Button>
                           )}
                         </div>
@@ -552,24 +569,24 @@ export default function ReservationDetail() {
           <div className="space-y-6">
             {/* Sold booking data */}
             <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">Prodane usluge</h3>
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">{w.soldServices}</h3>
 
               {!bookingSnapshot && purchasedAddons.length === 0 && currentAccommodation.length === 0 ? (
                 <p className="mt-3 text-sm text-gray-500">
-                  Nema snimljenih usluga za ovu rezervaciju.
+                  {w.noServices}
                 </p>
               ) : (
                 <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
                   {bookingSnapshot?.variant_name && (
                     <>
-                      <dt className="text-gray-500">Varijanta</dt>
+                      <dt className="text-gray-500">{w.variant}</dt>
                       <dd className="text-gray-900 dark:text-white">{bookingSnapshot.variant_name}</dd>
                     </>
                   )}
 
                   {bookingSnapshot?.transport_type && (
                     <>
-                      <dt className="text-gray-500">Prijevoz</dt>
+                      <dt className="text-gray-500">{w.transport}</dt>
                       <dd className="text-gray-900 dark:text-white">
                         {transportLabels[bookingSnapshot.transport_type] || bookingSnapshot.transport_type}
                       </dd>
@@ -578,13 +595,13 @@ export default function ReservationDetail() {
 
                   {currentAccommodation.length > 0 && (
                     <div className="sm:col-span-2 mt-2">
-                      <dt className="text-gray-500 mb-2">Smještaj</dt>
+                      <dt className="text-gray-500 mb-2">{w.accommodation}</dt>
                       {currentAccommodation.map((line, i) => (
                         <dd key={i} className="text-gray-900 dark:text-white mb-1">
                           {line.hotel?.name || line.hotelId || "—"}
                           {line.roomLabel ? ` — ${line.roomLabel}` : ""}
                           <span className="text-gray-500">
-                            {" "}· {line.roomCount} soba · {line.guestsExpected} putnika
+                            {" "}· {fill(w.accommodationCounts, { rooms: line.roomCount, travelers: line.guestsExpected })}
                           </span>
                         </dd>
                       ))}
@@ -593,13 +610,13 @@ export default function ReservationDetail() {
 
                   {purchasedAddons.length > 0 && (
                     <div className="sm:col-span-2 mt-2">
-                      <dt className="text-gray-500 mb-2">Dodatne usluge</dt>
+                      <dt className="text-gray-500 mb-2">{w.addons}</dt>
                       {purchasedAddons.map((addon: any, i: number) => (
                         <dd key={i} className="text-gray-900 dark:text-white mb-1">
                           {addon.provider_name || addon.service_type || "—"}
                           {addon.description ? <span className="text-gray-500"> — {addon.description}</span> : ""}
                           <span className="text-gray-500">
-                            {" "}· {addon.quantity ?? 1} × {addon.unit_price ?? 0} {addon.currency || reservation.currency}
+                            {" "}· {addon.quantity ?? 1} × {formatReservationCurrency(Number(addon.unit_price ?? 0), addon.currency || reservation.currency)}
                           </span>
                         </dd>
                       ))}
@@ -608,7 +625,7 @@ export default function ReservationDetail() {
 
                   {reservation.notes && (
                     <>
-                      <dt className="text-gray-500">Napomene</dt>
+                      <dt className="text-gray-500">{w.notes}</dt>
                       <dd className="text-gray-900 dark:text-white">{reservation.notes}</dd>
                     </>
                   )}
@@ -619,7 +636,7 @@ export default function ReservationDetail() {
             {/* Price breakdown */}
             {priceRows.length > 0 && (
               <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">Cijena pri booking-u</h3>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">{w.bookingPrice}</h3>
                 <dl className="mt-4 space-y-2 text-sm">
                   {priceRows.map((row) => (
                     <div key={row.key} className="flex justify-between">
@@ -639,8 +656,8 @@ export default function ReservationDetail() {
         {activeTab === "documents" && (
           <div className="space-y-4">
             <div className="flex gap-3">
-              <Button size="sm" variant="outline" onClick={handleDownloadVoucher}>Preuzmi vaučer</Button>
-              <Button size="sm" variant="outline" disabled={!canManagePayments} onClick={handleDownloadInvoice}>Preuzmi fakturu</Button>
+              <Button size="sm" variant="outline" onClick={handleDownloadVoucher}>{w.downloadVoucher}</Button>
+              <Button size="sm" variant="outline" disabled={!canManagePayments} onClick={handleDownloadInvoice}>{w.downloadInvoice}</Button>
             </div>
             <ManualMessageComposer
               initialEmail={reservationEmail}
@@ -664,8 +681,8 @@ export default function ReservationDetail() {
           setEditModalOpen(false);
           try {
             await reloadReservation();
-          } catch (err: any) {
-            showError(err?.message || "Failed to reload reservation");
+          } catch {
+            showError(w.errorReload);
           }
         }}
         reservationId={id || null}
@@ -681,8 +698,8 @@ export default function ReservationDetail() {
         onPaymentCreated={async () => {
           try {
             await reloadReservation();
-          } catch (err: any) {
-            showError(err?.message || "Failed to reload reservation");
+          } catch {
+            showError(w.errorReload);
           }
         }}
       />
@@ -690,22 +707,22 @@ export default function ReservationDetail() {
       {/* Contract Generation Modal */}
       <Modal isOpen={contractModalOpen} onClose={() => { setContractModalOpen(false); setGeneratedContract(null); }} className="max-w-md">
         <div className="space-y-4 p-2">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Generiši ugovor</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{w.generateContract}</h3>
 
           {existingContracts.length > 0 && !generatedContract && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20 p-3">
-              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Ova rezervacija već ima ugovore</p>
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">{w.existingContracts}</p>
               <ul className="mt-2 space-y-1">
                 {existingContracts.map((c) => (
                   <li key={c.id} className="flex items-center justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">
-                      {c.contractNumber} — <Badge color={c.status === "signed" ? "success" : c.status === "cancelled" ? "error" : "warning"} variant="light" size="sm">{c.status}</Badge>
+                      {c.contractNumber} — <Badge color={c.status === "signed" ? "success" : c.status === "cancelled" ? "error" : "warning"} variant="light" size="sm">{statusLabel(c.status)}</Badge>
                     </span>
                     <button
                       onClick={() => handleOpenContract(c.id)}
                       className="text-brand-600 dark:text-brand-400 text-sm font-medium hover:underline"
                     >
-                      Otvori
+                      {w.open}
                     </button>
                   </li>
                 ))}
@@ -715,31 +732,31 @@ export default function ReservationDetail() {
 
           {generatedContract ? (
             <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-700 dark:bg-green-900/20 p-4 text-center space-y-3">
-              <p className="text-sm font-medium text-green-800 dark:text-green-200">Ugovor uspješno generisan</p>
+              <p className="text-sm font-medium text-green-800 dark:text-green-200">{w.contractSuccess}</p>
               <p className="text-sm text-green-700 dark:text-green-300">{generatedContract.contractNumber}</p>
               <div className="flex justify-center gap-2">
                 <Button variant="primary" onClick={() => handleOpenContract(generatedContract.id)}>
-                  Otvori ugovor
+                  {w.openContract}
                 </Button>
                 <Button variant="outline" onClick={() => { setContractModalOpen(false); setGeneratedContract(null); }}>
-                  Zatvori
+                  {w.close}
                 </Button>
               </div>
             </div>
           ) : (
             <>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Generišite ugovor iz ove rezervacije sa podacima putnika, aranžmana i cijenom.
+                {w.contractHint}
               </p>
               <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 space-y-1 text-sm">
-                <p><span className="text-gray-500">Putnik:</span> <span className="text-gray-900 dark:text-white">{reservation.customerName}</span></p>
-                <p><span className="text-gray-500">Aranžman:</span> <span className="text-gray-900 dark:text-white">{reservation.packageName}</span></p>
-                <p><span className="text-gray-500">Iznos:</span> <span className="text-gray-900 dark:text-white">{formatReservationCurrency(Number(reservation.totalAmount), reservation.currency)}</span></p>
+                <p><span className="text-gray-500">{w.travelerLabel}</span> <span className="text-gray-900 dark:text-white">{reservation.customerName}</span></p>
+                <p><span className="text-gray-500">{w.packageLabel}</span> <span className="text-gray-900 dark:text-white">{reservation.packageName}</span></p>
+                <p><span className="text-gray-500">{w.amountLabel}</span> <span className="text-gray-900 dark:text-white">{formatReservationCurrency(Number(reservation.totalAmount), reservation.currency)}</span></p>
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setContractModalOpen(false)}>Otkaži</Button>
+                <Button variant="outline" onClick={() => setContractModalOpen(false)}>{w.cancel}</Button>
                 <Button variant="primary" onClick={handleGenerateContract} disabled={generating}>
-                  {generating ? "Generisanje..." : "Generiši"}
+                  {generating ? w.generating : w.generate}
                 </Button>
               </div>
             </>
