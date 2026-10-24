@@ -1,4 +1,5 @@
 // Called by start-production.sh after Node parses the selected environment file.
+require('./require-node-runtime.cjs').requireSupportedNode();
 const { spawn, spawnSync } = require('node:child_process');
 const { existsSync } = require('node:fs');
 const path = require('node:path');
