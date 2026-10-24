@@ -39,6 +39,7 @@ BEGIN
  UPDATE public.departures SET depart_at='2027-04-09T22:30:00Z' WHERE id=departure;
  PERFORM pg_temp.expect_booking_error(format('SELECT public.book_quotation_atomic(%L,%L,%L,%L::jsonb,%L)',other_org,actor,q->>'id',payload,fingerprint),'QUOTATION_ACTOR_INVALID');
  result:=public.book_quotation_atomic(org,actor,(q->>'id')::uuid,payload,fingerprint);
+ PERFORM pg_temp.expect_booking_error(format('SELECT public.edit_reservation_atomic(%L,%L,%L::jsonb,%L::jsonb)',org,result->'reservation'->>'id','{"total_amount":0}','[]'),'QUOTATION_BOOKING_LOCKED');
  retry:=public.book_quotation_atomic(org,actor,(q->>'id')::uuid,payload,fingerprint);
  IF NOT (result->>'created')::boolean OR (retry->>'created')::boolean OR result->'reservation'->>'id'<>retry->'reservation'->>'id' THEN RAISE EXCEPTION 'Booking retry duplicated reservation'; END IF;
  IF (result->'reservation'->>'total_amount')::numeric<>176 OR result->'reservation'->>'currency'<>'EUR'

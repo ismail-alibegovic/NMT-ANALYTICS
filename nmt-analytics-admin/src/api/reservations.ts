@@ -116,6 +116,7 @@ export interface CreateReservationData {
 }
 
 export interface UpdateReservationData {
+  accommodationRequirements?: ReservationAccommodationRequirementInput[] | null;
   status?: Reservation['status'];
   customerName?: string;
   customerPhone?: string;

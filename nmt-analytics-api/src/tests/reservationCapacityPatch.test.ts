@@ -7,6 +7,7 @@ const DEPARTURE_ID = 'a1b2c3d4-0000-4000-8000-000000000000'
 const RESERVATION_ID = 'b1b2c3d4-0000-4000-8000-000000000000'
 
 let capacity = 30
+let editError: string | null = null
 let financialLookupError: string | null = null
 let currentReservation: Record<string, any> = {
   id: RESERVATION_ID,
@@ -67,10 +68,10 @@ vi.mock('../lib/notificationService', () => ({
   notifyNewReservation: vi.fn(async () => undefined),
 }))
 
-vi.mock('../lib/reservationAccommodation', () => ({
+vi.mock('../lib/reservationAccommodation', async () => ({
   deleteReservationAccommodation: vi.fn(),
   getReservationAccommodation: vi.fn(),
-  mapAccommodationError: vi.fn(),
+  mapAccommodationError: (await vi.importActual<typeof import('../lib/reservationAccommodation')>('../lib/reservationAccommodation')).mapAccommodationError,
   replaceReservationAccommodation: vi.fn(),
 }))
 
@@ -104,6 +105,11 @@ vi.mock('../lib/supabase', () => {
 
   const client = {
     rpc: vi.fn(async (name: string, args: Record<string, unknown>) => {
+      if (name === 'edit_reservation_atomic') {
+        if (editError) return { data: null, error: { message: editError } }
+        currentReservation = { ...currentReservation, ...(args.p_updates as object) }
+        return { data: currentReservation, error: null }
+      }
       const party = Number(args.p_party_size || 0)
       if (name === 'reserve_capacity_atomic') {
         if (otherBooked + currentReservation.party_size + party > capacity) {
@@ -179,6 +185,8 @@ beforeAll(async () => {
 
 beforeEach(() => {
   financialLookupError = null
+  editError = null
+  vi.clearAllMocks()
   capacity = 30
   currentReservation = {
     id: RESERVATION_ID,
@@ -229,5 +237,63 @@ describe('reservation currency validation failures', () => {
     const res = await request(app).patch(`/api/reservations/${RESERVATION_ID}`).send({ currency: 'EUR' })
     expect(res.status).toBe(500)
     expect(currentReservation.currency).toBe('BAM')
+  })
+})
+
+// HTTP contract tests deliberately do not emulate transaction rollback. Actual
+// rollback/capacity/tenant/privilege assertions live in reservation-edit-atomicity.sql.
+describe('combined reservation edit HTTP contract', () => {
+  it('sends core and accommodation to one org-scoped RPC, with no separate capacity call', async () => {
+    const { supabaseAdmin } = await import('../lib/supabase')
+    const res = await request(app).patch(`/api/reservations/${RESERVATION_ID}`).send({
+      customerName: 'Changed buyer', partySize: 3,
+      accommodationRequirements: [{ hotelAllocationId: DEPARTURE_ID, roomCount: 1, guestsExpected: 3, passengerIds: [] }],
+    })
+    expect(res.status).toBe(200)
+    expect(supabaseAdmin.rpc).toHaveBeenCalledTimes(1)
+    expect(supabaseAdmin.rpc).toHaveBeenCalledWith('edit_reservation_atomic', {
+      p_org_id: ORG_ID, p_reservation_id: RESERVATION_ID,
+      p_updates: { customer_name: 'Changed buyer', party_size: 3, currency: 'BAM' },
+      p_requirements: [{ hotel_allocation_id: DEPARTURE_ID, room_count: 1, guests_expected: 3, notes: null, passenger_ids: [] }],
+    })
+    expect(res.body.customer_name).toBe('Changed buyer')
+  })
+  it('maps transaction capacity conflicts and never falls through to legacy writes', async () => {
+    const { supabaseAdmin } = await import('../lib/supabase')
+    editError = 'CAPACITY_FULL'
+    const before = { ...currentReservation }
+    const res = await request(app).patch(`/api/reservations/${RESERVATION_ID}`).send({ partySize: 5, accommodationRequirements: [] })
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('DEPARTURE_CAPACITY_EXCEEDED')
+    expect(currentReservation).toEqual(before)
+    expect(supabaseAdmin.rpc).toHaveBeenCalledTimes(1)
+  })
+  it('returns accommodation conflicts from the transaction without a core-only fallback', async () => {
+    const { supabaseAdmin } = await import('../lib/supabase')
+    editError = 'ACCOMMODATION_OVERBOOKED'
+    const before = { ...currentReservation }
+    const res = await request(app).patch(`/api/reservations/${RESERVATION_ID}`).send({ customerName: 'Unsaved', accommodationRequirements: [] })
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('ACCOMMODATION_OVERBOOKED')
+    expect(currentReservation).toEqual(before)
+    expect(supabaseAdmin.rpc).toHaveBeenCalledTimes(1)
+  })
+  it('allows explicit cancellation preservation and validates ledger-owned or malformed input before RPC', async () => {
+    const { supabaseAdmin } = await import('../lib/supabase')
+    const cancel = await request(app).patch(`/api/reservations/${RESERVATION_ID}`).send({ status: 'cancelled', accommodationRequirements: null })
+    expect(cancel.status).toBe(200)
+    expect(supabaseAdmin.rpc).toHaveBeenLastCalledWith('edit_reservation_atomic', expect.objectContaining({ p_requirements: null }))
+    vi.mocked(supabaseAdmin.rpc).mockClear()
+    for (const body of [{ paidAmount: 1, accommodationRequirements: [] }, { accommodationRequirements: [{}] }]) {
+      expect((await request(app).patch(`/api/reservations/${RESERVATION_ID}`).send(body)).status).toBe(400)
+    }
+    expect(supabaseAdmin.rpc).not.toHaveBeenCalled()
+  })
+  it('cannot target another organization reservation', async () => {
+    const { supabaseAdmin } = await import('../lib/supabase')
+    currentReservation.org_id = 'foreign-org'
+    const res = await request(app).patch(`/api/reservations/${RESERVATION_ID}`).send({ customerName: 'Forbidden', accommodationRequirements: [] })
+    expect(res.status).toBe(404)
+    expect(supabaseAdmin.rpc).not.toHaveBeenCalled()
   })
 })

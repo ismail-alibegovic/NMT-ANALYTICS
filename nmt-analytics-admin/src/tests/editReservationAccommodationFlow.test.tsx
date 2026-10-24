@@ -146,7 +146,7 @@ describe('EditReservationModal accommodation flow', () => {
     deleteReservationAccommodation.mockResolvedValue(undefined);
   });
 
-  it('persists edited canonical reservation accommodation after reservation core update', async () => {
+  it('saves core and canonical accommodation through one atomic request', async () => {
     const onSuccess = vi.fn();
     const onClose = vi.fn();
     render(<I18nProvider><EditReservationModal isOpen onClose={onClose} onSuccess={onSuccess} reservationId="reservation-1" /></I18nProvider>);
@@ -167,7 +167,7 @@ describe('EditReservationModal accommodation flow', () => {
       partySize: 2,
       departureId: 'departure-1',
     })));
-    expect(updateReservationAccommodation).toHaveBeenCalledWith('reservation-1', [
+    expect(updateReservation).toHaveBeenCalledWith('reservation-1', expect.objectContaining({ accommodationRequirements: [
       {
         hotelAllocationId: 'allocation-triple',
         roomCount: 1,
@@ -175,14 +175,16 @@ describe('EditReservationModal accommodation flow', () => {
         notes: 'existing note',
         passengerIds: ['passenger-1', 'passenger-2'],
       },
-    ]);
+    ] }));
+    expect(updateReservationAccommodation).not.toHaveBeenCalled();
+    expect(deleteReservationAccommodation).not.toHaveBeenCalled();
     expect(toastSuccess).toHaveBeenCalledWith('Rezervacija ažurirana');
     expect(onSuccess).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('keeps modal open and shows an error if accommodation persistence fails', async () => {
-    updateReservationAccommodation.mockRejectedValueOnce(new Error('Accommodation overbooked'));
+    updateReservation.mockRejectedValueOnce(new Error('Accommodation overbooked'));
     const onSuccess = vi.fn();
     const onClose = vi.fn();
     render(<I18nProvider><EditReservationModal isOpen onClose={onClose} onSuccess={onSuccess} reservationId="reservation-1" /></I18nProvider>);
@@ -195,6 +197,17 @@ describe('EditReservationModal accommodation flow', () => {
     await waitFor(() => expect(toastError).toHaveBeenCalledWith('Rezervacija nije mogla biti ažurirana. Pokušajte ponovo.'));
     expect(onSuccess).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('preserves accommodation history with an explicit cancellation intent in the same save', async () => {
+    render(<I18nProvider><EditReservationModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} reservationId="reservation-1" /></I18nProvider>);
+    await screen.findByText('Smještaj');
+    await waitFor(() => expect(screen.getAllByRole('checkbox')).toHaveLength(2));
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'cancelled' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Spremi izmjene' }));
+    await waitFor(() => expect(updateReservation).toHaveBeenCalledWith('reservation-1', expect.objectContaining({ status: 'cancelled', accommodationRequirements: null })));
+    expect(updateReservationAccommodation).not.toHaveBeenCalled();
+    expect(deleteReservationAccommodation).not.toHaveBeenCalled();
   });
 
   it('shows persisted purchased add-ons from the reservation snapshot when reopened', async () => {

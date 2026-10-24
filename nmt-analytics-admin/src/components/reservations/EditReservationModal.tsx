@@ -17,11 +17,9 @@ import {
   DeparturePassenger,
 } from "../../api/departures";
 import {
-  deleteReservationAccommodation,
   getReservation,
   getReservationAccommodation,
   updateReservation,
-  updateReservationAccommodation,
   Reservation,
 } from "../../api/reservations";
 
@@ -267,7 +265,7 @@ export default function EditReservationModal({
       showError(w.nameRequired);
       return;
     }
-    if (accommodationLines.length > 0) {
+    if (accommodationLines.length > 0 && status !== 'cancelled') {
       const lineError = lineState.some(({ line, option, maxRooms, capacity }) => (
         !option ||
         line.roomCount < 1 ||
@@ -298,19 +296,14 @@ export default function EditReservationModal({
         departureId: departureId || undefined,
         totalAmount: quotationId ? undefined : totalAmount ? Number(totalAmount) : undefined,
         status: status as Reservation["status"],
-      });
-
-      if (accommodationLines.length > 0) {
-        await updateReservationAccommodation(reservationId, accommodationLines.map((line) => ({
+        accommodationRequirements: status === 'cancelled' ? null : accommodationLines.map((line) => ({
           hotelAllocationId: line.hotelAllocationId,
           roomCount: line.roomCount,
           guestsExpected: line.guestsExpected,
           notes: line.notes || undefined,
           passengerIds: line.passengerIds,
-        })));
-      } else {
-        await deleteReservationAccommodation(reservationId);
-      }
+        })),
+      });
 
       showSuccess(w.saved);
       onSuccess();
