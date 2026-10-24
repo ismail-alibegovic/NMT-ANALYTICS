@@ -523,6 +523,7 @@ export const en = {
     errorContract: "The contract could not be generated.",
     errorReload: "The reservation could not be refreshed.",
   },
+  tableFeedback: {"emptyTitle": "No data found", "emptyDescription": "No data available", "error": "Failed to render table data", "retry": "Try again"},
   customerDetail: {
     description: "Customer details and activity",
     descriptionFor: "Customer details for {name}",

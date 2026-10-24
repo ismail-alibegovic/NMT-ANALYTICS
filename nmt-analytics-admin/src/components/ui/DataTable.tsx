@@ -10,7 +10,7 @@ import { useT } from '../../lib/i18n/context';
 import Button from './button/Button';
 import EmptyState from './EmptyState';
 
-class TableErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+class TableErrorBoundary extends Component<{ children: ReactNode; copy: { error: string; retry: string } }, { hasError: boolean }> {
   state = { hasError: false };
 
   static getDerivedStateFromError() {
@@ -25,12 +25,12 @@ class TableErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
     if (this.state.hasError) {
       return (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white p-8 text-center dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-gray-500 dark:text-gray-400">Failed to render table data</p>
+          <p className="text-gray-500 dark:text-gray-400">{this.props.copy.error}</p>
           <button
             onClick={() => this.setState({ hasError: false })}
             className="mt-2 text-sm text-brand-500 hover:underline"
           >
-            Try again
+            {this.props.copy.retry}
           </button>
         </div>
       );
@@ -45,6 +45,14 @@ export interface Column<T> {
   render?: (value: any, item: T) => ReactNode;
   sortable?: boolean;
   className?: string;
+}
+
+// Run the renderer within the boundary's descendant tree so render exceptions
+// are contained by TableErrorBoundary rather than escaping from DataTable itself.
+function CellValue<T extends Record<string, any>>({ column, item }: { column: Column<T>; item: T }) {
+  return <>{column.render
+    ? column.render(item[column.key as keyof T], item)
+    : String(item[column.key as keyof T] || '')}</>;
 }
 
 export interface DataTableProps<T> {
@@ -67,9 +75,11 @@ export function DataTable<T extends Record<string, any>>({
   data,
   columns,
   loading = false,
-  emptyMessage = 'No data available',
+  emptyMessage,
   className = '',
 }: DataTableProps<T>) {
+  const { t } = useT();
+  const copy = t.tableFeedback;
   if (loading) {
     return (
       <div className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] ${className}`}>
@@ -112,15 +122,15 @@ export function DataTable<T extends Record<string, any>>({
     return (
       <div className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] ${className}`}>
         <EmptyState
-          title="No data found"
-          description={emptyMessage}
+          title={copy.emptyTitle}
+          description={emptyMessage ?? copy.emptyDescription}
         />
       </div>
     );
   }
 
   return (
-    <TableErrorBoundary>
+    <TableErrorBoundary copy={copy}>
       <div className={`overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] ${className}`}>
         <div className="max-w-full overflow-x-auto">
           <Table>
@@ -145,10 +155,7 @@ export function DataTable<T extends Record<string, any>>({
                       key={String(column.key)}
                       className={`px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90 ${column.className || ''}`}
                     >
-                      {column.render
-                        ? column.render(item[column.key as keyof T], item)
-                        : String(item[column.key as keyof T] || '')
-                      }
+                      <CellValue column={column} item={item} />
                     </TableCell>
                   ))}
                 </TableRow>

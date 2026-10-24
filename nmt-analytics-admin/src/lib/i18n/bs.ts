@@ -523,6 +523,7 @@ export const bs: Translations = {
     errorContract: "Ugovor nije mogao biti generisan.",
     errorReload: "Rezervacija nije mogla biti osvježena.",
   },
+  tableFeedback: {"emptyTitle": "Nema pronađenih podataka", "emptyDescription": "Nema dostupnih podataka.", "error": "Podatke tabele nije moguće prikazati.", "retry": "Pokušaj ponovo"},
   customerDetail: {
     description: "Detalji i aktivnosti klijenta",
     descriptionFor: "Detalji za klijenta {name}",
