@@ -231,7 +231,7 @@ describe('EditReservationModal accommodation flow', () => {
     await screen.findByRole('dialog', { name: 'Edit reservation' });
     await screen.findByDisplayValue('Amina Hadžić');
     expect(screen.getByLabelText('Amount (EUR)')).toHaveValue(1780);
-    expect(screen.getByText('€790.00')).toBeInTheDocument();
+    expect(await screen.findByText('€790.00')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Changed draft' } });
     const reads = getReservation.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Switch to Bosnian' }));

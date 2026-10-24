@@ -1,3 +1,11 @@
+## Current consolidation delta — 2026-10-24
+
+Current source after core sales consolidation: **432 advisory JSX literal candidates across 63 files; 3,210 dictionary leaves; no empty/token mismatches**. This scan is a delta of the existing inventory, not a repeated business/security audit. Counts include 21 unreachable legacy creation-modal candidates and technical/proper-name exceptions; do not treat every match as a defect.
+
+Use three product batches after P0/P1: configuration/access administration; finance/documents; operational/shared/public workflows. Largest remaining candidate areas are Settings (37), UnifiedPayments (34), Excursions (32), Integrations (29), CommissionRules (23), AuditLogs (21), Departures (17), Receipts (15) and PdfTemplateEditor (14). Preserve the completed core workflows and classify exceptions before editing. Root ErrorBoundary localization must remain bootstrap-safe outside I18nProvider. The table defaults/render-feedback work is in #159, pending final consolidated CI; pagination and core list work are merged in #158.
+
+The table below retains historical baseline locations/counts for provenance; authoritative priorities and completion state are at the top of `docs/TRAVLINE_FINAL_ROADMAP.md`.
+
 # Final BS/EN audit inventory
 
 Inspected against `f6256cb` on 2026-10-24. This is a discovery checklist, not a completion claim. Recheck locations after each focused PR.
@@ -33,7 +41,7 @@ Reports monetary formatting, dictionary coverage, shared language selection and 
 | `src/components/operations/SeatMap.tsx` | 9 | 121, 160, 163, 173, 210 |
 | `src/pages/operations/Contracts.tsx` | 8 | 110, 111, 112, 142, 201 |
 | `src/components/common/ErrorBoundary.tsx` | 7 | 97, 100, 112, 118, 124 |
-| `src/components/ui/DataTable.tsx` | 7 (pagination in #158; defaults/render feedback in I18N-04F; CI pending) | 27, 32, 114, 178, 178 |
+| `src/components/ui/DataTable.tsx` | 7 (historical: pagination merged #158; render feedback/containment #159 pending) | 27, 32, 114, 178, 178 |
 | `src/pages/admin/Documents.tsx` | 7 | 256, 260, 302, 303, 309 |
 | `src/pages/operations/SubAgents.tsx` | 7 | 131, 132, 138, 141, 175 |
 | `src/components/integrations/ConfigureIntegrationModal.tsx` | 6 | 66, 71, 73, 77, 88 |
@@ -143,5 +151,3 @@ For each domain: identify reachable screens/roles; classify all candidates; add 
 Reservation Detail page/tabs/contract display is translated on `fix/i18n-reservation-detail`; EditReservationModal and Reservations list remain open. Counts/line numbers above remain an audit baseline, not current untranslated totals. See the final roadmap for executed checks and merge status.
 
 Shared `DataTable.tsx` pagination footer/buttons are translated in I18N-04E; its generic empty/error copy remains open and is not certified by the Reservations page tests.
-
-DataTable empty/render-error strings and direct renderer containment are implemented on `fix/i18n-table-feedback`; root ErrorBoundary localization remains open because it must also work outside I18nProvider at bootstrap. See final roadmap for scope and actual executed evidence.
