@@ -452,6 +452,7 @@ export const bs: Translations = {
     errorLoad: "Rezervaciju nije moguće učitati.",
     errorUpdate: "Rezervacija nije mogla biti ažurirana. Pokušajte ponovo.",
   },
+  tableFeedback: {"emptyTitle": "Nema pronađenih podataka", "emptyDescription": "Nema dostupnih podataka.", "error": "Podatke tabele nije moguće prikazati.", "retry": "Pokušaj ponovo"},
   customerDetail: {
     description: "Detalji i aktivnosti klijenta",
     descriptionFor: "Detalji za klijenta {name}",
