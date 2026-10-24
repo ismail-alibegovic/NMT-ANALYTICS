@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
@@ -49,13 +49,18 @@ export default function Reservations() {
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [totalItems, setTotalItems] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<string>(getParam('status', ''));
-  const [dateFrom, setDateFrom] = useState<string>(getParam('from', ''));
-  const [dateTo, setDateTo] = useState<string>(getParam('to', ''));
+  const currentPage = Math.max(1, parseInt(getParam('page', '1'), 10) || 1);
+  const setCurrentPage = (page: number) => setParams({ page: page > 1 ? page : null });
+  const statusFilter = getParam('status', '');
+  const setStatusFilter = (status: string) => setParams({ status: status || null, page: null });
+  const dateFrom = getParam('from', '');
+  const setDateFrom = (from: string) => setParams({ from: from || null, page: null });
+  const dateTo = getParam('to', '');
+  const setDateTo = (to: string) => setParams({ to: to || null, page: null });
   const [loading, setLoading] = useState(true);
   const [batchLoading, setBatchLoading] = useState(false);
-  const [assignedOnly, setAssignedOnly] = useState<boolean>(getParam('my', '') === 'true');
+  const assignedOnly = getParam('my', '') === 'true';
+  const setAssignedOnly = (assigned: boolean) => setParams({ my: assigned ? 'true' : null, page: null });
   const [searchQuery, setSearchQuery] = useState<string>('');
   const departureFilter = getParam('departureId', '');
   const [contextDeparture, setContextDeparture] = useState<Departure | null>(null);
@@ -69,88 +74,83 @@ export default function Reservations() {
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
-  const fetchReservations = async (page = 1, status = '', from = '', to = '', myOnly = false, search = '') => {
+  const authReady = Boolean(user) && !authLoading;
+  const orgId = userContext?.org?.id || '';
+  const queryKey = JSON.stringify([user?.id, orgId, currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery, departureFilter]);
+  const requestSerial = useRef(0);
+  const mounted = useRef(true);
+  const [loadedQuery, setLoadedQuery] = useState<string | null>(null);
+  const [failedQuery, setFailedQuery] = useState<string | null>(null);
+  const loadFailed = failedQuery === queryKey;
+  const pending = !authReady || loading || (!loadFailed && loadedQuery !== queryKey);
+  const fetchReservations = useCallback(async () => {
+    if (!authReady || !mounted.current) return;
+    const request = ++requestSerial.current;
     setLoading(true);
+    setFailedQuery(null);
+    setSelectedIds(new Set());
+    const filters: ReservationFilters = { page: currentPage, limit: ITEMS_PER_PAGE };
+    if (statusFilter) filters.status = statusFilter;
+    if (dateFrom) filters.dateFrom = dateFrom;
+    if (dateTo) filters.dateTo = dateTo;
+    if (assignedOnly) filters.assignedOnly = true;
+    if (searchQuery) filters.search = searchQuery;
+    if (departureFilter) filters.departureId = departureFilter;
     try {
-      const filters: ReservationFilters = {
-        page,
-        limit: ITEMS_PER_PAGE,
-      };
-      if (status) filters.status = status;
-      if (from) filters.dateFrom = from;
-      if (to) filters.dateTo = to;
-      if (myOnly) filters.assignedOnly = true;
-      if (search) filters.search = search;
-      if (departureFilter) filters.departureId = departureFilter;
-
       const response: ReservationListResponse = await getReservations(filters);
+      if (request !== requestSerial.current) return;
       setReservations(response.data);
       setTotalItems(response.total);
-      setCurrentPage(page);
-    } catch (err: any) {
-      console.error('Failed to fetch reservations:', err);
-      showError(copyRef.current.errorLoad);
+      setLoadedQuery(queryKey);
+    } catch {
+      if (request !== requestSerial.current) return;
+      setFailedQuery(queryKey);
     } finally {
-      setLoading(false);
+      if (request === requestSerial.current) setLoading(false);
     }
+  }, [authReady, queryKey, currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery, departureFilter]);
+
+  const latestFetch = useRef(fetchReservations);
+  useEffect(() => { latestFetch.current = fetchReservations; }, [fetchReservations]);
+  const refreshCurrent = () => latestFetch.current();
+
+  const invalidateRequests = useCallback(() => {
+    mounted.current = false;
+    requestSerial.current++;
+  }, []);
+  useEffect(() => {
+    mounted.current = true;
+    if (authReady) void fetchReservations();
+    else setLoading(false);
+    return invalidateRequests;
+  }, [authReady, fetchReservations, invalidateRequests]);
+
+  const createRequested = getParam('new', '') === '1';
+  useEffect(() => {
+    if (!authReady || !createRequested) return;
+    setIsCreateOpen(true);
+    setParams({ new: null });
+  }, [authReady, createRequested, setParams]);
+
+  useEffect(() => {
+    let active = true;
+    setContextDeparture(null);
+    if (!departureFilter || !authReady) return;
+    getDeparture(departureFilter).then(departure => {
+      if (active) setContextDeparture(departure);
+    }).catch(() => {
+      if (active) showError(copyRef.current.errorDeparture);
+    });
+    return () => { active = false; };
+  }, [departureFilter, orgId, authReady, showError]);
+
+  useDataInvalidation('reservations', () => { void fetchReservations(); });
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setParams({ page: null, status: null, from: null, to: null, my: null });
   };
-
-  useEffect(() => {
-    if (user && !authLoading) {
-      const page = parseInt(getParam('page', '1'));
-      const status = getParam('status', '');
-      const from = getParam('from', '');
-      const to = getParam('to', '');
-
-      setCurrentPage(page);
-      setStatusFilter(status);
-      setDateFrom(from);
-      setDateTo(to);
-      if (getParam('new', '') === '1') {
-        setIsCreateOpen(true);
-        setParams({ new: null });
-      }
-
-      fetchReservations(page, status, from, to, assignedOnly, searchQuery);
-    } else if (!authLoading) {
-      setLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading]);
-
-  useEffect(() => {
-    if (!departureFilter) {
-      setContextDeparture(null);
-      return;
-    }
-    getDeparture(departureFilter)
-      .then(setContextDeparture)
-      .catch(() => {
-        setContextDeparture(null);
-        showError(copyRef.current.errorDeparture);
-      });
-  }, [departureFilter, showError]);
-
-  useEffect(() => {
-    if (user && !authLoading) {
-      setParams({
-        page: currentPage > 1 ? currentPage : null,
-        status: statusFilter || null,
-        from: dateFrom || null,
-        to: dateTo || null,
-        my: assignedOnly ? 'true' : null,
-      });
-    }
-  }, [currentPage, statusFilter, dateFrom, dateTo, user, authLoading, setParams]);
-
-  useDataInvalidation('reservations', () => {
-    fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly);
-  });
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    fetchReservations(page, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
-  };
+  const handlePageChange = (page: number) => setCurrentPage(page);
 
   const handleDownloadVoucher = async (reservationId: string) => {
     try {
@@ -216,18 +216,18 @@ export default function Reservations() {
     try {
       await deleteReservation(reservation.id);
       showSuccess(w.deleted);
-      fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
+      refreshCurrent();
     } catch {
       showError(w.errorDelete);
     }
   };
 
   const handleEditSuccess = () => {
-    fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
+    refreshCurrent();
   };
 
   const handlePaymentCreated = () => {
-    fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
+    refreshCurrent();
   };
 
   const toggleSelect = (id: string) => {
@@ -248,7 +248,7 @@ export default function Reservations() {
   };
 
   const handleBatchStatus = async (status: Reservation['status']) => {
-    if (selectedIds.size === 0) return;
+    if (selectedIds.size === 0 || pending || loadFailed) return;
     setBatchLoading(true);
     try {
       const result = await batchUpdateStatus(Array.from(selectedIds), status);
@@ -258,7 +258,7 @@ export default function Reservations() {
         showSuccess(fill(w.batchSuccess, { count: result.summary.succeeded, status: statusLabel(status) }));
       }
       setSelectedIds(new Set());
-      fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
+      refreshCurrent();
     } catch {
       showError(w.errorBatch);
     } finally {
@@ -399,7 +399,7 @@ export default function Reservations() {
                       try {
                         await updateReservationStatus(res.id, 'confirmed');
                         showSuccess(w.confirmedNotice);
-                        fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
+                        refreshCurrent();
                       } catch {
                         showError(w.errorStatus);
                       }
@@ -417,7 +417,7 @@ export default function Reservations() {
                       try {
                         await updateReservationStatus(res.id, 'cancelled');
                         showSuccess(w.cancelledNotice);
-                        fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
+                        refreshCurrent();
                       } catch {
                         showError(w.errorStatus);
                       }
@@ -507,7 +507,6 @@ export default function Reservations() {
         onSearchChange={(val: string) => {
           setSearchQuery(val);
           setCurrentPage(1);
-          fetchReservations(1, statusFilter, dateFrom, dateTo, assignedOnly, val);
         }}
         searchPlaceholder={w.search}
         actions={
@@ -584,8 +583,6 @@ export default function Reservations() {
             onClick={() => {
               const next = !assignedOnly;
               setAssignedOnly(next);
-              setCurrentPage(1);
-              fetchReservations(1, statusFilter, dateFrom, dateTo, next);
             }}
           >
             <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -596,17 +593,12 @@ export default function Reservations() {
             {assignedOnly ? w.allClients : w.myClients}
           </Button>
         )}
-        {(statusFilter || dateFrom || dateTo || assignedOnly) && (
+        {(statusFilter || dateFrom || dateTo || assignedOnly || searchQuery) && (
           <Button
             size="sm"
             variant="outline"
             onClick={() => {
-              setStatusFilter("");
-              setDateFrom("");
-              setDateTo("");
-              setAssignedOnly(false);
-              setSearchQuery("");
-              setCurrentPage(1);
+              clearFilters();
             }}
           >
             {w.clearFilters}
@@ -614,7 +606,7 @@ export default function Reservations() {
         )}
       </div>
 
-      {selectedIds.size > 0 && (
+      {selectedIds.size > 0 && !pending && !loadFailed && (
         <div className="mb-4 flex flex-wrap items-center gap-3 p-3 bg-brand-50 dark:bg-brand-500/10 rounded-lg border border-brand-200 dark:border-brand-500/20">
           <span className="text-sm font-medium text-brand-700 dark:text-brand-300">
             {fill(w.selected, { count: selectedIds.size })}
@@ -665,15 +657,20 @@ export default function Reservations() {
         </div>
       )}
 
-      {loading ? (
+      {pending ? (
         <div className="flex items-center justify-center p-20">
           <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      ) : loadFailed ? (
+        <div role="alert" className="rounded-xl border border-error-200 p-5 dark:border-error-500/30">
+          <p className="mb-3 text-sm text-error-600 dark:text-error-400">{w.errorLoad}</p>
+          <Button size="sm" variant="outline" onClick={() => { void fetchReservations(); }}>{w.retry}</Button>
         </div>
       ) : reservations.length === 0 ? (
         <EmptyState
           title={w.noReservations}
           description={w.noReservationsHint}
-          action={(statusFilter || dateFrom || dateTo) ? { label: w.clearFilters, onClick: () => { setStatusFilter(""); setDateFrom(""); setDateTo(""); } } : undefined}
+          action={(statusFilter || dateFrom || dateTo || assignedOnly || searchQuery) ? { label: w.clearFilters, onClick: clearFilters } : undefined}
         />
       ) : (
         <>
@@ -722,7 +719,7 @@ export default function Reservations() {
         initialDepartureId={contextDeparture?.id}
         onClose={() => setIsCreateOpen(false)}
         onCreated={() => {
-          fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly);
+          refreshCurrent();
         }}
       />
     </>

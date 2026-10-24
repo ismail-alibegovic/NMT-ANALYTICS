@@ -298,6 +298,7 @@ export const bs: Translations = {
     web: 'Web', phone: 'Telefon', agent: 'Agent', walkIn: 'Direktno',
   },
   reservationList: {
+    retry: "Pokušaj ponovo",
     errorLoad: "Rezervacije nije moguće učitati.",
     errorDeparture: "Polazak iz filtera nije dostupan",
     voucherForbidden: "Nemate dozvolu za preuzimanje vouchera",
@@ -421,6 +422,13 @@ export const bs: Translations = {
     errorUpdate: "Rezervacija nije mogla biti ažurirana. Pokušajte ponovo.",
   },
   reservationDetail: {
+    refreshing: "Osvježavanje rezervacije. Radnje nisu dostupne dok se trenutni podaci ne učitaju.",
+    retry: "Pokušaj ponovo",
+    errorPassengers: "Putničke zapise nije moguće učitati.",
+    errorAccommodation: "Trenutni smještaj nije moguće učitati.",
+    errorSchedule: "Raspored uplata nije moguće učitati. Pokušajte ponovo prije evidentiranja uplate.",
+    errorContracts: "Historiju ugovora nije moguće učitati. Pokušajte ponovo prije generisanja ugovora.",
+
     overview: "Pregled",
     passengers: "Putnici",
     payments: "Uplate",

@@ -17,8 +17,14 @@ for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`real
  const headers=await login(request);const {marker,res,dep}=await seed(request,headers);
  await page.setViewportSize({width,height:900});await page.goto('/auth/signin');await page.locator('#signin-email').fill(process.env.E2E_MANAGER_EMAIL!);await page.locator('#signin-password').fill(process.env.E2E_MANAGER_PASSWORD!);await page.getByRole('button',{name:/sign in/i}).click();await expect(page).not.toHaveURL(/\/auth\/signin/);
  await page.evaluate(theme=>{localStorage.setItem('travline_lang','en');localStorage.setItem('theme',theme);},theme);
+ let failScheduleRead=true;
+ await page.route(`**/api/reservations/${res.id}/installments`,async route=>{if(route.request().method()==='GET'&&failScheduleRead){failScheduleRead=false;await route.fulfill({status:503,json:{error:{code:'P0_SYNTHETIC_READ_FAILURE',message:'Synthetic read failure'}}});}else await route.continue();});
  await page.goto(`/reservations/${res.id}`);await page.evaluate(theme=>document.documentElement.classList.toggle('dark',theme==='dark'),theme);
- await page.getByRole('button',{name:'Payments',exact:true}).click();await page.getByRole('button',{name:'Record payment',exact:true}).click();
+ await page.getByRole('button',{name:'Payments',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Record payment',exact:true})).toBeDisabled();
+ await page.getByRole('alert').getByRole('button',{name:'Retry',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Record payment',exact:true})).toBeEnabled();
+ await page.getByRole('button',{name:'Record payment',exact:true}).click();
  const form=page.getByRole('form',{name:'Add Payment',exact:true});
  if(theme==='dark')expect(await form.locator('label').evaluateAll(nodes=>nodes.every(e=>Number(getComputedStyle(e).color.match(/\d+/)?.[0])>=150))).toBe(true);await expect(form.getByLabel('Amount *',{exact:true})).toHaveValue('90');
  await form.getByLabel('Amount *',{exact:true}).fill('12');await form.getByLabel('Method',{exact:true}).selectOption('cash');await form.getByRole('button',{name:'Cancel',exact:true}).click();

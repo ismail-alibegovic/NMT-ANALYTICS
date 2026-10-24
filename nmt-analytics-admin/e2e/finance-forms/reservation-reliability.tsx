@@ -1,0 +1,12 @@
+import { createRoot } from 'react-dom/client';
+import { MemoryRouter, Route, Routes } from 'react-router';
+import { HelmetProvider } from 'react-helmet-async';
+import { I18nProvider } from '../../src/lib/i18n/context';
+import { ToastProvider } from '../../src/context/ToastContext';
+import Reservations from '../../src/pages/Reservations';
+import ReservationDetail from '../../src/pages/ReservationDetail';
+import { setFixtureRole } from './app-context';
+import '../../src/index.css';
+if (import.meta.env.MODE !== 'form-contract') throw new Error('Isolated form test server required');
+setFixtureRole('manager');
+createRoot(document.getElementById('root')!).render(<HelmetProvider><I18nProvider><ToastProvider><MemoryRouter initialEntries={[location.search.includes('detail') ? '/reservations/reservation-a' : '/reservations']}><Routes><Route path='/reservations' element={<Reservations />} /><Route path='/reservations/:id' element={<ReservationDetail />} /></Routes></MemoryRouter></ToastProvider></I18nProvider></HelmetProvider>);

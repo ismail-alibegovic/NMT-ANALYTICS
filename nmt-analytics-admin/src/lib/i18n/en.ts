@@ -298,6 +298,7 @@ export const en = {
     web: 'Web', phone: 'Phone', agent: 'Agent', walkIn: 'Walk-in',
   },
   reservationList: {
+    retry: "Retry",
     errorLoad: "Reservations could not be loaded.",
     errorDeparture: "The filtered departure is unavailable.",
     voucherForbidden: "You do not have permission to download the voucher.",
@@ -421,6 +422,13 @@ export const en = {
     errorUpdate: "The reservation could not be updated. Please retry.",
   },
   reservationDetail: {
+    refreshing: "Refreshing reservation data. Actions are unavailable until the current values load.",
+    retry: "Retry",
+    errorPassengers: "Passenger records could not be loaded.",
+    errorAccommodation: "Current accommodation could not be loaded.",
+    errorSchedule: "The payment schedule could not be loaded. Retry before recording a payment.",
+    errorContracts: "Contract history could not be loaded. Retry before generating a contract.",
+
     overview: "Overview",
     passengers: "Passengers",
     payments: "Payments",
