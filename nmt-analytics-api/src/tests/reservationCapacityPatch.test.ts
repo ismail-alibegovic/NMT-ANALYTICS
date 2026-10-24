@@ -105,6 +105,14 @@ vi.mock('../lib/supabase', () => {
 
   const client = {
     rpc: vi.fn(async (name: string, args: Record<string, unknown>) => {
+      if (name === 'update_reservation_core_atomic') {
+        const fields = args.p_updates as Record<string, any>
+        if (editError) return { data: null, error: { message: editError } }
+        const next = { ...currentReservation, ...fields }
+        if (next.status !== 'cancelled' && otherBooked + next.party_size > capacity) return { data: null, error: { message: 'CAPACITY_FULL' } }
+        currentReservation = next
+        return { data: currentReservation, error: null }
+      }
       if (name === 'edit_reservation_atomic') {
         if (editError) return { data: null, error: { message: editError } }
         currentReservation = { ...currentReservation, ...(args.p_updates as object) }
@@ -284,7 +292,7 @@ describe('combined reservation edit HTTP contract', () => {
     expect(cancel.status).toBe(200)
     expect(supabaseAdmin.rpc).toHaveBeenLastCalledWith('edit_reservation_atomic', expect.objectContaining({ p_requirements: null }))
     vi.mocked(supabaseAdmin.rpc).mockClear()
-    for (const body of [{ paidAmount: 1, accommodationRequirements: [] }, { accommodationRequirements: [{}] }]) {
+    for (const body of [{ paidAmount: 1, accommodationRequirements: [] }, { accommodationRequirements: [{}] }, { accommodationRequirements: { preserve_existing: true } }]) {
       expect((await request(app).patch(`/api/reservations/${RESERVATION_ID}`).send(body)).status).toBe(400)
     }
     expect(supabaseAdmin.rpc).not.toHaveBeenCalled()

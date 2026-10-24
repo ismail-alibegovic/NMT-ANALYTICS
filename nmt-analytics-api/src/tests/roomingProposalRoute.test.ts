@@ -16,6 +16,7 @@ let roomSlots: any[] = [];
 let passengers: any[] = [];
 let requirements: any[] = [];
 let groups: any[] = [];
+let reservations: any[] = [];
 
 // Records mutation actions so the test can prove the endpoint is read-only.
 const mutations: string[] = [];
@@ -61,6 +62,7 @@ function createBuilder(table: string) {
   };
 
   async function execute() {
+    if (table === 'reservations') return { data: reservations.filter(row => matches(row, state.filters)), error: null };
     if (table === 'departures') {
       const rows = departures.filter((row) => matches(row, state.filters));
       return { data: rows, error: null };
@@ -145,9 +147,24 @@ beforeEach(() => {
   passengers = [];
   requirements = [];
   groups = [];
+  reservations = [];
 });
 
 describe('POST /departures/:departureId/rooming/proposal', () => {
+  it('excludes cancelled travelers and group members from automatic rooming without mutating history', async () => {
+    passengers = [{ id: 'active', full_name: 'Active', departure_id: DEPARTURE, org_id: ORG, reservation_id: 'r-active' },
+      { id: 'cancelled', full_name: 'Cancelled', departure_id: DEPARTURE, org_id: ORG, reservation_id: 'r-cancelled' }];
+    reservations = [{ id: 'r-cancelled', org_id: ORG, departure_id: DEPARTURE, status: 'cancelled' }];
+    groups = [{ id: 'group', departure_id: DEPARTURE, org_id: ORG, members: [{ passenger_id: 'active' }, { passenger_id: 'cancelled' }] }];
+    const app = express(); app.use(express.json()); app.use(await getRouter());
+    expect((await request(app).post(`/departures/${DEPARTURE}/rooming/proposal`).send({})).status).toBe(200);
+    const input = proposalSpy.mock.calls[0][0];
+    expect(input.passengers.map((p: any) => p.id)).toEqual(['active']);
+    expect(input.groups[0].passengerIds).toEqual(['active']);
+    expect(passengers).toHaveLength(2);
+    expect(mutations).toEqual([]);
+  });
+
   it('returns a proposal for a correct-org departure', async () => {
     const app = express();
     app.use(express.json());

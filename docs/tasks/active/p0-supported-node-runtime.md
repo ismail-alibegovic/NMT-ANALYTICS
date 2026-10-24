@@ -1,6 +1,6 @@
 # P0 — Supported, reproducible Node runtime
 
-**Status:** PR OPEN — [#162](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/162); required exact-head CI pending.
+**Status:** MERGED / VERIFIED — [#162](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/162), merge `53d41ec3f92358b1b800c4f7c15f8239cc30b870`. Final head `c376547a75b8a32a3e4fe4e83cb71cc37883d68b` passed all required checks: CI 40137978854, isolated acceptance 40137978765, UI audit 40137978710, Docker and preview.
 **Priority:** P0 runtime/security configuration; final roadmap INFRA-01.
 **Branch:** `fix/p0-supported-node-runtime`
 **Base:** verified main after #161; only this task is active for implementation.

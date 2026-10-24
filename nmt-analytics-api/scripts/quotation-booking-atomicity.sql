@@ -40,6 +40,8 @@ BEGIN
  PERFORM pg_temp.expect_booking_error(format('SELECT public.book_quotation_atomic(%L,%L,%L,%L::jsonb,%L)',other_org,actor,q->>'id',payload,fingerprint),'QUOTATION_ACTOR_INVALID');
  result:=public.book_quotation_atomic(org,actor,(q->>'id')::uuid,payload,fingerprint);
  PERFORM pg_temp.expect_booking_error(format('SELECT public.edit_reservation_atomic(%L,%L,%L::jsonb,%L::jsonb)',org,result->'reservation'->>'id','{"total_amount":0}','[]'),'QUOTATION_BOOKING_LOCKED');
+ PERFORM pg_temp.expect_booking_error(format('SELECT public.update_reservation_core_atomic(%L,%L,%L::jsonb)',org,result->'reservation'->>'id','{"total_amount":0}'),'QUOTATION_BOOKING_LOCKED');
+ PERFORM pg_temp.expect_booking_error(format('SELECT public.delete_reservation_atomic(%L,%L)',org,result->'reservation'->>'id'),'QUOTATION_BOOKING_LOCKED');
  retry:=public.book_quotation_atomic(org,actor,(q->>'id')::uuid,payload,fingerprint);
  IF NOT (result->>'created')::boolean OR (retry->>'created')::boolean OR result->'reservation'->>'id'<>retry->'reservation'->>'id' THEN RAISE EXCEPTION 'Booking retry duplicated reservation'; END IF;
  IF (result->'reservation'->>'total_amount')::numeric<>176 OR result->'reservation'->>'currency'<>'EUR'

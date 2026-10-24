@@ -1,3 +1,4 @@
+import { activeDeparturePassengers } from './activeDeparturePassengers';
 import { supabaseAdmin } from '../lib/supabase';
 import type { SeatingProposalInput } from './seatingProposal';
 
@@ -55,15 +56,20 @@ export async function loadSeatingState(
   }
 
   // 3. passengers (org-scoped)
-  const { data: passengers, error: paxErr } = await supabaseAdmin
+  const { data: allPassengers, error: paxErr } = await supabaseAdmin
     .from('departure_passengers')
-    .select('id, full_name, seat_number, seat_is_manual, seat_locked')
+    .select('id, reservation_id, full_name, seat_number, seat_is_manual, seat_locked')
     .eq('departure_id', departureId)
     .eq('org_id', orgId);
 
   if (paxErr) {
     return { state: null, error: { status: 500, code: 'INTERNAL_ERROR', message: 'Failed to load passengers' } };
   }
+
+  let passengers: any[];
+  try { passengers = await activeDeparturePassengers(orgId, departureId, allPassengers || []); }
+  catch { return { state: null, error: { status: 500, code: 'INTERNAL_ERROR', message: 'Failed to load reservation status' } }; }
+  const activeIds = new Set(passengers.map(p => p.id));
 
   // 4. groups (org-scoped)
   const { data: groups, error: groupsErr } = await supabaseAdmin
@@ -119,7 +125,7 @@ export async function loadSeatingState(
       id: g.id,
       name: g.name ?? null,
       seatingPreference: (g.seating_preference ?? 'prefer_together') as SeatingProposalInput['groups'][number]['seatingPreference'],
-      passengerIds: groupMembers.filter((m: any) => m.group_id === g.id).map((m: any) => m.passenger_id),
+      passengerIds: groupMembers.filter((m: any) => m.group_id === g.id && activeIds.has(m.passenger_id)).map((m: any) => m.passenger_id),
     })),
   };
 

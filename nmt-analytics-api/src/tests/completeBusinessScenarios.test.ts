@@ -66,6 +66,13 @@ vi.mock('../lib/supabase', () => ({
   supabaseAdmin: {
     from: vi.fn((table: string) => query(table)),
     rpc: vi.fn(async (fnName: string, args: any) => {
+      if (fnName === 'update_reservation_core_atomic') {
+        // HTTP scenario stub; real capacity/rollback is tested in the SQL contract.
+        const row = (rows.reservations || []).find(r => r.id === args.p_reservation_id && r.org_id === args.p_org_id);
+        if (!row) return { data: null, error: { message: 'RESERVATION_NOT_FOUND' } };
+        Object.assign(row, args.p_updates);
+        return { data: row, error: null };
+      }
       if (fnName === 'list_supplier_payables') {
         const payables = (rows['supplier_payables'] || []).filter(
           (p) => p.org_id === args.p_org_id && p.departure_id === args.p_departure_id

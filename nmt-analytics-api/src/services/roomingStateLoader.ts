@@ -1,3 +1,4 @@
+import { activeDeparturePassengers } from './activeDeparturePassengers';
 import { supabaseAdmin } from '../lib/supabase';
 import type { RoomingProposalInput } from './roomingProposal';
 
@@ -48,7 +49,7 @@ export async function loadRoomingState(
   }
 
   // 2. fetch departure passengers
-  const { data: passengers, error: passengersErr } = await supabaseAdmin
+  const { data: allPassengers, error: passengersErr } = await supabaseAdmin
     .from('departure_passengers')
     .select('id, full_name, departure_id, reservation_id, reservation_accommodation_requirement_id')
     .eq('departure_id', departureId)
@@ -57,6 +58,11 @@ export async function loadRoomingState(
   if (passengersErr) {
     return { state: null, error: { status: 500, message: 'Failed to load passengers' } };
   }
+
+  let passengers: any[];
+  try { passengers = await activeDeparturePassengers(orgId, departureId, allPassengers || []); }
+  catch { return { state: null, error: { status: 500, message: 'Failed to load reservation status' } }; }
+  const activeIds = new Set(passengers.map(p => p.id));
 
   // 3. resolve accommodation requirements by RESERVATION id
   const reservationIds = Array.from(
@@ -108,7 +114,7 @@ export async function loadRoomingState(
     name: g.name,
     accommodationPreference: g.accommodation_preference ?? 'no_preference',
     color: g.color,
-    passengerIds: (g.members || []).map((m: any) => m.passenger_id),
+    passengerIds: (g.members || []).filter((m: any) => activeIds.has(m.passenger_id)).map((m: any) => m.passenger_id),
   }));
 
   // build passenger → group lookup

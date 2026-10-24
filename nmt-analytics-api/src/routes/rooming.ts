@@ -131,6 +131,7 @@ router.post(
           return res.status(404).json({ error: 'Departure not found' });
         }
         if (
+          errorDetail.includes('RESERVATION_CANCELLED') ||
           errorDetail.includes('PASSENGER_NOT_FOUND') ||
           errorDetail.includes('PASSENGER_REQUIREMENT_UNASSIGNED') ||
           errorDetail.includes('REQUIREMENT_MISMATCH') ||

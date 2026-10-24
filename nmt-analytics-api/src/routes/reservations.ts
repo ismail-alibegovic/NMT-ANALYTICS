@@ -32,6 +32,7 @@ import {
 } from '../lib/reservationAccommodation';
 import {
   DepartureCapacityExceededError,
+  buildDepartureCapacityErrorDetails,
   releaseDepartureCapacityOrThrow,
   reservationConsumesCapacity,
   reserveDepartureCapacityOrThrow,
@@ -200,6 +201,41 @@ function handleDepartureCapacityError(res: Response, error: unknown) {
   }
 
   return null;
+}
+
+// One public error contract for editor, core/status and delete transactions.
+async function handleReservationMutationError(res: Response, error: any, orgId: string, previous?: any, updates: any = {}) {
+  const mapped = mapAccommodationError(error);
+  if (mapped) return apiError(res, mapped.status, mapped.code, mapped.message);
+  const message = String(error?.message || '');
+  if (message.includes('CAPACITY_FULL')) {
+    let details;
+    const departureId = updates.departureId ?? previous?.departure_id;
+    const targetSize = Number(updates.partySize ?? previous?.party_size ?? 0);
+    const targetConsumes = reservationConsumesCapacity(updates.status ?? previous?.status);
+    const oldSize = departureId === previous?.departure_id && reservationConsumesCapacity(previous?.status) ? Number(previous.party_size || 0) : 0;
+    if (departureId) {
+      try { details = await buildDepartureCapacityErrorDetails(orgId, departureId, Math.max(0, (targetConsumes ? targetSize : 0) - oldSize)); }
+      catch { /* The failed transaction is rolled back even if this explanatory read fails. */ }
+    }
+    return apiError(res, 409, 'DEPARTURE_CAPACITY_EXCEEDED', 'Departure capacity would be exceeded', details);
+  }
+  if (message.includes('RESERVATION_OPERATIONAL_ASSIGNMENTS_LOCKED')) return apiError(res, 409, 'RESERVATION_OPERATIONAL_ASSIGNMENTS_LOCKED', 'Unlock assigned seats and rooms before cancelling the reservation');
+  const codes: Record<string, [number, string]> = {
+    DEPARTURE_NOT_FOUND: [404, 'DEPARTURE_NOT_FOUND'], CUSTOMER_NOT_FOUND: [404, 'CUSTOMER_NOT_FOUND'],
+    DEPARTURE_PACKAGE_NOT_FOUND: [409, 'DEPARTURE_PACKAGE_NOT_FOUND'], QUOTATION_BOOKING_LOCKED: [409, 'QUOTATION_BOOKING_LOCKED'],
+    RESERVATION_DEPARTURE_CURRENCY_MISMATCH: [409, 'RESERVATION_DEPARTURE_CURRENCY_MISMATCH'],
+    RESERVATION_CURRENCY_LOCKED: [409, 'RESERVATION_CURRENCY_LOCKED'], CURRENCY_MISMATCH: [400, 'CURRENCY_MISMATCH'],
+    RESERVATION_OPERATIONAL_ASSIGNMENTS_LOCKED: [409, 'RESERVATION_OPERATIONAL_ASSIGNMENTS_LOCKED'],
+    RESERVATION_FINANCIAL_HISTORY_LOCKED: [409, 'RESERVATION_FINANCIAL_HISTORY_LOCKED'],
+    INVALID_ACCOMMODATION_INTENT: [400, 'VALIDATION_ERROR'], INVALID_RESERVATION_UPDATE: [400, 'VALIDATION_ERROR'],
+  };
+  const known = Object.entries(codes).find(([code]) => message.includes(code));
+  if (known) return apiError(res, known[1][0], known[1][1], 'Reservation change could not be saved');
+  if (error?.code === '23503') return apiError(res, 409, 'RESERVATION_RELATIONSHIP_CONFLICT', 'Reservation has related records that prevent this change');
+  if (error?.code === '23514') return apiError(res, 409, 'RESERVATION_CONSTRAINT_CONFLICT', 'Reservation change conflicts with existing records');
+  if (error?.code === '40P01' || error?.code === '40001') return apiError(res, 409, 'RESERVATION_WRITE_CONFLICT', 'Reservation changed concurrently; retry the operation');
+  return handleSupabaseError(res, error, 'Failed to change reservation');
 }
 
 async function markSaleRecoveryRequired(
@@ -1192,14 +1228,8 @@ router.patch('/reservations/:id', authenticateToken, requireOrgContext, requireM
       (updates.currency !== undefined && updates.currency !== reservation.currency)
     )) return apiError(res,409,'QUOTATION_BOOKING_LOCKED','Approved quotation amount and currency cannot be changed');
 
-    const oldStatus = reservation.status;
-    const newStatus = updates.status || oldStatus;
     const oldDepId = reservation.departure_id;
     const newDepId = updates.departureId !== undefined ? updates.departureId : oldDepId;
-    const oldPartySize = Number(reservation.party_size || 0);
-    const newPartySize = Number(updates.partySize ?? reservation.party_size ?? 0);
-    const oldConsumes = reservationConsumesCapacity(oldStatus);
-    const newConsumes = reservationConsumesCapacity(newStatus);
     const currentCurrency = reservation.currency || 'BAM';
     const oldDepartureCurrency = oldDepId ? await resolveDeparturePackageCurrency(orgId, oldDepId) : null;
     const newDepartureCurrency = newDepId ? await resolveDeparturePackageCurrency(orgId, newDepId) : null;
@@ -1231,111 +1261,23 @@ router.patch('/reservations/:id', authenticateToken, requireOrgContext, requireM
       return apiError(res, 400, "RESERVATION_DEPARTURE_CURRENCY_MISMATCH", "Reservation cannot move between departures with different package currencies");
     }
 
-    if (updates.accommodationRequirements !== undefined) {
-      const fields = {
-        status: updates.status, departure_id: updates.departureId, customer_id: updates.customerId,
-        total_amount: updates.totalAmount, reservation_at: updates.reservationAt, party_size: updates.partySize,
-        customer_name: updates.customerName, customer_phone: updates.customerPhone,
-        currency: newDepartureCurrency?.ok ? newDepartureCurrency.currency : updates.currency, source: updates.source,
-      };
-      const { data, error } = await supabaseAdmin.rpc('edit_reservation_atomic', {
-        p_org_id: orgId, p_reservation_id: id,
-        p_updates: Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)),
+    const fields = {
+      status: updates.status, departure_id: updates.departureId, customer_id: updates.customerId,
+      total_amount: updates.totalAmount, reservation_at: updates.reservationAt, party_size: updates.partySize,
+      customer_name: updates.customerName, customer_phone: updates.customerPhone,
+      currency: newDepartureCurrency?.ok ? newDepartureCurrency.currency : updates.currency, source: updates.source,
+    };
+    const args = { p_org_id: orgId, p_reservation_id: id,
+      p_updates: Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) };
+    const { data: updatedReservation, error: updateErr } = updates.accommodationRequirements === undefined
+      ? await supabaseAdmin.rpc('update_reservation_core_atomic', args)
+      : await supabaseAdmin.rpc('edit_reservation_atomic', { ...args,
         p_requirements: updates.accommodationRequirements === null ? null : updates.accommodationRequirements.map(line => ({
           hotel_allocation_id: line.hotelAllocationId, room_count: line.roomCount,
           guests_expected: line.guestsExpected, notes: line.notes ?? null, passenger_ids: line.passengerIds || [],
         })),
       });
-      if (error) {
-        const mapped = mapAccommodationError(error);
-        if (mapped) return apiError(res, mapped.status, mapped.code, mapped.message);
-        const codes: Record<string, [number, string]> = {
-          CAPACITY_FULL: [409, 'DEPARTURE_CAPACITY_EXCEEDED'],
-          DEPARTURE_NOT_FOUND: [404, 'DEPARTURE_NOT_FOUND'], CUSTOMER_NOT_FOUND: [404, 'CUSTOMER_NOT_FOUND'],
-          DEPARTURE_PACKAGE_NOT_FOUND: [409, 'DEPARTURE_PACKAGE_NOT_FOUND'],
-          QUOTATION_BOOKING_LOCKED: [409, 'QUOTATION_BOOKING_LOCKED'],
-          RESERVATION_DEPARTURE_CURRENCY_MISMATCH: [409, 'RESERVATION_DEPARTURE_CURRENCY_MISMATCH'],
-          RESERVATION_CURRENCY_LOCKED: [409, 'RESERVATION_CURRENCY_LOCKED'], CURRENCY_MISMATCH: [400, 'CURRENCY_MISMATCH'],
-          INVALID_ACCOMMODATION_INTENT: [400, 'VALIDATION_ERROR'], INVALID_RESERVATION_UPDATE: [400, 'VALIDATION_ERROR'],
-        };
-        const known = Object.entries(codes).find(([code]) => String(error.message).includes(code));
-        if (known) return apiError(res, known[1][0], known[1][1], 'Reservation edit could not be saved');
-        return handleSupabaseError(res, error, 'Failed to update reservation');
-      }
-      await logAction(req, 'update', 'reservation', id, { oldValues: reservation, newValues: data });
-      return res.json(data);
-    }
-
-    if (oldDepId === newDepId) {
-      if (newDepId) {
-        const delta = (newConsumes ? newPartySize : 0) - (oldConsumes ? oldPartySize : 0);
-        if (delta > 0) {
-          try {
-            await reserveDepartureCapacityOrThrow(orgId, newDepId, delta);
-          } catch (capacityError) {
-            const handled = handleDepartureCapacityError(res, capacityError);
-            if (handled) return handled;
-            return handleSupabaseError(res, capacityError, "Failed to reserve capacity");
-          }
-        } else if (delta < 0) {
-          await releaseReservedCapacity(orgId, newDepId, Math.abs(delta));
-        }
-      }
-    } else {
-      if (oldDepId && oldConsumes) {
-        await releaseReservedCapacity(orgId, oldDepId, oldPartySize);
-      }
-      if (newDepId && newConsumes) {
-        try {
-          await reserveDepartureCapacityOrThrow(orgId, newDepId, newPartySize);
-        } catch (capacityError) {
-          if (oldDepId && oldConsumes) {
-            await reserveDepartureCapacityOrThrow(orgId, oldDepId, oldPartySize);
-          }
-          const handled = handleDepartureCapacityError(res, capacityError);
-          if (handled) return handled;
-          return handleSupabaseError(res, capacityError, "Failed to reserve capacity");
-        }
-      }
-    }
-
-    // 3. Apply updates to Reservation
-    const updateData: any = {
-      status: updates.status,
-      departure_id: updates.departureId === undefined ? reservation.departure_id : (updates.departureId === null ? null : updates.departureId),
-      customer_id: updates.customerId === undefined ? reservation.customer_id : (updates.customerId === null ? null : updates.customerId),
-      total_amount: updates.totalAmount,
-      reservation_at: updates.reservationAt,
-      party_size: updates.partySize,
-      customer_name: updates.customerName,
-      customer_phone: updates.customerPhone,
-      currency: newDepartureCurrency?.ok ? newDepartureCurrency.currency : updates.currency,
-      source: updates.source
-    };
-
-    const { data: updatedReservation, error: updateErr } = await supabaseAdmin
-      .from('reservations')
-      .update(updateData)
-      .eq('id', id)
-      .eq('org_id', orgId)
-      .select()
-      .single();
-
-    if (updateErr) {
-      // Detect constraint violations for paid_amount as fallback
-      if (updateErr.code === '23514') { // PostgreSQL check constraint violation
-        const constraintName = updateErr.details || updateErr.message || '';
-
-        // Check if it's the paid_amount >= 0 constraint
-        if (constraintName.includes('reservations_paid_amount_check') ||
-          (constraintName.includes('paid_amount') && constraintName.includes('non-negative'))) {
-          return apiError(res, 400, "VALIDATION_ERROR", "Paid amount must be non-negative");
-        }
-      }
-
-      // For other errors, use the standard handler
-      return handleSupabaseError(res, updateErr, "Failed to update reservation");
-    }
+    if (updateErr) return handleReservationMutationError(res, updateErr, orgId, reservation, updates);
 
     // 4. Create audit log entry
     await logAction(req, 'update', 'reservation', id, {
@@ -1372,23 +1314,11 @@ router.delete('/reservations/:id', authenticateToken, requireOrgContext, require
 
     if (reservation.quotation_id) return apiError(res,409,'QUOTATION_BOOKING_LOCKED','Cancel quotation bookings instead of deleting them');
 
-    if (reservation.departure_id && reservationConsumesCapacity(reservation.status)) {
-      await releaseReservedCapacity(orgId, reservation.departure_id, Number(reservation.party_size || 0));
-    }
-
-    // 3. Delete reservation
-    const { error } = await supabaseAdmin
-      .from('reservations')
-      .delete()
-      .eq('id', id)
-      .eq('org_id', orgId);
-
-    if (error) return handleSupabaseError(res, error, "Failed to delete reservation");
-
-    // 4. Create audit log entry
-    await logAction(req, 'delete', 'reservation', id, {
-      oldValues: reservation
+    const { data: deletedReservation, error } = await supabaseAdmin.rpc('delete_reservation_atomic', {
+      p_org_id: orgId, p_reservation_id: id,
     });
+    if (error) return handleReservationMutationError(res, error, orgId, reservation);
+    await logAction(req, 'delete', 'reservation', id, { oldValues: deletedReservation });
 
     res.status(204).send();
   } catch (error) {
@@ -1631,35 +1561,10 @@ router.patch('/reservations/:id/status', authenticateToken, requireOrgContext, r
     }
 
     const oldStatus = reservation.status;
-    const departureId = reservation.departure_id;
-    const partySize = Number(reservation.party_size || 0);
-    const oldConsumes = reservationConsumesCapacity(oldStatus);
-    const newConsumes = reservationConsumesCapacity(newStatus);
-
-    if (departureId) {
-      if (!oldConsumes && newConsumes) {
-        try {
-          await reserveDepartureCapacityOrThrow(orgId, departureId, partySize);
-        } catch (capacityError) {
-          const handled = handleDepartureCapacityError(res, capacityError);
-          if (handled) return handled;
-          return handleSupabaseError(res, capacityError, "Failed to update departure capacity");
-        }
-      } else if (oldConsumes && !newConsumes) {
-        await releaseReservedCapacity(orgId, departureId, partySize);
-      }
-    }
-
-    // 3. Update reservation status
-    const { data: updatedReservation, error: updateErr } = await supabaseAdmin
-      .from('reservations')
-      .update({ status: newStatus })
-      .eq('id', id)
-      .eq('org_id', orgId)
-      .select()
-      .single();
-
-    if (updateErr) return handleSupabaseError(res, updateErr, "Failed to update reservation status");
+    const { data: updatedReservation, error: updateErr } = await supabaseAdmin.rpc('update_reservation_core_atomic', {
+      p_org_id: orgId, p_reservation_id: id, p_updates: { status: newStatus },
+    });
+    if (updateErr) return handleReservationMutationError(res, updateErr, orgId, reservation, { status: newStatus });
 
     // 4. Create audit log entry
     await logAction(req, 'status_change', 'reservation', id, {
@@ -1714,37 +1619,12 @@ router.post('/reservations/batch/status', authenticateToken, requireOrgContext, 
         }
 
         const oldStatus = reservation.status;
-        const departureId = reservation.departure_id;
-        const partySize = Number(reservation.party_size || 0);
-
-        if (departureId) {
-          const oldConsumes = reservationConsumesCapacity(oldStatus);
-          const newConsumes = reservationConsumesCapacity(newStatus);
-
-          if (!oldConsumes && newConsumes) {
-            try {
-              await reserveDepartureCapacityOrThrow(orgId, departureId, partySize);
-            } catch (capacityError) {
-              if (capacityError instanceof DepartureCapacityExceededError) {
-                results.push({ id, success: false, error: 'Departure capacity would be exceeded' });
-                continue;
-              }
-              throw capacityError;
-            }
-          } else if (oldConsumes && !newConsumes) {
-            await releaseReservedCapacity(orgId, departureId, partySize);
-          }
-        }
-
-        // Update reservation status
-        const { error: updateErr } = await supabaseAdmin
-          .from('reservations')
-          .update({ status: newStatus })
-          .eq('id', id)
-          .eq('org_id', orgId);
-
+        const { error: updateErr } = await supabaseAdmin.rpc('update_reservation_core_atomic', {
+          p_org_id: orgId, p_reservation_id: id, p_updates: { status: newStatus },
+        });
         if (updateErr) {
-          results.push({ id, success: false, error: 'Failed to update reservation' });
+          results.push({ id, success: false, error: String(updateErr.message).includes('CAPACITY_FULL')
+            ? 'Departure capacity would be exceeded' : 'Failed to update reservation' });
           continue;
         }
 
@@ -1755,8 +1635,8 @@ router.post('/reservations/batch/status', authenticateToken, requireOrgContext, 
         });
 
         results.push({ id, success: true });
-      } catch (err) {
-        results.push({ id, success: false, error: String(err) });
+      } catch {
+        results.push({ id, success: false, error: 'Failed to update reservation' });
       }
     }
 

@@ -276,6 +276,7 @@ router.patch('/departure-passengers/:id/seat', authenticateToken, requireOrgCont
 
     if (rpcErr) {
       const msg = (rpcErr as { message?: string }).message || '';
+      if (msg.includes('RESERVATION_CANCELLED')) return apiError(res, 409, 'RESERVATION_CANCELLED', 'Cancelled travelers cannot be assigned seats');
       if (msg.includes('PASSENGER_NOT_FOUND')) {
         return apiError(res, 404, 'PASSENGER_NOT_FOUND', (rpcErr as { message?: string }).message || 'Passenger not found');
       }
@@ -328,6 +329,7 @@ router.patch('/departure-passengers/:id/seat-lock', authenticateToken, requireOr
 
     if (rpcErr) {
       const msg = (rpcErr as { message?: string }).message || '';
+      if (msg.includes('RESERVATION_CANCELLED')) return apiError(res, 409, 'RESERVATION_CANCELLED', 'Cancelled travelers cannot be assigned seats');
       if (msg.includes('PASSENGER_NOT_FOUND')) {
         return apiError(res, 404, 'NOT_FOUND', (rpcErr as { message?: string }).message || 'Passenger not found');
       }
