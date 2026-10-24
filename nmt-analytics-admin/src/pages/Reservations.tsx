@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
@@ -34,7 +34,13 @@ const ITEMS_PER_PAGE = 10;
 
 export default function Reservations() {
   const { error: showError, success: showSuccess } = useToast();
-  const { t } = useT();
+  const { t, lang } = useT();
+  const w = t.reservationList;
+  const copyRef = useRef(w);
+  useEffect(() => { copyRef.current = w; }, [w]);
+  const fill = (template: string, params: Record<string, string | number>) => template.replace(/\{(\w+)\}/g, (token, key: string) => String(params[key] ?? token));
+  const money = (amount: number, currency: string) => formatCurrency(amount, currency, lang === 'bs' ? 'bs-BA' : 'en-GB');
+  const statusLabel = (status: string) => ({ pending: w.pending, confirmed: w.confirmed, cancelled: w.cancelled, completed: w.completed } as Record<string, string>)[status] || status;
   const navigate = useNavigate();
   const { user, userContext, loading: authLoading } = useApp();
   const role = userContext?.role ?? 'agent';
@@ -83,7 +89,7 @@ export default function Reservations() {
       setCurrentPage(page);
     } catch (err: any) {
       console.error('Failed to fetch reservations:', err);
-      showError('Failed to load reservations');
+      showError(copyRef.current.errorLoad);
     } finally {
       setLoading(false);
     }
@@ -121,7 +127,7 @@ export default function Reservations() {
       .then(setContextDeparture)
       .catch(() => {
         setContextDeparture(null);
-        showError('Polazak iz filtera nije dostupan');
+        showError(copyRef.current.errorDeparture);
       });
   }, [departureFilter, showError]);
 
@@ -161,11 +167,11 @@ export default function Reservations() {
       console.error('Failed to download voucher:', err);
       const status = (err as any)?.status ?? (err as any)?.response?.status;
       if (status === 403) {
-        showError('Nemate dozvolu za preuzimanje vouchera');
+        showError(w.voucherForbidden);
       } else if (status === 404) {
-        showError('Voucher nije pronađen');
+        showError(w.voucherMissing);
       } else {
-        showError(`Greška pri preuzimanju vouchera: ${err.message || 'nepoznata greška'}`);
+        showError(w.errorVoucher);
       }
     }
   };
@@ -185,11 +191,11 @@ export default function Reservations() {
       console.error('Failed to download invoice:', err);
       const status = (err as any)?.status ?? (err as any)?.response?.status;
       if (status === 403) {
-        showError('Nemate dozvolu (manager+) za preuzimanje fakture');
+        showError(w.invoiceForbidden);
       } else if (status === 404) {
-        showError('Faktura nije pronađena');
+        showError(w.invoiceMissing);
       } else {
-        showError(`Greška pri preuzimanju fakture: ${err.message || 'nepoznata greška'}`);
+        showError(w.errorInvoice);
       }
     }
   };
@@ -205,14 +211,14 @@ export default function Reservations() {
   };
 
   const handleDelete = async (reservation: Reservation) => {
-    if (!confirm(`Jeste li sigurni da želite obrisati rezervaciju za ${reservation.customerName}?`))
+    if (!confirm(fill(w.deletePrompt, { name: reservation.customerName })))
       return;
     try {
       await deleteReservation(reservation.id);
-      showSuccess("Rezervacija obrisana");
+      showSuccess(w.deleted);
       fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
-    } catch (err: any) {
-      showError(err?.message || "Greška pri brisanju rezervacije");
+    } catch {
+      showError(w.errorDelete);
     }
   };
 
@@ -247,14 +253,14 @@ export default function Reservations() {
     try {
       const result = await batchUpdateStatus(Array.from(selectedIds), status);
       if (result.summary.failed > 0) {
-        showError(`${result.summary.succeeded} updated, ${result.summary.failed} failed`);
+        showError(fill(w.batchFailure, { succeeded: result.summary.succeeded, failed: result.summary.failed }));
       } else {
-        showSuccess(`${result.summary.succeeded} reservations updated to ${status}`);
+        showSuccess(fill(w.batchSuccess, { count: result.summary.succeeded, status: statusLabel(status) }));
       }
       setSelectedIds(new Set());
       fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
-    } catch (err) {
-      showError('Batch update failed');
+    } catch {
+      showError(w.errorBatch);
     } finally {
       setBatchLoading(false);
     }
@@ -266,6 +272,7 @@ export default function Reservations() {
       header: (
         <input
           type="checkbox"
+          aria-label={w.selectAll}
           checked={reservations.length > 0 && selectedIds.size === reservations.length}
           onChange={toggleSelectAll}
           className="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 cursor-pointer"
@@ -274,6 +281,7 @@ export default function Reservations() {
       render: (_, item) => (
         <input
           type="checkbox"
+          aria-label={fill(w.selectRow, { name: item.customerName })}
           checked={selectedIds.has(item.id)}
           onChange={() => toggleSelect(item.id)}
           className="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 cursor-pointer"
@@ -283,7 +291,7 @@ export default function Reservations() {
     },
     {
       key: 'customerName',
-      header: 'Klijent',
+      header: w.client,
       render: (_, res) => (
         <div>
           <div className="font-medium truncate" title={res.customerName}>
@@ -297,7 +305,7 @@ export default function Reservations() {
     },
     {
       key: 'packageName',
-      header: 'Paket',
+      header: w.package,
       render: (val) => (
         <div className="truncate" title={val || '-'}>
           {val || '-'}
@@ -306,26 +314,26 @@ export default function Reservations() {
     },
     {
       key: 'totalAmount',
-      header: 'Ukupno',
-      render: (val) => (
+      header: w.total,
+      render: (val, res) => (
         <div className="text-right whitespace-nowrap">
-          {formatCurrency(normalizeMoney(val))}
+          {money(normalizeMoney(val), res.currency)}
         </div>
       )
     },
     {
       key: 'paidAmount',
-      header: 'Plaćeno',
-      render: (val) => (
+      header: w.paid,
+      render: (val, res) => (
         <div className="text-right text-success-600 dark:text-success-500 font-medium whitespace-nowrap">
-          {formatCurrency(normalizeMoney(val))}
+          {money(normalizeMoney(val), res.currency)}
         </div>
       )
     },
     {
       key: 'balanceDue',
-      header: 'Saldo',
-      render: (val) => {
+      header: w.balance,
+      render: (val, res) => {
         // Use backend-calculated balanceDue (can be negative for overpayment)
         const balance = normalizeMoney(val);
         const isOverpaid = balance < 0;
@@ -339,10 +347,10 @@ export default function Reservations() {
                   ? "text-info-600 dark:text-info-500"
                   : "text-error-600 dark:text-error-500"
               }`}
-            title={isOverpaid ? "Preplaćeno (kredit)" : ""}
+            title={isOverpaid ? w.creditTitle : ""}
           >
-            {formatCurrency(Math.abs(balance))}
-            {isOverpaid && <span className="text-xs ml-1">(kredit)</span>}
+            {money(Math.abs(balance), res.currency)}
+            {isOverpaid && <span className="text-xs ml-1">{w.credit}</span>}
           </div>
         );
       }
@@ -369,13 +377,13 @@ export default function Reservations() {
     },
     {
       key: 'status',
-      header: 'Status',
+      header: w.status,
       render: (val, res) => {
         const statusConfig: Record<string, { color: any; text: string }> = {
-          'pending': { color: 'warning', text: 'Na čekanju' },
-          'confirmed': { color: 'success', text: 'Potvrđeno' },
-          'cancelled': { color: 'error', text: 'Otkazano' },
-          'completed': { color: 'info', text: 'Završeno' },
+          'pending': { color: 'warning', text: w.pending },
+          'confirmed': { color: 'success', text: w.confirmed },
+          'cancelled': { color: 'error', text: w.cancelled },
+          'completed': { color: 'info', text: w.completed },
         };
         const config = statusConfig[val] || { color: 'light', text: val };
         return (
@@ -390,34 +398,34 @@ export default function Reservations() {
                     onClick={async () => {
                       try {
                         await updateReservationStatus(res.id, 'confirmed');
-                        showSuccess('Rezervacija potvrđena');
+                        showSuccess(w.confirmedNotice);
                         fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
-                      } catch (e: any) {
-                        showError(e?.message || 'Greška');
+                      } catch {
+                        showError(w.errorStatus);
                       }
                     }}
                     className="text-[10px] px-1.5 py-0.5 rounded bg-success-50 text-success-700 hover:bg-success-100 dark:bg-success-500/10 dark:text-success-300 whitespace-nowrap"
-                    title="Potvrdi"
+                    title={w.confirm}
                   >
-                    ✓ Potvrdi
+                    {w.confirmAction}
                   </button>
                 )}
                 {(res.status as string) !== 'cancelled' && (
                   <button
                     onClick={async () => {
-                      if (!confirm(`Otkazati rezervaciju za ${res.customerName}?`)) return;
+                      if (!confirm(fill(w.cancelPrompt, { name: res.customerName }))) return;
                       try {
                         await updateReservationStatus(res.id, 'cancelled');
-                        showSuccess('Rezervacija otkazana');
+                        showSuccess(w.cancelledNotice);
                         fetchReservations(currentPage, statusFilter, dateFrom, dateTo, assignedOnly, searchQuery);
-                      } catch (e: any) {
-                        showError(e?.message || 'Greška');
+                      } catch {
+                        showError(w.errorStatus);
                       }
                     }}
                     className="text-[10px] px-1.5 py-0.5 rounded bg-error-50 text-error-700 hover:bg-error-100 dark:bg-error-500/10 dark:text-error-300 whitespace-nowrap"
-                    title="Otkaži"
+                    title={w.cancel}
                   >
-                    ✕ Otkaži
+                    {w.cancelAction}
                   </button>
                 )}
               </div>
@@ -428,7 +436,7 @@ export default function Reservations() {
     },
     {
       key: 'actions',
-      header: 'Akcije',
+      header: w.actions,
       render: (_, res) => (
         <div className="flex flex-wrap gap-1 justify-end">
           <Button
@@ -437,7 +445,7 @@ export default function Reservations() {
             className="text-xs px-2 py-1 whitespace-nowrap"
             onClick={() => handleEdit(res)}
           >
-            Uredi
+            {w.edit}
           </Button>
           {!isAgent && (
           <Button
@@ -445,7 +453,7 @@ export default function Reservations() {
             className="bg-brand-500 hover:bg-brand-600 text-white text-xs px-2 py-1 whitespace-nowrap"
             onClick={() => handleOpenPaymentModal(res)}
           >
-            Plaćanja
+            {w.payments}
           </Button>
           )}
           <Button
@@ -463,7 +471,7 @@ export default function Reservations() {
               className="text-xs px-2 py-1 whitespace-nowrap"
               onClick={() => handleDownloadInvoice(res.id)}
             >
-              Faktura
+              {w.invoice}
             </Button>
           )}
           <Button
@@ -472,7 +480,7 @@ export default function Reservations() {
             className="text-xs px-2 py-1 whitespace-nowrap text-red-600 hover:text-red-700"
             onClick={() => handleDelete(res)}
           >
-            Obriši
+            {w.delete}
           </Button>
         </div>
       )
@@ -480,37 +488,37 @@ export default function Reservations() {
   ];
 
   const statusOptions = [
-    { value: "pending", label: "Na čekanju" },
-    { value: "confirmed", label: "Potvrđeno" },
-    { value: "completed", label: "Završeno" },
-    { value: "cancelled", label: "Otkazano" },
+    { value: "pending", label: w.pending },
+    { value: "confirmed", label: w.confirmed },
+    { value: "completed", label: w.completed },
+    { value: "cancelled", label: w.cancelled },
   ];
 
-  if (!authLoading && !user) return <div className="p-6"><EmptyState title="Auth Required" description="Please sign in" /></div>;
+  if (!authLoading && !user) return <div className="p-6"><EmptyState title={w.authRequired} description={w.authHint} /></div>;
 
   return (
     <>
-      <PageMeta title="Reservations | Travline" description="Manage reservations and payments" />
+      <PageMeta title={w.metaTitle} description={w.metaDescription} />
 
       <PageToolbar
-        title={contextDeparture ? `Rezervacije · ${contextDeparture.packageName}` : "Rezervacije"}
-        description={contextDeparture ? "Rezervacije i naplata za odabrani polazak" : "Upravljanje rezervacijama i plaćanjima"}
+        title={contextDeparture ? `${w.title} · ${contextDeparture.packageName}` : w.title}
+        description={contextDeparture ? w.contextDescription : w.allDescription}
         searchValue={searchQuery}
         onSearchChange={(val: string) => {
           setSearchQuery(val);
           setCurrentPage(1);
           fetchReservations(1, statusFilter, dateFrom, dateTo, assignedOnly, val);
         }}
-        searchPlaceholder="Traži klijenta ili telefon..."
+        searchPlaceholder={w.search}
         actions={
           <div className="flex gap-2">
             <Button
               onClick={() => setIsCreateOpen(true)}
               disabled={Boolean(departureFilter && (!contextDeparture || contextDeparture.status !== 'active'))}
-              title={contextDeparture && contextDeparture.status !== 'active' ? 'Nove rezervacije su dostupne samo za aktivne polaske' : undefined}
+              title={contextDeparture && contextDeparture.status !== 'active' ? w.activeOnly : undefined}
               className="flex items-center gap-2"
             >
-              {departureFilter && !contextDeparture ? 'Učitavanje polaska…' : contextDeparture && contextDeparture.status !== 'active' ? 'Polazak nije aktivan' : '+ Nova rezervacija'}
+              {departureFilter && !contextDeparture ? w.loadingDeparture : contextDeparture && contextDeparture.status !== 'active' ? w.inactiveDeparture : w.newReservation}
             </Button>
           </div>
         }
@@ -520,18 +528,18 @@ export default function Reservations() {
         <div className="mb-5 flex flex-col gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 dark:border-brand-500/20 dark:bg-brand-500/10 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <div className="text-sm font-semibold text-brand-900 dark:text-brand-100">
-              {contextDeparture?.packageName || 'Rezervacije odabranog polaska'}
+              {contextDeparture?.packageName || w.contextTitle}
             </div>
             <div className="mt-0.5 text-xs text-brand-700 dark:text-brand-300">
-              Prikazuju se samo rezervacije povezane s ovim polaskom.
+              {w.contextHint}
             </div>
           </div>
           <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
             <Button size="sm" variant="outline" onClick={() => navigate(`/departures/${departureFilter}`)}>
-              Nazad na putovanje
+              {w.backToTrip}
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate('/reservations')}>
-              Sve rezervacije
+              {w.allReservations}
             </Button>
           </div>
         </div>
@@ -541,11 +549,12 @@ export default function Reservations() {
       <div className="mb-6 flex flex-wrap gap-4 items-center">
         <div className="w-full sm:w-48">
           <select
+            aria-label={w.status}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-800"
           >
-            <option value="">Svi statusi</option>
+            <option value="">{w.allStatuses}</option>
             {statusOptions.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
@@ -555,6 +564,7 @@ export default function Reservations() {
           <input
             type="date"
             className="rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-800"
+            aria-label={w.from}
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
           />
@@ -562,6 +572,7 @@ export default function Reservations() {
           <input
             type="date"
             className="rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-800"
+            aria-label={w.to}
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
           />
@@ -582,7 +593,7 @@ export default function Reservations() {
               <circle cx="9" cy="7" r="4" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
             </svg>
-            {assignedOnly ? 'Svi klijenti' : 'Moji klijenti'}
+            {assignedOnly ? w.allClients : w.myClients}
           </Button>
         )}
         {(statusFilter || dateFrom || dateTo || assignedOnly) && (
@@ -598,24 +609,24 @@ export default function Reservations() {
               setCurrentPage(1);
             }}
           >
-            Očisti filtere
+            {w.clearFilters}
           </Button>
         )}
       </div>
 
       {selectedIds.size > 0 && (
-        <div className="mb-4 flex items-center gap-3 p-3 bg-brand-50 dark:bg-brand-500/10 rounded-lg border border-brand-200 dark:border-brand-500/20">
+        <div className="mb-4 flex flex-wrap items-center gap-3 p-3 bg-brand-50 dark:bg-brand-500/10 rounded-lg border border-brand-200 dark:border-brand-500/20">
           <span className="text-sm font-medium text-brand-700 dark:text-brand-300">
-            {selectedIds.size} selected
+            {fill(w.selected, { count: selectedIds.size })}
           </span>
-          <div className="flex gap-2 ml-auto">
+          <div className="flex flex-wrap gap-2 ml-auto">
             <Button
               size="sm"
               variant="outline"
               onClick={() => handleBatchStatus("pending")}
               disabled={batchLoading}
             >
-              Na čekanju
+              {w.pending}
             </Button>
             <Button
               size="sm"
@@ -623,7 +634,7 @@ export default function Reservations() {
               onClick={() => handleBatchStatus("confirmed")}
               disabled={batchLoading}
             >
-              Potvrdi
+              {w.confirm}
             </Button>
             <Button
               size="sm"
@@ -631,7 +642,7 @@ export default function Reservations() {
               onClick={() => handleBatchStatus("cancelled")}
               disabled={batchLoading}
             >
-              Otkaži
+              {w.cancel}
             </Button>
             <Button
               size="sm"
@@ -639,7 +650,7 @@ export default function Reservations() {
               onClick={() => handleBatchStatus("completed")}
               disabled={batchLoading}
             >
-              Završi
+              {w.complete}
             </Button>
             <Button
               size="sm"
@@ -648,6 +659,7 @@ export default function Reservations() {
               disabled={batchLoading}
             >
               <CloseIcon className="w-4 h-4" />
+              <span className="sr-only">{w.clearSelection}</span>
             </Button>
           </div>
         </div>
@@ -659,9 +671,9 @@ export default function Reservations() {
         </div>
       ) : reservations.length === 0 ? (
         <EmptyState
-          title="Nema rezervacija"
-          description="Nije pronađena nijedna rezervacija za odabrane filtere."
-          action={(statusFilter || dateFrom || dateTo) ? { label: "Očisti filtere", onClick: () => { setStatusFilter(""); setDateFrom(""); setDateTo(""); } } : undefined}
+          title={w.noReservations}
+          description={w.noReservationsHint}
+          action={(statusFilter || dateFrom || dateTo) ? { label: w.clearFilters, onClick: () => { setStatusFilter(""); setDateFrom(""); setDateTo(""); } } : undefined}
         />
       ) : (
         <>

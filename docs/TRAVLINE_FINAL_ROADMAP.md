@@ -305,16 +305,94 @@ Reservation Detail [PR #156](https://github.com/ismail-alibegovic/NMT-ANALYTICS/
 Integrated #156 validation after #155 main: admin **71 files / 524 tests passed**, lint **0 errors / 51 existing warnings**, and **27 locale browser scenarios passed**, covering Reports, CustomerDetail, New Sale and ReservationDetail together. Production build passed. Required exact-head CI remains the merge gate.
 
 
-### CI correction and verified editor integration — #156/#158
+### I18N-04D — Reservation editor BS/EN and currency display
 
-Editor [#157](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/157) merged independently as `6dbe3c2dbe6d1d5ea895f616dbd1243401574e2a` after all checks passed on `f807dce2ba7edaad84da2bb5ad637cea7cdf7849`, including isolated acceptance [40042221361](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40042221361) (26m14s). It has no functional dependency on the pending Detail translation. Its implementation/evidence remain recorded in its scoped task and PR. Main is authoritative; no Zo runtime verification is implied.
+Current branch `fix/i18n-reservation-editor` was fast-forwarded to verified main `d1c4514` after #155; editor changes were reapplied from their named safety stash without conflict. #156 remains a separate PR, refreshed on main at `e713d4d`; it is not included in this editor source.
 
-#156 acceptance [40041943376](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40041943376) failed after earlier local checks passed. Inspection confirmed `e2e/pilot-mobile-layout.spec.ts` explicitly selects English but still clicks hardcoded Bosnian Documents/Overview tabs. Align those selectors with the English dictionary, retaining all authenticated viewport/theme/navigation checks and assertions. Remote acceptance must confirm the correction; do not mark it passed from code inspection.
+The existing modal now translates labels, status options, dates, accommodation instructions, validation, notifications and stored read errors. Locale changes preserve drafts and do not refetch. Associated field labels use React-generated unique IDs. Fixes confirmed misleading currency labels using already loaded reservation currency: normal EUR amount/accommodation displays no longer say BAM, and canonical `addons_total_at_booking` is labelled in reservation currency instead of the first add-on's currency. Individual add-on rows retain their own currency. Stored money, quote locks, numeric save payloads and mutation order remain unchanged; no FX calculation is introduced. Unknown errors use localized fallback.
 
-#158's Test Admin annotations identify asynchronous recovery assertions in `newSaleInstallmentSchedule.test.tsx`: a notification mock can be observed before React commits the recovery link, and clearAllMocks retains unconsumed once-only responses after a failing test. Await the actual recovery link/disabled button and reset mocks before rebuilding each test's responses. Keep idempotency identity, single API submission, no premature success/close and manual-recovery assertions unchanged. No application behavior, timeouts, retries or gate requirements are changed. Four targeted recovery tests pass in normal and shuffled order; the full 524-test admin suite/build on #158 also passes locally after correction.
+Evidence before integration: existing three accommodation tests passed; all three new locale/error/quote-lock regressions failed before repair and then passed. **29 focused tests passed** including quotation booking and dictionary contract. Lint/build passed. Actual editor browser fixture **8 passed**, BS/EN × light/dark × 390/1440, west-of-UTC date-only departures, live preference event inside the real modal focus trap, draft retention/no refetch, canonical-versus-add-on currency, four quotation-lock cases, exact reservation/accommodation payloads and successful close. All transport is synthetic. Final combined admin/browser checks after integrating #155 are running.
 
-CI logs/artifacts currently redirect to network-denied Azure hosts (`productionresultssa10.blob.core.windows.net`, `productionresultssa16.blob.core.windows.net`). GitHub check annotations remain readable and supplied the unit failure locations. Static inspection found the stale browser selectors; a new exact-head CI run remains necessary to establish all acceptance outcomes. Do not infer that every acceptance failure is explained until it passes.
+Preserved canonical accommodation selection, unique passenger assignment, room capacity/coverage, quoted-booking immutable total, core/accommodation mutation sequence and open-on-failure behavior. No API/schema/auth/RLS/dependency/seed/reset/production/Zo changes. API source remains identical to the fresh build/1,009-test baseline recorded for #156. Existing two-step-save partial-success risk remains a separate Phase 2 functional repair; a localized failure does not claim atomicity.
 
-#156 is now integrating verified #157 main. Dictionaries retain both reservationDetail and reservationEditor namespaces; CI/roadmap overlaps retain all prior verification records and generic locale registration. Combined local checks and exact-head remote CI follow before merge. No API, schema, data or runtime operations are introduced by these test corrections.
+Next: required exact-head CI and isolated acceptance before merge; Reservations list/CreateReservationModal and remaining dictionary/literal inventory remain open. All later phases remain open.
 
-Post-correction integrated #156 verification: lint **0 errors / 51 existing warnings**, **71 files / 527 admin tests passed**, production build passed, and **35 locale browser scenarios passed** (Reports/CustomerDetail/New Sale/Reservation Detail/editor). Authenticated mobile spec discovery lists **12 scenarios**; these are not claimed locally executed. Remote exact-head acceptance must execute them. No migrations or production data actions.
+Final editor validation after integrating #155: **70 files / 523 admin tests passed**, production build passed, and **27 combined locale browser scenarios passed** (Reports, CustomerDetail, New Sale, editor). Lint rerun returns **zero errors / 51 existing warnings** after exporting the isolated fixture component normally. `git diff --check` passed. The eight editor browser cases include mixed line-versus-canonical currencies and exact save payloads; preference events update actual context while preserving the modal focus trap. Required exact-head CI/isolated acceptance remain pending PR gates.
+
+Exact I18N-04D changed files (repository-relative):
+
+- `.github/workflows/ci.yml`
+- `docs/TRAVLINE_FINAL_ROADMAP.md`
+- `docs/operations/final-i18n-inventory.md`
+- `docs/tasks/active/final-i18n-reservation-editor.md`
+- `nmt-analytics-admin/e2e/finance-forms/reservation-editor-locale.html`
+- `nmt-analytics-admin/e2e/finance-forms/reservation-editor-locale.spec.ts`
+- `nmt-analytics-admin/e2e/finance-forms/reservation-editor-locale.tsx`
+- `nmt-analytics-admin/src/components/reservations/EditReservationModal.tsx`
+- `nmt-analytics-admin/src/lib/i18n/bs.ts`
+- `nmt-analytics-admin/src/lib/i18n/en.ts`
+- `nmt-analytics-admin/src/tests/editReservationAccommodationFlow.test.tsx`
+
+
+### I18N-04E — Reservations list and pagination
+
+Current branch `fix/i18n-reservations-list`, from verified main `d1c4514` (#155). Reservation Detail #156 remains separate at `e713d4dd8bf562902c5ae1fc41f3197e8774734b`; editor [#157](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/157) is preserved at `f807dce2ba7edaad84da2bb5ad637cea7cdf7849`. Their required CI is pending at this observation; neither is claimed merged.
+
+The list now translates headings, columns, filter/access/empty/context states, prompts, individual actions, batch outcomes and notifications in BS/EN. Shared Pagination footer/buttons follow the active language, retaining ungrouped integer counts and paging behavior. Each monetary cell now uses its original reservation currency and selected locale instead of default BAM; backend balances, absolute credit display and payment/status codes remain unchanged. Added accessible names for row/all selection, dates, status and clear-selection controls. Live switching preserves selection/filter inputs without refetch. Batch controls wrap at mobile widths after a confirmed overflow in the browser reproducer.
+
+Local evidence so far:
+
+- Four new list regressions failed before repair; **20 focused tests passed** afterward, including full dictionary contract. Cases cover mixed BAM/EUR rows/credit, live switch/no refetch, selected IDs and exact enum batch payload, Agent finance restrictions and page request parameters.
+- Full admin **71 files / 524 tests passed**, lint **0 errors / 51 existing warnings**, production build passed. This source includes #155, but not pending #156/#157 implementation.
+- Actual page browser fixture **8 passed**, BS/EN × light/dark × 390/1440. Exercised row currencies/backend credit, Agent restrictions, selection/date retention/live language switch, exact synthetic batch HTTP payload and page 2 query with retained date. Mobile no-horizontal-overflow assertion failed before the targeted wrapping repair and now passes. Synthetic transport only, not a claim of live tenant authorization.
+- Existing authenticated sale acceptance uses its explicit English New reservation label. Finance acceptance uses its existing English search/payment list controls. No API/database/ledger/refund/idempotency assertions were removed.
+- Combined locale/production checks are being finalized with the generic CI selector. No API, migration, schema, auth/RLS, dependency, seed/reset, production/customer writes or Zo runtime operations. API source is unchanged from the documented fresh build/1,009-test baseline.
+
+Deferred confirmed Phase 2 list defects: status/date changes or filter clearing do not directly refetch; invalidation omits the search query; failed initial reads can display an apparent empty result after a toast. The translation tests verify retained input state and paging parameters, not functioning live filter application or truthful failed-read UI. Repair those behaviors in a focused functional task with failing regressions.
+
+Next: required exact-head CI/isolated acceptance, integrate verified pending main without discarding their tests, then remaining Phase 1 screens/shared error states. The legacy CreateReservationModal should first be classified by actual route/import usage; do not rebuild an unused alternative sale workflow. Phase 1 and all later phases remain open.
+
+Legacy classification: `rg -n CreateReservationModal nmt-analytics-admin/src --glob !**/tests/**` found only its own interface/function definition, with no runtime import or route reference. Keep it preserved as unreachable legacy code; the active creation flow is NewSaleWizard, already addressed in #155. Do not implement a second creation workflow.
+
+Final I18N-04E verification: **20 focused tests**, **71 files / 524 full admin tests**, lint **zero errors / 51 existing warnings**, production build and **27 combined locale browser scenarios passed** using CI's generic `locale.spec.ts` selector. Four original locale regressions failed before repair; all now pass. No API source changed, and the documented fresh build/1,009-test baseline remains unchanged. Required exact-head CI/isolated acceptance remains the merge gate. `git diff --check` passed.
+
+Exact I18N-04E changed files (repository-relative):
+
+- `.github/workflows/ci.yml`
+- `docs/TRAVLINE_FINAL_ROADMAP.md`
+- `docs/operations/final-i18n-inventory.md`
+- `docs/tasks/active/final-i18n-reservations-list.md`
+- `nmt-analytics-admin/e2e/finance-forms/reservations-list-locale.html`
+- `nmt-analytics-admin/e2e/finance-forms/reservations-list-locale.spec.ts`
+- `nmt-analytics-admin/e2e/finance-forms/reservations-list-locale.tsx`
+- `nmt-analytics-admin/e2e/pilot-browser-sale.spec.ts`
+- `nmt-analytics-admin/e2e/pilot-finance-audit.spec.ts`
+- `nmt-analytics-admin/src/components/ui/DataTable.tsx`
+- `nmt-analytics-admin/src/lib/i18n/bs.ts`
+- `nmt-analytics-admin/src/lib/i18n/en.ts`
+- `nmt-analytics-admin/src/pages/Reservations.tsx`
+- `nmt-analytics-admin/src/tests/reservationsListLocale.test.tsx`
+
+
+### CI correction — #158 and verified editor main
+
+Editor #157 merged independently as `6dbe3c2dbe6d1d5ea895f616dbd1243401574e2a` after all required checks passed on `f807dce2ba7edaad84da2bb5ad637cea7cdf7849`, including isolated acceptance [40042221361](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40042221361), 26m14s success. This supersedes prior pending observations. #158 now integrates that verified main; dictionaries preserve both reservationList/pagination and reservationEditor. No implementation was discarded to resolve overlap. #156 remains independently open, corrected and refreshed on this main at `5495c78`.
+
+#158 original Test Admin [40043078914](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40043078914) failed in two existing New Sale recovery assertions, despite original local passes. Its original isolated acceptance [40043078907](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40043078907) passed (23m58s). GitHub annotations identify an immediate recovery-link lookup after a toast callback; the following test can inherit unused once-only mock responses because clearAllMocks clears calls rather than implementations. Reset mocks before each setup and await actual recovery link/disabled-button state. Preserve all idempotency/single-submit/no-premature-success/manual-recovery assertions; no product logic, timeouts, retries or test gates change. Four recovery tests pass in normal and shuffled order; the 524-test pre-integration admin suite/build also passed. Combined validation on verified #157 main follows before publishing the correction.
+
+#156's failed acceptance also exposed a confirmed stale test: the mobile audit explicitly selects English but clicks Bosnian Documents/Overview. It now uses English dictionary selectors while retaining authenticated navigation/theme/overflow assertions. New exact-head CI must establish the complete result; do not claim all acceptance failures explained until green.
+
+Logs/artifacts redirect to network-denied Azure hosts; check annotations remain readable. No credentials were requested or exposed. No API, schema, data or Zo runtime changes. Phase 1 remains open, and #156/#158 require fresh exact-head CI before merge.
+
+Post-correction #158 integrated-main checks: lint **0 errors / 51 existing warnings**, **71 files / 527 admin tests passed**, production build passed, and **35 locale browser scenarios passed** (Reports/CustomerDetail/New Sale/editor/list). A temporary permission change blocked local sockets during the first browser attempt; network access was restored through the environment permission tool and this final browser run actually executed. Earlier blocked attempts are not counted as passes. Dictionaries retain both list/pagination and editor namespaces; no source conflict markers remain. API source/migrations/customer data unchanged. Required fresh exact-head GitHub checks remain pending.
+
+
+### Integration checkpoint — Detail merged; final list integration
+
+[#156](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/156) merged as `60355ff7af0b5d97ceab4902650222d9b48539cb` after all checks passed on `5495c78edce3879dc9b6f70b4b47e16704bfc64e`: CI [40080314656](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40080314656), isolated acceptance [40080314705](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40080314705), **23m46s success**, UI audit and preview. This confirms the corrected mobile language selectors and retained full acceptance gate. Previous failed/pending observations are historical. No Zo runtime certification is implied.
+
+#158 also passed all checks on `cef34e7f3d0b71a681b41647908d73b157ed6a8f`: CI [40080685328](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40080685328), isolated acceptance [40080685229](https://github.com/ismail-alibegovic/NMT-ANALYTICS/actions/runs/40080685229), **18m27s success**. Thus the corrected recovery assertions pass in CI with all business assertions intact. It now integrates latest main after #156 before its own merge. Dictionary conflicts retain reservationList/pagination, reservationDetail and reservationEditor; finance acceptance retains translated controls from both branches; all browser fixtures remain registered. Combined local checks and fresh exact-head remote CI remain required on this integration.
+
+PRs #151–#157 are merged. Current active source is `fix/i18n-reservations-list` / #158. The roadmap retains exact files/evidence and deferred defects for every scoped slice. Phase 1 remains open after this list workflow; remaining candidates include settings/integrations, operational screens and shared error/empty states. No production/customer data or Zo runtime action was performed.
+
+Final all-sales integration for #158: lint **0 errors / 51 existing warnings**, **72 files / 531 admin tests passed**, production build passed, and **43 locale browser scenarios passed** across Reports, CustomerDetail, New Sale, ReservationDetail, editor and list together. All namespaces and prior regression suites are retained. API remains unchanged from its verified 1,009-test baseline. Publish this integration and require fresh exact-head CI/isolated acceptance before merging #158.
