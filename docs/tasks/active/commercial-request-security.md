@@ -1,6 +1,6 @@
 # Commercial P0 — Compatible dependency security patches
 
-Status: ACTIVE. Signup PR #164 merged after all checks green as e88ccb29179b5cd976eb4177bc9eac09afe954f4; start from that verified main. Branch fix/p0-request-dependency-security. Preserve the six-priority commercial roadmap and existing architecture/providers.
+Status: MERGED #165 as 5260acbf39adf702ab53aac18cbc965e6da1a9f7 after all required checks passed. Signup PR #164 merged after all checks green as e88ccb29179b5cd976eb4177bc9eac09afe954f4; start from that verified main. Branch fix/p0-request-dependency-security. Preserve the six-priority commercial roadmap and existing architecture/providers.
 
 Confirmed registry findings: API production body-parser 2.3.0 GHSA-27r3-jxmh-p828, multer 2.4.0 GHSA-q7qp-rjg7-q26m, zod 4.2.1 GHSA-mrhx-c7xc-m3w5; admin zod 4.2.1. These are high-severity reports, not claimed exploitation. Source behavior reproduced with a bounded 1,000-entry proxy array: the old constrained Zod parser traverses all entries even when max=10; patched 4.6.7 rejects before reading any entry.
 
@@ -15,3 +15,5 @@ Prepared-source verification: 1,038 API tests / 117 files and build passed; admi
 ## Working-branch verification
 
 Clean npm ci on API/admin completed from the reviewed locks. API build and **1,039 tests / 117 files**, strict/serverless and NodeNext checks pass. Admin **553 tests / 73 files**, lint **0 errors / 50 existing warnings**, and build pass. Fresh complete dependency audits (including dev dependencies) report **zero advisories** for both; production audits are also zero. CI now enforces production high/critical audits in the existing API/admin build jobs. Only body-parser/multer/zod package records (and direct range metadata) changed; unrelated resolutions/integrities remain unchanged. No new schema migration or hosted/provider action. Exact-head browser/Docker/migration/isolated acceptance remains required before merge.
+
+Final head 247e9642b65df096e363ba97e6270bf561190637 passed CI 40211119708, isolated acceptance 40211119659, UI audit 40211119666, shared browser/Docker/preview checks. Both audit gates passed. Main synchronized before the organization-controls branch. No hosted operation.

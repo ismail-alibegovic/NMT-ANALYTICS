@@ -4,9 +4,10 @@ Date: 2026-10-25. **NO-GO**. Scope: real agency daily operations, not a competit
 
 | Category | Evidence / limitation | Decision |
 | --- | --- | --- |
-| Completed merged code | Main e88ccb29179b5cd976eb4177bc9eac09afe954f4; PRs #151–#164 merged. Reservation transactional/resource/financial guards, Node 24 and prior BS/EN sales work retained. #163 exact-head API/admin/migration/authenticated CI passed. | Reusable baseline, not full commercial acceptance |
+| Completed merged code | Main 5260acbf39adf702ab53aac18cbc965e6da1a9f7; PRs #151–#165 merged. Reservation transactional/resource/financial guards, Node 24 and prior BS/EN sales work retained. #163 exact-head API/admin/migration/authenticated CI passed. | Reusable baseline, not full commercial acceptance |
 | New critical repair | Public signup service-role tenant rename and swallowed bootstrap failures reproduced. API/INSERT-trigger repair merged #164 after CI 40209105582 and isolated acceptance 40209105574 passed. Actual hosted rollout remains separately unverified. | Application repair verified; hosted verification pending |
-| Dependency security | Fresh API production audit: 3 high (body-parser/multer/zod); admin: 1 high (zod), 0 critical in either. Compatible patch and resource/startup regression batch is active; prepared audits are zero, final-head verification still required. | OPEN P0 security gate |
+| Dependency security | Body-parser/multer/Zod repaired in merged #165; API/admin complete and production audits report zero advisories, with enforced CI high/critical production gates. | Dependency patch verified at #165 head |
+| Organization controls | Invalid settings/partial schema saves, tenant self-awarded entitlements and unsafe failed-read editing reproduced; current repair has local HTTP/UI/browser evidence but final-head CI/merge remains pending. | OPEN P0/P1 gate |
 | Infrastructure | No current commercial destination/configuration/catalog parity, operational monitoring receipt, hosted backup/PITR/object restore or measured RPO/RTO verified. Isolated replay/recovery is not hosted certification. | NO-GO |
 | Existing business workflows | Representative synthetic acceptance exists; full module/state/role coverage, provider-disabled core finance, administration and first-agency/staff lifecycle still require recorded outcomes. | INCOMPLETE P1/P5 |
 | Language / usability | Completed sales/locale changes retained; remaining grouped BS/EN inventory, responsive/accessibility/theme matrix unfinished. | INCOMPLETE P2/P3 |

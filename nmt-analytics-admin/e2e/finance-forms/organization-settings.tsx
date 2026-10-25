@@ -1,0 +1,12 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { HelmetProvider } from 'react-helmet-async';
+import { BrowserRouter } from 'react-router';
+import Settings from '../../src/pages/admin/Settings';
+import { ThemeProvider } from '../../src/context/ThemeContext';
+import { I18nProvider } from '../../src/lib/i18n/context';
+import { setFixtureRole } from './app-context';
+import '../../src/index.css';
+if (import.meta.env.MODE !== 'form-contract') throw new Error('Isolated form test server required');
+setFixtureRole(new URLSearchParams(location.search).get('role') === 'super_admin' ? 'super_admin' : 'director');
+createRoot(document.getElementById('root')!).render(<StrictMode><HelmetProvider><I18nProvider><BrowserRouter><ThemeProvider><Settings/></ThemeProvider></BrowserRouter></I18nProvider></HelmetProvider></StrictMode>);
