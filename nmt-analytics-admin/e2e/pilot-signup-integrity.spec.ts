@@ -70,6 +70,30 @@ test('commercial signup creates isolated same-name agencies and metadata cannot 
   expect(saved.email).toBeNull(); expect(saved.bank_account).toBeNull();
   const reloadedSettings = await request.get(`${api}/api/settings`, { headers: { Authorization: `Bearer ${tokens[0]}` } });
   expect(reloadedSettings.status()).toBe(200); expect((await reloadedSettings.json()).invoice_footer).toBe('Synthetic agency footer');
+  // These are fresh isolated synthetic agencies, never customer templates.
+  const templateHeaders = { Authorization: `Bearer ${tokens[0]}` };
+  const templateBase = `${api}/api/onboarding/templates`;
+  const marker = randomUUID();
+  const bulk = await request.put(templateBase, { headers: templateHeaders, data: {
+    pdf_template_config: { contract: { footerText: marker } },
+  } });
+  expect(bulk.status()).toBe(200);
+  const changed = await Promise.all(['invoice', 'voucher'].map(docType => request.put(`${templateBase}/${docType}`, {
+    headers: templateHeaders, data: { footerText: `${marker}-${docType}` },
+  })));
+  const reload = await request.get(templateBase, { headers: templateHeaders });
+  expect(reload.status()).toBe(200); const templates = (await reload.json()).pdf_template_config;
+  expect(templates.contract.footerText).toBe(marker);
+  for (const [index, response] of changed.entries()) {
+    expect([200, 409]).toContain(response.status());
+    const docType = ['invoice', 'voucher'][index];
+    if (response.status() === 200) expect(templates[docType].footerText).toBe(`${marker}-${docType}`);
+    else expect((await request.put(`${templateBase}/${docType}`, { headers: templateHeaders,
+      data: { footerText: `${marker}-${docType}` } })).status()).toBe(200);
+  }
+  const foreignTemplates = await request.get(templateBase, { headers: { Authorization: `Bearer ${tokens[1]}` } });
+  expect(foreignTemplates.status()).toBe(200);
+  expect(JSON.stringify(await foreignTemplates.json())).not.toContain(marker);
   const update = await request.put(`${auth}/auth/v1/user`, { headers: { ...headers, Authorization: `Bearer ${tokens[0]}` },
     data: { data: { org_name: 'Unauthorized rename', org_id: contexts[1].org.id, role: 'super_admin' } } });
   expect(update.status()).toBe(200);

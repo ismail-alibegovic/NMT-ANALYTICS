@@ -201,26 +201,24 @@ router.put('/templates', async (req: Request, res: Response) => {
   const orgId = req.orgId!;
 
   try {
-    const input = req.body?.pdf_template_config || req.body;
-    if (!input || typeof input !== 'object') {
+    const input = req.body && Object.prototype.hasOwnProperty.call(req.body, 'pdf_template_config')
+      ? req.body.pdf_template_config : req.body;
+    if (!input || typeof input !== 'object' || Array.isArray(input)
+      || Object.keys(input).length === 0
+      || Object.entries(input).some(([key, value]) => !isDocType(key) || !value || typeof value !== 'object' || Array.isArray(value))) {
       return apiError(res, 400, "INVALID_INPUT", "Expected pdf_template_config object");
     }
 
     const configs = mergeWithDefaults(input);
 
-    const { error: updateErr } = await supabaseAdmin
+    // The org_id primary key makes insert/update atomic. Omitted branding
+    // columns are preserved on conflict, including the logo and legal identity.
+    const { data: saved, error: saveErr } = await supabaseAdmin
       .from('org_branding')
-      .update({ pdf_template_config: configs, updated_at: new Date().toISOString() })
-      .eq('org_id', orgId);
-
-    if (updateErr) {
-      const { error: insertErr } = await supabaseAdmin
-        .from('org_branding')
-        .insert({ org_id: orgId, pdf_template_config: configs });
-      if (insertErr) {
-        return apiError(res, 500, "INTERNAL_ERROR", "Failed to save templates");
-      }
-    }
+      .upsert({ org_id: orgId, pdf_template_config: configs, updated_at: new Date().toISOString() }, { onConflict: 'org_id' })
+      .select('org_id')
+      .single();
+    if (saveErr || !saved) return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to save templates');
 
     await logAuditEntry({
       org_id: orgId,
@@ -287,31 +285,33 @@ router.put('/templates/:docType', async (req: Request, res: Response) => {
       .from('org_branding')
       .select('pdf_template_config')
       .eq('org_id', orgId)
-      .single();
+      .maybeSingle();
 
     if (fetchErr && fetchErr.code !== 'PGRST116') {
       return apiError(res, 500, "INTERNAL_ERROR", "Failed to fetch existing config");
     }
 
     const validated = validateDocTemplateConfig(docType, req.body);
-    const allConfigs = ((existing?.pdf_template_config as any) || {});
-    allConfigs[docType] = validated;
+    const previous = existing?.pdf_template_config ?? null;
+    const allConfigs = { ...(previous as Record<string, unknown> || {}), [docType]: validated };
+    const payload = { pdf_template_config: allConfigs, updated_at: new Date().toISOString() };
 
-    const { error: updateErr } = await supabaseAdmin
-      .from('org_branding')
-      .update({ pdf_template_config: allConfigs, updated_at: new Date().toISOString() })
-      .eq('org_id', orgId);
-
-    if (updateErr) {
-      // Try insert if no row exists
-      const { error: insertErr } = await supabaseAdmin
-        .from('org_branding')
-        .insert({ org_id: orgId, pdf_template_config: allConfigs });
-
-      if (insertErr) {
-        return apiError(res, 500, "INTERNAL_ERROR", "Failed to save template");
-      }
+    // Compare the entire previously read JSON: a concurrent save of another
+    // document must never disappear in this read/modify/write operation.
+    let saved;
+    if (existing) {
+      let update = supabaseAdmin.from('org_branding').update(payload).eq('org_id', orgId);
+      update = previous === null ? update.is('pdf_template_config', null)
+        : update.eq('pdf_template_config', JSON.stringify(previous));
+      saved = await update.select('org_id').maybeSingle();
+    } else {
+      saved = await supabaseAdmin.from('org_branding')
+        .insert({ org_id: orgId, ...payload }).select('org_id').single();
     }
+    if (saved.error?.code === '23505' || (!saved.error && !saved.data)) {
+      return apiError(res, 409, 'CONFLICT', 'Templates changed. Reload before saving.');
+    }
+    if (saved.error) return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to save template');
 
     await logAuditEntry({
       org_id: orgId,

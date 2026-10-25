@@ -32,6 +32,10 @@ export default function PdfTemplateEditor() {
   const [activeTab, setActiveTab] = useState<DocType>("invoice");
   const [configs, setConfigs] = useState<TemplateConfig>(() => buildDefaultTemplateConfig());
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const readInFlight = useRef(false);
+  const saveInFlight = useRef(false);
+  const draftVersion = useRef(0);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState<Set<DocType>>(new Set());
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -40,19 +44,24 @@ export default function PdfTemplateEditor() {
   const activeDraftRef = useRef<number>(0);
 
   const fetchConfigs = useCallback(async () => {
+    if (readInFlight.current) return;
+    readInFlight.current = true;
+    setLoading(true); setLoadError(false);
     try {
       const { data } = await api.get("/onboarding/templates");
       if (data?.pdf_template_config) {
         const parsed = typeof data.pdf_template_config === "string"
           ? JSON.parse(data.pdf_template_config)
           : data.pdf_template_config;
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Invalid template response");
         // mergeWithDefaults fills any missing blocks and drops unknown keys,
         // so this UI cannot store a shape the backend will reject.
         setConfigs(mergeWithDefaults(parsed));
-      }
+      } else throw new Error("Missing template response");
     } catch {
-      // defaults are fine
+      setLoadError(true);
     } finally {
+      readInFlight.current = false;
       setLoading(false);
     }
   }, []);
@@ -62,6 +71,7 @@ export default function PdfTemplateEditor() {
   }, [fetchConfigs]);
 
   const mutateActive = (updater: (cfg: DocTemplateConfig) => DocTemplateConfig) => {
+    draftVersion.current++;
     setConfigs((prev) => ({ ...prev, [activeTab]: updater(prev[activeTab]) }));
     setDirty((prev) => new Set(prev).add(activeTab));
   };
@@ -107,16 +117,20 @@ export default function PdfTemplateEditor() {
   };
 
   const handleSave = async () => {
+    if (loading || loadError || saveInFlight.current) return;
+    saveInFlight.current = true;
+    const savedVersion = draftVersion.current;
     setSaving(true);
     try {
       await api.put("/onboarding/templates", {
         pdf_template_config: configs,
       });
       success(t.settings.templateSaved);
-      setDirty(new Set());
-    } catch (err: any) {
-      error(err?.message || t?.settings?.templateError || "Error");
+      if (savedVersion === draftVersion.current) setDirty(new Set());
+    } catch {
+      error(t.settings.templateError);
     } finally {
+      saveInFlight.current = false;
       setSaving(false);
     }
   };
@@ -134,8 +148,8 @@ export default function PdfTemplateEditor() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
       setPreviewUrl(url);
-    } catch (err: any) {
-      error(err?.message || "Preview failed");
+    } catch {
+      if (myRun === activeDraftRef.current) error(t.settings.templatePreviewError);
     } finally {
       if (myRun === activeDraftRef.current) setPreviewLoading(false);
     }
@@ -149,6 +163,7 @@ export default function PdfTemplateEditor() {
   }, [previewUrl]);
 
   const handleReset = () => {
+    draftVersion.current++;
     const defaults = buildDefaultTemplateConfig();
     setConfigs((prev) => ({ ...prev, [activeTab]: defaults[activeTab] }));
     setDirty((prev) => new Set(prev).add(activeTab));
@@ -164,6 +179,15 @@ export default function PdfTemplateEditor() {
       </div>
     );
   }
+
+  if (loadError) return (
+    <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+      <p role="alert" className="mb-4 text-gray-900 dark:text-white">{t.settings.templateLoadError}</p>
+      <button type="button" onClick={fetchConfigs} className="rounded-lg bg-brand-500 px-4 py-2 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
+        {t.settings.templateLoadRetry}
+      </button>
+    </div>
+  );
 
   return (
     <>

@@ -967,6 +967,9 @@ export const en = {
     deleteConfirm: 'Are you sure you want to delete this payment?',
   },
   settings: {
+    templateLoadError: 'Document templates could not be loaded. Retry before making changes.',
+    templateLoadRetry: 'Retry loading templates',
+    templatePreviewError: 'Could not preview the template. Please try again.',
     invalidOrganizationSettings: "Check the organization name, currency, timezone and contact details.",
     organizationMigrationRequired: "The service must be updated before these settings can be saved. Contact the platform administrator.",
     organizationSlugConflict: "This organization identifier is already in use. Choose another.",
