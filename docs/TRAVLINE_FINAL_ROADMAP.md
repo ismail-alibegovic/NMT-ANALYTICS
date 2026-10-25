@@ -116,3 +116,5 @@ Merge a0c84af4e59bfb85b4b3c97fb10ddd0e36d1b669; final head 4d9b2d3fded45b90f277e
 Next hotel read batch reproduces two failures on that main, repairs counted directory and direct identity reads, and rejects false empty/not-found states after read failure. Twelve actual browser cases cover BS/EN × light/dark × 390/768/1440. Remaining inventory mutation defects stay explicit release blockers and will not be masked by corrected presentation.
 
 Hotel working evidence: full API 1,077/120, admin 567/75; builds/strict/NodeNext and lint (0 errors, 50 existing warnings) pass. Six API, six client and 12 BS/EN/theme/viewport browser contracts pass. Real Auth oldest-record/tenant/directory acceptance is wired; final-head CI/merge remains required.
+
+Hotel CI checkpoint: first 7d94458 authenticated acceptance failed in run 40244512466 after fixture/browser/security prerequisites passed. Required merge is held. Redirected log retrieval is Forbidden; sanitized JUnit-to-check-run annotations added with three redaction/escaping regressions to diagnose the exact failure. No acceptance assertion is weakened. Full final-head rerun required.

@@ -215,6 +215,12 @@ jobs:
           PLAYWRIGHT_JUNIT_OUTPUT_FILE: ${{ github.workspace }}/acceptance-evidence/playwright-results.xml
         run: npm run test:e2e
 
+      - name: Publish sanitized authenticated failure annotations
+        if: always()
+        run: |
+          node --test scripts/report-playwright-failures.test.mjs
+          node scripts/report-playwright-failures.mjs "$ACCEPTANCE_EVIDENCE_DIR/playwright-results.xml"
+
       - name: Verify waiver consent database invariants
         run: |
           psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
