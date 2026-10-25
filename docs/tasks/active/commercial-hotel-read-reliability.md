@@ -1,0 +1,15 @@
+# Commercial P1 — Hotel read reliability
+
+Status: ACTIVE, sole implementation spec. Branch fix/commercial-hotel-read-reliability from verified main a0c84af (#167).
+
+Confirmed baseline: API GET /hotels reports total=0 for 12 rows; no GET /hotels/:id exists. HotelDetail searches the default first ten hotels, making later existing hotels false not-found. Directory reads only first page, while room/package/departure read errors become empty arrays. Two isolated API regressions reproduced before repair.
+
+Scope: exact list count and deterministic ordering, scoped identity detail GET, preserve array-returning client contract while loading all counted pages for existing tables/selectors. No silent truncation on a failed/inconsistent page. HotelDetail fetches authoritative identity, distinguishes 404 from failed reads, and offers localized retry; failed dependent reads cannot claim empty inventory. Directory distinguishes failed reads from empty results and retries. Guard stale in-flight responses when route/auth/locale changes. Preserve forms/roles/deep links. Reuse existing API-first components. No migration or hosted/customer writes.
+
+Acceptance: positive >10 record list and later-identity read, missing/foreign IDs and denied roles, DB failure; client multi-page normalization and interrupted pagination rejection; UI transient primary/dependent failures and retry in BS/EN, light/dark and mobile/tablet/desktop. Actual isolated Auth/browser acceptance for the workflow, full applicable suites/builds/lint/strict and exact-head required CI before merge.
+
+Related inventory mutations are separately recorded blockers, not silently repaired here: hotel creation swallows room insertion errors and guesses inconsistent room totals; room creation conflates passenger capacity and stock quantity. Existing allocation nonnegative/capacity/price constraints were verified in the actual 119-migration disposable catalog and must not be duplicated. Define a connected safe inventory mutation batch with regression/transaction evidence next; never rewrite customer room counts. P2/P3 remaining hotel literals/locale/accessibility are tracked separately.
+
+## Working verification
+
+Two prior-code failures reproduced. Six API contracts cover exact counts, owned/missing/foreign identity reads, invalid-role denial and safe database failure; six client contracts cover 205 records across pages, explicit limits, interrupted/inconsistent directory and identity normalization. Full API **1,077 tests / 120 files** and admin **567 / 75** passed. API/admin builds, strict/serverless/NodeNext and lint passed (0 errors / 50 existing warnings). **12 actual browser cases** pass across BS/EN × light/dark × 390/768/1440 with retry after directory/dependent failures and deep identity success; mobile screenshot reviewed. New real Auth test creates only synthetic zero-stock hotels, verifies oldest record outside first ten, cross-tenant denial, direct detail and complete directory browser reads; requires final-head isolated CI. No migration, hosted operation or provider activation.

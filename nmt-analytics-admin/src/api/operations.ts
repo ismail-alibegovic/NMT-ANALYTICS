@@ -197,12 +197,32 @@ function normalizeHotel(row: any): Hotel {
 }
 
 export async function getHotels(params?: { search?: string; limit?: number }): Promise<Hotel[]> {
-  const query = new URLSearchParams();
-  if (params?.search) query.set('search', params.search);
-  if (params?.limit) query.set('limit', String(params.limit));
-  const queryString = query.toString() ? `?${query.toString()}` : '';
-  const { data } = await get<{ data: Hotel[] }>(`/hotels${queryString}`);
-  return (data.data || []).map((row: any) => normalizeHotel(row));
+  const pageSize = Math.min(params?.limit || 100, 200);
+  const maximum = params?.limit || Infinity;
+  const hotels: Hotel[] = [];
+  const seen = new Set<string>();
+  let expectedTotal: number | undefined;
+  for (let page = 1; ; page++) {
+    const query = new URLSearchParams({ page: String(page), limit: String(pageSize) });
+    if (params?.search) query.set('search', params.search);
+    const { data } = await get<{ data: Hotel[]; total: number }>(`/hotels?${query}`);
+    if (!Array.isArray(data?.data) || !Number.isSafeInteger(data.total) || data.total < 0
+      || hotels.length + data.data.length > data.total
+      || (expectedTotal !== undefined && data.total !== expectedTotal)) throw new Error('Incomplete hotel directory');
+    expectedTotal = data.total;
+    for (const row of data.data) {
+      if (seen.has(row.id)) throw new Error('Hotel directory changed while loading');
+      seen.add(row.id); hotels.push(normalizeHotel(row));
+      if (hotels.length >= maximum) return hotels;
+    }
+    if (hotels.length >= expectedTotal) return hotels;
+    if (data.data.length === 0) throw new Error('Incomplete hotel directory');
+  }
+}
+
+export async function getHotel(id: string): Promise<Hotel> {
+  const { data } = await get<Hotel>(`/hotels/${id}`);
+  return normalizeHotel(data);
 }
 
 export async function createHotel(payload: {

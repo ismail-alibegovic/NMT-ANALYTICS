@@ -1704,6 +1704,8 @@ export const en = {
       search: 'Search receipts...', linkedTo: 'Linked to',
     },
     hotels: {
+      loadError: 'Hotel data could not be loaded. Retry to confirm current rooms and allocations.',
+      retryLoad: 'Retry loading hotels',
       title: 'Hotels', description: 'Hotel and accommodation inventory',
       add: 'Add Hotel', subtitle: 'Manage hotel inventory, room types, and allocation per departure',
       totalRooms: 'Total rooms', roomTypes: 'Room Types', contact: 'Contact',

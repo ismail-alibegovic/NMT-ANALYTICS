@@ -4,7 +4,7 @@ Date: 2026-10-25. **NO-GO**. Scope: real agency daily operations, not a competit
 
 | Category | Evidence / limitation | Decision |
 | --- | --- | --- |
-| Completed merged code | Main a62122637b56208964d211d8f7e54c2f0845925c; PRs #151–#166 merged. Reservation transactional/resource/financial guards, Node 24 and prior BS/EN sales work retained. #163 exact-head API/admin/migration/authenticated CI passed. | Reusable baseline, not full commercial acceptance |
+| Completed merged code | Main a0c84af4e59bfb85b4b3c97fb10ddd0e36d1b669; PRs #151–#167 merged. Reservation transactional/resource/financial guards, Node 24 and prior BS/EN sales work retained. #163 exact-head API/admin/migration/authenticated CI passed. | Reusable baseline, not full commercial acceptance |
 | New critical repair | Public signup service-role tenant rename and swallowed bootstrap failures reproduced. API/INSERT-trigger repair merged #164 after CI 40209105582 and isolated acceptance 40209105574 passed. Actual hosted rollout remains separately unverified. | Application repair verified; hosted verification pending |
 | Dependency security | Body-parser/multer/Zod repaired in merged #165; API/admin complete and production audits report zero advisories, with enforced CI high/critical production gates. | Dependency patch verified at #165 head |
 | Organization controls | Invalid settings/partial schema saves, tenant self-awarded entitlements and unsafe failed-read editing reproduced; repair merged #166 after CI 40215344251 and isolated acceptance 40215344250; expanded real Auth/settings persistence passed. | Application boundary verified; P5 operator workflow remains open |
@@ -17,4 +17,4 @@ Operational requirements: named host/operator and approved exact environment; mi
 
 No real production/customer writes, hosted migrations, provider activation or secrets are part of this work. A future GO must link the immutable merged SHA and actual target evidence, list intentionally excluded integrations and remaining non-critical limitations, and name who accepts the operational readiness decision.
 
-Document template read/persistence/concurrency defects are the active P1 repair. Reused executed business acceptance and remaining gaps are mapped in [commercial workflow coverage](commercial-workflow-coverage.md); route renders are not promoted to workflow completion.
+Document template read/persistence/single-document concurrency repairs merged #167 after all exact-head CI, isolated Auth and browser checks. Hotel directory/detail read reliability is active; room stock semantics and swallowed dependent creation failures remain confirmed P1 integrity blockers. Reused executed business acceptance and remaining gaps are mapped in [commercial workflow coverage](commercial-workflow-coverage.md); route renders are not promoted to workflow completion.

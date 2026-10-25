@@ -1,0 +1,15 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { HelmetProvider } from 'react-helmet-async';
+import { MemoryRouter, Route, Routes } from 'react-router';
+import Hotels from '../../src/pages/operations/Hotels';
+import HotelDetail from '../../src/pages/HotelDetail';
+import { ThemeProvider } from '../../src/context/ThemeContext';
+import { ToastProvider } from '../../src/context/ToastContext';
+import { I18nProvider } from '../../src/lib/i18n/context';
+import { setFixtureRole } from './app-context';
+import '../../src/index.css';
+if(import.meta.env.MODE!=='form-contract')throw Error('Isolated test server required');
+setFixtureRole('manager');
+const detail=new URLSearchParams(location.search).get('detail');
+createRoot(document.getElementById('root')!).render(<StrictMode><HelmetProvider><I18nProvider><MemoryRouter initialEntries={[detail?'/operations/hotels/'+detail:'/operations/hotels']}><ThemeProvider><ToastProvider><Routes><Route path="/operations/hotels" element={<Hotels/>}/><Route path="/operations/hotels/:id" element={<HotelDetail/>}/></Routes></ToastProvider></ThemeProvider></MemoryRouter></I18nProvider></HelmetProvider></StrictMode>);
