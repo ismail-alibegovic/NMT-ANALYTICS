@@ -967,6 +967,9 @@ export const bs: Translations = {
     deleteConfirm: 'Jeste li sigurni da želite obrisati ovu uplatu?',
   },
   settings: {
+    templateLoadError: 'Predlošci dokumenata nisu učitani. Pokušajte ponovo prije izmjena.',
+    templateLoadRetry: 'Ponovo učitaj predloške',
+    templatePreviewError: 'Pregled predloška nije uspio. Pokušajte ponovo.',
     invalidOrganizationSettings: "Provjerite naziv organizacije, valutu, vremensku zonu i kontakt podatke.",
     organizationMigrationRequired: "Uslugu treba ažurirati prije spremanja ovih postavki. Obratite se administratoru platforme.",
     organizationSlugConflict: "Oznaka organizacije je već u upotrebi. Odaberite drugu.",

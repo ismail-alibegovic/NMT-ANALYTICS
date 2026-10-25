@@ -1,10 +1,11 @@
 # Commercial release task registry
 
-Updated 2026-10-25. Only **commercial-organization-controls.md** is active for implementation. The user explicitly authorized this production reset; do not ask them to choose a legacy task. The [master roadmap](../../TRAVLINE_FINAL_ROADMAP.md) owns priorities, acceptance and GO/NO-GO evidence. Preserve prior source/tests; historical files do not grant operational approval. Competition-specific private demo work is deferred and is not an onboarding solution.
+Updated 2026-10-25. Only **commercial-document-template-integrity.md** is active for implementation. The user explicitly authorized this production reset; do not ask them to choose a legacy task. The [master roadmap](../../TRAVLINE_FINAL_ROADMAP.md) owns priorities, acceptance and GO/NO-GO evidence. Preserve prior source/tests; historical files do not grant operational approval. Competition-specific private demo work is deferred and is not an onboarding solution.
 
 | Specification | Commercial disposition |
 | --- | --- |
-| [commercial-organization-controls.md](commercial-organization-controls.md) | ACTIVE — tenant configuration integrity and platform entitlements |
+| [commercial-document-template-integrity.md](commercial-document-template-integrity.md) | ACTIVE — existing document editor read/save integrity |
+| [commercial-organization-controls.md](commercial-organization-controls.md) | MERGED #166 — configuration/entitlement boundaries, isolated Auth verified |
 | [commercial-request-security.md](commercial-request-security.md) | MERGED #165 — dependency/resource/startup safety verified |
 | [commercial-signup-integrity.md](commercial-signup-integrity.md) | MERGED #164 — isolated CI verified, reuse tests |
 | [M24.1-representative-acceptance.md](M24.1-representative-acceptance.md) | REFERENCE / BACKLOG — reconcile existing evidence before any new implementation |

@@ -1,0 +1,13 @@
+# Commercial P1 — Document template persistence and recovery
+
+Status: ACTIVE. Branch fix/commercial-workflow-readiness from verified main a621226 (#166). Single active implementation spec under the commercial roadmap.
+
+Confirmed gaps: PdfTemplateEditor silently falls back to editable defaults after a failed read; bulk/single template endpoints report saved=true after UPDATE matches zero branding rows, and retry INSERT on arbitrary update failures. Single-document read/modify/write can overwrite another document change. These affect existing invoice/voucher/contract/receipt workflows, not optional providers.
+
+Scope: authoritative load or explicit localized retry before edit/save; preserve failed-save drafts and serialize submissions. Bulk saves must atomically persist templates into existing or absent branding rows without overwriting unrelated branding. Single-document saves must compare the fetched document configuration and reject concurrent changes, preserve other document types, and only insert for a confirmed absent row. Errors cannot claim success or audit successful persistence. Validate supported top-level document shape rather than silently converting invalid bulk input into saved defaults. Retain renderer/config normalization and existing roles/tenant predicates. No migration, provider, hosted/customer writes or new editor features.
+
+Acceptance: reproduce failed-read overwrite, absent-row false success and concurrent single-template lost updates. Positive roundtrip and branding preservation, failures/no false success, current-tenant filters, lower-role denial; BS/EN read/retry/save recovery in real browser. Full API/admin tests/build/lint and final-head required CI before protected merge. Record exact evidence in master roadmap. Full operational release and onboarding remain NO-GO.
+
+## Working verification
+
+Eight failures reproduced on prior code; repaired API persistence/conflict suite 12/12 passes, including scoped role denial, missing rows, failures, malformed input and compare-and-set concurrent change. Full API 1,071 tests / 119 files and admin 561 / 74 passed. Browser matrix 12 cases covers BS/EN × light/dark × 390/768/1440, failed reads/retry, failed-save drafts, serialized double submit, edits during in-flight save and persisted reload. API/admin builds, strict/serverless/NodeNext and final 12-case browser rerun passed; lint has zero errors and 50 existing warnings. Reviewed actual dark/mobile screenshot. Required exact-head isolated Auth acceptance remains pending. Existing PDF block labels and accessibility/i18n gaps remain P2/P3 scope; this batch does not claim full translation or UX completion. No migration, hosted operation or provider activation.

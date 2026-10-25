@@ -1,6 +1,6 @@
 # Commercial P0/P1 — Organization configuration boundaries
 
-Status: ACTIVE. PR #165 passed all required checks and merged as 5260acbf39adf702ab53aac18cbc965e6da1a9f7. Branch fix/commercial-organization-controls starts from that verified main. This is the single active implementation spec.
+Status: MERGED #166. PR #165 passed all required checks and merged as 5260acbf39adf702ab53aac18cbc965e6da1a9f7. Branch fix/commercial-organization-controls starts from that verified main. This is the single active implementation spec.
 
 Commercial policy: agency directors manage validated settings for their own organization; subscription/entitlement assignment belongs to a platform administrator. No self-awarded enterprise entitlement while payment gateways are deferred. Existing roles, modules, tenant predicates and read access remain; no billing integration or new product module.
 
@@ -15,3 +15,5 @@ Separately recorded P5 backlog: onboarding checklist expects obsolete flat flags
 ## Verified checkpoint
 
 Twelve API policy/failure cases failed on the prior implementation, including invalid types, mass assignment, partial-schema save, tenant plan mutation and normalization. Repaired 20-case API boundary suite passes; 8 component safety cases plus dictionary parity pass. Full API 1,059 tests / 118 files and admin 561 / 74, builds and strict/serverless/NodeNext pass. Actual browser 14 cases passes with asserted real themes and screenshot review, including failed read → retry → retained failed-save draft → one successful retry, agency read-only plans and authorized platform assignment. Real disposable PostgreSQL direct browser plan UPDATE denial passes. Required final-head GitHub CI and the expanded real Auth/settings persistence scenario remain pending. No new migration, provider activation or real-data operation.
+
+Final head fc04c484261749abdb8d0d43d1c436249eeb8b16 passed CI 40215344251, isolated acceptance 40215344250, UI audit 40215344228, shared browser/Docker/preview checks. Merge a621226. Expanded real Auth/settings persistence passed; no hosted changes.
