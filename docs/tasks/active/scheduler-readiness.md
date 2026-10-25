@@ -1,5 +1,7 @@
 # Scheduler readiness
 
+> Commercial scope override — 2026-10-25: **DEFERRED ACTIVATION — retain safety code; no provider/job activation**. The [P0–P5 commercial roadmap](../../TRAVLINE_FINAL_ROADMAP.md) supersedes former demo/Zo-only priorities and historical authorization below. No real customer writes, hosted migrations, external provider activation or paid services are authorized. Internal financial workflows remain in scope. Current execution: [commercial-signup-integrity](commercial-signup-integrity.md).
+
 Owner-authorized scope: fix Vercel GET/POST incompatibility, preserve bearer-secret authentication, add an explicit disabled-by-default execution gate and regression tests. No production activation.
 
 All three job endpoints accept authenticated GET and POST. Unsupported methods return 405. Both CRON_SECRET and the legacy SCHEDULED_CAMPAIGNS_CRON_SECRET remain accepted. COMMUNICATION_JOBS_ENABLED must equal true; otherwise no worker is called. Worker exceptions return a sanitized 503. Existing per-message failure counters remain visible.

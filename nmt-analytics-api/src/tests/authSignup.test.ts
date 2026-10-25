@@ -23,7 +23,7 @@ describe('Auth SMTP readiness', () => {
     expect(res.status).toBe(201);
     expect(res.body.confirmationRequired).toBe(true);
     expect(res.body.session).toBeUndefined();
-    expect(h.signUp).toHaveBeenCalledWith(expect.objectContaining({ options: { emailRedirectTo: 'https://travline.example.test/auth/signin', data: {} } }));
+    expect(h.signUp).toHaveBeenCalledWith(expect.objectContaining({ options: { emailRedirectTo: 'https://travline.example.test/auth/signin', data: { org_name: 'Pilot Agency' } } }));
     expect(h.client).toHaveBeenCalledWith(expect.any(String), expect.any(String), { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
   });
   it('does not mutate organizations for an obfuscated existing user response', async () => {
@@ -49,7 +49,23 @@ describe('Auth SMTP readiness', () => {
   it('normalizes public names and email without changing the password', async () => {
     h.signUp.mockResolvedValue({data:{user:{identities:[]},session:null},error:null});
     expect((await request(app()).post('/auth/signup').send({...payload,email:' new@example.test ',org_name:' Pilot Agency ',full_name:' Synthetic User '})).status).toBe(201);
-    expect(h.signUp).toHaveBeenCalledWith(expect.objectContaining({email:'new@example.test',password:payload.password,options:expect.objectContaining({data:{full_name:'Synthetic User'}})}));
+    expect(h.signUp).toHaveBeenCalledWith(expect.objectContaining({email:'new@example.test',password:payload.password,options:expect.objectContaining({data:{org_name:'Pilot Agency',full_name:'Synthetic User'}})}));
   });
 
+});
+
+it('never mutates an existing non-obfuscated identity tenant from unauthenticated signup', async () => {
+  const writes = vi.fn();
+  const query: any = {
+    select: () => query, eq: () => query, update: (value: unknown) => { writes(value); return query; },
+    single: async () => ({ data: { org_id: 'existing-real-agency' }, error: null }),
+    then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve),
+  };
+  h.from.mockReturnValue(query);
+  h.signUp.mockResolvedValue({ data: { user: { id: 'existing-staff', email: payload.email,
+    identities: [{ id: 'existing-identity' }], created_at: '2020-01-01T00:00:00Z' }, session: null }, error: null });
+  const response = await request(app()).post('/auth/signup').send({ ...payload, org_name: 'Attacker-chosen agency name' });
+  expect(response.status).toBe(201);
+  expect(writes).not.toHaveBeenCalled();
+  expect(h.from).not.toHaveBeenCalled();
 });

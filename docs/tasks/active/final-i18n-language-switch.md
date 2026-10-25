@@ -1,5 +1,7 @@
 # Final I18N-03 — Language selection and accessible switch
 
+> Commercial scope override — 2026-10-25: **COMPLETED REFERENCE — reuse merged work; no repeated audit**. The [P0–P5 commercial roadmap](../../TRAVLINE_FINAL_ROADMAP.md) supersedes former demo/Zo-only priorities and historical authorization below. No real customer writes, hosted migrations, external provider activation or paid services are authorized. Internal financial workflows remain in scope. Current execution: [commercial-signup-integrity](commercial-signup-integrity.md).
+
 **Status:** IMPLEMENTED LOCALLY — dependency PRs #151/#152 and remote CI pending
 **Priority:** P1
 **Branch:** `fix/i18n-language-switch`

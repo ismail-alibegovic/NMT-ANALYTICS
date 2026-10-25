@@ -1,5 +1,7 @@
 # P0 — Reservation read, filter and retry correctness
 
+> Commercial scope override — 2026-10-25: **COMPLETED REFERENCE — reuse merged work; no repeated audit**. The [P0–P5 commercial roadmap](../../TRAVLINE_FINAL_ROADMAP.md) supersedes former demo/Zo-only priorities and historical authorization below. No real customer writes, hosted migrations, external provider activation or paid services are authorized. Internal financial workflows remain in scope. Current execution: [commercial-signup-integrity](commercial-signup-integrity.md).
+
 Status: MERGED / VERIFIED in isolated CI. PR #160, merge `7abb04ad099a0edfcacc36e3169bd4270845f942`; exact-head CI 40090322640 and isolated acceptance 40090322680 passed. Branch: `fix/p0-reservation-reliability`. Base: verified main `de514c37bc9605dd41170fda2f944c0de18fb9d8`; #158/#159 consolidated and required CI green. No translation-only tasks in this batch.
 
 Goal: reservations shown to an operator must match active filters and successful reads. Fix the confirmed list status/date/clear/invalidation defects, false-empty failure states, superseded requests, and misleading Detail child-read empties together as one workflow batch. Keep existing layout, API/org boundaries and user-entered data. Existing BS/EN strings remain; add only feedback required for these functional repairs.

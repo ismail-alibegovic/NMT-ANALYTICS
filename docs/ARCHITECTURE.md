@@ -1,5 +1,7 @@
 # Travline — Architecture Canon
 
+> Commercial production direction — 2026-10-25: [current release roadmap](TRAVLINE_FINAL_ROADMAP.md) governs P0 security/integrity → P1 existing workflows → P2 BS/EN → P3 UX → P4 portable operations → P5 secure customer onboarding. Zo is an optional deployment consumer, not a required long-term host. Competition demos, SMTP/SMS activation, online gateways, client-specific payments and optional external integrations are deferred; existing disabled integration code must fail safely. Internal payments/installments/refunds/balances/reporting remain core. Historical milestone ordering does not override this direction. No hosted migration, real-data writes or provider activation is authorized.
+
 **Purpose:** technical source of truth for how new Travline work should fit into the existing system. Always inspect current code before assuming a detail from this document is exhaustive.
 
 ## 1. System shape

@@ -42,7 +42,7 @@ diff -u "$WORK/before.txt" "$WORK/after.txt"
 [[ "$(psql -X -At -d "$TARGET" -c 'SELECT payload FROM public.phase1_restore_probe WHERE id=1')" == 'synthetic recovery sentinel' ]]
 # Remove the intentionally unprotected sentinel before catalog-wide ACL checks.
 psql -X -v ON_ERROR_STOP=1 -d "$TARGET" -c 'DROP TABLE public.phase1_restore_probe' >/dev/null
-for check in database-function-security authorization-security storage-api-only-security; do
+for check in database-function-security authorization-security storage-api-only-security signup-provisioning-integrity; do
   psql -X -v ON_ERROR_STOP=1 -d "$TARGET" -f "$ROOT/scripts/$check.sql"
 done
 printf 'Isolated logical recovery PASS: table counts, sentinel, function ACL/tenant regressions and Storage boundaries; elapsed %s seconds\n' "$((SECONDS-started))"

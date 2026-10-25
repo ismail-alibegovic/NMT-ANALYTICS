@@ -1,5 +1,7 @@
 # Auth provider readiness
 
+> Commercial scope override — 2026-10-25: **DEFERRED ACTIVATION — retain safety code; no provider/job activation**. The [P0–P5 commercial roadmap](../../TRAVLINE_FINAL_ROADMAP.md) supersedes former demo/Zo-only priorities and historical authorization below. No real customer writes, hosted migrations, external provider activation or paid services are authorized. Internal financial workflows remain in scope. Current execution: [commercial-signup-integrity](commercial-signup-integrity.md).
+
 Scope authorized by owner: signup, confirmation, login and recovery support for later Supabase Auth SMTP activation. No live settings or real email sends.
 
 Use normal anonymous signUp in a fresh server client (admin.createUser never sends confirmation), preserving the existing API organization provisioning boundary. Never return sessions or raw Auth provider errors from signup. ADMIN_URL controls a server-owned confirmation URL /auth/signin; no browser-provided redirect is accepted. Reset redirects to the current origin /auth/reset-password. Supabase Auth's Site URL and redirect allowlist must include these exact approved origins/paths. Configure Auth SMTP separately from tenant transactional SMTP. Enable confirm-email when activating; do not auto-confirm accounts in application code.
