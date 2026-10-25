@@ -48,6 +48,28 @@ test('commercial signup creates isolated same-name agencies and metadata cannot 
   expect(contexts[0].org.id).not.toBe(contexts[1].org.id);
   expect(contexts[0].org.slug).not.toBe(contexts[1].org.slug);
   expect(contexts[0].user.id).not.toBe(contexts[1].user.id);
+  // A real agency director cannot self-award platform entitlements, including
+  // forged role headers. Invalid tenant/settings fields must not change data.
+  const deniedPlan = await request.patch(`${api}/api/settings/plan`, {
+    headers: { Authorization: `Bearer ${tokens[0]}`, 'x-role': 'super_admin' }, data: { plan: 'enterprise' },
+  });
+  expect(deniedPlan.status()).toBe(403);
+  const rejectedSettings = await request.patch(`${api}/api/settings`, {
+    headers: { Authorization: `Bearer ${tokens[0]}` }, data: { name: 'Rejected rename', currency: 'INVALID', org_id: contexts[1].org.id },
+  });
+  expect(rejectedSettings.status()).toBe(400);
+  const savedSettings = await request.patch(`${api}/api/settings`, {
+    headers: { Authorization: `Bearer ${tokens[0]}` }, data: {
+      name: ` ${orgName} `, slug: contexts[0].org.slug, currency: 'bam', timezone: 'Europe/Sarajevo',
+      email: '', tax_id: '', bank_account: null, invoice_footer: 'Synthetic agency footer',
+    },
+  });
+  expect(savedSettings.status()).toBe(200);
+  const saved = await savedSettings.json();
+  expect(saved.id).toBe(contexts[0].org.id); expect(saved.name).toBe(orgName); expect(saved.currency).toBe('BAM');
+  expect(saved.email).toBeNull(); expect(saved.bank_account).toBeNull();
+  const reloadedSettings = await request.get(`${api}/api/settings`, { headers: { Authorization: `Bearer ${tokens[0]}` } });
+  expect(reloadedSettings.status()).toBe(200); expect((await reloadedSettings.json()).invoice_footer).toBe('Synthetic agency footer');
   const update = await request.put(`${auth}/auth/v1/user`, { headers: { ...headers, Authorization: `Bearer ${tokens[0]}` },
     data: { data: { org_name: 'Unauthorized rename', org_id: contexts[1].org.id, role: 'super_admin' } } });
   expect(update.status()).toBe(200);

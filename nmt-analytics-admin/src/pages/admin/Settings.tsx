@@ -84,7 +84,11 @@ interface TemplateFormState {
 
 export default function Settings() {
   const { t } = useT();
-  const { refreshUserContext } = useApp();
+  const { refreshUserContext, userContext } = useApp();
+  const canManagePlan = userContext?.role === 'super_admin';
+  const [settingsLoadError, setSettingsLoadError] = useState(false);
+  const settingsReadInFlight = useRef(false);
+  const settingsSaveInFlight = useRef(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<OrgSettings>({
@@ -221,6 +225,9 @@ export default function Settings() {
   };
 
   const fetchSettings = async () => {
+    if (settingsReadInFlight.current) return;
+    settingsReadInFlight.current = true;
+    setLoading(true); setSettingsLoadError(false);
     try {
       const { data } = await api.get<OrgSettings>('/settings');
       setSettings({
@@ -239,8 +246,9 @@ export default function Settings() {
         sms_sender_name: data.sms_sender_name || '',
         sms_sender_number: data.sms_sender_number || '',
       });
-    } catch (error) { console.error('Failed to fetch settings:', error);
-    } finally { setLoading(false); }
+    } catch {
+      setSettingsLoadError(true);
+    } finally { settingsReadInFlight.current = false; setLoading(false); }
   };
 
   const fetchSmtpSettings = async () => {
@@ -379,13 +387,24 @@ export default function Settings() {
   };
 
   const handleSave = async () => {
+    if (loading || settingsLoadError || settingsSaveInFlight.current) return;
+    settingsSaveInFlight.current = true;
     setSaving(true); setMessage(null);
     try { await api.patch('/settings', settings); setMessage({ type: 'success', text: t.settings.saved }); }
-    catch (error: any) { setMessage({ type: 'error', text: error.message || t.settings.saveError }); }
-    finally { setSaving(false); }
+    catch (error: any) {
+      const code = error?.response?.data?.code || error?.code;
+      const messages: Record<string, string> = {
+        VALIDATION_ERROR: t.settings.invalidOrganizationSettings,
+        MIGRATION_PENDING: t.settings.organizationMigrationRequired,
+        CONFLICT: t.settings.organizationSlugConflict,
+      };
+      setMessage({ type: 'error', text: messages[code] || t.settings.saveError });
+    }
+    finally { settingsSaveInFlight.current = false; setSaving(false); }
   };
 
   const handleSavePlan = async (newPlan: string) => {
+    if (!canManagePlan) return;
     if (!confirm(t.settings.planConfirmChange || 'Change plan tier?')) return;
     setPlanSaving(true); setPlanMessage(null);
     try {
@@ -462,6 +481,14 @@ export default function Settings() {
   };
 
   if (loading) return <div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
+  if (settingsLoadError) return (
+    <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+      <p role="alert" className="mb-4 text-gray-900 dark:text-white">{t.settings.organizationLoadError}</p>
+      <button type="button" onClick={fetchSettings} className="rounded-lg bg-brand-500 px-4 py-2 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
+        {t.settings.retryOrganizationLoad}
+      </button>
+    </div>
+  );
 
   return (
     <>
@@ -495,7 +522,7 @@ export default function Settings() {
       </div>
 
       {message && (
-        <div className={`mb-4 p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400'}`}>
+        <div role={message.type === 'error' ? 'alert' : 'status'} className={`mb-4 p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400'}`}>
           {message.text}
         </div>
       )}
@@ -506,8 +533,8 @@ export default function Settings() {
           <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{t.settings.orgnizationSection}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.orgnizationName}</label>
-              <input type="text" value={settings.name} onChange={(e) => setSettings({ ...settings, name: e.target.value })}
+              <label htmlFor="organization-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.orgnizationName}</label>
+              <input id="organization-name" type="text" value={settings.name} onChange={(e) => setSettings({ ...settings, name: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
             </div>
             <div>
@@ -1087,7 +1114,9 @@ export default function Settings() {
             <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-1">{t.settings.planTitle || 'Plan & Modules'}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t.settings.planDesc || 'Your subscription tier determines which modules are enabled.'}</p>
 
-            {planMigrationPending && (
+            {!canManagePlan && <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">{t.settings.planManagedByPlatform}</p>}
+
+            {canManagePlan && planMigrationPending && (
               <div className="mb-4 p-3 rounded-lg text-sm bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
                 <strong>{t.settings.planMigrationPending || 'Migration pending'}</strong>
                 <p className="mt-1">{t.settings.planMigrationPendingDesc || 'Run DB migration 20260715010000_plan_tier_module_gating.sql before changing plans.'}</p>
@@ -1126,7 +1155,7 @@ export default function Settings() {
                   <div key={tier.key} className={`p-4 rounded-lg border ${isActive ? 'border-primary bg-primary/5' : 'border-gray-200 dark:border-gray-700'}`}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-medium text-gray-900 dark:text-white">{tier.label}</span>
-                      {isActive && <span className="text-xs px-2 py-0.5 rounded-full bg-primary text-white">Active</span>}
+                      {isActive && <span className="text-xs px-2 py-0.5 rounded-full bg-primary text-white">{t.settings.planActiveBadge}</span>}
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                       {(t.settings as any).planTierDescriptions?.[tier.key] || `${tier.modules.length} modules`}
@@ -1139,13 +1168,13 @@ export default function Settings() {
                         </div>
                       ))}
                     </div>
-                    <button
+                    {canManagePlan && <button
                       onClick={() => handleSavePlan(tier.key)}
                       disabled={isActive || planSaving || planMigrationPending}
                       className="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
-                      {isActive ? 'Current' : planSaving ? 'Saving…' : (t.settings.planUpgrade || 'Switch to')}
-                    </button>
+                      {isActive ? t.settings.planCurrentAction : planSaving ? t.settings.planSavingAction : t.settings.planUpgrade}
+                    </button>}
                   </div>
                 );
               })}
@@ -1155,7 +1184,7 @@ export default function Settings() {
 
         {/* Save Button */}
         <div className="p-6 flex justify-end">
-          <button onClick={handleSave} disabled={saving}
+          <button onClick={handleSave} disabled={saving} aria-label={t.settings.saveOrganizationSettings}
             className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
             {saving ? t.common.saving : t.settings.save}
           </button>

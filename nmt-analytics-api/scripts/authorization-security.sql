@@ -25,6 +25,7 @@ BEGIN
     FOREACH attempts IN ARRAY ARRAY[
       'SELECT role,org_id FROM public.profiles',
       'UPDATE public.profiles SET role=''director''',
+      'UPDATE public.organizations SET plan=''enterprise''',
       'UPDATE public.profiles SET org_id=NULL',
       'UPDATE public.payments SET amount=0',
       'DELETE FROM public.documents',

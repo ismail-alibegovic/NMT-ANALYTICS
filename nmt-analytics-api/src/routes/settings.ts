@@ -35,8 +35,6 @@ const organizationExtendedSelect = `
   invoice_notes
 `;
 
-const extendedOrganizationFields = ['timezone', 'tax_id', 'bank_account', 'invoice_footer', 'invoice_notes'];
-
 function isMissingColumnError(error: unknown): boolean {
   return Boolean(error && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === '42703');
 }
@@ -47,46 +45,24 @@ router.use(requireOrgContext);
 router.use(requireMinimumRole('director'));
     router.use(requireMinimumRole('director'));
 
-// Validation schema for settings update
+// Only persisted organization fields belong to this partial mutation contract.
+const optionalText = (max: number) => z.string().trim().max(max).nullable().optional();
+const optionalEmail = z.union([z.string().trim().email().max(254), z.literal(''), z.null()])
+  .optional().transform(value => value === '' ? null : value);
 const settingsUpdateSchema = z.object({
-  // Organization settings
-  name: z.string().min(1, 'Name is required').max(100).optional(),
-  slug: z.string().min(1).max(50).regex(/^[a-z0-9-]+$/).optional(),
-  logo_url: z.string().url().optional().nullable(),
-  
-  // Contact settings
-  phone: z.string().max(20).optional().nullable(),
-  email: z.string().email().optional().nullable(),
-  website: z.string().url().optional().nullable(),
-  address: z.string().max(500).optional().nullable(),
-  city: z.string().max(100).optional().nullable(),
-  country: z.string().max(100).optional().nullable(),
-  
-  // Regional settings
-  currency: z.string().length(3).optional(),
-  timezone: z.string().optional(),
-  date_format: z.string().optional(),
-  language: z.string().length(2).optional(),
-  
-  // Notification settings
-  email_notifications: z.boolean().optional(),
-  sms_notifications: z.boolean().optional(),
-  
-  // Business settings
-  business_hours: z.object({
-    start: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
-    end: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
-  }).optional(),
-  
-  working_days: z.array(z.number().min(0).max(6)).optional(),
-  
-  // Payment settings
-  payment_deadline_days: z.number().min(0).max(365).optional(),
-  late_fee_percentage: z.number().min(0).max(100).optional(),
-  
-  // Custom settings (flexible JSON)
-  custom_settings: z.record(z.string(), z.unknown()).optional(),
-});
+  name: z.string().trim().min(1, 'Name is required').max(100).optional(),
+  // Existing generated agency slugs include a UUID suffix.
+  slug: z.string().trim().min(1).max(160).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional(),
+  phone: optionalText(30), email: optionalEmail, address: optionalText(500),
+  currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).optional(),
+  timezone: z.string().trim().min(1).max(100).refine(value => {
+    try { new Intl.DateTimeFormat('en', { timeZone: value }); return true; } catch { return false; }
+  }, 'Invalid timezone').optional(),
+  tax_id: optionalText(100), bank_account: optionalText(100),
+  invoice_footer: optionalText(2000), invoice_notes: optionalText(5000),
+  email_sender_name: optionalText(100), email_sender_address: optionalEmail,
+  sms_sender_name: optionalText(100), sms_sender_number: optionalText(30),
+}).strict();
 
 const agencyProfileSchema = z.object({
   profiles: z.array(z.enum(AGENCY_PROFILES)).min(1).max(AGENCY_PROFILES.length),
@@ -155,19 +131,24 @@ router.patch('/', auditSettingsUpdate, async (req, res: Response) => {
   const orgId = req.orgId!;
   const userId = req.user?.id;
 
+  const parsed = settingsUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid organization settings', parsed.error.issues);
+  }
+
   // Only allow updating columns that exist
   const allowedUpdates = ['name', 'slug', 'phone', 'email', 'address', 'currency', 'timezone', 'tax_id', 'bank_account', 'invoice_footer', 'invoice_notes', 'email_sender_name', 'email_sender_address', 'sms_sender_name', 'sms_sender_number'];
   const updates: Record<string, unknown> = {};
   
   for (const key of allowedUpdates) {
-    if (req.body[key] !== undefined) {
-      updates[key] = req.body[key];
+    if (parsed.data[key as keyof typeof parsed.data] !== undefined) {
+      updates[key] = parsed.data[key as keyof typeof parsed.data];
     }
   }
 
   // Check if there's anything to update
   if (Object.keys(updates).length === 0) {
-    return apiError(res, 400, "VALIDATION_ERROR", "No valid fields to update. Only name and slug are supported.");
+    return apiError(res, 400, "VALIDATION_ERROR", "No supported organization fields were provided.");
   }
 
   try {
@@ -194,46 +175,9 @@ router.patch('/', auditSettingsUpdate, async (req, res: Response) => {
       .single();
 
     if (isMissingColumnError(updateError)) {
-      const safeUpdates = Object.fromEntries(
-        Object.entries(updates).filter(([key, value]) => !extendedOrganizationFields.includes(key) || value === '' || value === null)
-      );
-      for (const key of extendedOrganizationFields) delete safeUpdates[key];
-
-      if (Object.keys(safeUpdates).length > 0) {
-        const fallbackUpdate = await supabaseAdmin
-          .from('organizations')
-          .update(safeUpdates)
-          .eq('id', orgId)
-          .select(organizationBaseSelect)
-          .single();
-
-        if (fallbackUpdate.error) {
-          console.error('[SETTINGS] Update fallback error:', fallbackUpdate.error);
-          return apiError(res, 500, "INTERNAL_ERROR", "Failed to update settings", fallbackUpdate.error.message);
-        }
-
-        await logAuditEntry({
-          org_id: orgId,
-          user_id: userId || 'unknown',
-          action: 'UPDATE',
-          entity: 'settings',
-          entity_id: orgId,
-          metadata: { updated_fields: Object.keys(safeUpdates), skipped_fields_pending_migration: extendedOrganizationFields.filter((key) => updates[key] !== undefined) }
-        });
-
-        return res.json({
-          ...fallbackUpdate.data,
-          timezone: 'Europe/Sarajevo',
-          tax_id: null,
-          bank_account: null,
-          invoice_footer: null,
-          invoice_notes: null,
-          migrationPending: true,
-          migrationMessage: 'Extended organization settings columns are not present yet. Apply migration 20260816010000_organization_settings_columns.sql.'
-        });
-      }
-
-      return apiError(res, 409, "MIGRATION_PENDING", "Extended organization settings columns are not present yet. Apply migration 20260816010000_organization_settings_columns.sql.");
+      // Never retry a subset: even an empty clear may target a real column in
+      // a partially migrated schema. The original UPDATE failed atomically.
+      return apiError(res, 409, 'MIGRATION_PENDING', 'Organization settings require a service update. Contact the platform administrator.');
     }
 
     if (updateError) {
@@ -534,12 +478,12 @@ router.get('/plan', requireMinimumRole('director'), async (req, res: Response) =
   }
 });
 
-// PATCH /settings/plan — update plan tier (director-only; middleware already enforces)
+// PATCH /settings/plan — entitlement assignment is platform-owned, never self-awarded.
 const planUpdateSchema = z.object({
   plan: planSchemaEnum,
-});
+}).strict();
 
-router.patch('/plan', async (req, res: Response) => {
+router.patch('/plan', requireMinimumRole('super_admin'), async (req, res: Response) => {
   const orgId = req.orgId!;
   const userId = req.user?.id || 'unknown';
   try {
@@ -575,6 +519,8 @@ router.patch('/plan', async (req, res: Response) => {
       }
       return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to update plan', msg);
     }
+
+    if (!updated) return apiError(res, 404, 'ORG_NOT_FOUND', 'Organization not found');
 
     await logAuditEntry({
       org_id: orgId,

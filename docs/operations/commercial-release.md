@@ -6,13 +6,13 @@ Scope: production readiness for real agencies. Follow [the commercial roadmap](.
 
 | Requirement | Required evidence / owner | Current observation |
 | --- | --- | --- |
-| Release artifact | Immutable main SHA, final PR checks and build/runtime versions, matching API/admin | Prior verified main bda422f / Node 24; commercial signup batch under review |
+| Release artifact | Immutable main SHA, final PR checks and build/runtime versions, matching API/admin | Verified main 5260acb (#165) / Node 24; organization-controls batch awaiting protected PR checks |
 | Destination | Approved host/project/region, DNS/TLS, environment separation and operations owner | Not verified for this commercial release |
 | Configuration | Server-only service key; client-safe publishable values; exact origins/deep-links; production dev flags rejected; startup/health/restart | Existing source/tests retained; actual target verification pending |
 | Migration parity | Real schema_migrations plus catalog/functions/ACL/RLS/constraints/Storage inventory, reviewed hashes, pending order | Isolated replay evidence only; hosted backlog cannot be inferred from a historical four-migration note |
 | Recovery | DB backup/PITR timestamps, retention, earliest/latest recovery points; Storage **object bytes** inventory/backup; Auth/config recovery; isolated restoration and authenticated workflows | No hosted evidence or measured RPO/RTO supplied |
 | Observability | Sanitized logs, meaningful health/error checks, actual receipt/alert routing and responsible operator | Code privacy/health foundations exist; deployed ingestion/receipt not verified |
-| Agency onboarding | Separate organizations, authorized owner/staff roles, secure first access, initial settings, revoke/recover lifecycle | P0 signup repair underway; complete P5 acceptance pending |
+| Agency onboarding | Separate organizations, authorized owner/staff roles, secure first access, initial settings, revoke/recover lifecycle | P0 signup repair merged #164 and isolated Auth verified; complete P5 acceptance pending |
 | Integrations | Deferred providers remain disabled and core business/finance works without them | SMTP/SMS/gateways/optional integrations must not be activated |
 
 Agree realistic RPO/RTO, retention, restore authority and incident escalation with the operator; do not invent SLA values. Database row-count recovery is not evidence of recoverable document bytes or Auth/account access. Use [isolated database recovery](isolated-database-recovery.md) as an existing rehearsal, not a hosted restore command.
@@ -31,3 +31,7 @@ Agree realistic RPO/RTO, retention, restore authority and incident escalation wi
 Record internal cash/bank payments, installments, voids/refunds and balances through existing authorized API workflows; retain immutable ledger history and currency boundaries. These must not depend on a gateway or message delivery. Provider-disabled actions must return truthful safe errors and must not undo or falsely fail an otherwise saved business transaction.
 
 No SMTP/SMS activation, live gateway calls, client payment integration, scheduled external sends or optional provider enrollment belongs to this release batch. Supabase Auth confirmation/recovery delivery remains unverified operationally; the operator must define a secure supported provisioning/access procedure for P5 without claiming external delivery has been tested. No shared agency accounts, public director passwords or demo workspaces.
+
+## Organization settings and entitlement operations
+
+Agency directors may update only validated settings in their authenticated organization. A missing schema prerequisite must reject the entire save rather than silently persist a subset. Subscription/entitlement assignment is platform-owned (`super_admin`), including while gateway billing is deferred; agencies retain read-only plan visibility. The existing plan API remains scoped to the authenticated organization and does not provide a new cross-agency operator workflow. Secure platform staff authorization, initial agency entitlement assignment and the complete P5 provisioning lifecycle still require acceptance; do not claim this boundary fix completes commercial onboarding. No existing hosted plans, roles or settings were changed.
