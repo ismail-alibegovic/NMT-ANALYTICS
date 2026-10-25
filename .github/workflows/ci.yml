@@ -32,6 +32,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Audit production API dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Typecheck strict serverless entrypoint and NodeNext packaging
         run: |
           ./node_modules/.bin/tsc --project ../tsconfig.json --noEmit
@@ -83,6 +86,9 @@ jobs:
           cache-dependency-path: nmt-analytics-admin/package-lock.json
 
       - run: npm ci
+
+      - name: Audit production admin dependencies
+        run: npm audit --omit=dev --audit-level=high
 
       - run: npm run lint
 

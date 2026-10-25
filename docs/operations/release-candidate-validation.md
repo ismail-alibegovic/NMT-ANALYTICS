@@ -1,5 +1,7 @@
 # Release candidate validation
 
+> Commercial scope, 2026-10-25: this is historical operational evidence, not the current hosted migration inventory or deployment approval. [Commercial release operations](commercial-release.md) and the [P0–P5 roadmap](../TRAVLINE_FINAL_ROADMAP.md) govern current work. SMTP/SMS/gateways/optional integrations remain deferred. No hosted migrations, customer writes, restores or provider activation are authorized here.
+
 The root TypeScript configuration inherits the API's strict settings and checks the actual serverless entrypoint. CI checks both the API compiler mode and NodeNext packaging. The Vercel build also runs this check before building the admin application. Never treat READY as proof of a diagnostic-free build: inspect build logs and test the function.
 
 Operational events use application route templates, UUID correlation identifiers, fixed outcome categories and status codes. Raw payloads, provider errors, customer/financial data, query strings and bearer capabilities must not enter telemetry. Both unhandled errors and handled 5xx responses are monitored. Authentication 401/403 outcomes are recorded separately from defects. The real Sentry SDK is exercised through an in-memory synthetic transport; this does not certify external ingestion or alerts.

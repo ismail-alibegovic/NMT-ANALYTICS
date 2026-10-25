@@ -1,6 +1,6 @@
 # Auth provider readiness
 
-> Commercial scope override — 2026-10-25: **DEFERRED ACTIVATION — retain safety code; no provider/job activation**. The [P0–P5 commercial roadmap](../../TRAVLINE_FINAL_ROADMAP.md) supersedes former demo/Zo-only priorities and historical authorization below. No real customer writes, hosted migrations, external provider activation or paid services are authorized. Internal financial workflows remain in scope. Current execution: [commercial-signup-integrity](commercial-signup-integrity.md).
+> Commercial scope override — 2026-10-25: **DEFERRED ACTIVATION — retain safety code; no provider/job activation**. The [P0–P5 commercial roadmap](../../TRAVLINE_FINAL_ROADMAP.md) supersedes former demo/Zo-only priorities and historical authorization below. No real customer writes, hosted migrations, external provider activation or paid services are authorized. Internal financial workflows remain in scope. Current execution is selected by the [task registry](README.md).
 
 Scope authorized by owner: signup, confirmation, login and recovery support for later Supabase Auth SMTP activation. No live settings or real email sends.
 

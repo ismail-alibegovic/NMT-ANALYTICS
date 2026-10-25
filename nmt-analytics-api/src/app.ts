@@ -1,4 +1,5 @@
 import express from 'express';
+import { requestBodyError } from './middleware/requestBodyError';
 import helmet from 'helmet';
 import cors from 'cors';
 import path from 'path';
@@ -177,6 +178,9 @@ const errorMessages: Record<string, string> = {
   NOT_FOUND: 'Not found',
   INTERNAL_ERROR: 'Internal server error',
 };
+
+// Recognized parser failures do not enter internal-error capture.
+app.use(requestBodyError);
 
 // Sentry error capture — must be registered before the global JSON error
 // handler so failures are collected before they are turned into JSON 500s.

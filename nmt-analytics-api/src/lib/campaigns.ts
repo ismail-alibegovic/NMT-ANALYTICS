@@ -29,7 +29,7 @@ export const campaignAudienceSchema = z.discriminatedUnion('audienceType', [
   }),
 ]);
 
-export const campaignCreateSchema = z.object({
+const campaignBaseSchema = z.object({
   name: z.string().trim().min(1).max(120),
   channel: campaignChannelSchema,
   template_id: z.string().uuid().nullable().optional(),
@@ -37,7 +37,9 @@ export const campaignCreateSchema = z.object({
   body: z.string().trim().min(1).max(5000),
   audience: campaignAudienceSchema.optional(),
   recipient_count: z.number().int().min(0).optional(),
-}).superRefine((value, ctx) => {
+});
+
+export const campaignCreateSchema = campaignBaseSchema.superRefine((value, ctx) => {
   if (value.channel === 'email' && !value.subject?.trim()) {
     ctx.addIssue({ code: 'custom', path: ['subject'], message: 'Email campaigns require a subject' });
   }
@@ -49,7 +51,7 @@ export const campaignCreateSchema = z.object({
   }
 });
 
-export const campaignUpdateSchema = campaignCreateSchema.partial().extend({
+export const campaignUpdateSchema = campaignBaseSchema.partial().extend({
   name: z.string().trim().min(1).max(120).optional(),
   channel: campaignChannelSchema.optional(),
   body: z.string().trim().min(1).max(5000).optional(),
