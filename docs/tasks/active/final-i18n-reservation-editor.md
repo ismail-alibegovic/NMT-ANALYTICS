@@ -1,6 +1,6 @@
 # I18N-04D — Reservation editor BS/EN and truthful currency labels
 
-> Commercial scope override — 2026-10-25: **COMPLETED REFERENCE — reuse merged work; no repeated audit**. The [P0–P5 commercial roadmap](../../TRAVLINE_FINAL_ROADMAP.md) supersedes former demo/Zo-only priorities and historical authorization below. No real customer writes, hosted migrations, external provider activation or paid services are authorized. Internal financial workflows remain in scope. Current execution: [commercial-signup-integrity](commercial-signup-integrity.md).
+> Commercial scope override — 2026-10-25: **COMPLETED REFERENCE — reuse merged work; no repeated audit**. The [P0–P5 commercial roadmap](../../TRAVLINE_FINAL_ROADMAP.md) supersedes former demo/Zo-only priorities and historical authorization below. No real customer writes, hosted migrations, external provider activation or paid services are authorized. Internal financial workflows remain in scope. Current execution is selected by the [task registry](README.md).
 
 Status: ACTIVE. Branch: `fix/i18n-reservation-editor`, created from fresh origin/main `8cf3f1a`, then fast-forwarded to verified #155 main `d1c4514` while preserving this scoped work. PRs #155/#156 are separate pending required acceptance; integrate their verified main before merge.
 

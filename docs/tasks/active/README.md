@@ -1,10 +1,11 @@
 # Commercial release task registry
 
-Updated 2026-10-25. Only **commercial-signup-integrity.md** is active for implementation. The user explicitly authorized this production reset; do not ask them to choose a legacy task. The [master roadmap](../../TRAVLINE_FINAL_ROADMAP.md) owns priorities, acceptance and GO/NO-GO evidence. Preserve prior source/tests; historical files do not grant operational approval. Competition-specific private demo work is deferred and is not an onboarding solution.
+Updated 2026-10-25. Only **commercial-request-security.md** is active for implementation. The user explicitly authorized this production reset; do not ask them to choose a legacy task. The [master roadmap](../../TRAVLINE_FINAL_ROADMAP.md) owns priorities, acceptance and GO/NO-GO evidence. Preserve prior source/tests; historical files do not grant operational approval. Competition-specific private demo work is deferred and is not an onboarding solution.
 
 | Specification | Commercial disposition |
 | --- | --- |
-| [commercial-signup-integrity.md](commercial-signup-integrity.md) | ACTIVE — P0 authorization / atomic provisioning |
+| [commercial-request-security.md](commercial-request-security.md) | ACTIVE — P0 dependency/resource safety |
+| [commercial-signup-integrity.md](commercial-signup-integrity.md) | MERGED #164 — isolated CI verified, reuse tests |
 | [M24.1-representative-acceptance.md](M24.1-representative-acceptance.md) | REFERENCE / BACKLOG — reconcile existing evidence before any new implementation |
 | [auth-provider-readiness.md](auth-provider-readiness.md) | DEFERRED ACTIVATION — retain safety code; no provider/job activation |
 | [authorization-tenant-audit.md](authorization-tenant-audit.md) | REFERENCE / BACKLOG — reconcile existing evidence before any new implementation |

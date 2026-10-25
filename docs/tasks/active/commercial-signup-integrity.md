@@ -1,6 +1,6 @@
 # Commercial P0 — Signup and atomic tenant provisioning
 
-Status: ACTIVE. User's 2026-10-25 commercial production reset authorizes this coherent security batch. Base main: bda422ff69d9d47e50dda8b287a829bf5c271cc5; branch fix/commercial-signup-integrity. This is the only active implementation specification; other task files are completed evidence, backlog or deferred operations.
+Status: MERGED #164 as e88ccb29179b5cd976eb4177bc9eac09afe954f4 after all final-head checks passed. User's 2026-10-25 commercial production reset authorizes this coherent security batch. Base main: bda422ff69d9d47e50dda8b287a829bf5c271cc5; branch fix/commercial-signup-integrity. This is completed implementation evidence. Follow the task registry for the current batch.
 
 ## Confirmed code defects
 The unauthenticated signup endpoint renames organizations/branding via service_role using an Auth signUp response's user ID; a returned existing/unconfirmed identity with nonempty identities can therefore select an existing profile's organization. Only the obfuscated identities=[] case was protected. Both DB update errors were ignored. The auth.users INSERT trigger catches all tenant bootstrap errors and returns success, allowing an Auth identity without a usable tenant/profile. The slug helper selects an unused name before inserting and can race during simultaneous equal-name registrations.
@@ -19,3 +19,5 @@ Before repair, the HTTP existing-identity case failed by recording organization/
 New isolated real-Auth scenario (same-name concurrent agency signup, local Mailpit confirmation, distinct org/user/slug, metadata role/org/name forgery, usable contexts/profile) is discovered by Playwright and wired into existing required isolated CI. It has not been executed locally because the full local platform is unavailable; final exact-head GitHub acceptance is still required. No external SMTP activation/delivery, hosted migration, real customer or production operation performed.
 
 Operational sequence: 20261025120000_atomic_signup_provisioning.sql is additive to migration history and changes only fresh Auth INSERT bootstrap. No existing identity/tenant repair. The API removal of public rename writes is safe before this migration; old bootstrap retains email-derived agency naming until the reviewed migration is applied. New metadata naming is accepted only on fresh INSERT; metadata updates never select an existing organization. See commercial-release.md for separately approved hosted rollout.
+
+Final head 43b7f0860af086811c86c1497d1725cc80e991a8 passed CI 40209105582, isolated Supabase acceptance 40209105574 and UI audit 40209105575, plus Docker/preview/shared browsers. Required isolated Auth two-agency acceptance was included; no hosted action performed.

@@ -1,6 +1,6 @@
 # P0 — Complete reservation mutation integrity
 
-> Commercial scope override — 2026-10-25: **COMPLETED REFERENCE — reuse merged work; no repeated audit**. The [P0–P5 commercial roadmap](../../TRAVLINE_FINAL_ROADMAP.md) supersedes former demo/Zo-only priorities and historical authorization below. No real customer writes, hosted migrations, external provider activation or paid services are authorized. Internal financial workflows remain in scope. Current execution: [commercial-signup-integrity](commercial-signup-integrity.md).
+> Commercial scope override — 2026-10-25: **COMPLETED REFERENCE — reuse merged work; no repeated audit**. The [P0–P5 commercial roadmap](../../TRAVLINE_FINAL_ROADMAP.md) supersedes former demo/Zo-only priorities and historical authorization below. No real customer writes, hosted migrations, external provider activation or paid services are authorized. Internal financial workflows remain in scope. Current execution is selected by the [task registry](README.md).
 
 Status: PR OPEN — [#163](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/163); exact-head CI pending. Branch `fix/p0-reservation-mutation-integrity`, base verified main `53d41ec3f92358b1b800c4f7c15f8239cc30b870` after #162 merged with required checks green. One cohesive P0 API/database outcome, preserving the completed editor.
 

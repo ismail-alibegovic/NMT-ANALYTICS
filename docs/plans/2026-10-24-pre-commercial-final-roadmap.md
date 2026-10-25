@@ -40,7 +40,7 @@ Completed work is recorded below as historical evidence. No full priority is mar
 
 ### Completed P0 read/filter/retry batch — #160
 
-Status: **MERGED**, `7abb04ad099a0edfcacc36e3169bd4270845f942`; exact-head CI and isolated acceptance linked above passed. Spec: [`docs/tasks/active/p0-reservation-reliability.md`](tasks/active/p0-reservation-reliability.md). No API/schema/migration changes, seed/reset execution, production/customer writes or Zo runtime operations.
+Status: **MERGED**, `7abb04ad099a0edfcacc36e3169bd4270845f942`; exact-head CI and isolated acceptance linked above passed. Spec: [`docs/tasks/active/p0-reservation-reliability.md`](../tasks/active/p0-reservation-reliability.md). No API/schema/migration changes, seed/reset execution, production/customer writes or Zo runtime operations.
 
 - `src/pages/Reservations.tsx`: URL-driven filters and clear, retained search on invalidation, latest-query refresh after pending mutations, explicit failed-read/retry, stale response and organization guards, cleared stale bulk selections.
 - `src/hooks/useQueryParams.ts`: write-through pending URL updates prevent rapid clear/search from restoring stale date filters; committed navigation remains authoritative.
@@ -54,7 +54,7 @@ Paths above are under `nmt-analytics-admin/` unless otherwise qualified. Merge S
 
 ### Completed P0 write batch — atomic reservation editor #161
 
-Status: **MERGED / isolated CI verified**, `ad62d77e7aa3c1f7d7b8ffb2bb0f622611a6564b`. Branch `fix/p0-atomic-reservation-save`, base `7abb04ad099a0edfcacc36e3169bd4270845f942`. Spec: [`p0-atomic-reservation-save.md`](tasks/active/p0-atomic-reservation-save.md).
+Status: **MERGED / isolated CI verified**, `ad62d77e7aa3c1f7d7b8ffb2bb0f622611a6564b`. Branch `fix/p0-atomic-reservation-save`, base `7abb04ad099a0edfcacc36e3169bd4270845f942`. Spec: [`p0-atomic-reservation-save.md`](../tasks/active/p0-atomic-reservation-save.md).
 
 The editor's confirmed split-save defect was reproduced first (one failing contract regression). It now includes core fields and accommodation intent in one existing PATCH request. `nmt-analytics-api/src/routes/reservations.ts` validates the combined payload and calls a service-role-only transaction; legacy PATCH clients remain compatible. No separate accommodation request follows a successful core update.
 
@@ -68,7 +68,7 @@ Release ordering: apply the additive migration through the approved migration pr
 
 ### Completed P0 runtime batch — Node 24 alignment #162
 
-Branch `fix/p0-supported-node-runtime`, base `ad62d77e7aa3c1f7d7b8ffb2bb0f622611a6564b`. Spec: [`p0-supported-node-runtime.md`](tasks/active/p0-supported-node-runtime.md). Status: **MERGED / isolated CI verified**, `53d41ec3f92358b1b800c4f7c15f8239cc30b870`. Final exact-head checks and acceptance are linked above.
+Branch `fix/p0-supported-node-runtime`, base `ad62d77e7aa3c1f7d7b8ffb2bb0f622611a6564b`. Spec: [`p0-supported-node-runtime.md`](../tasks/active/p0-supported-node-runtime.md). Status: **MERGED / isolated CI verified**, `53d41ec3f92358b1b800c4f7c15f8239cc30b870`. Final exact-head checks and acceptance are linked above.
 
 - `.nvmrc`, root/API/admin package engines and lock metadata select Node 24. All dependency resolutions/integrities are unchanged (three lockfiles compared structurally after removing only the new root engine metadata).
 - `.github/workflows/{ci,staging-acceptance,ui-audit}.yml`, API Docker builder/runner and admin Docker builder select Node 24. Both production entry points call `scripts/require-node-runtime.cjs` before build/install/start.
@@ -79,7 +79,7 @@ Branch `fix/p0-supported-node-runtime`, base `ad62d77e7aa3c1f7d7b8ffb2bb0f622611
 
 ### Current P0 outcome — reservation mutation and operational cancellation integrity
 
-Branch `fix/p0-reservation-mutation-integrity`, base `53d41ec3f92358b1b800c4f7c15f8239cc30b870`. Spec: [`p0-reservation-mutation-integrity.md`](tasks/active/p0-reservation-mutation-integrity.md). Status: **PR OPEN — [#163](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/163)**; locally verified, exact-head CI/merge pending. Resume this PR before creating another branch.
+Branch `fix/p0-reservation-mutation-integrity`, base `53d41ec3f92358b1b800c4f7c15f8239cc30b870`. Spec: [`p0-reservation-mutation-integrity.md`](../tasks/active/p0-reservation-mutation-integrity.md). Status: **PR OPEN — [#163](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/163)**; locally verified, exact-head CI/merge pending. Resume this PR before creating another branch.
 
 - Regression first: seven failing HTTP boundary cases, including independent departure-cache drift after rejected core/status/batch/delete writes. Disposable PostgreSQL also confirmed that cancellation retained a live seat, and that the legacy immutable statement trigger rejected even a zero-row delete cascade. Existing composite traveler/departure FK was already correct; retain it and verify rollback on rejected moves.
 - `src/routes/reservations.ts`: all core/status/batch/delete paths now use service-role-only transactions with unchanged auth/agent/org/audit and response contracts. Batch remains per-item atomic. Financial history is explicitly retained; invalid relationship/financial changes return safe conflicts without SQL diagnostics.
