@@ -26,7 +26,7 @@ const auditOrganizationCreate = auditLog(
  *
  * Self-service registration: creates a Supabase auth user.
  * The handle_new_user trigger (DB-side) auto-creates:
- *   - organizations row (slug derived from org_name)
+ *   - organizations row (unique slug from the agency display name)
  *   - profiles row (role = director)
  *   - default org_modules + org_branding
  */
@@ -38,7 +38,7 @@ router.post('/auth/signup', auditOrganizationCreate, async (req: Request, res: R
       return apiError(res, 400, 'VALIDATION_ERROR', firstErr?.message || 'Invalid input');
     }
 
-    const { email, password, full_name } = parsed.data;
+    const { email, password, full_name, org_name } = parsed.data;
 
     // Fresh anonymous client: signup must send Auth confirmation, never mutate the admin session.
     const { data, error } = await createSignupClient().auth.signUp({
@@ -46,7 +46,7 @@ router.post('/auth/signup', auditOrganizationCreate, async (req: Request, res: R
       password,
       options: {
         emailRedirectTo: signupRedirectUrl(),
-        data: full_name ? { full_name } : {},
+        data: { org_name, ...(full_name ? { full_name } : {}) },
       },
     });
 
@@ -62,26 +62,9 @@ router.post('/auth/signup', auditOrganizationCreate, async (req: Request, res: R
     // Never use that response to mutate an existing organization.
     if (data.user.identities?.length === 0) return res.status(201).json({ confirmationRequired: true });
 
-    // If org_name was provided, update the auto-created org name
-    if (parsed.data.org_name) {
-      const { data: profile } = await supabaseAdmin
-        .from('profiles')
-        .select('org_id')
-        .eq('id', data.user.id)
-        .single();
-
-      if (profile?.org_id) {
-        await supabaseAdmin
-          .from('organizations')
-          .update({ name: parsed.data.org_name })
-          .eq('id', profile.org_id);
-
-        await supabaseAdmin
-          .from('org_branding')
-          .update({ display_name: parsed.data.org_name })
-          .eq('org_id', profile.org_id);
-      }
-    }
+    // The INSERT-only Auth bootstrap names its freshly created organization.
+    // Never use an unauthenticated signUp response to select or mutate an
+    // existing tenant, even if Auth returns a non-obfuscated existing identity.
 
     res.status(201).json({
       message: 'Registration accepted. Check your email if confirmation is required.',

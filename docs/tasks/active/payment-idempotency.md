@@ -1,5 +1,7 @@
 # Payment request idempotency
 
+> Commercial scope override — 2026-10-25: **REFERENCE / BACKLOG — reconcile existing evidence before any new implementation**. The [P0–P5 commercial roadmap](../../TRAVLINE_FINAL_ROADMAP.md) supersedes former demo/Zo-only priorities and historical authorization below. No real customer writes, hosted migrations, external provider activation or paid services are authorized. Internal financial workflows remain in scope. Current execution: [commercial-signup-integrity](commercial-signup-integrity.md).
+
 Owner-authorized financial hardening, separate from communications/Auth/scheduler work.
 
 Standalone POST /payments accepts an optional UUID idempotency_key. The API derives a stable UUIDv8 payment ID from SHA-256 of a fixed namespace, authenticated organization ID and request key. The existing payments primary key serializes competing inserts; a rejected duplicate/ledger write re-reads the winner under the same tenant. Identical retries return 200 with the same payment ID and current reservation finance; changed recorded terms return 409. The original creation returns 201. Notifications/email and audit CREATE run only for the creation winner. Existing callers without a key retain existing behavior. Installments retain their canonical row and status compare-and-set guard.

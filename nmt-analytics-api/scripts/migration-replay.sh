@@ -112,6 +112,7 @@ SQL
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/reservation-edit-atomicity.sql"
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/reservation-mutation-atomicity.sql"
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/reservation-cancellation-operations.sql"
+"${PSQL_BASE[@]}" -f "$ROOT/scripts/signup-provisioning-integrity.sql"
 echo "Migration Replay PASS: $count migrations executed"
 
 

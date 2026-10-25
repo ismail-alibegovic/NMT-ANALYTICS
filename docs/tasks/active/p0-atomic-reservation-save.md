@@ -1,5 +1,7 @@
 # P0 — Atomic reservation editor save
 
+> Commercial scope override — 2026-10-25: **COMPLETED REFERENCE — reuse merged work; no repeated audit**. The [P0–P5 commercial roadmap](../../TRAVLINE_FINAL_ROADMAP.md) supersedes former demo/Zo-only priorities and historical authorization below. No real customer writes, hosted migrations, external provider activation or paid services are authorized. Internal financial workflows remain in scope. Current execution: [commercial-signup-integrity](commercial-signup-integrity.md).
+
 **Status:** MERGED / VERIFIED in isolated CI. PR #161; merge `ad62d77e7aa3c1f7d7b8ffb2bb0f622611a6564b`. All required exact-head checks passed on `c217179b537fa72b24dcf1932b8007148088e40f` (CI 40095659271, isolated acceptance 40095659268).
 **Priority:** P0
 **Branch:** `fix/p0-atomic-reservation-save`

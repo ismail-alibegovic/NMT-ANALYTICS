@@ -1,5 +1,7 @@
 # Authorization and tenant isolation audit
 
+> Commercial scope override — 2026-10-25: **REFERENCE / BACKLOG — reconcile existing evidence before any new implementation**. The [P0–P5 commercial roadmap](../../TRAVLINE_FINAL_ROADMAP.md) supersedes former demo/Zo-only priorities and historical authorization below. No real customer writes, hosted migrations, external provider activation or paid services are authorized. Internal financial workflows remain in scope. Current execution: [commercial-signup-integrity](commercial-signup-integrity.md).
+
 Owner-authorized scope: Director/Manager/Agent UI and direct HTTP authorization across all mounted modules; tenant-owned read/write and financial/file boundaries; sensitive data and direct Data API access. Use only disposable synthetic fixtures. Preserve existing workflows and role floors. Fix confirmed boundary failures, add route/method inventory, cross-tenant and concurrent regression evidence. One PR; merge only after all six protected checks and isolated security/acceptance pass. Production application/database state is outside scope.
 
 Browser business data is API-only. The remaining self-profile page must use an authenticated API with a strict full_name-only update contract before direct browser table privileges are removed. No destructive data migration is permitted. Roll back-only SQL security checks and real HTTP scenarios must verify the ACL migration.

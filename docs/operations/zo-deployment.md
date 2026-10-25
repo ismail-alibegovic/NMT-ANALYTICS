@@ -1,5 +1,7 @@
 # Zo deployment contract
 
+> Commercial scope, 2026-10-25: this is an optional Zo-specific deployment appendix. Long-term hosting is not fixed to Zo. [Commercial release operations](commercial-release.md) and the [P0–P5 roadmap](../TRAVLINE_FINAL_ROADMAP.md) govern current acceptance, permissions, backups and rollout. No hosted changes or provider activation are authorized by this runbook.
+
 GitHub main is authoritative. Zo synchronizes, builds, deploys and verifies runtime. Local/CI evidence does not certify Zo runtime.
 
 ## Environment

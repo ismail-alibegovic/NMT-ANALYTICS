@@ -120,6 +120,9 @@ jobs:
             psql -h 127.0.0.1 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 \
             < nmt-analytics-api/scripts/storage-api-only-security.sql
 
+      - name: Atomic signup provisioning and identity rollback contracts
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/signup-provisioning-integrity.sql
+
       - name: Install Playwright Chromium
         working-directory: nmt-analytics-admin
         run: npx playwright install --with-deps chromium

@@ -1,5 +1,7 @@
 # P0 — Supported, reproducible Node runtime
 
+> Commercial scope override — 2026-10-25: **COMPLETED REFERENCE — reuse merged work; no repeated audit**. The [P0–P5 commercial roadmap](../../TRAVLINE_FINAL_ROADMAP.md) supersedes former demo/Zo-only priorities and historical authorization below. No real customer writes, hosted migrations, external provider activation or paid services are authorized. Internal financial workflows remain in scope. Current execution: [commercial-signup-integrity](commercial-signup-integrity.md).
+
 **Status:** MERGED / VERIFIED — [#162](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/162), merge `53d41ec3f92358b1b800c4f7c15f8239cc30b870`. Final head `c376547a75b8a32a3e4fe4e83cb71cc37883d68b` passed all required checks: CI 40137978854, isolated acceptance 40137978765, UI audit 40137978710, Docker and preview.
 **Priority:** P0 runtime/security configuration; final roadmap INFRA-01.
 **Branch:** `fix/p0-supported-node-runtime`

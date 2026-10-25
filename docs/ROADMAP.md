@@ -1,5 +1,7 @@
 # Travline — Canonical Roadmap
 
+> Commercial production direction — 2026-10-25: [current release roadmap](TRAVLINE_FINAL_ROADMAP.md) governs P0 security/integrity → P1 existing workflows → P2 BS/EN → P3 UX → P4 portable operations → P5 secure customer onboarding. Zo is an optional deployment consumer, not a required long-term host. Competition demos, SMTP/SMS activation, online gateways, client-specific payments and optional external integrations are deferred; existing disabled integration code must fail safely. Internal payments/installments/refunds/balances/reporting remain core. Historical milestone ordering does not override this direction. No hosted migration, real-data writes or provider activation is authorized.
+
 Reconciled 2026-10-08 against GitHub main at `e470a6a`, merged PR history, current routes and tests. Master Plan 2.0 remains the product scope: `docs/TRAVLINE_MASTER_PLAN_2_0.md`.
 
 This replaces the stale 2026-09-01 status snapshot. MERGED means the named implementation is in main; it does not certify every requirement of the broader milestone or live production behavior. PARTIAL means remaining scope or acceptance still needs verification. No unverified percentage of project completion is assigned.

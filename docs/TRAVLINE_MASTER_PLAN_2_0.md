@@ -1,5 +1,7 @@
 # TRAVLINE MASTER PLAN 2.0
 
+> Commercial production direction — 2026-10-25: [current release roadmap](TRAVLINE_FINAL_ROADMAP.md) governs P0 security/integrity → P1 existing workflows → P2 BS/EN → P3 UX → P4 portable operations → P5 secure customer onboarding. Zo is an optional deployment consumer, not a required long-term host. Competition demos, SMTP/SMS activation, online gateways, client-specific payments and optional external integrations are deferred; existing disabled integration code must fail safely. Internal payments/installments/refunds/balances/reporting remain core. Historical milestone ordering does not override this direction. No hosted migration, real-data writes or provider activation is authorized.
+
 **Status:** Canonical product + implementation plan  
 **Purpose:** single planning document for humans and coding agents  
 **Rule:** this document is context, not permission to implement everything. An agent may implement **only the task ID explicitly named in the prompt**.
