@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import PageToolbar from "../../components/ui/PageToolbar";
@@ -33,6 +33,8 @@ export default function Hotels() {
   const tr = t.operations.hotels;
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const requestVersion = useRef(0);
   const [saving, setSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [roomModalOpen, setRoomModalOpen] = useState(false);
@@ -65,25 +67,33 @@ export default function Hotels() {
   const [allocPricePerNight, setAllocPricePerNight] = useState(50);
 
   const fetchHotels = async () => {
-    setLoading(true);
-    try { const data = await getHotels(); setHotels(data); setLoading(false); }
-    catch (err: any) { showError(err.message || "Failed to load hotels"); setLoading(false); }
+    const version = ++requestVersion.current;
+    setLoading(true); setLoadError(false);
+    try {
+      const data = await getHotels();
+      if (version === requestVersion.current) setHotels(data);
+    } catch {
+      if (version === requestVersion.current) setLoadError(true);
+    } finally {
+      if (version === requestVersion.current) setLoading(false);
+    }
   };
 
   useEffect(() => {
     if (user && !authLoading) fetchHotels();
     else if (!authLoading) setLoading(false);
+    return () => { requestVersion.current++; };
   }, [user, authLoading]);
 
   useEffect(() => {
-    if (loading || roomModalOpen) return;
+    if (loading || loadError || roomModalOpen) return;
     const hotelId = searchParams.get("hotelId");
     if (!hotelId) return;
     const hotel = hotels.find((item) => item.id === hotelId);
     if (!hotel) return;
     setSelectedHotel(hotel);
     setRoomModalOpen(true);
-  }, [loading, roomModalOpen, searchParams, hotels]);
+  }, [loading, loadError, roomModalOpen, searchParams, hotels]);
 
   useEffect(() => {
     if (roomModalOpen && selectedHotel) {
@@ -194,6 +204,8 @@ export default function Hotels() {
       } />
       {loading ? (
         <div className="flex items-center justify-center p-20"><div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div></div>
+      ) : loadError ? (
+        <div className="p-6"><p role="alert" className="mb-4 text-gray-900 dark:text-white">{tr.loadError}</p><Button onClick={fetchHotels}>{tr.retryLoad}</Button></div>
       ) : hotels.length === 0 ? (
         <EmptyState title={tr.noHotels} description={tr.description} action={{ label: tr.add, onClick: () => setIsModalOpen(true) }} />
       ) : <DataTable data={hotels} columns={columns} />}

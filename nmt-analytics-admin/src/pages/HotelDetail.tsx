@@ -7,9 +7,8 @@ import Button from "../components/ui/button/Button";
 import Badge from "../components/ui/badge/Badge";
 import { DataTable, type Column } from "../components/ui/DataTable";
 import { useApp } from "../context/AppContext";
-import { useToast } from "../context/ToastContext";
 import { useT } from "../lib/i18n/context";
-import { getHotels, getHotelRooms, type Hotel, type HotelAllocation, type HotelRoom } from "../api/operations";
+import { getHotel, getHotelRooms, type Hotel, type HotelAllocation, type HotelRoom } from "../api/operations";
 import { getHotelPackages, type HotelPackage } from "../api/packageHotels";
 import { getDepartures, type Departure } from "../api/departures";
 
@@ -50,7 +49,6 @@ export default function HotelDetail() {
   const navigate = useNavigate();
   const { t } = useT();
   const { user, loading: authLoading } = useApp();
-  const { error: showError } = useToast();
   const tr = t.operations.hotels;
 
   const [hotel, setHotel] = useState<Hotel | null>(null);
@@ -59,30 +57,37 @@ export default function HotelDetail() {
   const [departures, setDepartures] = useState<Departure[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   useEffect(() => {
     if (!id || !user || authLoading) return;
+    let cancelled = false;
     (async () => {
-      setLoading(true);
+      setLoading(true); setLoadError(false);
       try {
-        const [hotels, roomRows, packageRows, departureRows] = await Promise.all([
-          getHotels(),
-          getHotelRooms(id).catch(() => []),
-          getHotelPackages(id).catch(() => []),
-          getDepartures({ limit: 200 }).then((r) => r.data || []).catch(() => []),
+        let target: Hotel;
+        try { target = await getHotel(id); }
+        catch (error: any) {
+          if (error?.response?.status === 404 || error?.status === 404) {
+            if (!cancelled) setHotel(null);
+            return;
+          }
+          throw error;
+        }
+        const [roomRows, packageRows, departureRows] = await Promise.all([
+          getHotelRooms(id), getHotelPackages(id),
+          getDepartures({ limit: 200 }).then(r => r.data || []),
         ]);
-        const target = hotels.find((item) => item.id === id) || null;
-        setHotel(target);
-        setRooms(roomRows);
-        setHotelPackages(packageRows);
-        setDepartures(departureRows);
-      } catch (err: any) {
-        showError(err?.message || t.common.error);
-        setHotel(null);
+        if (cancelled) return;
+        setHotel(target); setRooms(roomRows); setHotelPackages(packageRows); setDepartures(departureRows);
+      } catch {
+        if (!cancelled) setLoadError(true);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, [id, user, authLoading, showError, t.common.error]);
+    return () => { cancelled = true; };
+  }, [id, user, authLoading, loadAttempt]);
 
   const allocationRows = useMemo<AllocationRow[]>(() => {
     const allocations = hotel?.allocations || [];
@@ -166,6 +171,8 @@ export default function HotelDetail() {
       </div>
     );
   }
+
+  if (loadError) return <div className="p-6"><p role="alert" className="mb-4 text-gray-900 dark:text-white">{tr.loadError}</p><Button onClick={() => setLoadAttempt(value => value + 1)}>{tr.retryLoad}</Button></div>;
 
   if (!hotel) {
     return (

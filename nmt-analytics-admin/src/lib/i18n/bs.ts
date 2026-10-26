@@ -1704,6 +1704,8 @@ export const bs: Translations = {
       search: 'Pretraži račune...', linkedTo: 'Povezan sa',
     },
     hotels: {
+      loadError: 'Podaci o hotelu nisu učitani. Pokušajte ponovo da provjerite sobe i alokacije.',
+      retryLoad: 'Ponovo učitaj hotele',
       title: 'Hoteli', description: 'Hoteli i smještaj — inventar',
       add: 'Dodaj hotel', subtitle: 'Upravljaj inventarom, vrstama soba i alokacijama po polasku',
       totalRooms: 'Ukupno soba', roomTypes: 'Vrste soba', contact: 'Kontakt',

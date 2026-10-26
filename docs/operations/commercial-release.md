@@ -6,7 +6,7 @@ Scope: production readiness for real agencies. Follow [the commercial roadmap](.
 
 | Requirement | Required evidence / owner | Current observation |
 | --- | --- | --- |
-| Release artifact | Immutable main SHA, final PR checks and build/runtime versions, matching API/admin | Verified main a621226 (#166) / Node 24; document-template integrity batch awaiting protected PR checks |
+| Release artifact | Immutable main SHA, final PR checks and build/runtime versions, matching API/admin | Verified main a0c84af (#167) / Node 24; hotel read-reliability batch awaiting protected PR checks |
 | Destination | Approved host/project/region, DNS/TLS, environment separation and operations owner | Not verified for this commercial release |
 | Configuration | Server-only service key; client-safe publishable values; exact origins/deep-links; production dev flags rejected; startup/health/restart | Existing source/tests retained; actual target verification pending |
 | Migration parity | Real schema_migrations plus catalog/functions/ACL/RLS/constraints/Storage inventory, reviewed hashes, pending order | Isolated replay evidence only; hosted backlog cannot be inferred from a historical four-migration note |

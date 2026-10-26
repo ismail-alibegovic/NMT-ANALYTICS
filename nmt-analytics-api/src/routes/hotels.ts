@@ -84,9 +84,10 @@ router.get('/hotels', authenticateToken, requireOrgContext, requireMinimumRole('
 
     let query = supabaseAdmin
       .from('hotels')
-      .select('*, hotel_rooms(*), hotel_allocations(*)')
+      .select('*, hotel_rooms(*), hotel_allocations(*)', { count: 'exact' })
       .eq('org_id', orgId)
       .order(orderBy as string || 'created_at', { ascending: orderDir === 'asc' })
+      .order('id', { ascending: true })
       .range(offset, offset + limit - 1);
 
     if (search && search.trim()) {
@@ -99,6 +100,20 @@ router.get('/hotels', authenticateToken, requireOrgContext, requireMinimumRole('
 
     return res.json(formatListResponse(data || [], count || 0, page, limit));
   } catch (err) { next(err); }
+});
+
+/** GET /api/hotels/:id — identity lookup must not depend on a list page. */
+router.get('/hotels/:id', authenticateToken, requireOrgContext, requireMinimumRole('viewer'), async (req, res: Response) => {
+  try {
+    const { data, error } = await supabaseAdmin.from('hotels')
+      .select('*, hotel_rooms(*), hotel_allocations(*)')
+      .eq('id', req.params.id).eq('org_id', req.orgId!).maybeSingle();
+    if (error) return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to fetch hotel');
+    if (!data) return apiError(res, 404, 'NOT_FOUND', 'Hotel not found');
+    return res.json(transformHotel(data));
+  } catch {
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to fetch hotel');
+  }
 });
 
 /** POST /api/hotels */

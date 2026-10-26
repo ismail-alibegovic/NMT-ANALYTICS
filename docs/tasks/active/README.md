@@ -1,10 +1,11 @@
 # Commercial release task registry
 
-Updated 2026-10-25. Only **commercial-document-template-integrity.md** is active for implementation. The user explicitly authorized this production reset; do not ask them to choose a legacy task. The [master roadmap](../../TRAVLINE_FINAL_ROADMAP.md) owns priorities, acceptance and GO/NO-GO evidence. Preserve prior source/tests; historical files do not grant operational approval. Competition-specific private demo work is deferred and is not an onboarding solution.
+Updated 2026-10-25. Only **commercial-hotel-read-reliability.md** is active for implementation. The user explicitly authorized this production reset; do not ask them to choose a legacy task. The [master roadmap](../../TRAVLINE_FINAL_ROADMAP.md) owns priorities, acceptance and GO/NO-GO evidence. Preserve prior source/tests; historical files do not grant operational approval. Competition-specific private demo work is deferred and is not an onboarding solution.
 
 | Specification | Commercial disposition |
 | --- | --- |
-| [commercial-document-template-integrity.md](commercial-document-template-integrity.md) | ACTIVE — existing document editor read/save integrity |
+| [commercial-hotel-read-reliability.md](commercial-hotel-read-reliability.md) | ACTIVE — truthful hotel directory/detail reads and retry |
+| [commercial-document-template-integrity.md](commercial-document-template-integrity.md) | MERGED #167 — document persistence/recovery, isolated Auth verified |
 | [commercial-organization-controls.md](commercial-organization-controls.md) | MERGED #166 — configuration/entitlement boundaries, isolated Auth verified |
 | [commercial-request-security.md](commercial-request-security.md) | MERGED #165 — dependency/resource/startup safety verified |
 | [commercial-signup-integrity.md](commercial-signup-integrity.md) | MERGED #164 — isolated CI verified, reuse tests |
