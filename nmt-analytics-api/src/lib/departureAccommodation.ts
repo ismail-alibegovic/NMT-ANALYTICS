@@ -1,7 +1,7 @@
 import { supabaseAdmin } from './supabase';
 import { getSoldRoomsForAllocation } from './reservationAccommodation';
 
-const ROOM_CAPACITY: Record<string, number> = {
+export const ROOM_CAPACITY: Record<string, number> = {
   single: 1,
   double: 2,
   triple: 3,

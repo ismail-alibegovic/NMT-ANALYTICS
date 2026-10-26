@@ -8,6 +8,7 @@ const OTHER_ORG = '00000000-0000-0000-0000-000000000002'
 let departuresStore: any[] = []
 let reservationsStore: any[] = []
 let passengersStore: any[] = []
+let queryOrders: string[] = []
 
 function makeQuery(rows: any[]) {
   let working = [...rows]
@@ -21,7 +22,8 @@ function makeQuery(rows: any[]) {
       working = working.filter((row) => set.has(row[column]))
       return query
     },
-    order() {
+    order(column: string) {
+      queryOrders.push(column)
       return query
     },
     range() {
@@ -101,6 +103,7 @@ function createApp() {
 
 describe('GET /api/departures occupancy source', () => {
   beforeEach(() => {
+    queryOrders = []
     departuresStore = [
       {
         id: 'dep-1',
@@ -116,6 +119,12 @@ describe('GET /api/departures occupancy source', () => {
     ]
     reservationsStore = []
     passengersStore = []
+  })
+
+  it('uses a unique tie-breaker for allocation-choice pagination', async () => {
+    const res = await request(createApp()).get('/api/departures?page=2&limit=200')
+    expect(res.status).toBe(200)
+    expect(queryOrders.slice(0, 2)).toEqual(['depart_at', 'id'])
   })
 
   it('uses departure_passengers count when passenger rows exist', async () => {

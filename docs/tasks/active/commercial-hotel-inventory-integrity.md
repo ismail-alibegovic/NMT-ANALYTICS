@@ -1,6 +1,6 @@
 # Commercial P1 — Hotel creation and room-stock integrity
 
-Status: ACTIVE, sole implementation spec. Branch fix/commercial-hotel-inventory-integrity from verified main 89c7ea7baf995077ded2fe59caa0fd0cbcb4adf0 (#168).
+Status: MERGED #169. Branch fix/commercial-hotel-inventory-integrity from verified main 89c7ea7baf995077ded2fe59caa0fd0cbcb4adf0 (#168).
 
 Confirmed baseline: four API regressions fail. Hotel creation reports 201 after returned or thrown dependent room insertion errors. One-room defaults create two rooms; ten-room defaults advertise availability 10 against total 1. Room creation conflates per-room passenger capacity with physical room quantity and accepts invalid numbers. A rollback-only PostgreSQL 119-migration probe confirms custom family labels advertised by the UI are rejected by a reconciliation constraint, while negative capacity/price and availability above total are accepted. The earlier append-only migration 20260821020000 explicitly intended free-form room names; preserve that capability without editing historical migrations.
 
@@ -18,4 +18,4 @@ Four old-code failures reproduced. API transaction/validation/role/tenant/error 
 
 Fresh final **120-migration replay** passes. Actual PostgreSQL fault injection proves rollback at hotel/default-child and room/parent-update boundaries, zero guessed stock, custom names, parent-total protection and service-only ACLs. An isolated clone retains a deliberately malformed legacy row unchanged. Actual concurrent PostgREST additions of two and three rooms preserve exact parent/child total five. Logical recovery passes row counts **and SHA-256 row values**, stock/tenant/ACL/Storage contracts; a new negative control rejects a changed monetary value with identical row counts and is wired into CI. Initial local target startup and draft fingerprint quoting mistakes were diagnosed and corrected before accepting these results; no hosted operations occurred.
 
-No migration has been applied to a hosted project. Required exact-head full CI, protected PR and merge remain pending. Existing P1 allocation-dialog readiness and remaining P2/P3/P5/operations gates are still open.
+No migration has been applied to a hosted project. Final head 7329729b713f95da22473ac68e2d576eb73e0fbc passed CI 40254884019, isolated acceptance 40254883957 and UI audit 40254883947, plus Docker/shared browsers/Vercel; merged as 464a8aa37002f80452cd359ccceec1cce6e5ce46. Existing P1 allocation-dialog readiness and remaining P2/P3/P5/operations gates are still open.

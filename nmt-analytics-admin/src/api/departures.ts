@@ -262,6 +262,25 @@ export interface DepartureListResponse {
   totalPages: number;
 }
 
+/** Complete, counted choices for the allocation dialog; partial reads are unsafe. */
+export async function getAllocationDepartures(): Promise<Departure[]> {
+  const rows: Departure[] = [];
+  const seen = new Set<string>();
+  let expected: number | undefined;
+  for (let page = 1; ; page++) {
+    const result = await getDepartures({page, limit: 200});
+    if (!Number.isSafeInteger(result.total) || result.total < 0 || !Array.isArray(result.data)
+      || (expected !== undefined && result.total !== expected)) throw new Error('Incomplete departure choices');
+    expected = result.total;
+    for (const row of result.data) {
+      if (!row.id || seen.has(row.id)) throw new Error('Repeated departure choices');
+      seen.add(row.id); rows.push(row);
+    }
+    if (rows.length === expected) return rows;
+    if (rows.length > expected || result.data.length === 0) throw new Error('Incomplete departure choices');
+  }
+}
+
 export async function getDepartures(filters: DepartureFilters = {}): Promise<DepartureListResponse> {
   const params: Record<string, any> = {};
   if (filters.packageId) {
