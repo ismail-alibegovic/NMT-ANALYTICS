@@ -282,7 +282,10 @@ export async function createHotelAllocation(departureId: string, payload: {
   roomsReserved: number;
   checkIn: string;
   checkOut: string;
-  pricePerNight: number;
+  pricePerNight?: number;
+  capacityPerRoom?: number;
+  netPrice?: number;
+  sellPrice?: number;
 }): Promise<HotelAllocation> {
   const { data } = await post<HotelAllocation>(`/departures/${departureId}/allocations`, payload);
   return data;

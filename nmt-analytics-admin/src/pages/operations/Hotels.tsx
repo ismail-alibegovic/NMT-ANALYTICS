@@ -19,7 +19,7 @@ import {
   createHotelAllocation,
   Hotel, HotelRoom,
 } from "../../api/operations";
-import { getDepartures, Departure } from "../../api/departures";
+import { getAllocationDepartures, Departure } from "../../api/departures";
 
 const starOptions = Array.from({ length: 5 }, (_, i) => ({ value: String(i + 1), label: "★".repeat(i + 1) + " " + (i + 1) }));
 const currencyOptions = [{ value: "BAM", label: "BAM" }, { value: "EUR", label: "EUR" }, { value: "USD", label: "USD" }];
@@ -28,7 +28,7 @@ export default function Hotels() {
   const navigate = useNavigate();
   const { success: showSuccess, error: showError } = useToast();
   const { user, loading: authLoading } = useApp();
-  const { t } = useT();
+  const { t, lang } = useT();
   const [searchParams, setSearchParams] = useSearchParams();
   const tr = t.operations.hotels;
   const [hotels, setHotels] = useState<Hotel[]>([]);
@@ -68,10 +68,17 @@ export default function Hotels() {
   const [roomCurrency, setRoomCurrency] = useState("BAM");
 
   const [allocRoomType, setAllocRoomType] = useState("");
-  const [allocRoomsReserved, setAllocRoomsReserved] = useState(5);
+  const [allocRoomsReserved, setAllocRoomsReserved] = useState(0);
+  const [allocCapacity, setAllocCapacity] = useState(2);
+  const [allocSellPrice, setAllocSellPrice] = useState(0);
+  const [allocLoading, setAllocLoading] = useState(true);
+  const [allocReadError, setAllocReadError] = useState(false);
+  const [allocReadAttempt, setAllocReadAttempt] = useState(0);
+  const [allocSaving, setAllocSaving] = useState(false);
+  const allocSaveInFlight = useRef(false);
   const [allocCheckIn, setAllocCheckIn] = useState("");
   const [allocCheckOut, setAllocCheckOut] = useState("");
-  const [allocPricePerNight, setAllocPricePerNight] = useState(50);
+  const [allocPricePerNight, setAllocPricePerNight] = useState(0);
 
   const fetchHotels = async () => {
     const version = ++requestVersion.current;
@@ -110,15 +117,39 @@ export default function Hotels() {
       if (!cancelled) setSelectedRooms(rows);
     }).catch(() => { if (!cancelled) setRoomReadError(true); })
       .finally(() => { if (!cancelled) setRoomLoading(false); });
-    // Existing departure-choice behavior is retained for the separate allocation workflow.
-    getDepartures({ limit: 200 }).then(r => { if (!cancelled) setDepartureList(r.data || []); })
-      .catch(() => { if (!cancelled) setDepartureList([]); });
     return () => { cancelled = true; };
   }, [roomModalOpen, selectedHotel, roomReadAttempt]);
 
   useEffect(() => {
     setRoomType(""); setRoomQuantity(1); setRoomCapacity(2); setRoomPrice(50);
   }, [selectedHotel?.id]);
+
+  useEffect(() => {
+    if (!allocModalOpen) return;
+    let cancelled = false;
+    setAllocLoading(true); setAllocReadError(false);
+    getAllocationDepartures().then(rows => { if (!cancelled) setDepartureList(rows); })
+      .catch(() => { if (!cancelled) setAllocReadError(true); })
+      .finally(() => { if (!cancelled) setAllocLoading(false); });
+    return () => { cancelled = true; };
+  }, [allocModalOpen, allocReadAttempt]);
+
+  const allocationCurrency = departureList.find(d => d.id === selectedDeparture)?.packages?.currency;
+  const validMoney = (value: number) => Number.isFinite(value) && value >= 0 && value <= 9999999999.99
+    && Math.abs(value * 100 - Math.round(value * 100)) < 0.0001;
+  const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+    && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+  const allocationValid = !!selectedHotel && departureList.some(d => d.id === selectedDeparture)
+    && !!allocRoomType.trim() && allocRoomType.trim().length <= 100
+    && Number.isInteger(allocRoomsReserved) && allocRoomsReserved >= 0 && allocRoomsReserved <= 1000
+    && Number.isInteger(allocCapacity) && allocCapacity >= 1 && allocCapacity <= 100
+    && validDate(allocCheckIn) && validDate(allocCheckOut) && allocCheckOut >= allocCheckIn
+    && validMoney(allocPricePerNight) && validMoney(allocSellPrice);
+  const openAllocation = (hotel: Hotel) => {
+    setSelectedHotel(hotel); setSelectedDeparture(""); setAllocRoomType("");
+    setAllocRoomsReserved(0); setAllocCapacity(2); setAllocCheckIn(""); setAllocCheckOut("");
+    setAllocPricePerNight(0); setAllocSellPrice(0); setAllocLoading(true); setAllocModalOpen(true);
+  };
 
   const inventoryFailure = (error: any, fallback: string) => {
     const code = error?.response?.data?.code || error?.code;
@@ -174,15 +205,18 @@ export default function Hotels() {
   };
 
   const handleCreateAllocation = async () => {
-    if (!selectedHotel || !selectedDeparture) return;
+    if (!selectedHotel || !allocationValid || allocLoading || allocReadError || allocSaveInFlight.current) return;
+    allocSaveInFlight.current = true; setAllocSaving(true);
     try {
       await createHotelAllocation(selectedDeparture, {
-        hotelId: selectedHotel.id, roomType: allocRoomType,
-        roomsReserved: allocRoomsReserved, checkIn: allocCheckIn,
-        checkOut: allocCheckOut, pricePerNight: allocPricePerNight,
+        hotelId: selectedHotel.id, roomType: allocRoomType.trim(),
+        roomsReserved: allocRoomsReserved, capacityPerRoom: allocCapacity,
+        checkIn: allocCheckIn, checkOut: allocCheckOut,
+        netPrice: allocPricePerNight, sellPrice: allocSellPrice,
       });
-      showSuccess("Allocation created"); setAllocModalOpen(false); fetchHotels();
-    } catch (err: any) { showError(err.message || "Failed to create allocation"); }
+      showSuccess(tr.allocationSaved); setAllocModalOpen(false); fetchHotels();
+    } catch { showError(tr.allocationSaveError); }
+    finally { allocSaveInFlight.current = false; setAllocSaving(false); }
   };
 
   const closeRoomModal = () => {
@@ -222,7 +256,7 @@ export default function Hotels() {
       <div className="flex gap-2">
         <Button size="sm" variant="outline" onClick={() => navigate(`/operations/hotels/${(h as Hotel).id}`)} className="p-2">{tr.open || "Open"}</Button>
         <Button size="sm" variant="outline" onClick={() => { setSelectedHotel(h as Hotel); setRoomLoading(true); setRoomModalOpen(true); }} title="Room types" className="p-2 text-blue-600"><EyeIcon className="w-4 h-4" /></Button>
-        <Button size="sm" variant="outline" onClick={() => { setSelectedHotel(h as Hotel); setAllocModalOpen(true); }} title="Allocate" className="p-2 text-purple-600"><TableIcon className="w-4 h-4" /></Button>
+        <Button size="sm" variant="outline" onClick={() => openAllocation(h as Hotel)} title={tr.allocate} aria-label={tr.allocate} className="p-2 text-purple-600"><TableIcon className="w-4 h-4" /></Button>
         <Button size="sm" variant="outline" onClick={() => handleDeleteHotel(h as Hotel)} title="Delete" className="p-2 text-red-600"><TrashBinIcon className="w-4 h-4" /></Button>
       </div>) },
   ];
@@ -312,27 +346,32 @@ export default function Hotels() {
         </fieldset>
       </Modal>
 
-      <Modal isOpen={allocModalOpen} onClose={() => setAllocModalOpen(false)} className="m-4 max-w-xl" title={selectedHotel ? `${selectedHotel.name} — ${tr.allocate || "Allocate"}` : (tr.allocate || "Allocate")}>
-        <div className="grid max-h-[75vh] gap-4 overflow-y-auto p-6 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Field label={tr.departure || "Departure"}>
-              <Select value={selectedDeparture} onChange={setSelectedDeparture} options={[
-                { value: "", label: tr.selectDeparture || "Select departure" },
-                ...departureList.map((d: any) => ({ value: d.id, label: `${d.packageName || "Departure"} — ${new Date(d.depart_at).toLocaleDateString()}` }))
-              ]} />
-            </Field>
-          </div>
-          <Field label={tr.roomType || "Room type"}><Input placeholder="e.g. 2-bed, 3-bed, twin, family" value={allocRoomType} onChange={(e) => setAllocRoomType(e.target.value)} /></Field>
-          <Field label={tr.roomsReserved || "Rooms reserved"}><Input type="number" value={String(allocRoomsReserved)} onChange={(e) => setAllocRoomsReserved(Number(e.target.value) || 0)} /></Field>
-          <Field label={tr.checkIn || "Check-in"}><Input type="date" value={allocCheckIn} onChange={(e) => setAllocCheckIn(e.target.value)} /></Field>
-          <Field label={tr.checkOut || "Check-out"}><Input type="date" value={allocCheckOut} onChange={(e) => setAllocCheckOut(e.target.value)} /></Field>
-          <Field label={tr.pricePerNight || "Price/night"}>
-            <Input type="number" value={String(allocPricePerNight)} onChange={(e) => setAllocPricePerNight(Number(e.target.value) || 0)} />
-          </Field>
-          <div className="flex justify-end gap-2 border-t border-gray-100 pt-4 sm:col-span-2 dark:border-gray-800">
-            <Button variant="outline" onClick={() => setAllocModalOpen(false)}>{tr.cancel || "Cancel"}</Button>
-            <Button onClick={() => void handleCreateAllocation()} disabled={!selectedDeparture || !allocRoomType}>{tr.allocate || "Allocate"}</Button>
-          </div>
+      <Modal isOpen={allocModalOpen} onClose={() => { if (!allocSaveInFlight.current) setAllocModalOpen(false); }} className="m-4 max-w-xl" title={selectedHotel ? `${selectedHotel.name} — ${tr.allocate}` : tr.allocate}>
+        <div className="max-h-[75vh] overflow-y-auto p-6">
+          {allocLoading ? <p role="status">{t.common.loading}</p> : allocReadError ? <div><p role="alert">{tr.allocationReadError}</p><Button onClick={() => setAllocReadAttempt(n => n + 1)}>{tr.retryDepartures}</Button></div>
+            : departureList.length === 0 ? <p role="status">{tr.noAllocationDepartures}</p> : null}
+          <fieldset disabled={allocSaving || allocLoading || allocReadError || departureList.length === 0} className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2"><Field label={tr.departure} htmlFor="allocation-departure">
+              <Select id="allocation-departure" value={selectedDeparture} onChange={setSelectedDeparture} options={[
+                {value: "", label: tr.selectDeparture},
+                ...departureList.map(d => ({value: d.id, label: `${d.packageName || tr.departure} — ${new Date(d.depart_at).toLocaleDateString(lang === 'bs' ? 'bs-BA' : 'en-GB')}`})),
+              ]}/>
+            </Field></div>
+            <Field label={tr.roomType} htmlFor="allocation-type"><Input id="allocation-type" placeholder={tr.roomTypeExample} value={allocRoomType} onChange={e => setAllocRoomType(e.target.value)}/></Field>
+            <Field label={tr.roomsReserved} htmlFor="allocation-rooms"><Input id="allocation-rooms" type="number" min="0" max="1000" step={1} value={String(allocRoomsReserved)} onChange={e => setAllocRoomsReserved(Number(e.target.value))}/></Field>
+            <Field label={tr.allocationCapacity} htmlFor="allocation-capacity"><Input id="allocation-capacity" type="number" min="1" max="100" step={1} value={String(allocCapacity)} onChange={e => setAllocCapacity(Number(e.target.value))}/></Field>
+            <Field label={tr.checkIn} htmlFor="allocation-check-in"><Input id="allocation-check-in" type="date" value={allocCheckIn} onChange={e => setAllocCheckIn(e.target.value)}/></Field>
+            <Field label={tr.checkOut} htmlFor="allocation-check-out"><Input id="allocation-check-out" type="date" value={allocCheckOut} onChange={e => setAllocCheckOut(e.target.value)}/></Field>
+            <Field label={tr.allocationNetPrice} htmlFor="allocation-net"><Input id="allocation-net" type="number" min="0" step={0.01} value={String(allocPricePerNight)} onChange={e => setAllocPricePerNight(Number(e.target.value))}/></Field>
+            <Field label={tr.allocationSellPrice} htmlFor="allocation-sell"><Input id="allocation-sell" type="number" min="0" step={0.01} value={String(allocSellPrice)} onChange={e => setAllocSellPrice(Number(e.target.value))}/></Field>
+            <p className="text-sm text-gray-600 sm:col-span-2 dark:text-gray-300">{tr.allocationPriceHint}{allocationCurrency ? ` (${allocationCurrency})` : ''}</p>
+            <p className="text-sm text-gray-600 sm:col-span-2 dark:text-gray-300">{tr.allocationValidationHint}</p>
+            <div className="flex justify-end gap-2 border-t border-gray-100 pt-4 sm:col-span-2 dark:border-gray-800">
+              <Button variant="outline" onClick={() => setAllocModalOpen(false)}>{t.common.cancel}</Button>
+              <Button onClick={() => void handleCreateAllocation()} disabled={!allocationValid}>{allocSaving ? t.common.saving : tr.allocate}</Button>
+            </div>
+          </fieldset>
+          {(allocLoading || allocReadError || departureList.length === 0) && <Button variant="outline" onClick={() => setAllocModalOpen(false)}>{t.common.close}</Button>}
         </div>
       </Modal>
     </>
@@ -343,9 +382,9 @@ function Field({ label, children, htmlFor }: { label: string; children: ReactNod
   return <div><Label htmlFor={htmlFor}>{label}</Label><div className="mt-1.5">{children}</div></div>;
 }
 
-function Select({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: { value: string; label: string }[] }) {
+function Select({ value, onChange, options, id }: { id?: string; value: string; onChange: (value: string) => void; options: { value: string; label: string }[] }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)}
+    <select id={id} value={value} onChange={(e) => onChange(e.target.value)}
       className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
       {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
     </select>

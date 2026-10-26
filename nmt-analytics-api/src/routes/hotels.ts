@@ -4,6 +4,7 @@ import { requireOrgContext } from '../middleware/requireOrgContext';
 import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
 import { apiError } from '../lib/errors';
 import { z } from 'zod';
+import { ROOM_CAPACITY } from '../lib/departureAccommodation';
 import { auditLog } from '../middleware/auditLogger';
 import { logAction } from '../lib/audit';
 import {
@@ -242,38 +243,63 @@ router.delete('/hotel-rooms/:id', authenticateToken, requireOrgContext, requireM
   } catch (err) { console.error('Error in DELETE /hotel-rooms/:id:', err); apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err)); }
 });
 
+const allocationMoney = z.number().min(0).max(9999999999.99).multipleOf(0.01);
+const allocationCreateSchema = z.object({
+  hotelId: z.uuid(),
+  roomType: z.string().trim().min(1).max(100),
+  // This request creates room slots synchronously; bound work per request.
+  roomsReserved: z.number().int().min(0).max(1000),
+  capacityPerRoom: z.number().int().min(1).max(100).optional(),
+  checkIn: z.iso.date(),
+  checkOut: z.iso.date(),
+  pricePerNight: allocationMoney.optional(),
+  netPrice: allocationMoney.optional(),
+  sellPrice: allocationMoney.default(0),
+}).strict().superRefine((value, ctx) => {
+  if (value.checkOut < value.checkIn) ctx.addIssue({code: 'custom', path: ['checkOut'], message: 'Check-out precedes check-in'});
+  if (value.capacityPerRoom === undefined && !Object.prototype.hasOwnProperty.call(ROOM_CAPACITY, value.roomType)) {
+    ctx.addIssue({code: 'custom', path: ['capacityPerRoom'], message: 'Capacity is required for custom room types'});
+  }
+  if (value.netPrice !== undefined && value.pricePerNight !== undefined && value.netPrice !== value.pricePerNight) {
+    ctx.addIssue({code: 'custom', path: ['netPrice'], message: 'Conflicting net prices'});
+  }
+});
+
 /** POST /api/departures/:id/allocations — create hotel allocation */
 router.post('/departures/:id/allocations', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
+  const parsed = allocationCreateSchema.safeParse(req.body);
+  if (!parsed.success || !z.uuid().safeParse(req.params.id).success) {
+    return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid hotel allocation');
+  }
   try {
     const depId = req.params.id;
     const orgId = req.orgId!;
-    const { hotelId, roomType, roomsReserved, checkIn, checkOut, pricePerNight } = req.body;
-
-    // Verify departure belongs to org
-    const { data: dep } = await supabaseAdmin.from('departures').select('id').eq('id', depId).eq('org_id', orgId).single();
-    if (!dep) return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
-
-    // Verify hotel belongs to org
-    const { data: hotel } = await supabaseAdmin.from('hotels').select('id').eq('id', hotelId).eq('org_id', orgId).single();
-    if (!hotel) return apiError(res, 404, 'NOT_FOUND', 'Hotel not found');
-
-    const { data: alloc, error: err } = await supabaseAdmin
-      .from('hotel_allocations')
-      .insert({
-        org_id: orgId,
-        departure_id: depId,
-        hotel_id: hotelId,
-        room_type: roomType,
-        rooms_reserved: roomsReserved || 0,
-        check_in: checkIn,
-        check_out: checkOut,
-        price_per_night: pricePerNight || 0,
-      })
-      .select()
-      .single();
-    if (err) return handleSupabaseError(res, err, 'Failed to create allocation');
+    const input = parsed.data;
+    for (const [table, id] of [['departures', depId], ['hotels', input.hotelId]]) {
+      const {data, error} = await supabaseAdmin.from(table).select('id').eq('id', id).eq('org_id', orgId).single();
+      if (error && error.code !== 'PGRST116') return apiError(res, 500, 'INTERNAL_ERROR', 'Could not verify allocation details');
+      if (!data) return apiError(res, 404, 'NOT_FOUND', 'Hotel or departure not found');
+    }
+    const netPrice = input.netPrice ?? input.pricePerNight ?? 0;
+    // The single insert and existing slot triggers share one database transaction.
+    const {data: alloc, error} = await supabaseAdmin.from('hotel_allocations').insert({
+      org_id: orgId, departure_id: depId, hotel_id: input.hotelId,
+      room_type: input.roomType, room_label: input.roomType,
+      rooms_reserved: input.roomsReserved,
+      capacity_per_room: input.capacityPerRoom ?? ROOM_CAPACITY[input.roomType],
+      check_in: input.checkIn, check_out: input.checkOut,
+      price_per_night: netPrice, net_price: netPrice, sell_price: input.sellPrice,
+    }).select().single();
+    if (error) {
+      if (error.code === '23503' || error.code === '23514') return apiError(res, 409, 'CONFLICT', 'Allocation details changed. Reload before retrying.');
+      return apiError(res, 500, 'INTERNAL_ERROR', 'Could not save hotel allocation');
+    }
+    if (!alloc) return apiError(res, 500, 'INTERNAL_ERROR', 'Allocation was not saved');
+    await logAction(req, 'CREATE', 'hotel_allocation', alloc.id, {newValues: alloc});
     return res.status(201).json(alloc);
-  } catch (err) { console.error('Error in POST /departures/:id/allocations:', err); apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err)); }
+  } catch {
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Could not save hotel allocation');
+  }
 });
 
 /** GET /api/public/hotels/:slug/rooms */

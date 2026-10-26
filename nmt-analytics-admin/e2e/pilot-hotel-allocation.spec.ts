@@ -1,0 +1,23 @@
+import {expect,test} from '@playwright/test';import {randomUUID} from 'node:crypto';
+const api=process.env.E2E_API_URL||'',auth=process.env.E2E_SUPABASE_URL||'';
+test.use({trace:'off',video:'off',screenshot:'off'});
+test('allocation capacity and net/sell snapshots persist through real Auth and room-slot triggers',async({request})=>{
+ test.skip(process.env.E2E_RUN_BROWSER!=='1','Requires disposable authenticated acceptance');test.setTimeout(90_000);
+ expect([api,auth].every(url=>/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(url))).toBe(true);
+ const login=async(email:string,password:string)=>{const r=await request.post(auth+'/auth/v1/token?grant_type=password',{headers:{apikey:process.env.E2E_SUPABASE_ANON_KEY!},data:{email,password}});expect(r.status()).toBe(200);return{Authorization:'Bearer '+(await r.json()).access_token};};
+ const headers=await login(process.env.E2E_FLIGHT_MANAGER_EMAIL!,process.env.E2E_FLIGHT_MANAGER_PASSWORD!);
+ const context=await request.get(api+'/api/me/context',{headers});expect(context.status()).toBe(200);expect((await context.json()).modules).toContain('travel_core');
+ const marker='Synthetic allocation '+randomUUID();
+ const pkg=await request.post(api+'/api/packages',{headers,data:{name:marker,destination:'Synthetic',price:100,currency:'EUR',active:true,transportType:'none',maxParticipants:20}});expect(pkg.status()).toBe(201);const packageId=(await pkg.json()).id;
+ const dep=await request.post(api+'/api/departures',{headers,data:{packageId,departAt:'2042-06-01T08:00:00Z',returnAt:'2042-06-04T18:00:00Z',capacity:20,status:'active',transportType:'none'}});expect(dep.status()).toBe(201);const departureId=(await dep.json()).id;
+ const hotel=await request.post(api+'/api/hotels',{headers,data:{name:marker,destination:'Synthetic',totalRooms:0}});expect(hotel.status()).toBe(201);const hotelId=(await hotel.json()).id;
+ const payload={hotelId,roomType:'Family',roomsReserved:3,capacityPerRoom:4,checkIn:'2042-06-01',checkOut:'2042-06-04',netPrice:87.25,sellPrice:0};
+ const created=await request.post(api+`/api/departures/${departureId}/allocations`,{headers,data:payload});expect(created.status()).toBe(201);const allocation=await created.json();
+ expect(allocation).toMatchObject({capacity_per_room:4,rooms_reserved:3,net_price:87.25,sell_price:0,price_per_night:87.25});
+ const persisted=await request.get(api+`/api/departures/${departureId}/accommodation-allotments`,{headers});expect(persisted.status()).toBe(200);const body=await persisted.json();expect(body.items.find((r:{id:string})=>r.id===allocation.id)).toMatchObject({capacityPerRoom:4,departureRooms:3,capacity:12,netPrice:87.25,sellPrice:0});
+ const slots=await request.get(api+`/api/departures/${departureId}/room-slots`,{headers});expect(slots.status()).toBe(200);const roomSlots=(await slots.json()).slots;expect(roomSlots).toHaveLength(3);expect(roomSlots.every((s:{capacity:number})=>s.capacity===4)).toBe(true);
+ const foreign=await login(process.env.E2E_OTHER_TENANT_EMAIL!,process.env.E2E_OTHER_TENANT_PASSWORD!);
+ expect((await request.post(api+`/api/departures/${departureId}/allocations`,{headers:foreign,data:payload})).status()).toBe(404);
+ expect((await request.post(api+`/api/departures/${departureId}/allocations`,{headers,data:{...payload,checkOut:'2042-05-31'}})).status()).toBe(400);
+ const after=await request.get(api+`/api/departures/${departureId}/room-slots`,{headers});expect(after.status()).toBe(200);expect((await after.json()).slots).toHaveLength(3);
+});

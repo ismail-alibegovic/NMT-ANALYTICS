@@ -159,6 +159,7 @@ router.get('/departures', authenticateToken, requireOrgContext, async (req, res,
       `, { count: 'exact' })
       .eq('org_id', orgId)
       .order(orderBy as string || 'depart_at', { ascending: orderDir === 'asc' })
+      .order('id', { ascending: true })
       .range(offset, offset + limit - 1);
 
     // Add date filters if provided
