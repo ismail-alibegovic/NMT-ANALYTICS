@@ -1,6 +1,6 @@
 # Commercial P1 — Hotel read reliability
 
-Status: ACTIVE, sole implementation spec. Branch fix/commercial-hotel-read-reliability from verified main a0c84af (#167).
+Status: MERGED #168. Branch fix/commercial-hotel-read-reliability from verified main a0c84af (#167).
 
 Confirmed baseline: API GET /hotels reports total=0 for 12 rows; no GET /hotels/:id exists. HotelDetail searches the default first ten hotels, making later existing hotels false not-found. Directory reads only first page, while room/package/departure read errors become empty arrays. Two isolated API regressions reproduced before repair.
 
@@ -17,3 +17,5 @@ Two prior-code failures reproduced. Six API contracts cover exact counts, owned/
 CI checkpoint: first head 7d94458 passed all fast checks, migration replay and fixture browsers, but authenticated acceptance 40244512466 failed. GitHub's redirected log host returns Forbidden even though API access works. Added sanitized JUnit failure annotations (three credential/command-injection regression tests pass) to retrieve the exact assertion through check-run annotations; no check is disabled or weakened. Existing authorization manifest refreshed for GET /hotels/:id and merged platform-only plan assignment. Required full final-head rerun remains pending; do not merge until failure is understood and resolved.
 
 Source-confirmed acceptance fixture correction: original E2E_MANAGER belongs to manually seeded ORG_A with no enabled org_modules; ModuleGuard correctly refuses the hotel UI. Positive hotel workflow now reuses existing E2E_FLIGHT_MANAGER, whose separate synthetic organization explicitly enables travel_core, and asserts that context entitlement before exercising the workflow. Cross-tenant denial and all hotel identity/directory assertions remain. Original fixture/tenant denial configuration is unchanged. Exact-head CI still required.
+
+Final head 40da5006d96040f59983f27b22634ae93f1a209f passed CI 40246658439, isolated authenticated acceptance 40246658435, UI audit 40246658454, Docker/shared browsers/preview. Merge 89c7ea7baf995077ded2fe59caa0fd0cbcb4adf0. Source-confirmed positive-actor correction is verified; no authorization assertion was weakened. GitHub API access is available through platform proxy with the stale CLI Authorization header omitted; no new token is needed.

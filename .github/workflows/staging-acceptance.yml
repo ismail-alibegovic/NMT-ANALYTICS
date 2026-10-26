@@ -123,6 +123,9 @@ jobs:
       - name: Atomic signup provisioning and identity rollback contracts
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/signup-provisioning-integrity.sql
 
+      - name: Hotel inventory rollback, quantity and tenant contracts
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/hotel-inventory-integrity.sql
+
       - name: Install Playwright Chromium
         working-directory: nmt-analytics-admin
         run: npx playwright install --with-deps chromium

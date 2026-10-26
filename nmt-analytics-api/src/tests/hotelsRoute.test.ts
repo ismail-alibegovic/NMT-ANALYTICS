@@ -104,6 +104,10 @@ vi.mock('../lib/audit', () => ({
 vi.mock('../lib/supabase', () => ({
   supabaseAdmin: {
     from: vi.fn((table: string) => createBuilder(table)),
+    rpc: vi.fn(async (_name: string,args: any) => {
+      const row={...args.p_hotel,id:'hotel-atomic',org_id:args.p_org_id,total_rooms:args.p_hotel.totalRooms,slug:'hotel-atomic'};
+      hotels.push(row);return{data:row,error:null};
+    }),
   },
   handleSupabaseError: (res: any, _error: unknown, message: string) =>
     res.status(500).json({ code: 'DB_ERROR', message }),

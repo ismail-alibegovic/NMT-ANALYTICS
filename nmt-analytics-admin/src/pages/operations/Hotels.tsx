@@ -36,6 +36,12 @@ export default function Hotels() {
   const [loadError, setLoadError] = useState(false);
   const requestVersion = useRef(0);
   const [saving, setSaving] = useState(false);
+  const hotelSaveInFlight = useRef(false);
+  const roomSaveInFlight = useRef(false);
+  const [roomSaving, setRoomSaving] = useState(false);
+  const [roomLoading, setRoomLoading] = useState(false);
+  const [roomReadError, setRoomReadError] = useState(false);
+  const [roomReadAttempt, setRoomReadAttempt] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [roomModalOpen, setRoomModalOpen] = useState(false);
   const [allocModalOpen, setAllocModalOpen] = useState(false);
@@ -57,6 +63,7 @@ export default function Hotels() {
 
   const [roomType, setRoomType] = useState("");
   const [roomCapacity, setRoomCapacity] = useState(2);
+  const [roomQuantity, setRoomQuantity] = useState(1);
   const [roomPrice, setRoomPrice] = useState(50);
   const [roomCurrency, setRoomCurrency] = useState("BAM");
 
@@ -92,15 +99,33 @@ export default function Hotels() {
     const hotel = hotels.find((item) => item.id === hotelId);
     if (!hotel) return;
     setSelectedHotel(hotel);
-    setRoomModalOpen(true);
+    setRoomLoading(true); setRoomModalOpen(true);
   }, [loading, loadError, roomModalOpen, searchParams, hotels]);
 
   useEffect(() => {
-    if (roomModalOpen && selectedHotel) {
-      getHotelRooms(selectedHotel.id).then(setSelectedRooms).catch(() => setSelectedRooms([]));
-      getDepartures({ limit: 200 }).then((r) => setDepartureList(r.data || [])).catch(() => setDepartureList([]));
-    }
-  }, [roomModalOpen, selectedHotel]);
+    if (!roomModalOpen || !selectedHotel) return;
+    let cancelled = false;
+    setRoomLoading(true); setRoomReadError(false);
+    getHotelRooms(selectedHotel.id).then(rows => {
+      if (!cancelled) setSelectedRooms(rows);
+    }).catch(() => { if (!cancelled) setRoomReadError(true); })
+      .finally(() => { if (!cancelled) setRoomLoading(false); });
+    // Existing departure-choice behavior is retained for the separate allocation workflow.
+    getDepartures({ limit: 200 }).then(r => { if (!cancelled) setDepartureList(r.data || []); })
+      .catch(() => { if (!cancelled) setDepartureList([]); });
+    return () => { cancelled = true; };
+  }, [roomModalOpen, selectedHotel, roomReadAttempt]);
+
+  useEffect(() => {
+    setRoomType(""); setRoomQuantity(1); setRoomCapacity(2); setRoomPrice(50);
+  }, [selectedHotel?.id]);
+
+  const inventoryFailure = (error: any, fallback: string) => {
+    const code = error?.response?.data?.code || error?.code;
+    const messages: Record<string,string> = { MIGRATION_PENDING: tr.inventoryUpdateRequired,
+      VALIDATION_ERROR: tr.invalidInventory, CONFLICT: tr.stockConflict };
+    return messages[code] || fallback;
+  };
 
   const resetHotelForm = () => {
     setFormName(""); setFormDestination(""); setFormAddress(""); setFormContact("");
@@ -109,6 +134,8 @@ export default function Hotels() {
   };
 
   const handleCreateHotel = async () => {
+    if (hotelSaveInFlight.current) return;
+    hotelSaveInFlight.current = true;
     setSaving(true);
     try {
       await createHotel({
@@ -119,10 +146,10 @@ export default function Hotels() {
         amenities: formAmenities ? formAmenities.split(",").map((s: string) => s.trim()).filter(Boolean) : undefined,
         email: formEmail || undefined, website: formWebsite || undefined,
       });
-      showSuccess(tr.saved || "Hotel created");
+      showSuccess(tr.hotelSaved);
       resetHotelForm(); setIsModalOpen(false); fetchHotels();
-    } catch (err: any) { showError(err.message || "Failed to create hotel"); }
-    finally { setSaving(false); }
+    } catch (err: any) { showError(inventoryFailure(err, tr.hotelSaveError)); }
+    finally { hotelSaveInFlight.current = false; setSaving(false); }
   };
 
   const handleDeleteHotel = async (h: Hotel) => {
@@ -132,11 +159,13 @@ export default function Hotels() {
   };
 
   const handleCreateRoom = async () => {
-    if (!selectedHotel) return;
+    if (!selectedHotel || roomLoading || roomReadError || roomSaveInFlight.current) return;
+    roomSaveInFlight.current = true; setRoomSaving(true);
     try {
-      await createHotelRoom(selectedHotel.id, { roomType, capacity: roomCapacity, basePrice: roomPrice, currency: roomCurrency });
-      showSuccess("Room type added"); setRoomType(""); setRoomModalOpen(false); fetchHotels();
-    } catch (err: any) { showError(err.message || "Failed to add room"); }
+      await createHotelRoom(selectedHotel.id, { roomType, capacity: roomCapacity, quantity: roomQuantity, basePrice: roomPrice, currency: roomCurrency });
+      showSuccess(tr.roomSaved); setRoomType(""); setRoomQuantity(1); closeRoomModal(); fetchHotels();
+    } catch (err: any) { showError(inventoryFailure(err, tr.roomSaveError)); }
+    finally { roomSaveInFlight.current = false; setRoomSaving(false); }
   };
 
   const handleDeleteRoom = async (roomId: string) => {
@@ -156,13 +185,17 @@ export default function Hotels() {
     } catch (err: any) { showError(err.message || "Failed to create allocation"); }
   };
 
-  const handleCloseRoomModal = () => {
+  const closeRoomModal = () => {
     setRoomModalOpen(false);
     if (searchParams.get("hotelId")) {
       const next = new URLSearchParams(searchParams);
       next.delete("hotelId");
       setSearchParams(next, { replace: true });
     }
+  };
+
+  const handleCloseRoomModal = () => {
+    if (!roomSaveInFlight.current) closeRoomModal();
   };
 
   const columns: Column<Hotel>[] = [
@@ -188,7 +221,7 @@ export default function Hotels() {
     { key: "actions", header: tr.actions || "Actions", render: (_, h) => (
       <div className="flex gap-2">
         <Button size="sm" variant="outline" onClick={() => navigate(`/operations/hotels/${(h as Hotel).id}`)} className="p-2">{tr.open || "Open"}</Button>
-        <Button size="sm" variant="outline" onClick={() => { setSelectedHotel(h as Hotel); setRoomModalOpen(true); }} title="Room types" className="p-2 text-blue-600"><EyeIcon className="w-4 h-4" /></Button>
+        <Button size="sm" variant="outline" onClick={() => { setSelectedHotel(h as Hotel); setRoomLoading(true); setRoomModalOpen(true); }} title="Room types" className="p-2 text-blue-600"><EyeIcon className="w-4 h-4" /></Button>
         <Button size="sm" variant="outline" onClick={() => { setSelectedHotel(h as Hotel); setAllocModalOpen(true); }} title="Allocate" className="p-2 text-purple-600"><TableIcon className="w-4 h-4" /></Button>
         <Button size="sm" variant="outline" onClick={() => handleDeleteHotel(h as Hotel)} title="Delete" className="p-2 text-red-600"><TrashBinIcon className="w-4 h-4" /></Button>
       </div>) },
@@ -210,10 +243,11 @@ export default function Hotels() {
         <EmptyState title={tr.noHotels} description={tr.description} action={{ label: tr.add, onClick: () => setIsModalOpen(true) }} />
       ) : <DataTable data={hotels} columns={columns} />}
 
-      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetHotelForm(); }} className="m-4 max-w-2xl" title={tr.add}>
+      <Modal isOpen={isModalOpen} onClose={() => { if (!hotelSaveInFlight.current) { setIsModalOpen(false); resetHotelForm(); } }} className="m-4 max-w-2xl" title={tr.add}>
+        <fieldset disabled={saving}>
         <div className="grid max-h-[75vh] gap-4 overflow-y-auto p-6 sm:grid-cols-2">
-          <Field label={`${tr.name || "Hotel name"} *`}><Input value={formName} onChange={(e) => setFormName(e.target.value)} /></Field>
-          <Field label={tr.destination || "Destination"}><Input placeholder="Budva" value={formDestination} onChange={(e) => setFormDestination(e.target.value)} /></Field>
+          <Field label={`${tr.name || "Hotel name"} *`} htmlFor="hotel-name"><Input id="hotel-name" value={formName} onChange={(e) => setFormName(e.target.value)} /></Field>
+          <Field label={tr.destination || "Destination"} htmlFor="hotel-destination"><Input id="hotel-destination" placeholder="Budva" value={formDestination} onChange={(e) => setFormDestination(e.target.value)} /></Field>
           <Field label={tr.address || "Address"}><Input value={formAddress} onChange={(e) => setFormAddress(e.target.value)} /></Field>
           <Field label={tr.contact || "Contact"}><Input value={formContact} onChange={(e) => setFormContact(e.target.value)} /></Field>
           <Field label={tr.email || "Email"}><Input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} /></Field>
@@ -221,7 +255,7 @@ export default function Hotels() {
           <Field label={tr.stars || "Stars"}>
             <Select value={formStars} onChange={setFormStars} options={[{ value: "", label: tr.noStars || "—" }, ...starOptions]} />
           </Field>
-          <Field label={tr.totalRooms || "Total rooms"}><Input type="number" value={String(formTotalRooms)} onChange={(e) => setFormTotalRooms(Number(e.target.value) || 0)} /></Field>
+          <Field label={tr.totalRooms || "Total rooms"} htmlFor="hotel-total-rooms"><Input id="hotel-total-rooms" hint={tr.initialStockHint} type="number" value={String(formTotalRooms)} onChange={(e) => setFormTotalRooms(Number(e.target.value) || 0)} /></Field>
           <Field label={tr.amenities || "Amenities"}>
             <Input placeholder="wifi, pool, spa, gym, parking" value={formAmenities} onChange={(e) => setFormAmenities(e.target.value)} />
           </Field>
@@ -232,24 +266,29 @@ export default function Hotels() {
             </Field>
           </div>
           <div className="flex justify-end gap-2 border-t border-gray-100 pt-4 sm:col-span-2 dark:border-gray-800">
-            <Button variant="outline" onClick={() => { setIsModalOpen(false); resetHotelForm(); }}>{tr.cancel || "Cancel"}</Button>
-            <Button onClick={() => void handleCreateHotel()} disabled={saving || !formName}>{saving ? tr.saving || "Saving…" : tr.save || "Save"}</Button>
+            <Button variant="outline" onClick={() => { setIsModalOpen(false); resetHotelForm(); }}>{t.common.cancel}</Button>
+            <Button onClick={() => void handleCreateHotel()} disabled={saving || !formName.trim() || !formDestination.trim()}>{saving ? t.common.saving : t.common.save}</Button>
           </div>
         </div>
+        </fieldset>
       </Modal>
 
       <Modal isOpen={roomModalOpen} onClose={handleCloseRoomModal} className="m-4 max-w-2xl" title={selectedHotel ? `${selectedHotel.name} — ${tr.roomTypes || "Room Types"}` : (tr.roomTypes || "Room Types")}>
+        <fieldset disabled={roomSaving}>
         <div className="max-h-[75vh] overflow-y-auto p-6">
-          <div className="mb-6 grid gap-3 sm:grid-cols-5 sm:items-end">
-            <Field label={tr.roomType || "Type"}><Input placeholder="e.g. 2-bed, 3-bed, twin, family" value={roomType} onChange={(e) => setRoomType(e.target.value)} /></Field>
-            <Field label={tr.capacity || "Capacity"}><Input type="number" value={String(roomCapacity)} onChange={(e) => setRoomCapacity(Number(e.target.value) || 1)} /></Field>
-            <Field label={tr.price || "Price"}><Input type="number" value={String(roomPrice)} onChange={(e) => setRoomPrice(Number(e.target.value) || 0)} /></Field>
+          <div className="mb-6 grid gap-3 sm:grid-cols-3 sm:items-end">
+            <Field label={tr.type} htmlFor="hotel-room-type"><Input id="hotel-room-type" placeholder={tr.roomTypeExample} value={roomType} onChange={(e) => setRoomType(e.target.value)} /></Field>
+            <Field label={tr.capacity || "Capacity"} htmlFor="hotel-room-capacity"><Input id="hotel-room-capacity" type="number" value={String(roomCapacity)} onChange={(e) => setRoomCapacity(Number(e.target.value) || 1)} /></Field>
+            <Field label={tr.roomQuantity} htmlFor="hotel-room-quantity"><Input id="hotel-room-quantity" type="number" min="0" step={1} hint={tr.roomQuantityHint} value={String(roomQuantity)} onChange={e => setRoomQuantity(Number(e.target.value))} /></Field>
+            <Field label={tr.price} htmlFor="hotel-room-price"><Input id="hotel-room-price" type="number" min={0} step={0.01} value={String(roomPrice)} onChange={(e) => setRoomPrice(Number(e.target.value) || 0)} /></Field>
             <Field label={tr.currency || "Currency"}>
               <Select value={roomCurrency} onChange={setRoomCurrency} options={currencyOptions} />
             </Field>
-            <Button variant="primary" onClick={() => void handleCreateRoom()} disabled={!roomType} className="h-11">{tr.add || "Add"}</Button>
+            <Button variant="primary" onClick={() => void handleCreateRoom()} disabled={roomSaving || roomLoading || roomReadError || !roomType.trim()} className="h-11">{roomSaving ? t.common.saving : tr.addRoom}</Button>
           </div>
-          {selectedRooms.length === 0 ? (
+          {roomLoading ? <p className="py-4 text-gray-500 dark:text-gray-400">{t.common.loading}</p> : roomReadError ? (
+            <div><p role="alert" className="mb-3 text-gray-900 dark:text-white">{tr.roomLoadError}</p><Button onClick={() => setRoomReadAttempt(value => value + 1)}>{tr.retryRooms}</Button></div>
+          ) : selectedRooms.length === 0 ? (
             <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">{tr.noRooms || "No room types yet"}</p>
           ) : (
             <div className="space-y-2">
@@ -257,7 +296,7 @@ export default function Hotels() {
                 <div key={r.id} className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-800">
                   <div>
                     <span className="text-sm font-medium text-gray-900 dark:text-white">{r.roomType}</span>
-                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">Cap: {r.capacity}</span>
+                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{tr.capacity}: {r.capacity}</span>
                     <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{r.basePrice} {r.currency}</span>
                     <Badge size="sm" color={r.available > 0 ? "success" : "light"} className="ml-2">{r.available}/{r.total} {tr.available || "available"}</Badge>
                   </div>
@@ -267,9 +306,10 @@ export default function Hotels() {
             </div>
           )}
           <div className="mt-6 flex justify-end border-t border-gray-100 pt-4 dark:border-gray-800">
-            <Button variant="outline" onClick={handleCloseRoomModal}>{tr.close || "Close"}</Button>
+            <Button variant="outline" onClick={handleCloseRoomModal}>{t.common.close}</Button>
           </div>
         </div>
+        </fieldset>
       </Modal>
 
       <Modal isOpen={allocModalOpen} onClose={() => setAllocModalOpen(false)} className="m-4 max-w-xl" title={selectedHotel ? `${selectedHotel.name} — ${tr.allocate || "Allocate"}` : (tr.allocate || "Allocate")}>
@@ -299,8 +339,8 @@ export default function Hotels() {
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return <div><Label>{label}</Label><div className="mt-1.5">{children}</div></div>;
+function Field({ label, children, htmlFor }: { label: string; children: ReactNode; htmlFor?: string }) {
+  return <div><Label htmlFor={htmlFor}>{label}</Label><div className="mt-1.5">{children}</div></div>;
 }
 
 function Select({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: { value: string; label: string }[] }) {
