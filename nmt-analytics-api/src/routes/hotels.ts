@@ -244,14 +244,15 @@ router.delete('/hotel-rooms/:id', authenticateToken, requireOrgContext, requireM
 });
 
 const allocationMoney = z.number().min(0).max(9999999999.99).multipleOf(0.01);
+const allocationDate = z.iso.date().refine(value => value >= '0001-01-01');
 const allocationCreateSchema = z.object({
   hotelId: z.uuid(),
   roomType: z.string().trim().min(1).max(100),
   // Bound allotments consumed by the existing synchronous room-slot sync.
   roomsReserved: z.number().int().min(0).max(1000),
   capacityPerRoom: z.number().int().min(1).max(100).optional(),
-  checkIn: z.iso.date(),
-  checkOut: z.iso.date(),
+  checkIn: allocationDate,
+  checkOut: allocationDate,
   pricePerNight: allocationMoney.optional(),
   netPrice: allocationMoney.optional(),
   sellPrice: allocationMoney.default(0),

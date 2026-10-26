@@ -138,7 +138,7 @@ export default function Hotels() {
   const validMoney = (value: number) => Number.isFinite(value) && value >= 0 && value <= 9999999999.99
     && Math.abs(value * 100 - Math.round(value * 100)) < 0.0001;
   const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value)
-    && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+    && value >= '0001-01-01' && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
   const allocationValid = !!selectedHotel && departureList.some(d => d.id === selectedDeparture)
     && !!allocRoomType.trim() && allocRoomType.trim().length <= 100
     && Number.isInteger(allocRoomsReserved) && allocRoomsReserved >= 0 && allocRoomsReserved <= 1000
