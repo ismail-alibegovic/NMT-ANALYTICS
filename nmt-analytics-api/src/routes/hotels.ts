@@ -247,7 +247,7 @@ const allocationMoney = z.number().min(0).max(9999999999.99).multipleOf(0.01);
 const allocationCreateSchema = z.object({
   hotelId: z.uuid(),
   roomType: z.string().trim().min(1).max(100),
-  // This request creates room slots synchronously; bound work per request.
+  // Bound allotments consumed by the existing synchronous room-slot sync.
   roomsReserved: z.number().int().min(0).max(1000),
   capacityPerRoom: z.number().int().min(1).max(100).optional(),
   checkIn: z.iso.date(),
@@ -281,7 +281,7 @@ router.post('/departures/:id/allocations', authenticateToken, requireOrgContext,
       if (!data) return apiError(res, 404, 'NOT_FOUND', 'Hotel or departure not found');
     }
     const netPrice = input.netPrice ?? input.pricePerNight ?? 0;
-    // The single insert and existing slot triggers share one database transaction.
+    // Creation is one database insert; the existing room-slot sync consumes this snapshot.
     const {data: alloc, error} = await supabaseAdmin.from('hotel_allocations').insert({
       org_id: orgId, departure_id: depId, hotel_id: input.hotelId,
       room_type: input.roomType, room_label: input.roomType,

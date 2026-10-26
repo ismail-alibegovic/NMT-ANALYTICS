@@ -1,7 +1,7 @@
 import {expect,test} from '@playwright/test';import {randomUUID} from 'node:crypto';
 const api=process.env.E2E_API_URL||'',auth=process.env.E2E_SUPABASE_URL||'';
 test.use({trace:'off',video:'off',screenshot:'off'});
-test('allocation capacity and net/sell snapshots persist through real Auth and room-slot triggers',async({request})=>{
+test('allocation capacity and net/sell snapshots persist through real Auth and room-slot synchronization',async({request})=>{
  test.skip(process.env.E2E_RUN_BROWSER!=='1','Requires disposable authenticated acceptance');test.setTimeout(90_000);
  expect([api,auth].every(url=>/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(url))).toBe(true);
  const login=async(email:string,password:string)=>{const r=await request.post(auth+'/auth/v1/token?grant_type=password',{headers:{apikey:process.env.E2E_SUPABASE_ANON_KEY!},data:{email,password}});expect(r.status()).toBe(200);return{Authorization:'Bearer '+(await r.json()).access_token};};
