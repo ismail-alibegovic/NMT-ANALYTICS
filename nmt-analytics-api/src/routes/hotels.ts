@@ -27,17 +27,17 @@ const listQuerySchema = z
   .transform((data) => ({ ...data, ...getPaginationParams(data) }));
 
 const createSchema = z.object({
-  name: z.string().min(1, 'Hotel name is required'),
-  destination: z.string().min(1, 'Destination is required'),
+  name: z.string().trim().min(1, 'Hotel name is required').max(200),
+  destination: z.string().trim().min(1, 'Destination is required').max(200),
   address: z.string().optional(),
   contact: z.string().optional(),
-  totalRooms: z.number().int().min(0).default(0),
+  totalRooms: z.number().int().min(0).max(2147483647).default(0),
   stars: z.number().int().min(1).max(5).optional().nullable(),
   description: z.string().optional().nullable(),
   amenities: z.array(z.string()).optional().nullable(),
   email: z.string().email().optional().nullable(),
   website: z.string().url().optional().nullable(),
-});
+}).strict();
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -51,6 +51,28 @@ const updateSchema = z.object({
   contact: z.string().optional(),
   totalRooms: z.number().int().min(0).optional(),
 });
+
+const roomCreateSchema = z.object({
+  roomType: z.string().trim().min(1).max(100),
+  capacity: z.number().int().min(1).max(2147483647).default(2),
+  quantity: z.number().int().min(0).max(2147483647).default(1),
+  basePrice: z.number().min(0).max(9999999999.99).multipleOf(0.01).default(0),
+  currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).optional(),
+}).strict();
+
+function inventoryError(res: Response, error: { code?: string; message?: string }) {
+  if (error.code === 'PGRST202' || error.code === '42883') {
+    return apiError(res, 503, 'MIGRATION_PENDING', 'Hotel inventory requires a service update.');
+  }
+  if (error.message === 'HOTEL_NOT_FOUND' || error.message === 'HOTEL_ORG_NOT_FOUND') {
+    return apiError(res, 404, 'NOT_FOUND', 'Hotel not found');
+  }
+  if (error.code?.startsWith('22') || error.message?.startsWith('INVALID_HOTEL')) {
+    return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid hotel inventory settings');
+  }
+  if (error.code === '23514') return apiError(res, 409, 'CONFLICT', 'Hotel stock is inconsistent with the requested total');
+  return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to save hotel inventory');
+}
 
 function transformHotel(h: any) {
   return {
@@ -122,47 +144,15 @@ router.post('/hotels', authenticateToken, requireOrgContext, requireMinimumRole(
     const r = createSchema.safeParse(req.body);
     if (!r.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', r.error.issues);
 
-    const body = r.data;
-    const orgId = req.orgId!;
-    const slug = `${body.name.toLowerCase().replace(/\s+/g, '-').slice(0, 50)}-${Math.random().toString(36).substr(2, 9)}`;
-
-    const { data: hotel, error: err } = await supabaseAdmin
-      .from('hotels')
-      .insert({
-        org_id: orgId,
-        name: body.name,
-        destination: body.destination,
-        address: body.address,
-        contact: body.contact,
-        total_rooms: body.totalRooms,
-        stars: body.stars ?? null,
-        description: body.description ?? null,
-        amenities: body.amenities ?? null,
-        email: body.email ?? null,
-        website: body.website ?? null,
-        slug,
-      })
-      .select()
-      .single();
-
-    if (err) return handleSupabaseError(res, err, 'Failed to create hotel');
-
-    if (body.totalRooms > 0) {
-      // Auto-create room types based on totalRooms distribution
-      const insertRoom = async (data: Record<string, unknown>) => {
-        try { await supabaseAdmin.from('hotel_rooms').insert(data); } catch {}
-      };
-
-      await Promise.all([
-        insertRoom({ org_id: orgId, hotel_id: hotel.id, room_type: 'single', capacity: 1, base_price: 0, available: body.totalRooms, total: 1 }),
-        insertRoom({ org_id: orgId, hotel_id: hotel.id, room_type: 'double', capacity: 2, base_price: 0, available: Math.floor(body.totalRooms / 2), total: Math.floor(body.totalRooms / 2) }),
-        insertRoom({ org_id: orgId, hotel_id: hotel.id, room_type: 'triple', capacity: 3, base_price: 0, available: Math.max(0, Math.ceil((body.totalRooms % 2) / 3)), total: Math.max(0, Math.ceil((body.totalRooms % 2) / 3)) }),
-        insertRoom({ org_id: orgId, hotel_id: hotel.id, room_type: 'apartment', capacity: 4, base_price: 0, available: 0, total: 0 }),
-      ]);
-    }
-
+    const { data: hotel, error } = await supabaseAdmin.rpc('create_hotel_inventory', {
+      p_org_id: req.orgId!, p_hotel: r.data,
+    });
+    if (error) return inventoryError(res, error);
+    if (!hotel) return apiError(res, 500, 'INTERNAL_ERROR', 'Hotel was not saved');
     return res.status(201).json(transformHotel(hotel));
-  } catch (err) { console.error('Error in POST /hotels:', err); apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err)); }
+  } catch {
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to save hotel inventory');
+  }
 });
 
 /** PATCH /api/hotels/:id */
@@ -190,6 +180,7 @@ router.patch('/hotels/:id', authenticateToken, requireOrgContext, requireMinimum
     if (r.data.email !== undefined) updates.email = r.data.email;
     if (r.data.website !== undefined) updates.website = r.data.website;
     const { data: updated, error: updateErr } = await supabaseAdmin.from('hotels').update(updates).eq('id', id).eq('org_id', orgId).select().single();
+    if (updateErr?.code === '23514') return inventoryError(res, updateErr);
     if (updateErr) return handleSupabaseError(res, updateErr, 'Failed to update hotel');
 
     return res.json(transformHotel(updated));
@@ -225,34 +216,19 @@ router.get('/hotels/:id/rooms', authenticateToken, requireOrgContext, requireMin
 
 /** POST /api/hotels/:id/rooms — create room type */
 router.post('/hotels/:id/rooms', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
+  const parsed = roomCreateSchema.safeParse(req.body);
+  if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid hotel room', parsed.error.issues);
   try {
-    const { id } = req.params;
-    const orgId = req.orgId!;
-    const { roomType, capacity, basePrice, currency } = req.body;
-
-    if (!roomType) return apiError(res, 400, 'VALIDATION_ERROR', 'Room type is required');
-
-    // Verify hotel belongs to org
-    const { data: hotel } = await supabaseAdmin.from('hotels').select('id,total_rooms').eq('id', id).eq('org_id', orgId).single();
-    if (!hotel) return apiError(res, 404, 'NOT_FOUND', 'Hotel not found');
-
-    const { data: room, error: err } = await supabaseAdmin
-      .from('hotel_rooms')
-      .insert({
-        org_id: orgId,
-        hotel_id: id,
-        room_type: roomType,
-        capacity: capacity || 2,
-        base_price: basePrice || 0,
-        currency: currency || 'BAM',
-        available: capacity || 1,
-        total: capacity || 1,
-      })
-      .select()
-      .single();
-    if (err) return handleSupabaseError(res, err, 'Failed to create room');
+    const { data: room, error } = await supabaseAdmin.rpc('create_hotel_room_inventory', {
+      p_org_id: req.orgId!, p_hotel_id: req.params.id, p_room: parsed.data,
+    });
+    if (error) return inventoryError(res, error);
+    if (!room) return apiError(res, 500, 'INTERNAL_ERROR', 'Room was not saved');
+    await logAction(req, 'CREATE', 'hotel_room', room.id, { newValues: room });
     return res.status(201).json(room);
-  } catch (err) { console.error('Error in POST /hotels/:id/rooms:', err); apiError(res, 500, 'INTERNAL_ERROR', 'Internal server error', String(err)); }
+  } catch {
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to save hotel inventory');
+  }
 });
 
 /** DELETE /api/hotel-rooms/:id — delete room type */

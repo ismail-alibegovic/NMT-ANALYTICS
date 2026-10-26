@@ -6,7 +6,7 @@ Scope: production readiness for real agencies. Follow [the commercial roadmap](.
 
 | Requirement | Required evidence / owner | Current observation |
 | --- | --- | --- |
-| Release artifact | Immutable main SHA, final PR checks and build/runtime versions, matching API/admin | Verified main a0c84af (#167) / Node 24; hotel read-reliability batch awaiting protected PR checks |
+| Release artifact | Immutable main SHA, final PR checks and build/runtime versions, matching API/admin | Verified main 89c7ea7 (#168) / Node 24; hotel inventory integrity is the next active batch |
 | Destination | Approved host/project/region, DNS/TLS, environment separation and operations owner | Not verified for this commercial release |
 | Configuration | Server-only service key; client-safe publishable values; exact origins/deep-links; production dev flags rejected; startup/health/restart | Existing source/tests retained; actual target verification pending |
 | Migration parity | Real schema_migrations plus catalog/functions/ACL/RLS/constraints/Storage inventory, reviewed hashes, pending order | Isolated replay evidence only; hosted backlog cannot be inferred from a historical four-migration note |
@@ -35,3 +35,11 @@ No SMTP/SMS activation, live gateway calls, client payment integration, schedule
 ## Organization settings and entitlement operations
 
 Agency directors may update only validated settings in their authenticated organization. A missing schema prerequisite must reject the entire save rather than silently persist a subset. Subscription/entitlement assignment is platform-owned (`super_admin`), including while gateway billing is deferred; agencies retain read-only plan visibility. The existing plan API remains scoped to the authenticated organization and does not provide a new cross-agency operator workflow. Secure platform staff authorization, initial agency entitlement assignment and the complete P5 provisioning lifecycle still require acceptance; do not claim this boundary fix completes commercial onboarding. No existing hosted plans, roles or settings were changed.
+
+## Hotel inventory migration prerequisite (120)
+
+`20261026120000_hotel_inventory_integrity.sql` adds two service-only transaction functions, a parent-total guard and NOT VALID stock/name checks, and restores bounded free-form room labels. It creates no new table and rewrites no existing inventory. A hotel total does not establish its room mix: the familiar default definitions start at zero stock; staff explicitly enter quantity independently of per-room passenger capacity. Explicit stock additions maintain the parent total at least the defined inventory.
+
+Do not deploy this migration while the old non-atomic hotel writer is accepting requests: old code swallows dependent insert failures. Review the maintenance window and deploy the new API first, which returns safe 503 MIGRATION_PENDING for hotel/room creation until the new functions are available; unrelated core workflows and reads continue. Apply the exact reviewed migration only after approved backup/catalog preflight and staging rehearsal. The committed NOTIFY refreshes the PostgREST schema cache after commit. Verify the new API/admin together with approved synthetic destination scope. Do not roll back to the old unsafe hotel writes; preserve these guards or suspend the affected mutation endpoints during a separately approved rollback.
+
+Before commercial GO, use the approved destination to count/review negative hotel totals, nonpositive capacities, negative prices/stock, availability above total, blank/oversized room labels, parent totals below defined stock and cross-organization/orphan room relationships. Current isolated proof does not establish these counts in production. Existing malformed rows remain unchanged by this migration; any reconciliation and constraint validation needs a separate reviewed, approved action with the correct business quantities. Never clamp or delete customer inventory automatically.

@@ -172,6 +172,10 @@ jobs:
             -e PGHOST=localhost -e PGPORT=5432 -e PGUSER=postgres -e PGPASSWORD=postgres \
             -e MIGRATION_REPLAY_DB=travline_replay -e TRAVLINE_ISOLATED_RECOVERY=1 \
             "$REPLAY_CONTAINER" bash /tmp/travline-phase1/scripts/isolated-recovery-rehearsal.sh
+          docker exec \
+            -e PGHOST=localhost -e PGPORT=5432 -e PGUSER=postgres -e PGPASSWORD=postgres \
+            -e MIGRATION_REPLAY_DB=travline_replay -e TRAVLINE_ISOLATED_RECOVERY=1 \
+            "$REPLAY_CONTAINER" bash /tmp/travline-phase1/scripts/isolated-recovery-value-rejection.sh
 
   docker-build:
     name: Docker Build Check

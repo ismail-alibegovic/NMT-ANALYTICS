@@ -259,6 +259,7 @@ export async function getHotelRooms(hotelId: string): Promise<HotelRoom[]> {
 export async function createHotelRoom(hotelId: string, payload: {
   roomType: string;
   capacity: number;
+  quantity?: number;
   basePrice: number;
   currency?: string;
 }): Promise<HotelRoom> {

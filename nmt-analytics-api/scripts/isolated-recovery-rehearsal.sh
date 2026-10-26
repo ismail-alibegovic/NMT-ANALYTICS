@@ -10,7 +10,7 @@ fi
 unset PGSERVICE PGSERVICEFILE PGDATABASE PGHOSTADDR
 SOURCE=travline_replay
 TARGET=travline_phase1_restore
-if [[ "$(psql -X -At -d "$SOURCE" -c "SELECT count(*) FROM pg_database WHERE datname='$TARGET'")" != 0 ]]; then
+if [[ "$(psql -X -v ON_ERROR_STOP=1 -At -d "$SOURCE" -c "SELECT count(*) FROM pg_database WHERE datname='$TARGET'")" != 0 ]]; then
   echo 'Refusing: recovery target already exists' >&2; exit 1
 fi
 umask 077
@@ -30,19 +30,36 @@ SQL
 probe=1
 # Capture every public table row count, not just whether the sentinel survived.
 COUNT_QUERY="SELECT format('SELECT %L AS relation, count(*) FROM %I.%I;', schemaname||'.'||tablename,schemaname,tablename) FROM pg_tables WHERE schemaname='public' ORDER BY tablename"
-psql -X -At -d "$SOURCE" -c "$COUNT_QUERY" > "$WORK/counts.sql"
-psql -X -At -d "$SOURCE" -f "$WORK/counts.sql" > "$WORK/before.txt"
+psql -X -v ON_ERROR_STOP=1 -At -d "$SOURCE" -c "$COUNT_QUERY" > "$WORK/counts.sql"
+psql -X -v ON_ERROR_STOP=1 -At -d "$SOURCE" -f "$WORK/counts.sql" > "$WORK/before.txt"
+# Counts alone cannot detect altered prices, balances or preserved legacy values.
+# Canonical JSONB rows are hashed, sorted and hashed again without logging data.
+FINGERPRINT_QUERY="$(cat <<'SQL'
+SELECT format(
+ $row_hash_query$
+ SELECT %L, encode(sha256(convert_to(coalesce(string_agg(row_hash, '' ORDER BY row_hash COLLATE "C"), ''), 'UTF8')), 'hex')
+ FROM (SELECT encode(sha256(convert_to(to_jsonb(t)::text, 'UTF8')), 'hex') AS row_hash FROM %I.%I t) row_fingerprints;
+ $row_hash_query$,
+ schemaname||'.'||tablename,schemaname,tablename)
+FROM pg_tables WHERE schemaname='public' ORDER BY tablename;
+SQL
+)"
+printf '%s\n' "SET TIME ZONE 'UTC';" "SET extra_float_digits = 3;" > "$WORK/fingerprints.sql"
+psql -X -v ON_ERROR_STOP=1 -At -d "$SOURCE" -c "$FINGERPRINT_QUERY" >> "$WORK/fingerprints.sql"
+psql -X -v ON_ERROR_STOP=1 -At -d "$SOURCE" -f "$WORK/fingerprints.sql" > "$WORK/fingerprints-before.txt"
 started=$SECONDS
 pg_dump -Fc --no-owner -d "$SOURCE" -f "$WORK/database.dump"
 createdb -T template0 "$TARGET"
 created=1
 pg_restore --exit-on-error --no-owner --clean --if-exists -d "$TARGET" "$WORK/database.dump"
-psql -X -At -d "$TARGET" -f "$WORK/counts.sql" > "$WORK/after.txt"
+psql -X -v ON_ERROR_STOP=1 -At -d "$TARGET" -f "$WORK/counts.sql" > "$WORK/after.txt"
 diff -u "$WORK/before.txt" "$WORK/after.txt"
-[[ "$(psql -X -At -d "$TARGET" -c 'SELECT payload FROM public.phase1_restore_probe WHERE id=1')" == 'synthetic recovery sentinel' ]]
+psql -X -v ON_ERROR_STOP=1 -At -d "$TARGET" -f "$WORK/fingerprints.sql" > "$WORK/fingerprints-after.txt"
+diff -u "$WORK/fingerprints-before.txt" "$WORK/fingerprints-after.txt"
+[[ "$(psql -X -v ON_ERROR_STOP=1 -At -d "$TARGET" -c 'SELECT payload FROM public.phase1_restore_probe WHERE id=1')" == 'synthetic recovery sentinel' ]]
 # Remove the intentionally unprotected sentinel before catalog-wide ACL checks.
 psql -X -v ON_ERROR_STOP=1 -d "$TARGET" -c 'DROP TABLE public.phase1_restore_probe' >/dev/null
-for check in database-function-security authorization-security storage-api-only-security signup-provisioning-integrity; do
+for check in database-function-security authorization-security storage-api-only-security signup-provisioning-integrity hotel-inventory-integrity; do
   psql -X -v ON_ERROR_STOP=1 -d "$TARGET" -f "$ROOT/scripts/$check.sql"
 done
-printf 'Isolated logical recovery PASS: table counts, sentinel, function ACL/tenant regressions and Storage boundaries; elapsed %s seconds\n' "$((SECONDS-started))"
+printf 'Isolated logical recovery PASS: table counts/row fingerprints, sentinel, function ACL/tenant regressions and Storage boundaries; elapsed %s seconds\n' "$((SECONDS-started))"
