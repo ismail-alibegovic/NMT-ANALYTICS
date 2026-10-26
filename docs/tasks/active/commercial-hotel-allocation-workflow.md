@@ -1,6 +1,6 @@
 # Commercial P1 — Hotel allocation creation workflow
 
-**Status:** ACTIVE, sole implementation spec. **Priority:** P1 integrity. **Branch:** fix/commercial-hotel-allocation-workflow from verified main 464a8aa (#169). Roadmap: commercial P1 connected accommodation workflow.
+**Status:** MERGED #170, completed reference; no implementation authorization remains in this spec. **Priority:** P1 integrity. **Branch:** fix/commercial-hotel-allocation-workflow from verified main 464a8aa (#169). Roadmap: commercial P1 connected accommodation workflow.
 
 ## Goal and confirmed problems
 Allocation must work directly from the hotel directory without first opening room management. The current departure loader runs only inside the room-dialog effect, silently converts failures to empty choices and truncates at 200. Creation omits capacity_per_room and net/sell snapshots, causing the schema default capacity one and zero canonical prices. API lacks input/date validation; UI permits concurrent submissions and exposes raw errors.
@@ -24,7 +24,11 @@ No stock reallocation, allocation editing/deletion redesign, provider activation
 - Required npm ci/build/test for API; npm ci/lint/test/build for admin; strict API checks and final-head protected GitHub CI including existing migration/auth/rooming suites. Add actual Auth allocation acceptance exercising trigger-produced slot capacity. No claim of hosted readiness from fixtures.
 
 ## Local verification checkpoint
-Seventeen pre-repair API failures reproduced. Allocation creation regressions and full API **1,122 / 122 files** (before two additional year-zero regression cases), admin **575 / 76 files**, fresh locked installs, both builds, strict/serverless/NodeNext and lint **0 errors / 50 existing warnings** pass; 12 BS/EN × theme × 390/768/1440 browser cases pass, including failed reads/saves and duplicate-submit protection. Actual BS dark mobile screenshot reviewed. Eight pagination client contracts pass. Authenticated final-head CI evidence must be finalized before merge. Year-zero date acceptance was reproduced in Zod and is rejected at both API and form boundaries; final targeted/full CI verifies the added edge contracts. No migration added or hosted operation performed.
+Seventeen pre-repair API failures reproduced. Allocation creation regressions and full API **1,124 / 122 files**, admin **575 / 76 files**, fresh locked installs, both builds, strict/serverless/NodeNext and lint **0 errors / 50 existing warnings** pass; 12 BS/EN × theme × 390/768/1440 browser cases pass, including failed reads/saves and duplicate-submit protection. Actual BS dark mobile screenshot reviewed. Eight pagination client contracts pass. Authenticated final-head CI passed before the protected merge. Year-zero date acceptance was reproduced in Zod and is rejected at both API and form boundaries; final targeted/full CI verified the added edge contracts. No migration added or hosted operation performed.
 
 ## Completion record
-Pending. Record exact results, head, PR, required checks and merge before completion. Commercial release remains NO-GO while other workflow/operational gates remain open.
+- PR: [#170](https://github.com/ismail-alibegovic/NMT-ANALYTICS/pull/170).
+- Final head: 565d3dd2c0d76550d8caac75aa34517c9bd07a48; protected merge: 24320029b59c22151afe6e859c1060410a97d086 on 2026-10-26.
+- CI 40298064729, isolated acceptance 40298064463, UI audit 40298064496, Docker/shared browsers and Vercel passed. Actual Auth acceptance proved net/sell/capacity persistence, three capacity-four synchronized room slots and cross-tenant/invalid-date denials. Local main was synchronized and its tree matched the tested head.
+- No migration added/applied, real data writes or external provider activation. Existing 120-history replay and recovery/security contracts remain required.
+- Known scope: allocation creation is complete; edit/operator workflows and remaining P2/P3/P5/hosted operations remain separate gates. Commercial release remains NO-GO. Exact changed-file list is recorded in the PR evidence.
