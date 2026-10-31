@@ -1,0 +1,4 @@
+{
+  "$comment": "Deployment isolation guard. This is a DENYLIST/ALLOWLIST used only to verify configuration; it never selects an endpoint. Preview and local targets must not use the production Supabase project. Update only together with a reviewed production project migration.",
+  "productionSupabaseProjectRef": "hacutwknfgufrqlgdiia"
+}

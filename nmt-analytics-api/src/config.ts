@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import './environment';
+import { checkSupabaseEnvironment } from './lib/supabaseEnvironmentGuard';
 
 const rawEnv = {
   ...process.env,
@@ -44,6 +45,26 @@ export function validateEnv(): EnvConfig {
     const url = new URL(parsed.SUPABASE_URL);
     console.error(`[CONFIG] Supabase Host: ${url.host}`);
     console.error('[CONFIG] Service Role Key: configured');
+
+    // CROSS-ENVIRONMENT GUARD
+    // Refuse to start rather than let a preview/local runtime touch the
+    // production project or mix keys from different projects.
+    const isolationErrors = checkSupabaseEnvironment({
+      supabaseUrl: parsed.SUPABASE_URL,
+      anonKey: parsed.SUPABASE_ANON_KEY,
+      serviceRoleKey: parsed.SUPABASE_SERVICE_ROLE_KEY,
+      nodeEnv: parsed.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV || undefined,
+      devBypassAuth: parsed.DEV_BYPASS_AUTH,
+      devAutoBootstrap: parsed.DEV_AUTO_BOOTSTRAP,
+      allowLocalProductionAccess: process.env.TRAVLINE_ALLOW_LOCAL_PRODUCTION_ACCESS === 'true',
+    });
+    if (isolationErrors.length > 0) {
+      console.error('❌ REFUSING TO START: unsafe Supabase environment configuration');
+      isolationErrors.forEach((message) => console.error(`  - ${message}`));
+      console.error('See docs/operations/environment-isolation.md');
+      process.exit(1);
+    }
 
     // HARD PRODUCTION GUARD
     // Dev convenience flags must NEVER be active in production. Failing fast at
