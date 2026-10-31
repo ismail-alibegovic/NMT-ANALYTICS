@@ -1,6 +1,6 @@
 # Environment isolation (Production / Preview / Local)
 
-Status: code guard implemented on branch `claude/brave-mendel-cd5g9f`. Hosted configuration changes listed below are **manual** and have **not** been performed by automation.
+Status: code guard implemented on branch `claude/brave-mendel-cd5g9f`. Vercel Production-scope configuration was applied on 2026-10-31 (see §10). Staging Supabase and credential rotation are pending approval.
 
 ## 1. Findings that motivated this change (verified 2026-10-31)
 
@@ -100,3 +100,41 @@ node --test scripts/deployment-env.test.cjs scripts/check-bundle-secrets.test.cj
 bash scripts/ci-deployment-safety.sh   # needs npm ci in nmt-analytics-api and nmt-analytics-admin
 cd nmt-analytics-api && npx vitest run src/tests/supabaseEnvironmentGuard.test.ts
 ```
+
+## 10. Hosted state log
+
+### 2026-10-31 — Vercel project `travline` (applied via Vercel API, values never decrypted)
+
+- Added Production-only: `TRAVLINE_SUPABASE_URL`, `TRAVLINE_SUPABASE_PROJECT_REF`, `TRAVLINE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_ANON_KEY` (publishable), `ADMIN_URL` — same values previously injected by `vercel.json`/`vercel-build.sh` on `main`, so the current `main` build is unaffected.
+- `TRAVLINE_SUPABASE_SERVICE_ROLE_KEY`: target changed from Production+Preview to **Production only** (value unchanged).
+- Result: the Preview scope now holds **no** Supabase variable. Every credential variable is Production-only.
+- Hosted guard proof: Preview deployment `dpl_HVK4X3LRwTXLMS1xtMdzRtK57cLU` (commit `dbd19f8`) was blocked by `[deployment-env] BLOCKED` on Vercel's real build infrastructure.
+- Existing preview deployments: project uses Vercel Authentication (`ssoProtection: all_except_custom_domains`). Anonymous requests to preview URLs return `302 Protected by Vercel Authentication`. They still contain the old runtime configuration and remain reachable for logged-in team members until deleted or until the legacy key is revoked (§11).
+- Production `https://travline-ten.vercel.app/api/health` remained `200`, `database: connected` after the change.
+
+### Supabase
+
+- The Supabase connection available to automation is bound to an organization that does not contain project `hacutwknfgufrqlgdiia` (permission denied). Production inspection, backup inspection and staging creation in the Travline organization require that connection to be re-authorised with the owning account.
+
+## 11. Production service-role credential rotation plan (NOT executed — requires explicit approval)
+
+### Inventory of consumers of the production service-role key
+
+| Consumer | Location | Notes |
+|---|---|---|
+| Vercel Production runtime | `TRAVLINE_SUPABASE_SERVICE_ROLE_KEY` (Production scope) | live API |
+| Old Vercel Preview deployments | runtime snapshot of the former Production+Preview variable | behind Vercel Authentication |
+| ZO deployment | `nmt-analytics-api/.env.production.local` or root `.env` on the ZO host | must be updated in the same window |
+| GitHub Actions secret `SUPABASE_SERVICE_ROLE_KEY` | `ci.yml` (API build, bundle scan) | project unknown; value cannot be read — confirm it is not production, otherwise replace with a staging/synthetic value |
+| Developer `.env` files | local machines | ask each developer |
+
+### Recommended approach: migrate to new Supabase API keys, then revoke legacy JWT keys
+
+Rotating the legacy JWT secret would also invalidate the anon key and every signed-in user session. Instead:
+
+1. **Code (separate PR):** allow `TRAVLINE_SUPABASE_SERVICE_ROLE_KEY` to be an `sb_secret_…` key (today `config.ts` requires a JWT starting with `ey`) and `TRAVLINE_SUPABASE_ANON_KEY` to be an `sb_publishable_…` key. The guards already treat those formats correctly.
+2. **Supabase dashboard:** create a new secret API key for the production project (Settings → API Keys). Do not disable anything yet.
+3. **Vercel:** set the new value on the Production-only `TRAVLINE_SUPABASE_SERVICE_ROLE_KEY` (Sensitive) and redeploy the approved production release; update the ZO env file and restart.
+4. **Verify:** `/api/health` 200 with `database: connected`, sign-in, one read and one write flow on a synthetic tenant; Vercel runtime errors clean for 30 min.
+5. **Revoke:** disable the legacy JWT-based API keys in Supabase. This invalidates the service-role JWT held by every old preview deployment.
+6. **Rollback:** before step 5, revert the Vercel variable to the previous value (Vercel keeps no history — keep the old value only in the Supabase dashboard, not copied anywhere) and redeploy; after step 5, legacy keys can be re-enabled in the Supabase dashboard.
