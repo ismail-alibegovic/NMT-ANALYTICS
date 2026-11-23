@@ -115,6 +115,7 @@ SQL
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/signup-provisioning-integrity.sql"
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/hotel-inventory-integrity.sql"
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/staff-lifecycle-integrity.sql"
+"${PSQL_BASE[@]}" -f "$ROOT/scripts/allocation-vehicle-integrity.sql"
 echo "Migration Replay PASS: $count migrations executed"
 
 

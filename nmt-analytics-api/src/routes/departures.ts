@@ -4,6 +4,7 @@ import { requireOrgContext } from '../middleware/requireOrgContext';
 import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
 import { z } from 'zod';
 import { auditDepartureCreate, auditDepartureUpdate, auditDepartureDelete } from '../middleware/auditLogger';
+import { logAction } from '../lib/audit';
 import { formatListResponse, paginationQuerySchema, dateRangeQuerySchema, getPaginationParams, getDateRangeParams } from '../utils/pagination';
 import { apiError } from "../lib/errors";
 import { requireMinimumRole } from '../middleware/requireRole';
@@ -123,8 +124,8 @@ const updateDepartureSchema = z.object({
 });
 
 const updateAccommodationAllotmentSchema = z.object({
-  roomCount: z.coerce.number().int().min(0, 'Room count must be zero or greater'),
-});
+  roomCount: z.number().int().min(0, 'Room count must be zero or greater').max(1000, 'Room count cannot exceed 1000'),
+}).strict();
 
 const departureAccommodationOptionsQuerySchema = z.object({
   reservationId: z.string().uuid('Invalid reservation ID').optional(),
@@ -422,6 +423,9 @@ router.get('/departures/:id/accommodation-options', authenticateToken, requireOr
  */
 router.patch('/departures/:id/accommodation-allotments/:itemId', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res: Response) => {
   try {
+    if (!z.uuid().safeParse(req.params.id).success || !z.uuid().safeParse(req.params.itemId).success) {
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid accommodation allotment identifier');
+    }
     const parsed = updateAccommodationAllotmentSchema.safeParse(req.body);
     if (!parsed.success) {
       return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid accommodation allotment update', parsed.error.issues);
@@ -435,13 +439,23 @@ router.patch('/departures/:id/accommodation-allotments/:itemId', authenticateTok
     });
 
     if (!result) return apiError(res, 404, 'NOT_FOUND', 'Accommodation allotment not found');
+    await logAction(req, 'UPDATE', 'hotel_allocation', req.params.itemId, {
+      newValues: { departureId: req.params.id, roomCount: parsed.data.roomCount },
+    });
     return res.json(result);
   } catch (error) {
     console.error('PATCH /departures/:id/accommodation-allotments/:itemId:', error);
-    if ((error as any)?.code === 'ALLOTMENT_BELOW_RESERVED') {
+    const code = (error as any)?.code;
+    if (code === 'MIGRATION_PENDING') {
+      return apiError(res, 503, 'MIGRATION_PENDING', 'Accommodation allotment update requires a service update.');
+    }
+    if (code === 'VALIDATION_ERROR') {
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid accommodation allotment update');
+    }
+    if (code === 'ALLOTMENT_BELOW_RESERVED') {
       return apiError(res, 409, 'ALLOTMENT_BELOW_RESERVED', (error as Error).message);
     }
-    if (String((error as any)?.message || '').includes('ROOM_SLOT_OCCUPIED')) {
+    if (code === 'ROOM_SLOT_OCCUPIED' || String((error as any)?.message || '').includes('ROOM_SLOT_OCCUPIED')) {
       return apiError(res, 409, 'ROOM_SLOT_OCCUPIED', 'Cannot reduce room inventory because one of the removed room slots is occupied.');
     }
     return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to update departure accommodation');
@@ -1483,6 +1497,9 @@ router.get('/departures/:id/groups', authenticateToken, requireOrgContext, async
 router.get('/departures/:departureId/vehicle', authenticateToken, requireOrgContext, async (req, res) => {
   try {
     const { departureId } = req.params;
+    if (!z.uuid().safeParse(departureId).success) {
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid departure identifier');
+    }
     const orgId = req.orgId!;
 
     const { data: departure, error: depErr } = await supabaseAdmin
@@ -1492,7 +1509,10 @@ router.get('/departures/:departureId/vehicle', authenticateToken, requireOrgCont
       .eq('org_id', orgId)
       .single();
 
-    if (depErr || !departure) {
+    if (depErr && depErr.code !== 'PGRST116') {
+      return handleSupabaseError(res, depErr, 'Failed to load departure');
+    }
+    if (!departure) {
       return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
     }
 
@@ -1519,13 +1539,15 @@ router.get('/departures/:departureId/vehicle', authenticateToken, requireOrgCont
       .from('departure_vehicle_seats')
       .select('id, seat_number, seat_label, row_number, column_index, side, is_active')
       .eq('departure_vehicle_assignment_id', vehicle.id)
+      .eq('org_id', orgId)
+      .eq('is_active', true)
       .order('seat_number', { ascending: true });
 
     if (seatsErr) {
       return handleSupabaseError(res, seatsErr, 'Failed to load seats');
     }
 
-    return res.json({ vehicle, seats });
+    return res.json({ vehicle, seats: seats || [] });
   } catch (err) {
     console.error('GET /departures/:departureId/vehicle:', err);
     apiError(res, 500, 'INTERNAL_ERROR', 'Failed to load vehicle');
@@ -1533,16 +1555,19 @@ router.get('/departures/:departureId/vehicle', authenticateToken, requireOrgCont
 });
 
 const vehicleUpdateSchema = z.object({
-  vehicleLabel: z.string().min(1).max(200).optional(),
-  registrationNumber: z.string().max(50).nullable().optional(),
+  vehicleLabel: z.string().trim().min(1).max(200).optional(),
+  registrationNumber: z.string().trim().max(50).nullable().optional(),
   capacity: z.number().int().positive().max(500).optional(),
   layoutType: z.enum(['standard_2_plus_2']).optional(),
-});
+}).strict();
 
 /** PUT /departures/:departureId/vehicle — atomic RPC-backed vehicle create/update with seat sync */
 router.put('/departures/:departureId/vehicle', authenticateToken, requireOrgContext, requireMinimumRole('manager'), async (req, res) => {
   try {
     const { departureId } = req.params;
+    if (!z.uuid().safeParse(departureId).success) {
+      return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid departure identifier');
+    }
     const orgId = req.orgId!;
     const parsed = vehicleUpdateSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -1556,7 +1581,10 @@ router.put('/departures/:departureId/vehicle', authenticateToken, requireOrgCont
       .eq('org_id', orgId)
       .single();
 
-    if (depErr || !departure) {
+    if (depErr && depErr.code !== 'PGRST116') {
+      return handleSupabaseError(res, depErr, 'Failed to load departure');
+    }
+    if (!departure) {
       return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
     }
 
@@ -1564,18 +1592,34 @@ router.put('/departures/:departureId/vehicle', authenticateToken, requireOrgCont
       return apiError(res, 400, 'NOT_BUS_DEPARTURE', 'Vehicle configuration is only available for bus departures');
     }
 
+    // Passing '' explicitly clears registration_number to NULL in update_vehicle_atomic;
+    // passing null preserves the existing registration_number when the field is omitted.
+    const rpcRegistrationNumber =
+      parsed.data.registrationNumber === undefined
+        ? null
+        : parsed.data.registrationNumber === null
+          ? ''
+          : parsed.data.registrationNumber;
+
     const { data: rpcResult, error: rpcErr } = await supabaseAdmin
       .rpc('update_vehicle_atomic', {
         p_org_id: orgId,
         p_departure_id: departureId,
         p_vehicle_label: parsed.data.vehicleLabel ?? null,
-        p_registration_number: parsed.data.registrationNumber ?? null,
+        p_registration_number: rpcRegistrationNumber,
         p_capacity: parsed.data.capacity ?? null,
         p_layout_type: parsed.data.layoutType ?? null,
       });
 
     if (rpcErr) {
+      const code = (rpcErr as { code?: string }).code || '';
       const msg = (rpcErr as { message?: string }).message || '';
+      if (code === 'PGRST202' || code === '42883') {
+        return apiError(res, 503, 'MIGRATION_PENDING', 'Vehicle configuration requires a service update.');
+      }
+      if (code === '22023' || msg.includes('INVALID_VEHICLE_INPUT')) {
+        return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid vehicle data');
+      }
       if (msg.includes('DEPARTURE_NOT_FOUND')) {
         return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
       }
@@ -1592,6 +1636,9 @@ router.put('/departures/:departureId/vehicle', authenticateToken, requireOrgCont
     }
 
     const result = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
+    await logAction(req, 'UPDATE', 'departure_vehicle', result?.vehicle?.id || departureId, {
+      newValues: result?.vehicle || parsed.data,
+    });
     return res.json(result);
   } catch (err) {
     console.error('PUT /departures/:departureId/vehicle:', err);
