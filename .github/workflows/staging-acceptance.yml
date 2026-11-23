@@ -129,7 +129,13 @@ jobs:
       - name: Allotment edit and vehicle rollback/ACL contracts
         run: |
           psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/allocation-vehicle-integrity.sql
-          TRAVLINE_ISOLATED_ALLOTMENT_CONCURRENCY=1 PGHOST=127.0.0.1 PGPORT=54322 PGUSER=postgres PGPASSWORD=postgres TRAVLINE_CONCURRENCY_DB=postgres bash nmt-analytics-api/scripts/allocation-slot-concurrency.sh
+          docker cp nmt-analytics-api/scripts/allocation-slot-concurrency.sh supabase_db_nmt-analytics-api:/tmp/allocation-slot-concurrency.sh
+          docker exec \
+            -e PGHOST=127.0.0.1 -e PGPORT=5432 -e PGUSER=postgres -e PGPASSWORD=postgres \
+            -e TRAVLINE_CONCURRENCY_DB=postgres -e TRAVLINE_ISOLATED_ALLOTMENT_CONCURRENCY=1 \
+            -e TRAVLINE_CONCURRENCY_CONTAINER_LOOPBACK=1 \
+            supabase_db_nmt-analytics-api bash /tmp/allocation-slot-concurrency.sh
+          docker exec supabase_db_nmt-analytics-api rm -f /tmp/allocation-slot-concurrency.sh
 
       - name: Install Playwright Chromium
         working-directory: nmt-analytics-admin

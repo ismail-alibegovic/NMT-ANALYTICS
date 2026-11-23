@@ -27,13 +27,17 @@ case "$DB" in
   travline_replay)
     ;;
   postgres)
-    if [[ "$HOST" != "127.0.0.1" || "$PORT" != "54322" ]]; then
-      echo 'Refusing: postgres DB is allowed only on disposable local Supabase 127.0.0.1:54322' >&2
+    if [[ "$HOST" == "127.0.0.1" && "$PORT" == "54322" ]]; then
+      : # Disposable local Supabase mapped port on loopback
+    elif [[ "$HOST" == "127.0.0.1" && "$PORT" == "5432" && "${TRAVLINE_CONCURRENCY_CONTAINER_LOOPBACK:-}" == "1" && -f /.dockerenv ]]; then
+      : # Inside disposable local Supabase DB container over its own loopback
+    else
+      echo 'Refusing: postgres DB is allowed only on disposable local Supabase 127.0.0.1:54322 or inside a disposable Supabase container loopback (127.0.0.1:5432 with TRAVLINE_CONCURRENCY_CONTAINER_LOOPBACK=1)' >&2
       exit 1
     fi
     ;;
   *)
-    echo 'Refusing: database must be travline_replay or disposable local Supabase postgres (127.0.0.1:54322)' >&2
+    echo 'Refusing: database must be travline_replay or disposable local Supabase postgres (127.0.0.1:54322 or container loopback)' >&2
     exit 1
     ;;
 esac
@@ -43,16 +47,19 @@ unset PGSERVICE PGSERVICEFILE PGDATABASE PGHOSTADDR PGPASSFILE DATABASE_URL
 
 PSQL_BASE=(psql -X -v ON_ERROR_STOP=1 -h "$HOST" -p "$PORT" -d "$DB")
 
-# Confirm server-side identity before any write: expected DB + loopback server address.
-SERVER_CHECK="$("${PSQL_BASE[@]}" -Atc "SELECT current_database() || '|' || COALESCE(host(inet_server_addr()), 'local');")"
-SERVER_DB="${SERVER_CHECK%%|*}"
-SERVER_ADDR="${SERVER_CHECK#*|}"
+# Confirm server-side identity before any write: expected DB + strict loopback server address.
+SERVER_CHECK="$("${PSQL_BASE[@]}" -Atc "SELECT current_database() || '|' || COALESCE(host(inet_server_addr()), 'local') || '|' || EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_admin')::text;")"
+IFS='|' read -r SERVER_DB SERVER_ADDR HAS_SUPABASE_ADMIN <<< "$SERVER_CHECK"
 if [[ "$SERVER_DB" != "$DB" ]]; then
   echo 'Refusing: connected database name does not match requested disposable database' >&2
   exit 1
 fi
 if [[ "$SERVER_ADDR" != "local" && "$SERVER_ADDR" != "127.0.0.1" && "$SERVER_ADDR" != "::1" ]]; then
   echo 'Refusing: PostgreSQL server address is not local loopback' >&2
+  exit 1
+fi
+if [[ "$DB" == "postgres" && "$HAS_SUPABASE_ADMIN" != "true" ]]; then
+  echo 'Refusing: postgres DB target does not match disposable local Supabase instance' >&2
   exit 1
 fi
 
@@ -68,13 +75,27 @@ PID2=""
 cleanup() {
   for pid in "$PID1" "$PID2"; do
     if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-      pkill -P "$pid" 2>/dev/null || true
+      if command -v pkill >/dev/null 2>&1; then
+        pkill -P "$pid" 2>/dev/null || true
+      fi
       kill "$pid" 2>/dev/null || true
       wait "$pid" 2>/dev/null || true
     fi
   done
   if [[ "$fixture_created" == "1" && -n "$ORG_ID" ]]; then
-    "${PSQL_BASE[@]}" -c "DELETE FROM public.organizations WHERE id = '$ORG_ID';" >/dev/null 2>&1 || true
+    "${PSQL_BASE[@]}" >/dev/null 2>&1 <<SQL || true
+BEGIN;
+DELETE FROM public.departure_room_slot_assignments WHERE org_id = '$ORG_ID';
+DELETE FROM public.departure_room_slots WHERE org_id = '$ORG_ID';
+DELETE FROM public.departure_passengers WHERE org_id = '$ORG_ID';
+DELETE FROM public.reservations WHERE org_id = '$ORG_ID';
+DELETE FROM public.hotel_allocations WHERE org_id = '$ORG_ID';
+DELETE FROM public.hotels WHERE org_id = '$ORG_ID';
+DELETE FROM public.departures WHERE org_id = '$ORG_ID';
+DELETE FROM public.packages WHERE org_id = '$ORG_ID';
+DELETE FROM public.organizations WHERE id = '$ORG_ID';
+COMMIT;
+SQL
   fi
   rm -rf "$WORK"
 }
