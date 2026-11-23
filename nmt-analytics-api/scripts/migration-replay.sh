@@ -109,7 +109,7 @@ run_contract() {
   if ! "${PSQL_BASE[@]}" -f "$script_path" 2>"$err_file"; then
     cat "$err_file" >&2
     local summary
-    summary="$(tail -n 6 "$err_file" | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g')"
+    summary="$(head -n 8 "$err_file" | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g')"
     echo "::error title=$(basename "$script_path")::$summary"
     rm -f "$err_file"
     exit 3
