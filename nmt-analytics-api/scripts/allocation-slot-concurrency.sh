@@ -1,37 +1,127 @@
 #!/usr/bin/env bash
 # Two-session PostgreSQL concurrency regression for allotment shrink vs room-slot assignment.
-# Disposable replay/acceptance databases ONLY; cleans up its synthetic organization on exit.
+# Synthetic disposable replay/acceptance database ONLY. Never accepts connection URLs.
 set -euo pipefail
 
-DB_URL="${1:-}"
-if [ -n "$DB_URL" ]; then
-  PSQL_BASE=(psql -v ON_ERROR_STOP=1 "$DB_URL")
-else
-  DB_NAME="${MIGRATION_REPLAY_DB:-travline_replay}"
-  PSQL_BASE=(psql -v ON_ERROR_STOP=1 -d "$DB_NAME")
+# 1) Fail-closed argument & environment guards (mirroring isolated-recovery-rehearsal.sh).
+if [[ $# -ne 0 ]]; then
+  echo 'Refusing: positional arguments and connection URLs are forbidden.' >&2
+  exit 1
 fi
 
-ORG_ID="d4d47871-5b1c-47d1-96e3-39ad8c3ee301"
-PKG_ID="d4d47871-5b1c-47d1-96e3-39ad8c3ee302"
-DEP_ID="d4d47871-5b1c-47d1-96e3-39ad8c3ee303"
-HOTEL_ID="d4d47871-5b1c-47d1-96e3-39ad8c3ee304"
-ALLOC_ID="d4d47871-5b1c-47d1-96e3-39ad8c3ee305"
-RES_ID="d4d47871-5b1c-47d1-96e3-39ad8c3ee306"
-PAX1_ID="d4d47871-5b1c-47d1-96e3-39ad8c3ee307"
-PAX2_ID="d4d47871-5b1c-47d1-96e3-39ad8c3ee308"
+if [[ "${TRAVLINE_ISOLATED_ALLOTMENT_CONCURRENCY:-}" != "1" ]]; then
+  echo 'Refusing: requires TRAVLINE_ISOLATED_ALLOTMENT_CONCURRENCY=1' >&2
+  exit 1
+fi
 
-TMPDIR_CONC="$(mktemp -d)"
+HOST="${PGHOST:-}"
+PORT="${PGPORT:-5432}"
+DB="${TRAVLINE_CONCURRENCY_DB:-${MIGRATION_REPLAY_DB:-}}"
+
+if [[ "$HOST" != "localhost" && "$HOST" != "127.0.0.1" ]]; then
+  echo 'Refusing: PGHOST must be localhost or 127.0.0.1' >&2
+  exit 1
+fi
+
+case "$DB" in
+  travline_replay)
+    ;;
+  postgres)
+    if [[ "$HOST" != "127.0.0.1" || "$PORT" != "54322" ]]; then
+      echo 'Refusing: postgres DB is allowed only on disposable local Supabase 127.0.0.1:54322' >&2
+      exit 1
+    fi
+    ;;
+  *)
+    echo 'Refusing: database must be travline_replay or disposable local Supabase postgres (127.0.0.1:54322)' >&2
+    exit 1
+    ;;
+esac
+
+# Block libpq service/URL/hostaddr redirection.
+unset PGSERVICE PGSERVICEFILE PGDATABASE PGHOSTADDR PGPASSFILE DATABASE_URL
+
+PSQL_BASE=(psql -X -v ON_ERROR_STOP=1 -h "$HOST" -p "$PORT" -d "$DB")
+
+# Confirm server-side identity before any write: expected DB + loopback server address.
+SERVER_CHECK="$("${PSQL_BASE[@]}" -Atc "SELECT current_database() || '|' || COALESCE(host(inet_server_addr()), 'local');")"
+SERVER_DB="${SERVER_CHECK%%|*}"
+SERVER_ADDR="${SERVER_CHECK#*|}"
+if [[ "$SERVER_DB" != "$DB" ]]; then
+  echo 'Refusing: connected database name does not match requested disposable database' >&2
+  exit 1
+fi
+if [[ "$SERVER_ADDR" != "local" && "$SERVER_ADDR" != "127.0.0.1" && "$SERVER_ADDR" != "::1" ]]; then
+  echo 'Refusing: PostgreSQL server address is not local loopback' >&2
+  exit 1
+fi
+
+umask 077
+WORK="$(mktemp -d)"
+mkfifo "$WORK/r1_gate" "$WORK/r2_gate"
+
+ORG_ID=""
+fixture_created=0
+PID1=""
+PID2=""
+
 cleanup() {
-  "${PSQL_BASE[@]}" -c "DELETE FROM public.organizations WHERE id = '$ORG_ID';" >/dev/null 2>&1 || true
-  rm -rf "$TMPDIR_CONC"
+  for pid in "$PID1" "$PID2"; do
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+      pkill -P "$pid" 2>/dev/null || true
+      kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+    fi
+  done
+  if [[ "$fixture_created" == "1" && -n "$ORG_ID" ]]; then
+    "${PSQL_BASE[@]}" -c "DELETE FROM public.organizations WHERE id = '$ORG_ID';" >/dev/null 2>&1 || true
+  fi
+  rm -rf "$WORK"
 }
 trap cleanup EXIT
 
-# Seed disposable fixture committed so two concurrent PostgreSQL sessions can race on it.
-"${PSQL_BASE[@]}" <<SQL
-DELETE FROM public.organizations WHERE id = '$ORG_ID';
+wait_for_file() {
+  local target="$1"
+  local deadline=$((SECONDS + 10))
+  while [[ ! -f "$target" ]]; do
+    if (( SECONDS >= deadline )); then
+      echo "Timeout waiting for barrier file: $(basename "$target")" >&2
+      return 1
+    fi
+    sleep 0.05
+  done
+}
+
+wait_for_lock_waiter() {
+  local app_name="$1"
+  local deadline=$((SECONDS + 10))
+  while true; do
+    local waiting
+    waiting="$("${PSQL_BASE[@]}" -Atc "SELECT COUNT(*) FROM pg_stat_activity WHERE datname = current_database() AND application_name = '$app_name' AND state = 'active' AND wait_event_type = 'Lock';")"
+    if [[ "$waiting" -ge 1 ]]; then
+      return 0
+    fi
+    if (( SECONDS >= deadline )); then
+      echo "Timeout waiting for $app_name to block on row lock" >&2
+      return 1
+    fi
+    sleep 0.05
+  done
+}
+
+# Generate fresh per-run UUIDs so cleanup only ever deletes data created by this run.
+IDS="$("${PSQL_BASE[@]}" -Atc "SELECT gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid();")"
+IFS='|' read -r ORG_ID PKG_ID DEP_ID HOTEL_ID ALLOC_ID RES_ID PAX1_ID PAX2_ID <<< "$IDS"
+
+if [[ "$("${PSQL_BASE[@]}" -Atc "SELECT COUNT(*) FROM public.organizations WHERE id = '$ORG_ID';")" != "0" ]]; then
+  echo 'Refusing: generated synthetic organization ID already exists' >&2
+  exit 1
+fi
+
+"${PSQL_BASE[@]}" >/dev/null <<SQL
+BEGIN;
 INSERT INTO public.organizations(id, name, slug, currency)
-VALUES ('$ORG_ID', 'Synthetic Concurrency Org', 'synthetic-conc-org', 'EUR');
+VALUES ('$ORG_ID', 'Synthetic Concurrency Org', 'synthetic-conc-' || left('$ORG_ID', 8), 'EUR');
 INSERT INTO public.packages(id, org_id, name, destination, base_price, transport_type)
 VALUES ('$PKG_ID', '$ORG_ID', 'Concurrency Package', 'Sarajevo', 150, 'none');
 INSERT INTO public.departures(id, org_id, package_id, depart_at, return_at, capacity, status, transport_type)
@@ -53,41 +143,53 @@ INSERT INTO public.departure_passengers(id, org_id, reservation_id, departure_id
 VALUES
   ('$PAX1_ID', '$ORG_ID', '$RES_ID', '$DEP_ID', 'Concurrent Pax 1'),
   ('$PAX2_ID', '$ORG_ID', '$RES_ID', '$DEP_ID', 'Concurrent Pax 2');
+COMMIT;
 SQL
+fixture_created=1
 
 SLOT3_ID="$("${PSQL_BASE[@]}" -Atc "SELECT id FROM public.departure_room_slots WHERE hotel_allocation_id = '$ALLOC_ID' AND slot_number = 3;")"
 test -n "$SLOT3_ID"
 
-# ── Race 1: Assign holds slot 3 FOR UPDATE while concurrent shrink 3 -> 1 runs ──
-# Session 1 inserts assignment into slot 3 (trigger locks slot 3 FOR UPDATE), sleeps 1.5s, commits.
-("${PSQL_BASE[@]}" <<SQL >"$TMPDIR_CONC/race1_assign.out" 2>"$TMPDIR_CONC/race1_assign.err"
+# ── Race 1: Assign holds slot 3 FOR UPDATE while concurrent shrink 3 -> 1 blocks ──
+PGAPPNAME=travline_conc_r1_assign "${PSQL_BASE[@]}" >"$WORK/race1_assign.out" 2>"$WORK/race1_assign.err" <<SQL &
+SET statement_timeout = '15s';
+SET lock_timeout = '12s';
 BEGIN;
 INSERT INTO public.departure_room_slot_assignments(
   org_id, departure_id, room_slot_id, passenger_id, reservation_id, passenger_name
 ) VALUES (
   '$ORG_ID', '$DEP_ID', '$SLOT3_ID', '$PAX1_ID', '$RES_ID', 'Concurrent Pax 1'
 );
-SELECT pg_sleep(1.5);
+\! touch "$WORK/r1_inserted"
+\! head -n 1 "$WORK/r1_gate" >/dev/null
 COMMIT;
 SQL
-) &
 PID1=$!
 
-sleep 0.3
+wait_for_file "$WORK/r1_inserted"
 
-# Session 2 tries to shrink allotment 3 -> 1 while Session 1 holds slot 3 lock.
-# Must wait for Session 1, then fail with ROOM_SLOT_OCCUPIED, preserving rooms_reserved = 3 AND the assignment!
-set +e
-"${PSQL_BASE[@]}" -c "SELECT public.update_departure_accommodation_allotment_atomic('$ORG_ID', '$DEP_ID', '$ALLOC_ID', 1);" \
-  >"$TMPDIR_CONC/race1_shrink.out" 2>"$TMPDIR_CONC/race1_shrink.err"
-SHRINK_RC=$?
-set -e
+# Launch shrink; wait until PostgreSQL confirms it is actively waiting on Session 1's lock.
+(
+  set +e
+  PGAPPNAME=travline_conc_r1_shrink "${PSQL_BASE[@]}" \
+    -c "SET statement_timeout = '15s';" \
+    -c "SET lock_timeout = '12s';" \
+    -c "SELECT public.update_departure_accommodation_allotment_atomic('$ORG_ID', '$DEP_ID', '$ALLOC_ID', 1);" \
+    >"$WORK/race1_shrink.out" 2>"$WORK/race1_shrink.err"
+  echo $? >"$WORK/race1_shrink.rc"
+) &
+PID2=$!
 
-wait "$PID1"
+wait_for_lock_waiter "travline_conc_r1_shrink"
+printf 'go\n' >"$WORK/r1_gate"
 
-if [ "$SHRINK_RC" -eq 0 ] || ! grep -q "ROOM_SLOT_OCCUPIED" "$TMPDIR_CONC/race1_shrink.err"; then
+wait "$PID1"; PID1=""
+wait "$PID2"; PID2=""
+SHRINK_RC="$(cat "$WORK/race1_shrink.rc")"
+
+if [[ "$SHRINK_RC" -eq 0 ]] || ! grep -q "ROOM_SLOT_OCCUPIED" "$WORK/race1_shrink.err"; then
   echo "FAIL Race 1: shrink did not fail with ROOM_SLOT_OCCUPIED (rc=$SHRINK_RC)" >&2
-  cat "$TMPDIR_CONC/race1_shrink.err" >&2
+  cat "$WORK/race1_shrink.err" >&2
   exit 1
 fi
 
@@ -95,38 +197,48 @@ ROOMS_AFTER="$("${PSQL_BASE[@]}" -Atc "SELECT rooms_reserved FROM public.hotel_a
 ASSIGN_AFTER="$("${PSQL_BASE[@]}" -Atc "SELECT COUNT(*) FROM public.departure_room_slot_assignments WHERE passenger_id = '$PAX1_ID';")"
 SLOTS_AFTER="$("${PSQL_BASE[@]}" -Atc "SELECT COUNT(*) FROM public.departure_room_slots WHERE hotel_allocation_id = '$ALLOC_ID';")"
 
-if [ "$ROOMS_AFTER" != "3" ] || [ "$ASSIGN_AFTER" != "1" ] || [ "$SLOTS_AFTER" != "3" ]; then
+if [[ "$ROOMS_AFTER" != "3" || "$ASSIGN_AFTER" != "1" || "$SLOTS_AFTER" != "3" ]]; then
   echo "FAIL Race 1: state corrupted (rooms=$ROOMS_AFTER assign=$ASSIGN_AFTER slots=$SLOTS_AFTER)" >&2
   exit 1
 fi
 
-# ── Race 2: Shrink 3 -> 1 holds slot locks while concurrent assign to slot 3 runs ──
+# ── Race 2: Shrink 3 -> 1 holds slot locks while concurrent assign to slot 3 blocks ──
 "${PSQL_BASE[@]}" -c "DELETE FROM public.departure_room_slot_assignments WHERE passenger_id = '$PAX1_ID';" >/dev/null
 
-("${PSQL_BASE[@]}" <<SQL >"$TMPDIR_CONC/race2_shrink.out" 2>"$TMPDIR_CONC/race2_shrink.err"
+PGAPPNAME=travline_conc_r2_shrink "${PSQL_BASE[@]}" >"$WORK/race2_shrink.out" 2>"$WORK/race2_shrink.err" <<SQL &
+SET statement_timeout = '15s';
+SET lock_timeout = '12s';
 BEGIN;
 SELECT public.update_departure_accommodation_allotment_atomic('$ORG_ID', '$DEP_ID', '$ALLOC_ID', 1);
-SELECT pg_sleep(1.5);
+\! touch "$WORK/r2_shrunk"
+\! head -n 1 "$WORK/r2_gate" >/dev/null
 COMMIT;
 SQL
+PID1=$!
+
+wait_for_file "$WORK/r2_shrunk"
+
+(
+  set +e
+  PGAPPNAME=travline_conc_r2_assign "${PSQL_BASE[@]}" \
+    -c "SET statement_timeout = '15s';" \
+    -c "SET lock_timeout = '12s';" \
+    -c "INSERT INTO public.departure_room_slot_assignments(org_id, departure_id, room_slot_id, passenger_id, reservation_id, passenger_name) VALUES ('$ORG_ID', '$DEP_ID', '$SLOT3_ID', '$PAX2_ID', '$RES_ID', 'Concurrent Pax 2');" \
+    >"$WORK/race2_assign.out" 2>"$WORK/race2_assign.err"
+  echo $? >"$WORK/race2_assign.rc"
 ) &
 PID2=$!
 
-sleep 0.3
+wait_for_lock_waiter "travline_conc_r2_assign"
+printf 'go\n' >"$WORK/r2_gate"
 
-# Session 2 tries to assign Pax 2 to slot 3 while shrink holds slot 3 FOR UPDATE.
-# After shrink commits and deletes slot 3, trigger must see NOT FOUND (ROOM_SLOT_NOT_FOUND) or FK error,
-# NEVER succeed and lose the row.
-set +e
-"${PSQL_BASE[@]}" -c "INSERT INTO public.departure_room_slot_assignments(org_id, departure_id, room_slot_id, passenger_id, reservation_id, passenger_name) VALUES ('$ORG_ID', '$DEP_ID', '$SLOT3_ID', '$PAX2_ID', '$RES_ID', 'Concurrent Pax 2');" \
-  >"$TMPDIR_CONC/race2_assign.out" 2>"$TMPDIR_CONC/race2_assign.err"
-ASSIGN_RC=$?
-set -e
+wait "$PID1"; PID1=""
+wait "$PID2"; PID2=""
+ASSIGN_RC="$(cat "$WORK/race2_assign.rc")"
 
-wait "$PID2"
-
-if [ "$ASSIGN_RC" -eq 0 ]; then
-  echo "FAIL Race 2: concurrent assignment to deleted slot unexpectedly succeeded" >&2
+if [[ "$ASSIGN_RC" -eq 0 ]] || ! grep -Eq "ROOM_SLOT_NOT_FOUND|departure_room_slot_assignments_room_slot_id_fkey|23503" "$WORK/race2_assign.err"; then
+  echo "FAIL Race 2: concurrent assign did not fail with expected ROOM_SLOT_NOT_FOUND or FK violation (rc=$ASSIGN_RC)" >&2
+  cat "$WORK/race2_assign.err" >&2
   exit 1
 fi
 
@@ -134,9 +246,9 @@ ROOMS_FINAL="$("${PSQL_BASE[@]}" -Atc "SELECT rooms_reserved FROM public.hotel_a
 SLOTS_FINAL="$("${PSQL_BASE[@]}" -Atc "SELECT COUNT(*) FROM public.departure_room_slots WHERE hotel_allocation_id = '$ALLOC_ID';")"
 ASSIGN_FINAL="$("${PSQL_BASE[@]}" -Atc "SELECT COUNT(*) FROM public.departure_room_slot_assignments WHERE departure_id = '$DEP_ID';")"
 
-if [ "$ROOMS_FINAL" != "1" ] || [ "$SLOTS_FINAL" != "1" ] || [ "$ASSIGN_FINAL" != "0" ]; then
+if [[ "$ROOMS_FINAL" != "1" || "$SLOTS_FINAL" != "1" || "$ASSIGN_FINAL" != "0" ]]; then
   echo "FAIL Race 2: final state mismatch (rooms=$ROOMS_FINAL slots=$SLOTS_FINAL assign=$ASSIGN_FINAL)" >&2
   exit 1
 fi
 
-echo "Allocation slot concurrency contract PASS (Race 1 & Race 2)"
+echo "Allocation slot concurrency contract PASS (lock-verified Race 1 & Race 2)"

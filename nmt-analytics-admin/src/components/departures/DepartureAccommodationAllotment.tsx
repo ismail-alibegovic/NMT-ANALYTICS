@@ -21,6 +21,10 @@ type HotelGroup = {
   items: Allotment[];
 };
 
+type AllotmentErrorState =
+  | { kind: "code"; code: "ROOM_SLOT_OCCUPIED" | "ALLOTMENT_BELOW_RESERVED" | "MIGRATION_PENDING" | "VALIDATION_ERROR" | "SAVE_FAILED" }
+  | { kind: "custom"; message: string };
+
 const MAX_ALLOTMENT_ROOMS = 1000;
 
 export default function DepartureAccommodationAllotment({ departureId }: Props) {
@@ -62,7 +66,7 @@ export default function DepartureAccommodationAllotment({ departureId }: Props) 
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [errorState, setErrorState] = useState<AllotmentErrorState | null>(null);
   const savingLock = useRef(false);
   const loadVersion = useRef(0);
 
@@ -70,7 +74,7 @@ export default function DepartureAccommodationAllotment({ departureId }: Props) 
     const version = ++loadVersion.current;
     setLoading(true);
     setLoadFailed(false);
-    setError(null);
+    setErrorState(null);
     try {
       const result = await getDepartureAccommodationAllotments(departureId);
       if (version !== loadVersion.current) return;
@@ -111,15 +115,32 @@ export default function DepartureAccommodationAllotment({ departureId }: Props) 
     return Array.from(map.values());
   }, [items, tx.unknownHotel]);
 
-  const mapSaveError = (err: any): string => {
+  const resolveErrorText = (state: AllotmentErrorState): string => {
+    if (state.kind === "custom") return state.message;
+    switch (state.code) {
+      case "ROOM_SLOT_OCCUPIED":
+        return tx.roomSlotOccupied;
+      case "ALLOTMENT_BELOW_RESERVED":
+        return tx.belowReserved;
+      case "MIGRATION_PENDING":
+        return tx.migrationPending;
+      case "VALIDATION_ERROR":
+        return tx.invalidRooms;
+      default:
+        return tx.saveFailed;
+    }
+  };
+
+  const classifySaveError = (err: any): AllotmentErrorState => {
     const code = err?.response?.data?.code || err?.code;
-    if (code === "ROOM_SLOT_OCCUPIED") return tx.roomSlotOccupied;
-    if (code === "ALLOTMENT_BELOW_RESERVED") return tx.belowReserved;
-    if (code === "MIGRATION_PENDING") return tx.migrationPending;
-    if (code === "VALIDATION_ERROR") return tx.invalidRooms;
+    if (code === "ROOM_SLOT_OCCUPIED") return { kind: "code", code: "ROOM_SLOT_OCCUPIED" };
+    if (code === "ALLOTMENT_BELOW_RESERVED") return { kind: "code", code: "ALLOTMENT_BELOW_RESERVED" };
+    if (code === "MIGRATION_PENDING") return { kind: "code", code: "MIGRATION_PENDING" };
+    if (code === "VALIDATION_ERROR") return { kind: "code", code: "VALIDATION_ERROR" };
     const status = err?.response?.status ?? err?.status;
-    if (typeof status === "number" && status >= 500) return tx.saveFailed;
-    return err?.response?.data?.message || err?.message || tx.saveFailed;
+    if (typeof status === "number" && status >= 500) return { kind: "code", code: "SAVE_FAILED" };
+    const rawMessage = err?.response?.data?.message || err?.message;
+    return rawMessage ? { kind: "custom", message: String(rawMessage) } : { kind: "code", code: "SAVE_FAILED" };
   };
 
   const parseDraft = (raw: string | undefined): number | null => {
@@ -134,27 +155,29 @@ export default function DepartureAccommodationAllotment({ departureId }: Props) 
     if (savingLock.current) return;
     const nextValue = parseDraft(drafts[item.id]);
     if (nextValue === null) {
-      setError(tx.invalidRooms);
+      setErrorState({ kind: "code", code: "VALIDATION_ERROR" });
       return;
     }
 
     savingLock.current = true;
     setSavingId(item.id);
-    setError(null);
+    setErrorState(null);
     try {
       const updated = await updateDepartureAccommodationAllotment(departureId, item.id, nextValue);
       setItems((current) => current.map((candidate) => (candidate.id === item.id ? updated : candidate)));
       setDrafts((current) => ({ ...current, [item.id]: String(updated.departureRooms) }));
       success(tx.saveSuccess);
     } catch (err: any) {
-      const message = mapSaveError(err);
-      setError(message);
-      showError(message);
+      const nextError = classifySaveError(err);
+      setErrorState(nextError);
+      showError(resolveErrorText(nextError));
     } finally {
       savingLock.current = false;
       setSavingId(null);
     }
   };
+
+  const visibleError = errorState ? resolveErrorText(errorState) : null;
 
   if (loading) {
     return (
@@ -185,9 +208,9 @@ export default function DepartureAccommodationAllotment({ departureId }: Props) 
 
   return (
     <div className="space-y-4">
-      {error && (
+      {visibleError && (
         <div role="alert" className="rounded-xl border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-300">
-          {error}
+          {visibleError}
         </div>
       )}
 
@@ -231,7 +254,7 @@ export default function DepartureAccommodationAllotment({ departureId }: Props) 
                       value={rawDraft}
                       onChange={(event: any) => {
                         setDrafts((current) => ({ ...current, [item.id]: event.target.value }));
-                        setError(null);
+                        setErrorState(null);
                       }}
                       className="h-9"
                     />

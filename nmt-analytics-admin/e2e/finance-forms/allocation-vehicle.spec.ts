@@ -7,8 +7,11 @@ for (const lang of ['bs', 'en'] as const) {
     for (const width of [390, 768, 1440] as const) {
       test(`allocation edit and bus vehicle create/edit/reload ${lang} ${theme} ${width}`, async ({ page }, info) => {
         const t = lang === 'bs' ? bs : en;
+        const otherT = lang === 'bs' ? en : bs;
         const tx = t.departure.accommodationAllotment;
+        const otherTx = otherT.departure.accommodationAllotment;
         const vtx = t.departure.busSeating;
+        const otherVtx = otherT.departure.busSeating;
 
         let allocReadFails = true;
         let allocRooms = 3;
@@ -196,6 +199,14 @@ for (const lang of ['bs', 'en'] as const) {
         await expect(page.getByRole('alert')).toHaveText(tx.roomSlotOccupied);
         await expect(roomsInput).toHaveValue('1');
 
+        // Toggle BS <-> EN while ROOM_SLOT_OCCUPIED banner is visible: alert re-localizes and draft stays intact
+        await page.getByTestId('toggle-lang').click();
+        await expect(page.getByRole('alert')).toHaveText(otherTx.roomSlotOccupied);
+        await expect(page.getByLabel(otherTx.departureRooms, { exact: true })).toHaveValue('1');
+        await page.getByTestId('toggle-lang').click();
+        await expect(page.getByRole('alert')).toHaveText(tx.roomSlotOccupied);
+        await expect(roomsInput).toHaveValue('1');
+
         // Reload confirms server allotment remained 3 after ROOM_SLOT_OCCUPIED
         await page.reload();
         await expect(page.getByLabel(tx.departureRooms, { exact: true })).toHaveValue('3');
@@ -233,6 +244,16 @@ for (const lang of ['bs', 'en'] as const) {
         await expect(page.getByRole('alert')).toContainText(vtx.vehicleChangeConflict);
         await expect(page.getByLabel(vtx.vehicleLabel, { exact: true })).toHaveValue('Sprinter Clean');
         await expect(page.getByLabel(vtx.registrationNumber, { exact: true })).toHaveValue('');
+
+        // Toggle BS <-> EN while VEHICLE_CHANGE_CONFLICT banner is visible: alert re-localizes and draft stays intact
+        await page.getByTestId('toggle-lang').click();
+        await expect(page.getByRole('alert')).toContainText(otherVtx.vehicleChangeConflict);
+        await expect(page.getByLabel(otherVtx.vehicleLabel, { exact: true })).toHaveValue('Sprinter Clean');
+        await expect(page.getByLabel(otherVtx.registrationNumber, { exact: true })).toHaveValue('');
+        await expect(page.getByLabel(otherVtx.capacity, { exact: true })).toHaveValue('4');
+        await page.getByTestId('toggle-lang').click();
+        await expect(page.getByRole('alert')).toContainText(vtx.vehicleChangeConflict);
+        await expect(page.getByLabel(vtx.vehicleLabel, { exact: true })).toHaveValue('Sprinter Clean');
 
         // Retry edit succeeds, clears registration, shrinks to 4 active seats, and survives reload
         await page.getByRole('button', { name: vtx.saveVehicle, exact: true }).click();

@@ -3,12 +3,21 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { HelmetProvider } from 'react-helmet-async';
-import { I18nProvider } from '../lib/i18n/context';
+import { I18nProvider, useT } from '../lib/i18n/context';
 import { bs } from '../lib/i18n/bs';
 import { en } from '../lib/i18n/en';
 import DepartureAccommodationAllotment from '../components/departures/DepartureAccommodationAllotment';
 import ManualBusSeating from '../components/operations/ManualBusSeating';
 import HotelDetail from '../pages/HotelDetail';
+
+function LangSwitchButton() {
+  const { lang, toggleLang } = useT();
+  return (
+    <button type="button" data-testid="toggle-lang" onClick={toggleLang}>
+      {lang}
+    </button>
+  );
+}
 
 const apiMocks = vi.hoisted(() => ({
   getDepartureAccommodationAllotments: vi.fn(),
@@ -143,6 +152,7 @@ describe('DepartureAccommodationAllotment recovery and localized errors', () => 
 
     render(
       <I18nProvider>
+        <LangSwitchButton />
         <DepartureAccommodationAllotment departureId="dep-1" />
       </I18nProvider>,
     );
@@ -162,6 +172,16 @@ describe('DepartureAccommodationAllotment recovery and localized errors', () => 
     expect(alert.textContent).not.toContain('Cannot reduce room inventory');
     expect(alert).toHaveTextContent((bs.departure.accommodationAllotment as any).roomSlotOccupied);
     // Draft stays preserved so operator can adjust and retry
+    expect(screen.getByDisplayValue('1')).toBeInTheDocument();
+
+    // Switching BS -> EN while conflict banner is visible re-localizes the alert and keeps the draft
+    await userEvent.click(screen.getByTestId('toggle-lang'));
+    expect(screen.getByRole('alert')).toHaveTextContent((en.departure.accommodationAllotment as any).roomSlotOccupied);
+    expect(screen.getByDisplayValue('1')).toBeInTheDocument();
+
+    // Switching back EN -> BS restores Bosnian conflict text and keeps draft intact
+    await userEvent.click(screen.getByTestId('toggle-lang'));
+    expect(screen.getByRole('alert')).toHaveTextContent((bs.departure.accommodationAllotment as any).roomSlotOccupied);
     expect(screen.getByDisplayValue('1')).toBeInTheDocument();
   });
 });
@@ -248,6 +268,7 @@ describe('ManualBusSeating fail-closed read and vehicle edit/reload recovery', (
 
     render(
       <I18nProvider>
+        <LangSwitchButton />
         <ManualBusSeating departureId="dep-1" transportType="bus" passengers={[]} />
       </I18nProvider>,
     );
@@ -277,11 +298,57 @@ describe('ManualBusSeating fail-closed read and vehicle edit/reload recovery', (
     expect(labelInput).toHaveValue('Sprinter Clean');
     expect(regInput).toHaveValue('');
 
+    // Switching EN -> BS while error is visible updates the alert message in place and preserves all drafts
+    await userEvent.click(screen.getByTestId('toggle-lang'));
+    expect(screen.getByRole('alert')).toHaveTextContent(bs.departure.busSeating.vehicleSaveFailed);
+    expect(labelInput).toHaveValue('Sprinter Clean');
+    expect(regInput).toHaveValue('');
+    expect(capInput).toHaveValue(5);
+
+    // Switch back BS -> EN before retry
+    await userEvent.click(screen.getByTestId('toggle-lang'));
+    expect(screen.getByRole('alert')).toHaveTextContent(en.departure.busSeating.vehicleSaveFailed);
+
     // Retry succeeds, shows success toast, and syncs state
     await userEvent.click(saveBtn);
     await waitFor(() => expect(screen.getByText('Sprinter Clean')).toBeInTheDocument());
     expect(apiMocks.toastSuccess).toHaveBeenCalledWith(en.departure.busSeating.vehicleSaved);
     expect(regInput).toHaveValue('');
     expect(capInput).toHaveValue(5);
+  });
+
+  it('updates visible VEHICLE_CHANGE_CONFLICT banner on BS/EN toggle while preserving operator draft', async () => {
+    localStorage.setItem('travline_lang', 'bs');
+    apiMocks.getDepartureVehicle.mockResolvedValue(baseVehicle);
+    apiMocks.updateDepartureVehicle.mockRejectedValueOnce({
+      code: 'VEHICLE_CHANGE_CONFLICT',
+      message: 'Cannot reduce capacity',
+    });
+
+    render(
+      <I18nProvider>
+        <LangSwitchButton />
+        <ManualBusSeating departureId="dep-1" transportType="bus" passengers={[]} />
+      </I18nProvider>,
+    );
+
+    await screen.findByText('Sprinter 1');
+    const labelInput = screen.getByLabelText(bs.departure.busSeating.vehicleLabel);
+    const capInput = screen.getByLabelText(bs.departure.busSeating.capacity);
+
+    await userEvent.clear(labelInput);
+    await userEvent.type(labelInput, 'Sprinter Draft');
+    await userEvent.clear(capInput);
+    await userEvent.type(capInput, '2');
+
+    await userEvent.click(screen.getByRole('button', { name: bs.departure.busSeating.saveVehicle }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(bs.departure.busSeating.vehicleChangeConflict);
+    expect(labelInput).toHaveValue('Sprinter Draft');
+    expect(capInput).toHaveValue(2);
+
+    await userEvent.click(screen.getByTestId('toggle-lang'));
+    expect(screen.getByRole('alert')).toHaveTextContent(en.departure.busSeating.vehicleChangeConflict);
+    expect(labelInput).toHaveValue('Sprinter Draft');
+    expect(capInput).toHaveValue(2);
   });
 });

@@ -59,30 +59,32 @@ Make departure hotel allocation editing (`PATCH /api/departures/:id/accommodatio
 
 ## 6. Acceptance criteria
 
-- [ ] Pre-repair defects reproduced via failing tests before source repairs.
-- [ ] Reducing an allotment when removed slots are occupied returns `409 ROOM_SLOT_OCCUPIED` and leaves `hotel_allocations.rooms_reserved` and `departure_room_slots` unchanged on reload.
-- [ ] Reducing an allotment below active reserved rooms returns `409 ALLOTMENT_BELOW_RESERVED` and leaves database state unchanged.
-- [ ] Valid allotment edit persists, syncs room slots, writes an audit entry, and survives reload.
-- [ ] Vehicle create → edit (including clearing registration number and changing capacity) → reload persists exact values and active seats only, writes an audit entry, and enforces capacity/occupancy conflicts.
-- [ ] Failed initial reads for allotments and vehicles fail closed with localized alert + working retry button (never blank editable create form).
-- [ ] Failed saves preserve operator drafts, map error codes to localized BS/EN messages, and prevent same-tick duplicate submissions.
-- [ ] BS and EN dictionary parity and browser matrix (390/768/1440 × light/dark × BS/EN) pass with screenshot review.
-- [ ] Full API build/strict/tests and Admin lint/tests/build pass (noting any host runtime limitations honestly).
+- [x] Pre-repair defects reproduced via failing tests before source repairs (12/12 failing tests on `origin/main` `43da03c`).
+- [x] Reducing an allotment when removed slots are occupied returns `409 ROOM_SLOT_OCCUPIED` and leaves `hotel_allocations.rooms_reserved` and `departure_room_slots` unchanged on reload (API + SQL contract + lock-verified two-session concurrency script; live PG17 execution queued for CI).
+- [x] Reducing an allotment below active reserved rooms returns `409 ALLOTMENT_BELOW_RESERVED` and leaves database state unchanged.
+- [x] Valid allotment edit persists, syncs room slots, writes an audit entry, and survives reload.
+- [x] Vehicle create → edit (including clearing registration number and changing capacity) → reload persists exact values and active seats only, writes an audit entry, and enforces capacity/occupancy conflicts.
+- [x] Failed initial reads for allotments and vehicles fail closed with localized alert + working retry button (never blank editable create form).
+- [x] Failed saves preserve operator drafts, map error codes to localized BS/EN messages, dynamically re-localize visible conflict banners on live BS ↔ EN toggle without clearing drafts, and prevent same-tick duplicate submissions.
+- [x] BS and EN dictionary parity and browser matrix (390/768/1440 × light/dark × BS/EN) pass with screenshot review.
+- [x] Full API build/strict/tests and Admin lint/tests/build pass under official Node 24 LTS (host limitations noted honestly below).
 
 ## 7. Local verification checkpoint (Node 24.22.3)
 
 - **Pre-repair reproduction:** 12/12 failing tests confirmed on `origin/main` `43da03c` (7 API + 5 admin).
 - **Initial temporary host baseline (Node 26.13.1 — NOT final):** 121/122 API files (1,119/1,124 tests; 5 `productionEnvironment.test.ts` failures strictly due to Node 26 vs required Node 24 LTS); admin 76/76 files (575/575 tests with temporary `--no-webstorage` flag).
 - **Final local verification under official Node 24 LTS (`v24.22.3`, SHA-256 verified in `/tmp/node24`):**
+  - Shell syntax checks (`bash -n allocation-slot-concurrency.sh` & `bash -n migration-replay.sh`): **PASS**
   - API strict serverless `tsc --project ../tsconfig.json --noEmit`: **PASS**
   - API NodeNext `tsc --project ../tsconfig.json --noEmit --module NodeNext --moduleResolution NodeNext`: **PASS**
   - API `npm run build`: **PASS**
-  - API `npm test`: **123/123 files, 1,131/1,131 tests PASS** (including `productionEnvironment.test.ts` 11/11 and `allocationEditAndVehicleIntegrity.test.ts` 7/7)
-  - Admin `npm run lint`: **0 errors, 49 warnings** (down from 50 after removing `ManualBusSeating.tsx` hook warning)
-  - Admin `npm test`: **77/77 files, 580/580 tests PASS** (zero runtime workarounds)
+  - API `npm test`: **124/124 files, 1,135/1,135 tests PASS** (including `productionEnvironment.test.ts` 11/11, `allocationEditAndVehicleIntegrity.test.ts` 7/7, and `allocationSlotConcurrencyGuard.test.ts` 4/4 testing fail-closed host/DB/flag/URL guards and zero secret leakage)
+  - Admin `npm run lint`: **0 errors, 50 warnings** (matching `main` baseline)
+  - Admin `npm test`: **77/77 files, 581/581 tests PASS** (zero runtime workarounds; includes live BS ↔ EN conflict-banner re-localization + draft preservation in `allocationAndVehicleRecovery.test.tsx` 6/6)
   - Admin `npm run build`: **PASS**
-  - Real Chromium Playwright matrix (`playwright.finance-forms.config.ts`): **36/36 PASS** (`allocation-vehicle.spec.ts` 12/12 + `hotel-allocation.spec.ts` 12/12 + `hotel-read.spec.ts` 12/12 across BS/EN × light/dark × 390/768/1440; `bs-dark-390` and `en-light-1440` screenshots reviewed)
+  - Real Chromium Playwright matrix (`playwright.finance-forms.config.ts`): **36/36 PASS** (`allocation-vehicle.spec.ts` 12/12 including live BS ↔ EN toggle while `ROOM_SLOT_OCCUPIED` and `VEHICLE_CHANGE_CONFLICT` alerts are visible with preserved drafts + `hotel-allocation.spec.ts` 12/12 + `hotel-read.spec.ts` 12/12 across BS/EN × light/dark × 390/768/1440; `bs-dark-390` and `en-light-1440` screenshots reviewed)
 - **Not executed locally (exact blockers):**
-  - PostgreSQL 17 migration replay (`migration-replay.sh`), rollback SQL contract (`allocation-vehicle-integrity.sql`), two-session concurrency test (`allocation-slot-concurrency.sh`), and real-Auth isolated Supabase acceptance (`pilot-allocation-vehicle-workflow.spec.ts`): `docker` and `psql` are not installed on this local host; all are wired into `.github/workflows/ci.yml` and `.github/workflows/staging-acceptance.yml` for GitHub CI execution.
+  - PostgreSQL 17 migration replay (`migration-replay.sh`), rollback SQL contract (`allocation-vehicle-integrity.sql`), live two-session PostgreSQL execution of `allocation-slot-concurrency.sh` (hardened with fail-closed local-disposable guards, per-run UUID fixture isolation, `pg_stat_activity` `wait_event_type = 'Lock'` barriers with 10s/12s/15s timeouts, and exact `ROOM_SLOT_NOT_FOUND`/FK error assertions), and real-Auth isolated Supabase acceptance (`pilot-allocation-vehicle-workflow.spec.ts`): `docker` and `psql` are not installed on this local host; all are wired into `.github/workflows/ci.yml` and `.github/workflows/staging-acceptance.yml` for GitHub CI execution.
   - `npm audit --omit=dev --audit-level=high`: reports newly published high advisory `follow-redirects 1.16.0 - 1.16.1` (`GHSA-mrwp-f3q8-3g9p`) in both API and admin lockfiles (pre-existing on `main`, out of scope for this functional fix; tracked as CI blocker for a separate dependency patch).
+  - GitHub push / PR creation: local environment has no `gh` CLI and non-interactive `git push` fails (`could not read Username for 'https://github.com': terminal prompts disabled`). Branch and commits are ready locally for push/PR.
   - Hosted Supabase migrations (115 hosted vs 120→121 repo; FREE plan with no backups): NOT applied and NOT authorized. See [hosted-migration-preflight-ledger.md](../../operations/hosted-migration-preflight-ledger.md).

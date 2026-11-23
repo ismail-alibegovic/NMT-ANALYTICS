@@ -129,7 +129,7 @@ jobs:
       - name: Allotment edit and vehicle rollback/ACL contracts
         run: |
           psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/allocation-vehicle-integrity.sql
-          bash nmt-analytics-api/scripts/allocation-slot-concurrency.sh "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          TRAVLINE_ISOLATED_ALLOTMENT_CONCURRENCY=1 PGHOST=127.0.0.1 PGPORT=54322 PGUSER=postgres PGPASSWORD=postgres TRAVLINE_CONCURRENCY_DB=postgres bash nmt-analytics-api/scripts/allocation-slot-concurrency.sh
 
       - name: Install Playwright Chromium
         working-directory: nmt-analytics-admin

@@ -40,7 +40,7 @@ type ServerErrorCode =
 
 interface ServerError {
   code: ServerErrorCode;
-  message: string;
+  context: "seat" | "vehicle";
 }
 
 function normalizePax(raw: any[]): Passenger[] {
@@ -55,7 +55,7 @@ function normalizePax(raw: any[]): Passenger[] {
   }));
 }
 
-function extractError(err: any): ServerError {
+function extractError(err: any): { code: ServerErrorCode; message: string } {
   const responseCode = err?.response?.data?.code;
   if (typeof responseCode === "string" && responseCode) {
     return { code: responseCode as ServerErrorCode, message: err?.response?.data?.message || responseCode };
@@ -206,7 +206,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
     } catch (err) {
       const { code } = extractError(err);
       const displayMsg = errorCodeToMessage(code, bs);
-      setServerError({ code, message: displayMsg });
+      setServerError({ code, context: "seat" });
       toast.error(displayMsg);
     } finally {
       mutationLock.current = false;
@@ -231,7 +231,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
     } catch (err) {
       const { code } = extractError(err);
       const displayMsg = errorCodeToMessage(code, bs);
-      setServerError({ code, message: displayMsg });
+      setServerError({ code, context: "seat" });
       toast.error(displayMsg);
     } finally {
       mutationLock.current = false;
@@ -256,7 +256,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
     } catch (err) {
       const { code } = extractError(err);
       const displayMsg = errorCodeToMessage(code, bs);
-      setServerError({ code, message: displayMsg });
+      setServerError({ code, context: "seat" });
       toast.error(displayMsg);
     } finally {
       mutationLock.current = false;
@@ -280,7 +280,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
     } catch (err) {
       const { code } = extractError(err);
       const displayMsg = errorCodeToMessage(code, bs);
-      setServerError({ code, message: displayMsg });
+      setServerError({ code, context: "seat" });
       toast.error(displayMsg);
     } finally {
       mutationLock.current = false;
@@ -295,8 +295,8 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
     const trimmedLabel = vehicleLabel.trim();
     const trimmedReg = registrationNumber.trim();
     if (!isValidCapacity || (vehicleLabel.length > 0 && trimmedLabel.length === 0)) {
-      const msg = bs.invalidVehicle || "Check the vehicle label and capacity (whole number from 1 to 500).";
-      setServerError({ code: "VALIDATION_ERROR", message: msg });
+      const msg = errorCodeToMessage("VALIDATION_ERROR", bs, "vehicle");
+      setServerError({ code: "VALIDATION_ERROR", context: "vehicle" });
       toast.error(msg);
       return;
     }
@@ -321,7 +321,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
     } catch (err) {
       const { code } = extractError(err);
       const displayMsg = errorCodeToMessage(code, bs, "vehicle");
-      setServerError({ code, message: displayMsg });
+      setServerError({ code, context: "vehicle" });
       toast.error(displayMsg);
     } finally {
       vehicleSaveLock.current = false;
@@ -392,7 +392,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
       <div className="space-y-6">
         {serverError && (
           <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
-            <span className="font-medium">{serverError.code}:</span> {serverError.message}
+            <span className="font-medium">{serverError.code}:</span> {errorCodeToMessage(serverError.code, bs, serverError.context)}
           </div>
         )}
         <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-5">
@@ -466,7 +466,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
       {/* SERVER ERROR */}
       {serverError && (
         <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
-          <span className="font-medium">{serverError.code}:</span> {serverError.message}
+          <span className="font-medium">{serverError.code}:</span> {errorCodeToMessage(serverError.code, bs, serverError.context)}
         </div>
       )}
 
