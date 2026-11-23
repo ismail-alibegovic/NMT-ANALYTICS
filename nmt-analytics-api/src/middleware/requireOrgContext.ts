@@ -30,11 +30,25 @@ export async function requireOrgContext(
   }
 
   // Fetch profile
-  const { data: profile, error: profileError } = await supabaseAdmin
+  let { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
-    .select('org_id, role')
+    .select('org_id, role, revoked_at')
     .eq('id', userId)
     .single();
+
+  if (profileError && (profileError as { code?: string }).code === '42703') {
+    const fallback = await supabaseAdmin
+      .from('profiles')
+      .select('org_id, role')
+      .eq('id', userId)
+      .single();
+    profile = fallback.data ? { ...fallback.data, revoked_at: null } : null;
+    profileError = fallback.error;
+  }
+
+  if (profile && (profile as { revoked_at?: string | null }).revoked_at) {
+    return apiError(res, 403, 'ACCOUNT_REVOKED', 'Your account access has been revoked by an administrator');
+  }
 
   // If profile exists and has org_id, use it
   if (profile && profile.org_id) {

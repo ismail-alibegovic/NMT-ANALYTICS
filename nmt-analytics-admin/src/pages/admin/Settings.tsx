@@ -5,6 +5,7 @@ import { DocsIcon } from "../../icons";
 import api from "../../lib/apiClient";
 import { useT } from "../../lib/i18n/context";
 import { useApp } from "../../context/AppContext";
+import TeamManagementPanel from "../../components/settings/TeamManagementPanel";
 import { archiveMessageTemplate, createMessageTemplate, getMessageTemplates, updateMessageTemplate, type MessageTemplate, type MessageTemplateChannel } from "../../api/messageTemplates";
 
 interface OrgSettings {
@@ -1181,6 +1182,9 @@ export default function Settings() {
             </div>
           </div>
         )}
+
+        {/* Team Management Section */}
+        <TeamManagementPanel />
 
         {/* Save Button */}
         <div className="p-6 flex justify-end">

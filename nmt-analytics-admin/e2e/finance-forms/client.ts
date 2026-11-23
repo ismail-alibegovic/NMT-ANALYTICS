@@ -2,7 +2,19 @@
 async function request(method: string, path: string, data?: unknown) {
   const response = await fetch('/__form-test-api' + path, { method, headers: data instanceof FormData ? {} : { 'Content-Type': 'application/json' }, body: data instanceof FormData ? data : data === undefined ? undefined : JSON.stringify(data) });
   const result = response.headers.get('content-type')?.includes('text/csv') ? await response.blob() : await response.json();
-  if (!response.ok) throw new Error(result.error || 'Isolated request failed');
+  if (!response.ok) {
+    const err = new Error(result?.message || result?.error || 'Isolated request failed') as Error & {
+      status?: number;
+      code?: string;
+      response?: { status: number; data: unknown };
+    };
+    err.status = response.status;
+    if (result && typeof result === 'object' && 'code' in result && typeof result.code === 'string') {
+      err.code = result.code;
+    }
+    err.response = { status: response.status, data: result };
+    throw err;
+  }
   return { data: result };
 }
 export const get = (path: string, query?: Record<string, unknown>) => {

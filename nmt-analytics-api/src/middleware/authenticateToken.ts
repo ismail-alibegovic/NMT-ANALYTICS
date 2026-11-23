@@ -63,13 +63,23 @@ export async function authenticateToken(
     if (data && data.user) {
       req.user = { id: data.user.id, email: data.user.email };
 
-      // Fetch user profile to get org_id and role
+      // Fetch user profile to get org_id, role, and revocation status
       try {
-        const { data: profile, error: profileError } = await supabaseAdmin
+        let { data: profile, error: profileError } = await supabaseAdmin
           .from("profiles")
-          .select("org_id, role, id")
+          .select("org_id, role, id, revoked_at")
           .eq("id", data.user.id)
           .single();
+
+        if (profileError && (profileError as { code?: string }).code === '42703') {
+          const fallback = await supabaseAdmin
+            .from("profiles")
+            .select("org_id, role, id")
+            .eq("id", data.user.id)
+            .single();
+          profile = fallback.data ? { ...fallback.data, revoked_at: null } : null;
+          profileError = fallback.error;
+        }
 
         if (profileError || !profile) {
           // DEV_AUTO_BOOTSTRAP: Auto-create org/profile/modules for new users
@@ -153,6 +163,10 @@ export async function authenticateToken(
             console.warn(`[AUTH] Request ${req.requestId}: Profile not found for user ${data.user.id}`);
           }
           return apiError(res, 403, "ORG_CONTEXT_REQUIRED", "Organization context required");
+        }
+
+        if ((profile as { revoked_at?: string | null }).revoked_at) {
+          return apiError(res, 403, 'ACCOUNT_REVOKED', 'Your account access has been revoked by an administrator');
         }
 
         if (!profile.org_id || !isUserRole(profile.role)) {
