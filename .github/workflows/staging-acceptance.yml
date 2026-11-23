@@ -127,7 +127,15 @@ jobs:
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/hotel-inventory-integrity.sql
 
       - name: Staff provisioning and revocation SQL contracts
-        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/staff-lifecycle-integrity.sql
+        run: |
+          err_file="$(mktemp)"
+          if ! psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/staff-lifecycle-integrity.sql 2>"$err_file"; then
+            cat "$err_file" >&2
+            echo "::error title=staff-lifecycle-integrity.sql::$(head -n 8 "$err_file" | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g')"
+            rm -f "$err_file"
+            exit 3
+          fi
+          rm -f "$err_file"
 
       - name: Allotment edit and vehicle rollback/ACL contracts
         run: |
