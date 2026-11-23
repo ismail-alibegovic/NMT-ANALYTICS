@@ -13,6 +13,8 @@ DECLARE
   alloc_a UUID := gen_random_uuid();
   res_active UUID := gen_random_uuid();
   res_cancelled UUID := gen_random_uuid();
+  req_active UUID := gen_random_uuid();
+  req_cancelled UUID := gen_random_uuid();
   pax_a UUID := gen_random_uuid();
   slot3_id UUID;
   updated_alloc JSONB;
@@ -53,14 +55,14 @@ BEGIN
     (res_cancelled, org_a, dep_a, 'Cancelled Guest', 1, now(), 200, 'cancelled');
 
   INSERT INTO public.reservation_accommodation_requirements(
-    org_id, reservation_id, departure_id, hotel_allocation_id, hotel_id,
+    id, org_id, reservation_id, departure_id, hotel_allocation_id, hotel_id,
     room_type, room_label, room_count, guests_expected, capacity_per_room
   ) VALUES
-    (org_a, res_active, dep_a, alloc_a, hotel_a, 'double', 'Double', 1, 1, 2),
-    (org_a, res_cancelled, dep_a, alloc_a, hotel_a, 'double', 'Double', 5, 2, 2);
+    (req_active, org_a, res_active, dep_a, alloc_a, hotel_a, 'double', 'Double', 1, 1, 2),
+    (req_cancelled, org_a, res_cancelled, dep_a, alloc_a, hotel_a, 'double', 'Double', 5, 2, 2);
 
-  INSERT INTO public.departure_passengers(id, org_id, reservation_id, departure_id, full_name)
-  VALUES (pax_a, org_a, res_active, dep_a, 'Slot Three Guest');
+  INSERT INTO public.departure_passengers(id, org_id, reservation_id, departure_id, full_name, reservation_accommodation_requirement_id)
+  VALUES (pax_a, org_a, res_active, dep_a, 'Slot Three Guest', req_active);
 
   SELECT id INTO slot3_id
     FROM public.departure_room_slots

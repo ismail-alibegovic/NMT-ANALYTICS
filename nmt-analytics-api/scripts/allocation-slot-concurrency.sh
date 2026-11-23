@@ -88,6 +88,7 @@ BEGIN;
 DELETE FROM public.departure_room_slot_assignments WHERE org_id = '$ORG_ID';
 DELETE FROM public.departure_room_slots WHERE org_id = '$ORG_ID';
 DELETE FROM public.departure_passengers WHERE org_id = '$ORG_ID';
+DELETE FROM public.reservation_accommodation_requirements WHERE org_id = '$ORG_ID';
 DELETE FROM public.reservations WHERE org_id = '$ORG_ID';
 DELETE FROM public.hotel_allocations WHERE org_id = '$ORG_ID';
 DELETE FROM public.hotels WHERE org_id = '$ORG_ID';
@@ -131,8 +132,8 @@ wait_for_lock_waiter() {
 }
 
 # Generate fresh per-run UUIDs so cleanup only ever deletes data created by this run.
-IDS="$("${PSQL_BASE[@]}" -Atc "SELECT gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid();")"
-IFS='|' read -r ORG_ID PKG_ID DEP_ID HOTEL_ID ALLOC_ID RES_ID PAX1_ID PAX2_ID <<< "$IDS"
+IDS="$("${PSQL_BASE[@]}" -Atc "SELECT gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid()||'|'||gen_random_uuid();")"
+IFS='|' read -r ORG_ID PKG_ID DEP_ID HOTEL_ID ALLOC_ID RES_ID REQ_ID PAX1_ID PAX2_ID <<< "$IDS"
 
 if [[ "$("${PSQL_BASE[@]}" -Atc "SELECT COUNT(*) FROM public.organizations WHERE id = '$ORG_ID';")" != "0" ]]; then
   echo 'Refusing: generated synthetic organization ID already exists' >&2
@@ -160,10 +161,17 @@ INSERT INTO public.hotel_allocations(
 SELECT public.sync_departure_room_slots_atomic('$ORG_ID', '$DEP_ID', '$ALLOC_ID');
 INSERT INTO public.reservations(id, org_id, departure_id, customer_name, party_size, reservation_at, total_amount, status)
 VALUES ('$RES_ID', '$ORG_ID', '$DEP_ID', 'Concurrency Guest', 2, now(), 300, 'confirmed');
-INSERT INTO public.departure_passengers(id, org_id, reservation_id, departure_id, full_name)
+INSERT INTO public.reservation_accommodation_requirements(
+  id, org_id, reservation_id, departure_id, hotel_allocation_id, hotel_id,
+  room_type, room_label, room_count, guests_expected, capacity_per_room
+) VALUES (
+  '$REQ_ID', '$ORG_ID', '$RES_ID', '$DEP_ID', '$ALLOC_ID', '$HOTEL_ID',
+  'double', 'Double', 1, 2, 2
+);
+INSERT INTO public.departure_passengers(id, org_id, reservation_id, departure_id, full_name, reservation_accommodation_requirement_id)
 VALUES
-  ('$PAX1_ID', '$ORG_ID', '$RES_ID', '$DEP_ID', 'Concurrent Pax 1'),
-  ('$PAX2_ID', '$ORG_ID', '$RES_ID', '$DEP_ID', 'Concurrent Pax 2');
+  ('$PAX1_ID', '$ORG_ID', '$RES_ID', '$DEP_ID', 'Concurrent Pax 1', '$REQ_ID'),
+  ('$PAX2_ID', '$ORG_ID', '$RES_ID', '$DEP_ID', 'Concurrent Pax 2', '$REQ_ID');
 COMMIT;
 SQL
 fixture_created=1
