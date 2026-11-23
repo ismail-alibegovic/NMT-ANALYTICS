@@ -17,7 +17,28 @@ let packages: any[] = [];
 let reservations: any[] = [];
 let reservationAccommodationRequirements: any[] = [];
 let failHotelAllocationInsert = false;
-const rpcMock = vi.fn(async (_fn: string, _args: Record<string, any>) => ({ data: null, error: null }));
+const rpcMock = vi.fn(async (fn: string, args: Record<string, any>) => {
+  if (fn === 'update_departure_accommodation_allotment_atomic') {
+    const { p_org_id: orgId, p_departure_id: departureId, p_item_id: itemId, p_room_count: roomCount } = args;
+    const row = hotelAllocations.find(
+      (item) => item.id === itemId && item.departure_id === departureId && item.org_id === orgId,
+    );
+    if (!row) return { data: null, error: { code: 'P0002', message: 'ALLOTMENT_NOT_FOUND' } };
+    const soldRooms = reservationAccommodationRequirements
+      .filter((req) => {
+        if (req.org_id !== orgId || req.hotel_allocation_id !== itemId) return false;
+        const reservation = reservations.find((r) => r.id === req.reservation_id);
+        return reservation && reservation.status !== 'cancelled';
+      })
+      .reduce((sum, req) => sum + req.room_count, 0);
+    if (roomCount < soldRooms) {
+      return { data: null, error: { code: 'P0001', message: `ALLOTMENT_BELOW_RESERVED:${soldRooms}` } };
+    }
+    row.rooms_reserved = roomCount;
+    return { data: { ...withHotel(clone(row)), sold_rooms: soldRooms }, error: null };
+  }
+  return { data: null, error: null };
+});
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
@@ -238,7 +259,6 @@ beforeEach(() => {
   reservations = [];
   reservationAccommodationRequirements = [];
   rpcMock.mockClear();
-  rpcMock.mockResolvedValue({ data: null, error: null });
   packageHotels = [{
     id: PACKAGE_HOTEL,
     org_id: ORG,

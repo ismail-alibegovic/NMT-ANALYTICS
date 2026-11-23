@@ -211,34 +211,56 @@ export async function updateDepartureAccommodationAllotment(input: {
 }) {
   const { orgId, departureId, itemId, roomCount } = input;
 
-  const { data: existing, error: existingErr } = await supabaseAdmin
-    .from('hotel_allocations')
-    .select('id, departure_id, rooms_reserved')
-    .eq('id', itemId)
-    .eq('departure_id', departureId)
-    .eq('org_id', orgId)
-    .maybeSingle();
+  const { data, error } = await supabaseAdmin.rpc('update_departure_accommodation_allotment_atomic', {
+    p_org_id: orgId,
+    p_departure_id: departureId,
+    p_item_id: itemId,
+    p_room_count: roomCount,
+  });
 
-  if (existingErr) throw existingErr;
-  if (!existing) return null;
-
-  const soldRooms = await getSoldRoomsForAllocation(orgId, itemId);
-  if (roomCount < soldRooms) {
-    const err = new Error(`Cannot reduce inventory to ${roomCount} because ${soldRooms} rooms are already reserved.`);
-    (err as any).code = 'ALLOTMENT_BELOW_RESERVED';
-    throw err;
+  if (error) {
+    const code = String((error as any)?.code || '');
+    const message = String((error as any)?.message || '');
+    if (code === 'PGRST202' || code === '42883') {
+      const err = new Error('Accommodation allotment update requires a service update.');
+      (err as any).code = 'MIGRATION_PENDING';
+      throw err;
+    }
+    if (code === 'P0002' || message.includes('ALLOTMENT_NOT_FOUND')) {
+      return null;
+    }
+    if (message.includes('ALLOTMENT_BELOW_RESERVED')) {
+      const soldMatch = message.match(/ALLOTMENT_BELOW_RESERVED:(\d+)/);
+      const detail = soldMatch
+        ? `Cannot reduce inventory to ${roomCount} because ${soldMatch[1]} rooms are already reserved.`
+        : 'Cannot reduce inventory below reserved rooms.';
+      const err = new Error(detail);
+      (err as any).code = 'ALLOTMENT_BELOW_RESERVED';
+      throw err;
+    }
+    if (message.includes('ROOM_SLOT_OCCUPIED')) {
+      const err = new Error('Cannot reduce room inventory because one of the removed room slots is occupied.');
+      (err as any).code = 'ROOM_SLOT_OCCUPIED';
+      throw err;
+    }
+    if (code === '22023' || message.includes('INVALID_ALLOTMENT_ROOM_COUNT')) {
+      const err = new Error('Invalid accommodation allotment room count.');
+      (err as any).code = 'VALIDATION_ERROR';
+      throw err;
+    }
+    throw error;
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('hotel_allocations')
-    .update({ rooms_reserved: roomCount })
-    .eq('id', itemId)
-    .eq('departure_id', departureId)
-    .eq('org_id', orgId)
-    .select('*, hotels:hotel_id(id, name, destination, stars)')
-    .single();
-
-  if (error) throw error;
-  await syncDepartureRoomSlots(orgId, departureId, itemId);
+  if (!data) return null;
+  if (typeof (data as any).sold_rooms === 'number') {
+    const out = allocationOut(data);
+    const soldRooms = toInt((data as any).sold_rooms, 0);
+    return {
+      ...out,
+      allocated: soldRooms,
+      reservedRooms: soldRooms,
+      available: Math.max(0, out.departureRooms - soldRooms),
+    };
+  }
   return allocationOutWithSoldRooms(data);
 }

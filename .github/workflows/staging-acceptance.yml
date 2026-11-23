@@ -126,6 +126,11 @@ jobs:
       - name: Hotel inventory rollback, quantity and tenant contracts
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/hotel-inventory-integrity.sql
 
+      - name: Allotment edit and vehicle rollback/ACL contracts
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f nmt-analytics-api/scripts/allocation-vehicle-integrity.sql
+          bash nmt-analytics-api/scripts/allocation-slot-concurrency.sh "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+
       - name: Install Playwright Chromium
         working-directory: nmt-analytics-admin
         run: npx playwright install --with-deps chromium

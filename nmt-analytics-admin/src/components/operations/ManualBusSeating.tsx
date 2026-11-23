@@ -27,7 +27,16 @@ interface Props {
   previewAssignments?: { passengerId: string; seatNumber: number }[];
 }
 
-type ServerErrorCode = "SEAT_LOCKED" | "SEAT_CONFLICT" | "SEAT_NOT_FOUND" | "CAPACITY_TOO_LOW" | "VEHICLE_CHANGE_CONFLICT" | "INTERNAL_ERROR";
+type ServerErrorCode =
+  | "SEAT_LOCKED"
+  | "SEAT_CONFLICT"
+  | "SEAT_NOT_FOUND"
+  | "CAPACITY_TOO_LOW"
+  | "VEHICLE_CHANGE_CONFLICT"
+  | "VALIDATION_ERROR"
+  | "MIGRATION_PENDING"
+  | "NOT_BUS_DEPARTURE"
+  | "INTERNAL_ERROR";
 
 interface ServerError {
   code: ServerErrorCode;
@@ -47,20 +56,27 @@ function normalizePax(raw: any[]): Passenger[] {
 }
 
 function extractError(err: any): ServerError {
+  const responseCode = err?.response?.data?.code;
+  if (typeof responseCode === "string" && responseCode) {
+    return { code: responseCode as ServerErrorCode, message: err?.response?.data?.message || responseCode };
+  }
   if (err && typeof err === "object" && "code" in err && typeof err.code === "string") {
     return { code: err.code as ServerErrorCode, message: err.message || err.code };
   }
   return { code: "INTERNAL_ERROR", message: err?.message || String(err) };
 }
 
-function errorCodeToMessage(code: ServerErrorCode, bs: Record<string, string>): string {
+function errorCodeToMessage(code: ServerErrorCode, bs: Record<string, string>, context: "seat" | "vehicle" = "seat"): string {
   switch (code) {
     case "SEAT_LOCKED": return bs.seatLockedError || "This seat is locked.";
     case "SEAT_CONFLICT": return bs.seatConflictError || "That seat is already assigned.";
     case "SEAT_NOT_FOUND": return bs.seatNotFoundError || "Seat not found.";
     case "CAPACITY_TOO_LOW": return bs.capacityTooLow || "Capacity too low.";
     case "VEHICLE_CHANGE_CONFLICT": return bs.vehicleChangeConflict || "Cannot reduce capacity.";
-    default: return bs.assignError || "Operation failed.";
+    case "VALIDATION_ERROR": return context === "vehicle" ? (bs.invalidVehicle || "Check the vehicle label and capacity (whole number from 1 to 500).") : (bs.assignError || "Operation failed.");
+    case "MIGRATION_PENDING": return bs.migrationPending || "Vehicle configuration requires a service update.";
+    case "NOT_BUS_DEPARTURE": return bs.busOnlyNotice || "Manual bus seating is only available for BUS departures.";
+    default: return context === "vehicle" ? (bs.vehicleSaveFailed || "Failed to update vehicle") : (bs.assignError || "Operation failed.");
   }
 }
 
@@ -73,9 +89,12 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
   const [seats, setSeats] = useState<VehicleSeat[]>([]);
   const [manifestPax, setManifestPax] = useState<Passenger[]>(() => normalizePax(passengers));
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [mutating, setMutating] = useState(false);
   // Synchronous guard: React state alone cannot prevent double submits in the same tick.
   const mutationLock = useRef(false);
+  const vehicleSaveLock = useRef(false);
+  const loadVersion = useRef(0);
   const [serverError, setServerError] = useState<ServerError | null>(null);
   const [savingVehicle, setSavingVehicle] = useState(false);
 
@@ -90,10 +109,13 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
   const assignedCount = manifestPax.filter((p) => p.seat_number !== null).length;
 
   const loadVehicle = useCallback(async () => {
+    const version = ++loadVersion.current;
     setLoading(true);
+    setLoadError(false);
     setServerError(null);
     try {
       const res = await getDepartureVehicle(departureId);
+      if (version !== loadVersion.current) return;
       setVehicle(res.vehicle);
       setSeats(res.seats);
       if (res.vehicle) {
@@ -101,12 +123,13 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
         setRegistrationNumber(res.vehicle.registration_number ?? "");
         setCapacity(res.vehicle.capacity);
       }
-    } catch (err) {
-      setServerError({ code: "INTERNAL_ERROR", message: bs.vehicleSaveFailed || "Greška pri učitavanju vozila" });
+    } catch {
+      if (version !== loadVersion.current) return;
+      setLoadError(true);
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
-  }, [departureId, bs]);
+  }, [departureId]);
 
   const reloadManifest = useCallback(async () => {
     try {
@@ -123,6 +146,9 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
 
   useEffect(() => {
     void loadVehicle();
+    return () => {
+      loadVersion.current += 1;
+    };
   }, [loadVehicle]);
 
   useEffect(() => {
@@ -263,25 +289,42 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
   }
 
   // ── VEHICLE CREATE / SAVE ──
+  const isValidCapacity = Number.isInteger(capacity) && capacity >= 1 && capacity <= 500;
   async function handleSaveVehicle() {
-    if (capacity < 1) return;
+    if (vehicleSaveLock.current) return;
+    const trimmedLabel = vehicleLabel.trim();
+    const trimmedReg = registrationNumber.trim();
+    if (!isValidCapacity || (vehicleLabel.length > 0 && trimmedLabel.length === 0)) {
+      const msg = bs.invalidVehicle || "Check the vehicle label and capacity (whole number from 1 to 500).";
+      setServerError({ code: "VALIDATION_ERROR", message: msg });
+      toast.error(msg);
+      return;
+    }
+    vehicleSaveLock.current = true;
     setSavingVehicle(true);
     setServerError(null);
     try {
       const res = await updateDepartureVehicle(departureId, {
-        vehicleLabel: vehicleLabel || undefined,
-        registrationNumber: registrationNumber || null,
+        vehicleLabel: trimmedLabel || undefined,
+        registrationNumber: trimmedReg || null,
         capacity,
       });
       setVehicle(res.vehicle);
       setSeats(res.seats);
+      if (res.vehicle) {
+        setVehicleLabel(res.vehicle.vehicle_label);
+        setRegistrationNumber(res.vehicle.registration_number ?? "");
+        setCapacity(res.vehicle.capacity);
+      }
+      toast.success(bs.vehicleSaved || "Vehicle updated");
       await reloadManifest();
     } catch (err) {
       const { code } = extractError(err);
-      const displayMsg = errorCodeToMessage(code, bs);
+      const displayMsg = errorCodeToMessage(code, bs, "vehicle");
       setServerError({ code, message: displayMsg });
       toast.error(displayMsg);
     } finally {
+      vehicleSaveLock.current = false;
       setSavingVehicle(false);
     }
   }
@@ -326,12 +369,29 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+        <p role="alert" className="mb-3">
+          {bs.vehicleLoadFailed || "Vehicle data could not be loaded. Retry before making changes."}
+        </p>
+        <button
+          type="button"
+          onClick={() => void loadVehicle()}
+          className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-950/40"
+        >
+          {bs.retryLoad || "Retry"}
+        </button>
+      </div>
+    );
+  }
+
   // ── NO VEHICLE: render configuration form even when vehicle is null ──
   if (!vehicle || seats.length === 0) {
     return (
       <div className="space-y-6">
         {serverError && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
             <span className="font-medium">{serverError.code}:</span> {serverError.message}
           </div>
         )}
@@ -339,50 +399,57 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
           <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
             {bs.configureVehicle || "Configure Vehicle"}
           </h3>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div>
-              <label htmlFor="vlabel" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{bs.vehicleLabel || "Vehicle label"}</label>
-              <input
-                id="vlabel"
-                type="text"
-                value={vehicleLabel}
-                onChange={(e) => setVehicleLabel(e.target.value)}
-                placeholder={bs.vehicleLabelPlaceholder || "e.g. Mercedes Sprinter"}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              />
+          <fieldset disabled={savingVehicle}>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div>
+                <label htmlFor="vlabel" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{bs.vehicleLabel || "Vehicle label"}</label>
+                <input
+                  id="vlabel"
+                  type="text"
+                  maxLength={200}
+                  value={vehicleLabel}
+                  onChange={(e) => setVehicleLabel(e.target.value)}
+                  placeholder={bs.vehicleLabelPlaceholder || "e.g. Mercedes Sprinter"}
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label htmlFor="vreg" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{bs.registrationNumber || "Registration number"}</label>
+                <input
+                  id="vreg"
+                  type="text"
+                  maxLength={50}
+                  value={registrationNumber}
+                  onChange={(e) => setRegistrationNumber(e.target.value)}
+                  placeholder={bs.registrationPlaceholder || "e.g. T1234AB"}
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label htmlFor="vcap" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{bs.capacity || "Capacity"}</label>
+                <input
+                  id="vcap"
+                  type="number"
+                  min={1}
+                  max={500}
+                  step={1}
+                  value={capacity}
+                  onChange={(e) => setCapacity(Number(e.target.value))}
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                />
+              </div>
             </div>
-            <div>
-              <label htmlFor="vreg" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{bs.registrationNumber || "Registration number"}</label>
-              <input
-                id="vreg"
-                type="text"
-                value={registrationNumber}
-                onChange={(e) => setRegistrationNumber(e.target.value)}
-                placeholder={bs.registrationPlaceholder || "e.g. T1234AB"}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              />
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={handleSaveVehicle}
+                disabled={savingVehicle || !isValidCapacity}
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+              >
+                {savingVehicle ? bs.savingVehicle || "Saving..." : bs.saveVehicle || "Save"}
+              </button>
             </div>
-            <div>
-              <label htmlFor="vcap" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{bs.capacity || "Capacity"}</label>
-              <input
-                id="vcap"
-                type="number"
-                min={1}
-                value={capacity}
-                onChange={(e) => setCapacity(Number(e.target.value))}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              />
-            </div>
-          </div>
-          <div className="mt-4 flex justify-end">
-            <button
-              onClick={handleSaveVehicle}
-              disabled={savingVehicle || capacity < 1}
-              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
-              {savingVehicle ? bs.savingVehicle || "Saving..." : bs.saveVehicle || "Save"}
-            </button>
-          </div>
+          </fieldset>
         </div>
       </div>
     );
@@ -398,7 +465,7 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
     <div className="space-y-6">
       {/* SERVER ERROR */}
       {serverError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
           <span className="font-medium">{serverError.code}:</span> {serverError.message}
         </div>
       )}
@@ -734,48 +801,55 @@ export default function ManualBusSeating({ departureId, passengers, transportTyp
       {/* VEHICLE CONFIGURATION (only when vehicle exists) */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-5">
         <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">{bs.configureVehicle || "Configure Vehicle"}</h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div>
-            <label htmlFor="v-label" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{bs.vehicleLabel || "Vehicle label"}</label>
-            <input
-              id="v-label"
-              type="text"
-              value={vehicleLabel}
-              onChange={(e) => setVehicleLabel(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            />
+        <fieldset disabled={savingVehicle}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div>
+              <label htmlFor="v-label" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{bs.vehicleLabel || "Vehicle label"}</label>
+              <input
+                id="v-label"
+                type="text"
+                maxLength={200}
+                value={vehicleLabel}
+                onChange={(e) => setVehicleLabel(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label htmlFor="v-reg" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{bs.registrationNumber || "Registration number"}</label>
+              <input
+                id="v-reg"
+                type="text"
+                maxLength={50}
+                value={registrationNumber}
+                onChange={(e) => setRegistrationNumber(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label htmlFor="v-cap" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{bs.capacity || "Capacity"}</label>
+              <input
+                id="v-cap"
+                type="number"
+                min={1}
+                max={500}
+                step={1}
+                value={capacity}
+                onChange={(e) => setCapacity(Number(e.target.value))}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            </div>
           </div>
-          <div>
-            <label htmlFor="v-reg" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{bs.registrationNumber || "Registration number"}</label>
-            <input
-              id="v-reg"
-              type="text"
-              value={registrationNumber}
-              onChange={(e) => setRegistrationNumber(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            />
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={handleSaveVehicle}
+              disabled={savingVehicle || !isValidCapacity}
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+            >
+              {savingVehicle ? bs.savingVehicle || "Saving..." : bs.saveVehicle || "Save"}
+            </button>
           </div>
-          <div>
-            <label htmlFor="v-cap" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{bs.capacity || "Capacity"}</label>
-            <input
-              id="v-cap"
-              type="number"
-              min={1}
-              value={capacity}
-              onChange={(e) => setCapacity(Number(e.target.value))}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            />
-          </div>
-        </div>
-        <div className="mt-4 flex justify-end">
-          <button
-            onClick={handleSaveVehicle}
-            disabled={savingVehicle || capacity < 1}
-            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-          >
-            {savingVehicle ? bs.savingVehicle || "Saving..." : bs.saveVehicle || "Save"}
-          </button>
-        </div>
+        </fieldset>
       </div>
     </div>
   );

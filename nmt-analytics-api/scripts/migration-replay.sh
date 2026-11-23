@@ -114,6 +114,8 @@ SQL
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/reservation-cancellation-operations.sql"
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/signup-provisioning-integrity.sql"
 "${PSQL_BASE[@]}" -f "$ROOT/scripts/hotel-inventory-integrity.sql"
+"${PSQL_BASE[@]}" -f "$ROOT/scripts/allocation-vehicle-integrity.sql"
+bash "$ROOT/scripts/allocation-slot-concurrency.sh"
 echo "Migration Replay PASS: $count migrations executed"
 
 
