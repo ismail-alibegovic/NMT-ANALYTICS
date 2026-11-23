@@ -147,8 +147,8 @@ INSERT INTO public.packages(id, org_id, name, destination, base_price, transport
 VALUES ('$PKG_ID', '$ORG_ID', 'Concurrency Package', 'Sarajevo', 150, 'none');
 INSERT INTO public.departures(id, org_id, package_id, depart_at, return_at, capacity, status, transport_type)
 VALUES ('$DEP_ID', '$ORG_ID', '$PKG_ID', '2042-08-01T08:00:00Z', '2042-08-05T18:00:00Z', 10, 'active', 'none');
-INSERT INTO public.hotels(id, org_id, name, destination, total_rooms)
-VALUES ('$HOTEL_ID', '$ORG_ID', 'Concurrency Hotel', 'Sarajevo', 10);
+INSERT INTO public.hotels(id, org_id, name, destination, total_rooms, slug)
+VALUES ('$HOTEL_ID', '$ORG_ID', 'Concurrency Hotel', 'Sarajevo', 10, '$HOTEL_ID');
 INSERT INTO public.hotel_allocations(
   id, org_id, departure_id, hotel_id, room_type, room_label,
   rooms_reserved, template_rooms, capacity_per_room, check_in, check_out,

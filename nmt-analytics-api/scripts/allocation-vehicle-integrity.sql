@@ -28,8 +28,8 @@ BEGIN
   INSERT INTO public.departures(id, org_id, package_id, depart_at, return_at, capacity, status, transport_type)
   VALUES (dep_a, org_a, pkg_a, '2042-07-01T08:00:00Z', '2042-07-05T18:00:00Z', 4, 'active', 'bus');
 
-  INSERT INTO public.hotels(id, org_id, name, destination, total_rooms)
-  VALUES (hotel_a, org_a, 'Synthetic Hotel A', 'Sarajevo', 10);
+  INSERT INTO public.hotels(id, org_id, name, destination, total_rooms, slug)
+  VALUES (hotel_a, org_a, 'Synthetic Hotel A', 'Sarajevo', 10, hotel_a::text);
 
   INSERT INTO public.hotel_allocations(
     id, org_id, departure_id, hotel_id, room_type, room_label,
