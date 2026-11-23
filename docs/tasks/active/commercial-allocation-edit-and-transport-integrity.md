@@ -42,6 +42,7 @@ Make departure hotel allocation editing (`PATCH /api/departures/:id/accommodatio
   - Real Chromium Playwright browser matrix (BS/EN × light/dark × 390/768/1440) for both allocation edit/operator reload and bus vehicle create/edit/reload.
   - Real-Auth isolated acceptance test `nmt-analytics-admin/e2e/pilot-allocation-vehicle-workflow.spec.ts`.
 - Document the confirmed 2026-11-23 hosted Supabase migration gap (115 hosted vs 120→121 repo) and verifiable preflight / migration-order / recovery ledger without running hosted mutations.
+- **P0 CI prerequisite addendum (`GHSA-mrwp-f3q8-3g9p`):** Surgical compatible lockfile resolution bump of `follow-redirects` `1.16.1` → `1.16.2` in `nmt-analytics-api/package-lock.json` and `nmt-analytics-admin/package-lock.json` (no other package changes, no major upgrades, no weakening of `npm audit --omit=dev --audit-level=high`).
 
 ## 4. Out of scope
 
@@ -73,18 +74,19 @@ Make departure hotel allocation editing (`PATCH /api/departures/:id/accommodatio
 
 - **Pre-repair reproduction:** 12/12 failing tests confirmed on `origin/main` `43da03c` (7 API + 5 admin).
 - **Initial temporary host baseline (Node 26.13.1 — NOT final):** 121/122 API files (1,119/1,124 tests; 5 `productionEnvironment.test.ts` failures strictly due to Node 26 vs required Node 24 LTS); admin 76/76 files (575/575 tests with temporary `--no-webstorage` flag).
-- **Final local verification under official Node 24 LTS (`v24.22.3`, SHA-256 verified in `/tmp/node24`):**
+- **Final local verification under official Node 24 LTS (`v24.22.3`, SHA-256 verified in `/tmp/node24`) after clean `npm ci` (`follow-redirects@1.16.2`):**
   - Shell syntax checks (`bash -n allocation-slot-concurrency.sh` & `bash -n migration-replay.sh`): **PASS**
+  - Clean `npm ci` + security audits:
+    - API `npm ci` (`follow-redirects@1.16.2`): **PASS**; `npm audit --omit=dev --audit-level=high` and `npm audit --audit-level=high`: **PASS (0 high/critical; 5 pre-existing moderate transitive advisories in `glob`/`minimatch` via `archiver@7.x` requiring breaking major `archiver@8.0.0`, intentionally untouched)**
+    - Admin `npm ci` (`follow-redirects@1.16.2`): **PASS**; `npm audit --omit=dev --audit-level=high`: **PASS (0 vulnerabilities)**; `npm audit --audit-level=high`: **PASS (0 high/critical; 7 pre-existing moderate dev-only advisories in `minimatch` via `typescript-eslint`, intentionally untouched)**
   - API strict serverless `tsc --project ../tsconfig.json --noEmit`: **PASS**
   - API NodeNext `tsc --project ../tsconfig.json --noEmit --module NodeNext --moduleResolution NodeNext`: **PASS**
   - API `npm run build`: **PASS**
-  - API `npm test`: **124/124 files, 1,135/1,135 tests PASS** (including `productionEnvironment.test.ts` 11/11, `allocationEditAndVehicleIntegrity.test.ts` 7/7, and `allocationSlotConcurrencyGuard.test.ts` 4/4 testing fail-closed host/DB/flag/URL guards and zero secret leakage)
+  - API `npm test`: **124/124 files, 1,139/1,139 tests PASS** (including `productionEnvironment.test.ts` 11/11, `allocationEditAndVehicleIntegrity.test.ts` 7/7, and `allocationSlotConcurrencyGuard.test.ts` 8/8 testing fail-closed host/DB/flag/URL guards, rejection of Docker bridge `172.x` server IPs, container-loopback identity, and CI workflow wiring)
   - Admin `npm run lint`: **0 errors, 50 warnings** (matching `main` baseline)
   - Admin `npm test`: **77/77 files, 581/581 tests PASS** (zero runtime workarounds; includes live BS ↔ EN conflict-banner re-localization + draft preservation in `allocationAndVehicleRecovery.test.tsx` 6/6)
   - Admin `npm run build`: **PASS**
   - Real Chromium Playwright matrix (`playwright.finance-forms.config.ts`): **36/36 PASS** (`allocation-vehicle.spec.ts` 12/12 including live BS ↔ EN toggle while `ROOM_SLOT_OCCUPIED` and `VEHICLE_CHANGE_CONFLICT` alerts are visible with preserved drafts + `hotel-allocation.spec.ts` 12/12 + `hotel-read.spec.ts` 12/12 across BS/EN × light/dark × 390/768/1440; `bs-dark-390` and `en-light-1440` screenshots reviewed)
 - **Not executed locally (exact blockers):**
-  - PostgreSQL 17 migration replay (`migration-replay.sh`), rollback SQL contract (`allocation-vehicle-integrity.sql`), live two-session PostgreSQL execution of `allocation-slot-concurrency.sh` (hardened with fail-closed local-disposable guards, per-run UUID fixture isolation, `pg_stat_activity` `wait_event_type = 'Lock'` barriers with 10s/12s/15s timeouts, and exact `ROOM_SLOT_NOT_FOUND`/FK error assertions), and real-Auth isolated Supabase acceptance (`pilot-allocation-vehicle-workflow.spec.ts`): `docker` and `psql` are not installed on this local host; all are wired into `.github/workflows/ci.yml` and `.github/workflows/staging-acceptance.yml` for GitHub CI execution.
-  - `npm audit --omit=dev --audit-level=high`: reports newly published high advisory `follow-redirects 1.16.0 - 1.16.1` (`GHSA-mrwp-f3q8-3g9p`) in both API and admin lockfiles (pre-existing on `main`, out of scope for this functional fix; tracked as CI blocker for a separate dependency patch).
-  - GitHub push / PR creation: local environment has no `gh` CLI and non-interactive `git push` fails (`could not read Username for 'https://github.com': terminal prompts disabled`). Branch and commits are ready locally for push/PR.
+  - PostgreSQL 17 migration replay (`migration-replay.sh`), rollback SQL contract (`allocation-vehicle-integrity.sql`), live two-session PostgreSQL execution of `allocation-slot-concurrency.sh` (wired via `docker exec` inside disposable `$REPLAY_CONTAINER` in `.github/workflows/ci.yml` and `supabase_db_nmt-analytics-api` in `.github/workflows/staging-acceptance.yml` over each container's own `127.0.0.1:5432` loopback so `inet_server_addr()` remains strictly loopback without widening to `172.x`), and real-Auth isolated Supabase acceptance (`pilot-allocation-vehicle-workflow.spec.ts`): `docker` and `psql` are not installed on this local host; ready to run on GitHub CI once published via the user's GitHub connector.
   - Hosted Supabase migrations (115 hosted vs 120→121 repo; FREE plan with no backups): NOT applied and NOT authorized. See [hosted-migration-preflight-ledger.md](../../operations/hosted-migration-preflight-ledger.md).
