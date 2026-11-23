@@ -92,7 +92,44 @@ BEGIN
     RAISE EXCEPTION 'Rejected unknown-org staff insert survived';
   END IF;
 
-  -- 5) Revocation timestamp persists cleanly on profile.
+  -- 5) GoTrue-order simulation (INSERT without raw_app_meta_data, then assign_staff_profile_atomic)
+  DECLARE
+    gotrue_staff_id uuid := gen_random_uuid();
+    attached_json jsonb;
+  BEGIN
+    SELECT count(*) INTO orgs_before FROM public.organizations;
+    INSERT INTO auth.users(id, email, raw_user_meta_data)
+    VALUES (
+      gotrue_staff_id,
+      gotrue_staff_id::text || '@onboard.invalid',
+      jsonb_build_object('full_name', 'GoTrue Manager')
+    );
+
+    attached_json := public.assign_staff_profile_atomic(
+      gotrue_staff_id,
+      org_id_dir,
+      'manager',
+      gotrue_staff_id::text || '@onboard.invalid',
+      'GoTrue Manager'
+    );
+    SELECT count(*) INTO orgs_after FROM public.organizations;
+
+    IF orgs_after <> orgs_before THEN
+      RAISE EXCEPTION 'assign_staff_profile_atomic left an orphan organization (% vs %)', orgs_before, orgs_after;
+    END IF;
+    IF (attached_json->>'org_id')::uuid <> org_id_dir OR (attached_json->>'role') <> 'manager' THEN
+      RAISE EXCEPTION 'assign_staff_profile_atomic returned unexpected profile payload';
+    END IF;
+  END;
+
+  IF has_function_privilege('anon', 'public.assign_staff_profile_atomic(uuid,uuid,text,text,text)', 'EXECUTE')
+    OR has_function_privilege('authenticated', 'public.assign_staff_profile_atomic(uuid,uuid,text,text,text)', 'EXECUTE')
+    OR NOT has_function_privilege('service_role', 'public.assign_staff_profile_atomic(uuid,uuid,text,text,text)', 'EXECUTE')
+  THEN
+    RAISE EXCEPTION 'assign_staff_profile_atomic ACL mismatch';
+  END IF;
+
+  -- 6) Revocation timestamp persists cleanly on profile.
   UPDATE public.profiles SET revoked_at = now() WHERE id = staff_id AND org_id = org_id_dir;
   IF (SELECT revoked_at FROM public.profiles WHERE id = staff_id) IS NULL THEN
     RAISE EXCEPTION 'Revocation timestamp not persisted';

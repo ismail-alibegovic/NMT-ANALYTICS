@@ -83,4 +83,83 @@ $$;
 REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.handle_new_user() TO service_role;
 
+-- Service-only atomic staff attachment RPC: handles GoTrue admin.createUser
+-- implementations that insert auth.users before applying app_metadata.
+CREATE OR REPLACE FUNCTION public.assign_staff_profile_atomic(
+  p_user_id uuid,
+  p_org_id uuid,
+  p_role text,
+  p_email text DEFAULT NULL,
+  p_full_name text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_old_org_id uuid;
+  v_clean_name text := nullif(left(btrim(coalesce(p_full_name, '')), 100), '');
+  v_result jsonb;
+BEGIN
+  IF p_role IS NULL OR p_role NOT IN ('director', 'manager', 'agent', 'viewer') THEN
+    RAISE EXCEPTION 'INVALID_STAFF_ROLE';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.organizations WHERE id = p_org_id) THEN
+    RAISE EXCEPTION 'STAFF_ORG_NOT_FOUND';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = p_user_id) THEN
+    RAISE EXCEPTION 'STAFF_USER_NOT_FOUND';
+  END IF;
+
+  SELECT org_id INTO v_old_org_id
+    FROM public.profiles
+   WHERE id = p_user_id
+   FOR UPDATE;
+
+  IF v_old_org_id IS NULL THEN
+    INSERT INTO public.profiles(id, org_id, role, email, full_name, revoked_at)
+    VALUES (p_user_id, p_org_id, p_role, p_email, v_clean_name, NULL);
+  ELSE
+    UPDATE public.profiles
+       SET org_id = p_org_id,
+           role = p_role,
+           email = coalesce(p_email, email),
+           full_name = coalesce(v_clean_name, full_name),
+           revoked_at = NULL
+     WHERE id = p_user_id;
+  END IF;
+
+  IF v_old_org_id IS NOT NULL AND v_old_org_id <> p_org_id THEN
+    IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE org_id = v_old_org_id)
+       AND NOT EXISTS (SELECT 1 FROM public.packages WHERE org_id = v_old_org_id)
+       AND NOT EXISTS (SELECT 1 FROM public.departures WHERE org_id = v_old_org_id)
+       AND NOT EXISTS (SELECT 1 FROM public.reservations WHERE org_id = v_old_org_id)
+       AND NOT EXISTS (SELECT 1 FROM public.customers WHERE org_id = v_old_org_id) THEN
+      DELETE FROM public.organizations WHERE id = v_old_org_id;
+    END IF;
+  END IF;
+
+  SELECT jsonb_build_object(
+    'id', id,
+    'org_id', org_id,
+    'email', email,
+    'full_name', full_name,
+    'role', role,
+    'created_at', created_at,
+    'revoked_at', revoked_at
+  )
+  INTO v_result
+  FROM public.profiles
+  WHERE id = p_user_id;
+
+  RETURN v_result;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.assign_staff_profile_atomic(uuid, uuid, text, text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.assign_staff_profile_atomic(uuid, uuid, text, text, text) TO service_role;
+
 COMMIT;

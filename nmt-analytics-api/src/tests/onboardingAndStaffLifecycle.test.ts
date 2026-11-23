@@ -4,6 +4,7 @@ import request from 'supertest';
 
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
+  rpc: vi.fn(),
   authGetUser: vi.fn(),
   authCreateUser: vi.fn(),
   authUpdateUserById: vi.fn(),
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../lib/supabase', () => ({
   supabaseAdmin: {
     from: (...args: any[]) => mocks.from(...args),
+    rpc: (...args: any[]) => mocks.rpc(...args),
     auth: {
       getUser: (...args: any[]) => mocks.authGetUser(...args),
       admin: {
@@ -348,13 +350,78 @@ describe('ONBOARD-01: /settings/team staff provisioning, role changes, revocatio
     expect(mocks.authCreateUser).not.toHaveBeenCalled();
   });
 
-  it('rolls back created Auth user and orphan org with 503 MIGRATION_PENDING if trigger placed profile in wrong org', async () => {
+  it('attaches staff profile atomically via RPC when GoTrue inserts auth.users before app_metadata', async () => {
+    const authProfile = mockDirectorAuth('director');
+    let profileCalls = 0;
+    mocks.authCreateUser.mockResolvedValue({
+      data: { user: { id: STAFF_A, email: 'agent@agency-a.test' } },
+      error: null,
+    });
+    mocks.rpc.mockResolvedValue({
+      data: {
+        id: STAFF_A,
+        org_id: ORG_A,
+        email: 'agent@agency-a.test',
+        full_name: 'Amina Agent',
+        role: 'agent',
+        created_at: '2026-11-23T12:00:00Z',
+        revoked_at: null,
+      },
+      error: null,
+    });
+    mocks.from.mockImplementation((table: string) => {
+      if (table === 'profiles') {
+        profileCalls++;
+        if (profileCalls === 1) {
+          return {
+            select: () => ({
+              eq: () => ({ single: async () => ({ data: authProfile, error: null }) }),
+            }),
+          };
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: STAFF_A, org_id: ORG_B, role: 'director', revoked_at: null },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const app = createStaffApp();
+    const res = await request(app)
+      .post('/settings/team')
+      .set('Authorization', 'Bearer director-token')
+      .send({ email: 'agent@agency-a.test', fullName: 'Amina Agent', role: 'agent' });
+
+    expect(res.status).toBe(201);
+    expect(mocks.rpc).toHaveBeenCalledWith('assign_staff_profile_atomic', {
+      p_user_id: STAFF_A,
+      p_org_id: ORG_A,
+      p_role: 'agent',
+      p_email: 'agent@agency-a.test',
+      p_full_name: 'Amina Agent',
+    });
+    expect(res.body.member.role).toBe('agent');
+    expect(mocks.authDeleteUser).not.toHaveBeenCalled();
+  });
+
+  it('rolls back created Auth user and orphan org with 503 MIGRATION_PENDING if assign_staff_profile_atomic is missing', async () => {
     const authProfile = mockDirectorAuth('director');
     let profileCalls = 0;
     const deletedOrgs: string[] = [];
     mocks.authCreateUser.mockResolvedValue({
       data: { user: { id: STAFF_A, email: 'agent@agency-a.test' } },
       error: null,
+    });
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: 'PGRST202', message: 'Could not find the function public.assign_staff_profile_atomic' },
     });
     mocks.from.mockImplementation((table: string) => {
       if (table === 'profiles') {

@@ -161,29 +161,57 @@ router.post('/', async (req: Request, res: Response) => {
       return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to provision staff account');
     }
 
-    // Verify trigger placed profile inside caller's org with requested role (fail closed on unmigrated trigger).
+    // Verify trigger placed profile inside caller's org with requested role.
+    // GoTrue admin.createUser may insert auth.users before writing app_metadata,
+    // in which case we atomically attach the profile via service-only RPC.
     const { data: profile, error: profileErr } = await supabaseAdmin
       .from('profiles')
       .select('id, org_id, email, full_name, role, created_at, revoked_at')
       .eq('id', createdUserId)
       .maybeSingle();
 
-    const row = profile as StaffProfileRow | null;
-    if (isMissingColumnError(profileErr) || !row || row.org_id !== orgId || row.role !== role) {
-      const orphanOrgId = row && row.org_id !== orgId ? row.org_id : null;
+    if (isMissingColumnError(profileErr)) {
       try {
         await supabaseAdmin.auth.admin.deleteUser(createdUserId);
       } catch {
         // Best-effort cleanup of unattached Auth user.
       }
-      if (orphanOrgId) {
-        try {
-          await supabaseAdmin.from('organizations').delete().eq('id', orphanOrgId);
-        } catch {
-          // Best-effort cleanup of orphan org.
-        }
-      }
       return apiError(res, 503, 'MIGRATION_PENDING', 'Staff provisioning requires database migration 20261124120000.');
+    }
+
+    let row = profile as StaffProfileRow | null;
+    if (!row || row.org_id !== orgId || row.role !== role) {
+      const orphanOrgId = row && row.org_id !== orgId ? row.org_id : null;
+      const { data: attached, error: attachErr } = await supabaseAdmin.rpc('assign_staff_profile_atomic', {
+        p_user_id: createdUserId,
+        p_org_id: orgId,
+        p_role: role,
+        p_email: email,
+        p_full_name: fullName,
+      });
+
+      const attachCode = (attachErr as { code?: string } | null)?.code;
+      if (attachErr || !attached) {
+        try {
+          await supabaseAdmin.auth.admin.deleteUser(createdUserId);
+        } catch {
+          // Best-effort cleanup of unattached Auth user.
+        }
+        if (orphanOrgId) {
+          try {
+            await supabaseAdmin.from('organizations').delete().eq('id', orphanOrgId);
+          } catch {
+            // Best-effort cleanup of orphan org.
+          }
+        }
+        if (attachCode === 'PGRST202' || attachCode === '42883' || isMissingColumnError(attachErr)) {
+          return apiError(res, 503, 'MIGRATION_PENDING', 'Staff provisioning requires database migration 20261124120000.');
+        }
+        console.error('[STAFF] Staff profile assignment RPC failed');
+        return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to assign staff profile');
+      }
+
+      row = attached as StaffProfileRow;
     }
 
     await logAuditEntry({

@@ -69,15 +69,18 @@
 ## 6. Local verification checkpoint (Node 24.22.3)
 
 - **Pre-repair reproduction:** 6/6 failing tests on `origin/main` `43da03c` (3 API + 3 admin).
-- **Final local verification under official Node 24 LTS (`v24.22.3`):**
+- **Integrated with PR #174 (`88cd62a`):** includes `follow-redirects@1.16.2` (`GHSA-mrwp-f3q8-3g9p`), `allocation-vehicle-integrity.sql` `hotels.slug` fix, and Docker CI container-loopback concurrency hardening.
+- **Root cause & fix for `POST /settings/team` 503:** GoTrue `admin.createUser` can insert `auth.users` before writing `raw_app_meta_data`, causing `handle_new_user()` to create a temporary single-user org. Added service-only `public.assign_staff_profile_atomic(uuid, uuid, text, text, text)` RPC in `20261124120000_staff_lifecycle_and_revocation.sql` and wired `staff.ts` to attach the profile atomically and clean up the empty temporary org (still failing closed with `503 MIGRATION_PENDING` if the RPC/column is missing).
+- **Final local verification under official Node 24 LTS (`v24.22.3`) after clean `npm ci`:**
+  - API `npm ci` (`follow-redirects@1.16.2`), `npm audit --omit=dev --audit-level=high` & `npm audit --audit-level=high`: **PASS (0 high/critical)**
+  - Admin `npm ci` (`follow-redirects@1.16.2`), `npm audit --omit=dev --audit-level=high`: **PASS (0 vulnerabilities)**; `npm audit --audit-level=high`: **PASS (0 high/critical)**
   - API strict serverless `tsc --project ../tsconfig.json --noEmit` & NodeNext `tsc`: **PASS**
   - API `npm run build`: **PASS**
-  - API `npm test`: **123/123 files, 1,133/1,133 tests PASS** (including `onboardingAndStaffLifecycle.test.ts` 9/9, `documentTemplatePersistence.test.ts` 12/12, `authContextAudit.test.ts` 6/6)
-  - Admin `npm run lint`: **0 errors, 49 warnings** (1 fewer than `main` baseline)
-  - Admin `npm test`: **77/77 files, 581/581 tests PASS** (including `i18nParity.test.ts` 16/16 and `onboardingAndStaffLifecycle.test.tsx` 6/6)
+  - API `npm test`: **125/125 files, 1,149/1,149 tests PASS** (including `onboardingAndStaffLifecycle.test.ts` 10/10, `allocationSlotConcurrencyGuard.test.ts` 8/8, `allocationEditAndVehicleIntegrity.test.ts` 7/7)
+  - Admin `npm run lint`: **0 errors, 50 warnings**
+  - Admin `npm test`: **78/78 files, 587/587 tests PASS** (including `onboardingAndStaffLifecycle.test.tsx` 6/6, `allocationAndVehicleRecovery.test.tsx` 6/6, `i18nParity.test.ts` 16/16)
   - Admin `npm run build`: **PASS**
-  - Real Chromium Playwright (`playwright.finance-forms.config.ts`): `onboarding-staff.spec.ts` (12/12) + `organization-settings.spec.ts` (14/14) = **26/26 PASS** (screenshots visually reviewed for `bs-dark-390` and `en-light-1440`)
+  - Real Chromium Playwright (`playwright.finance-forms.config.ts`): `onboarding-staff.spec.ts` (12/12) + `organization-settings.spec.ts` (14/14) + `allocation-vehicle.spec.ts` (12/12) = **38/38 PASS** (BS/EN × light/dark × 390/768/1440)
 - **Not executed locally (wired into GitHub CI):**
-  - PostgreSQL 17 migration replay (`20261124120000_staff_lifecycle_and_revocation.sql` + `staff-lifecycle-integrity.sql`) and real-Auth isolated two-agency Playwright acceptance (`pilot-onboarding-staff-lifecycle.spec.ts`): local host lacks `docker`/`psql`.
-  - Note: Branch starts cleanly from `origin/main` (`43da03c`); once PR #172 (`fix/commercial-allocation-edit-and-transport-integrity`, which includes `follow-redirects@1.16.2`) merges to `main`, rebase this branch onto `main` so CI `npm audit` inherits `follow-redirects@1.16.2` cleanly.
+  - PostgreSQL 17 migration replay (`20261123120000` + `20261124120000`, `staff-lifecycle-integrity.sql`, `allocation-vehicle-integrity.sql`, `allocation-slot-concurrency.sh`) and real-Auth isolated acceptance (`pilot-onboarding-staff-lifecycle.spec.ts`): local host lacks `docker`/`psql`.
 
