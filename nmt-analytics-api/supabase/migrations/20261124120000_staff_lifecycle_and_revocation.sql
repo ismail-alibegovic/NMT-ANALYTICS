@@ -133,12 +133,16 @@ BEGIN
   END IF;
 
   IF v_old_org_id IS NOT NULL AND v_old_org_id <> p_org_id THEN
+    -- Remove temporary auto-bootstrapped modules/branding when detaching a newly
+    -- created GoTrue user from its initial single-user org (organizations itself
+    -- cannot be deleted due to legacy_transactions_read_only ON DELETE CASCADE).
     IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE org_id = v_old_org_id)
        AND NOT EXISTS (SELECT 1 FROM public.packages WHERE org_id = v_old_org_id)
        AND NOT EXISTS (SELECT 1 FROM public.departures WHERE org_id = v_old_org_id)
        AND NOT EXISTS (SELECT 1 FROM public.reservations WHERE org_id = v_old_org_id)
        AND NOT EXISTS (SELECT 1 FROM public.customers WHERE org_id = v_old_org_id) THEN
-      DELETE FROM public.organizations WHERE id = v_old_org_id;
+      DELETE FROM public.org_modules WHERE org_id = v_old_org_id;
+      DELETE FROM public.org_branding WHERE org_id = v_old_org_id;
     END IF;
   END IF;
 

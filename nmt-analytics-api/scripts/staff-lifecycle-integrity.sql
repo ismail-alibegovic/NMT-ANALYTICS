@@ -95,15 +95,20 @@ BEGIN
   -- 5) GoTrue-order simulation (INSERT without raw_app_meta_data, then assign_staff_profile_atomic)
   DECLARE
     gotrue_staff_id uuid := gen_random_uuid();
+    temp_org_id uuid;
     attached_json jsonb;
   BEGIN
-    SELECT count(*) INTO orgs_before FROM public.organizations;
     INSERT INTO auth.users(id, email, raw_user_meta_data)
     VALUES (
       gotrue_staff_id,
       gotrue_staff_id::text || '@onboard.invalid',
       jsonb_build_object('full_name', 'GoTrue Manager')
     );
+
+    SELECT org_id INTO temp_org_id FROM public.profiles WHERE id = gotrue_staff_id;
+    IF temp_org_id IS NULL OR temp_org_id = org_id_dir THEN
+      RAISE EXCEPTION 'Expected temporary org for GoTrue-order simulation';
+    END IF;
 
     attached_json := public.assign_staff_profile_atomic(
       gotrue_staff_id,
@@ -112,10 +117,12 @@ BEGIN
       gotrue_staff_id::text || '@onboard.invalid',
       'GoTrue Manager'
     );
-    SELECT count(*) INTO orgs_after FROM public.organizations;
 
-    IF orgs_after <> orgs_before THEN
-      RAISE EXCEPTION 'assign_staff_profile_atomic left an orphan organization (% vs %)', orgs_before, orgs_after;
+    IF EXISTS (SELECT 1 FROM public.profiles WHERE org_id = temp_org_id)
+      OR EXISTS (SELECT 1 FROM public.org_modules WHERE org_id = temp_org_id)
+      OR EXISTS (SELECT 1 FROM public.org_branding WHERE org_id = temp_org_id)
+    THEN
+      RAISE EXCEPTION 'assign_staff_profile_atomic left members, modules, or branding on temporary org';
     END IF;
     IF (attached_json->>'org_id')::uuid <> org_id_dir OR (attached_json->>'role') <> 'manager' THEN
       RAISE EXCEPTION 'assign_staff_profile_atomic returned unexpected profile payload';
