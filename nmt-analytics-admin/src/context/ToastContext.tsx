@@ -40,7 +40,8 @@ export function ToastProvider({ children }: ToastProviderProps) {
     <ToastContext.Provider value={value}>
       {children}
       <Toaster
-        position="top-right"
+        position="bottom-right"
+        containerStyle={{ zIndex: 100000 }}
         toastOptions={{
           duration: 4000,
           style: {
