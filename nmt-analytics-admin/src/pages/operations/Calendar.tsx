@@ -9,14 +9,11 @@ import { useQueryParams } from "../../hooks/useQueryParams";
 import { useT } from "../../lib/i18n/context";
 import { getCalendarMonth, CalendarDeparture } from "../../api/calendar";
 
-const WEEKDAYS_BS = ["Pon", "Uto", "Sri", "Čet", "Pet", "Sub", "Ned"];
-const MONTHS_BS = ["Januar","Februar","Mart","April","Maj","Juni","Juli","August","Septembar","Oktobar","Novembar","Decembar"];
-
 function pad(n: number) { return String(n).padStart(2, "0"); }
 function fmtMonth(year: number, month: number) { return `${year}-${pad(month + 1)}`; }
-function fmtDate(d: string | Date) {
-  const dt = typeof d === "string" ? new Date(d) : d;
-  return dt.toLocaleDateString("bs-BA", { day: "2-digit", month: "2-digit", year: "numeric" });
+function fmtDayKey(d: string | Date) {
+  if (typeof d === "string") return d.slice(0, 10);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 function capacityClass(ev: CalendarDeparture) {
@@ -46,7 +43,7 @@ export default function Calendar() {
       .then((res) => setEvents(res.events || []))
       .catch((err) => {
         console.error("Calendar fetch failed:", err);
-        showError("Greška pri učitavanju kalendara");
+        showError(tr.loadError);
         setEvents([]);
       })
       .finally(() => setLoading(false));
@@ -75,7 +72,7 @@ export default function Calendar() {
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarDeparture[]>();
     for (const ev of events) {
-      const key = fmtDate(ev.departAt);
+      const key = fmtDayKey(ev.departAt);
       const arr = map.get(key) || [];
       arr.push(ev);
       map.set(key, arr);
@@ -105,9 +102,9 @@ export default function Calendar() {
         hideSearch
         actions={
           <div className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1 dark:border-gray-800 dark:bg-gray-900">
-            <Button variant="outline" onClick={() => move(-1)} title={tr.today} className="!px-3 !py-1.5 !rounded-md border-0">‹</Button>
+            <Button variant="outline" onClick={() => move(-1)} title={tr.prevMonth} className="!px-3 !py-1.5 !rounded-md border-0">‹</Button>
             <Button variant="outline" onClick={() => setCursor({ year: today.getFullYear(), month: today.getMonth() })} className="!px-4 !py-1.5 !rounded-md border-0 text-sm font-medium">{tr.today}</Button>
-            <Button variant="outline" onClick={() => move(1)} title={tr.today} className="!px-3 !py-1.5 !rounded-md border-0">›</Button>
+            <Button variant="outline" onClick={() => move(1)} title={tr.nextMonth} className="!px-3 !py-1.5 !rounded-md border-0">›</Button>
           </div>
         }
       />
@@ -116,22 +113,22 @@ export default function Calendar() {
       <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
         <span className="inline-flex items-center gap-1.5">
           <span className="size-2.5 rounded-sm bg-emerald-200 dark:bg-emerald-900/50"></span>
-          <span>Slobodno</span>
+          <span>{tr.legendAvailable}</span>
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="size-2.5 rounded-sm bg-amber-200 dark:bg-amber-900/50"></span>
-          <span>{"<"}50% slobodno</span>
+          <span>{tr.legendHalfAvailable}</span>
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="size-2.5 rounded-sm bg-red-200 dark:bg-red-900/50"></span>
-          <span>Popunjeno</span>
+          <span>{tr.legendFull}</span>
         </span>
       </div>
 
       <div className="min-h-[60vh] rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-            {MONTHS_BS[cursor.month]} {cursor.year}
+            {tr.months[cursor.month]} {cursor.year}
           </h2>
           {!loading && events.length === 0 && (
             <span className="text-sm text-gray-500 dark:text-gray-400">{tr.noDepartures}</span>
@@ -139,7 +136,7 @@ export default function Calendar() {
         </div>
 
         <div className="grid grid-cols-7 gap-2 text-center">
-          {WEEKDAYS_BS.map((wd) => (
+          {tr.weekdays.map((wd: string) => (
             <div key={wd} className="py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
               {wd}
             </div>
@@ -148,7 +145,7 @@ export default function Calendar() {
 
         <div className="grid grid-cols-7 gap-2">
           {grid.map((cell, idx) => {
-            const dateStr = cell.date ? fmtDate(cell.date) : "";
+            const dateStr = cell.date ? fmtDayKey(cell.date) : "";
             const dayEvents = cell.date ? eventsByDay.get(dateStr) || [] : [];
             return (
               <div
@@ -164,7 +161,7 @@ export default function Calendar() {
                       <Link
                         to={`/departures?date=${dateStr}`}
                         className="flex h-full min-h-[80px] items-center justify-center rounded-md border border-dashed border-gray-300 text-xs text-gray-400 transition-colors hover:border-brand-400 hover:text-brand-500 dark:border-gray-700 dark:hover:border-brand-600"
-                        title={tr.addDeparture || "Dodaj polazak"}
+                        title={tr.addDeparture}
                       >
                         <span className="text-lg leading-none">+</span>
                       </Link>

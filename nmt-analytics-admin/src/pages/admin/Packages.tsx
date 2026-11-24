@@ -29,7 +29,8 @@ export default function Packages() {
   const { user, loading: authLoading } = useApp();
   const { getParam, setParams } = useQueryParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { t } = useT();
+  const { t, lang } = useT();
+  const locale = lang === 'en' ? 'en-GB' : 'bs-BA';
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,8 +56,8 @@ export default function Packages() {
       setTotalItems(response.total);
       setCurrentPage(page);
     } catch (err: any) {
-      setError(err.message || 'Failed to load packages');
-      showError('Failed to load packages');
+      setError(err.message || t.packages.loadError);
+      showError(t.packages.loadError);
     } finally {
       setLoading(false);
     }
@@ -142,7 +143,7 @@ export default function Packages() {
   };
 
   const handleDelete = async (pkg: Package) => {
-    if (!confirm(t.packages.deleteConfirm || `Are you sure you want to delete "${pkg.name}"?`)) return;
+    if (!confirm(t.packages.deleteConfirm)) return;
     try {
       await deletePackage(pkg.id);
       showSuccess(t.packages.deleteSuccess);
@@ -173,7 +174,7 @@ export default function Packages() {
       header: t.packages.basePrice,
       render: (val, pkg) => (
         <span className="font-medium text-gray-900 dark:text-white">
-          {pkg.currency} {Number(val || 0).toLocaleString()}
+          {pkg.currency} {Number(val || 0).toLocaleString(locale)}
         </span>
       )
     },
@@ -197,7 +198,7 @@ export default function Packages() {
     },
   ];
 
-  if (!authLoading && !user) return <div className="p-6"><EmptyState title="Auth Required" description="Please sign in" /></div>;
+  if (!authLoading && !user) return <div className="p-6"><EmptyState title={t.common.authRequired} description={t.common.pleaseSignIn} /></div>;
 
   return (
     <>
@@ -237,10 +238,10 @@ export default function Packages() {
         </div>
       ) : error ? (
         <div className="p-6">
-          <EmptyState title={t.packages.title} description={error} action={{ label: "Try Again", onClick: () => fetchPackages(currentPage, searchTerm) }} />
+          <EmptyState title={t.packages.title} description={error} action={{ label: t.common.tryAgain, onClick: () => fetchPackages(currentPage, searchTerm) }} />
         </div>
       ) : packages.length === 0 ? (
-        <EmptyState title="No packages found" description={searchTerm ? "Try searching for something else" : "Get started by adding your first package"} action={!searchTerm ? { label: "Add Package", onClick: handleCreate } : undefined} />
+        <EmptyState title={t.packages.noPackages} description={searchTerm ? t.packages.emptySearchDescription : t.packages.emptyFirstDescription} action={!searchTerm ? { label: t.packages.add, onClick: handleCreate } : undefined} />
       ) : (
         <>
           <DataTable data={packages} columns={columns} />

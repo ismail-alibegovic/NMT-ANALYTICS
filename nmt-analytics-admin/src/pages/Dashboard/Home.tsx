@@ -13,11 +13,12 @@ import { ArrowDownIcon, ArrowUpIcon, BoxIconLine, DollarLineIcon, CalenderIcon, 
 import { useToast } from "../../context/ToastContext";
 import { hasAccess } from "../../types/roles";
 import { useApp } from "../../context/AppContext";
-import { useTranslation } from "../../lib/i18n/context";
+import { useT } from "../../lib/i18n/context";
 import { formatCurrency } from "../../utils/business";
 
 export default function Home() {
-  const t = useTranslation();
+  const { t, lang } = useT();
+  const locale = lang === "en" ? "en-GB" : "bs-BA";
   const toast = useToast();
   const navigate = useNavigate();
   const { userContext } = useApp();
@@ -122,7 +123,7 @@ export default function Home() {
           {loading ? (
             <div className="h-8 w-24 animate-pulse bg-gray-100 rounded dark:bg-gray-800" />
         ) : (
-            formatter ? formatter(value) : `${Number(value || 0).toLocaleString()}${suffix}`
+            formatter ? formatter(value) : `${Number(value || 0).toLocaleString(locale)}${suffix}`
           )}
         </h4>
       </div>

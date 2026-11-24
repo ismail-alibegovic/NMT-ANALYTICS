@@ -24,6 +24,7 @@ export default function CreateReservationModal({
   const { success: showSuccess, error: showError } = useToast();
   const { t, lang } = useT();
   const locale = lang === "en" ? "en-GB" : "bs-BA";
+  const m = t.createReservationModal;
 
   const [packages, setPackages] = useState<Package[]>([]);
   const [departures, setDepartures] = useState<Departure[]>([]);
@@ -71,7 +72,7 @@ export default function CreateReservationModal({
       setPackages(pkgRes.data);
       setCustomers(custRes.data);
     } catch {
-      showError("Failed to load data");
+      showError(m.loadError);
     } finally {
       setLoadingData(false);
     }
@@ -114,7 +115,7 @@ export default function CreateReservationModal({
 
   const handleSubmit = async () => {
     if (!customerName || !customerPhone) {
-      showError("Ime i telefon klijenta su obavezni");
+      showError(m.requiredError);
       return;
     }
 
@@ -132,26 +133,26 @@ export default function CreateReservationModal({
         status: "pending",
       });
 
-      showSuccess("Rezervacija kreirana");
+      showSuccess(m.createdSuccess);
       onSuccess();
       onClose();
     } catch (err: any) {
-      showError(err?.message || "Greška pri kreiranju rezervacije");
+      showError(err?.message || m.createError);
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-2xl" title="Nova rezervacija">
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-2xl" title={m.title}>
       <div className="p-6 pt-4 space-y-5">
         {/* Customer selection */}
         <div>
-          <Label>Klijent</Label>
+          <Label>{m.client}</Label>
           <div className="relative">
             <Input
               type="text"
-              placeholder="Pretraži postojećeg klijenta..."
+              placeholder={m.searchClientPlaceholder}
               value={customerSearch}
               onChange={(e) => {
                 setCustomerSearch(e.target.value);
@@ -180,16 +181,16 @@ export default function CreateReservationModal({
             )}
           </div>
           {selectedCustomerId && (
-            <p className="text-xs text-green-600 mt-1">✓ Odabran: {customerName}</p>
+            <p className="text-xs text-green-600 mt-1">✓ {m.selectedPrefix} {customerName}</p>
           )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label>Ime i prezime *</Label>
+            <Label>{m.fullNameLabel}</Label>
             <Input
               type="text"
-              placeholder="Npr. Ahmed Hodžić"
+              placeholder={m.fullNamePlaceholder}
               value={customerName}
               onChange={(e) => {
                 setCustomerName(e.target.value);
@@ -198,7 +199,7 @@ export default function CreateReservationModal({
             />
           </div>
           <div>
-            <Label>Telefon *</Label>
+            <Label>{m.phoneLabel}</Label>
             <Input
               type="tel"
               placeholder="+387 61 234 567"
@@ -214,13 +215,13 @@ export default function CreateReservationModal({
         {/* Package & Departure */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label>Aranžman / Paket</Label>
+            <Label>{m.packageLabel}</Label>
             <select
               value={packageId}
               onChange={(e) => setPackageId(e.target.value)}
               className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
             >
-              <option value="">-- Bez aranžmana --</option>
+              <option value="">{m.noPackageOption}</option>
               {packages.map((pkg) => (
                 <option key={pkg.id} value={pkg.id}>
                   {pkg.name} - {pkg.destination}
@@ -229,19 +230,19 @@ export default function CreateReservationModal({
             </select>
           </div>
           <div>
-            <Label>Polazak</Label>
+            <Label>{m.departureLabel}</Label>
             <select
               value={departureId}
               onChange={(e) => setDepartureId(e.target.value)}
               disabled={!packageId}
               className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 disabled:opacity-50"
             >
-              <option value="">-- Odaberite polazak --</option>
+              <option value="">{m.selectDepartureOption}</option>
               {departures
                 .filter((d) => d.status === "active" && d.booked < d.capacity)
                 .map((d) => (
                   <option key={d.id} value={d.id}>
-                    {new Date(d.depart_at).toLocaleDateString(locale)} — {d.booked}/{d.capacity} {t.reservations.bookedShort}
+                    {new Date(d.depart_at).toLocaleDateString(locale)} — {d.booked}/{d.capacity} {m.bookedShort}
                   </option>
                 ))}
             </select>
@@ -251,7 +252,7 @@ export default function CreateReservationModal({
         {/* Party size & Amount */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label>Broj osoba</Label>
+            <Label>{m.partySizeLabel}</Label>
             <Input
               type="number"
               min="1"
@@ -260,7 +261,7 @@ export default function CreateReservationModal({
             />
           </div>
           <div>
-            <Label>Ukupan iznos (BAM)</Label>
+            <Label>{m.totalAmountLabel}</Label>
             <Input
               type="number"
               min="0"
@@ -273,27 +274,27 @@ export default function CreateReservationModal({
 
         {/* Source */}
         <div>
-          <Label>Izvor rezervacije</Label>
+          <Label>{m.sourceLabel}</Label>
           <select
             value={source}
             onChange={(e) => setSource(e.target.value)}
             className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
           >
-            <option value="agent">Agent (lično)</option>
-            <option value="phone">Telefon</option>
-            <option value="walk-in">Šalter</option>
-            <option value="web">Web</option>
-            <option value="other">Ostalo</option>
+            <option value="agent">{m.sources.agent}</option>
+            <option value="phone">{m.sources.phone}</option>
+            <option value="walk-in">{m.sources.walkIn}</option>
+            <option value="web">{m.sources.web}</option>
+            <option value="other">{m.sources.other}</option>
           </select>
         </div>
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
           <Button variant="outline" onClick={onClose} disabled={submitting}>
-            Odustani
+            {m.cancel}
           </Button>
           <Button onClick={handleSubmit} disabled={submitting || loadingData}>
-            {submitting ? "Kreiranje..." : "Kreiraj rezervaciju"}
+            {submitting ? m.creating : m.submit}
           </Button>
         </div>
       </div>
