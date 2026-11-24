@@ -81,7 +81,9 @@ test('allotment edit rollback on occupied slot and bus vehicle create/edit/clear
     data: {
       departureId,
       customerName: 'Synthetic Slot Guest',
+      customerPhone: '+38761000099',
       partySize: 1,
+      reservationAt: '2042-07-01T10:00:00.000Z',
       totalAmount: 100,
       status: 'confirmed',
     },
