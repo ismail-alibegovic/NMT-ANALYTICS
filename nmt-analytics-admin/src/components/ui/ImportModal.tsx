@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
 import { importData, ImportResponse, getImportHeaders } from '../../api/import';
 import { useToast } from '../../context/ToastContext';
+import { useT } from '../../lib/i18n/context';
 
 interface ImportModalProps {
     isOpen: boolean;
@@ -20,6 +21,9 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, entity, fiel
     const [loading, setLoading] = useState(false);
     const [importResult, setImportResult] = useState<ImportResponse | null>(null);
     const { success: showSuccess, error: showError } = useToast();
+    const { t } = useT();
+    const m = t.legacyImportModal;
+    const entityLabel = (t.fileImport as Record<string, string>)[entity] || entity;
 
     const autoMap = (csvHeaders: string[]) => {
         const newMapping: Record<string, string> = {};
@@ -62,10 +66,10 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, entity, fiel
                     autoMap(result.headers);
                     setStep("map");
                 } else {
-                    showError("Failed to read XLSX headers");
+                    showError(m.xlsxHeadersError);
                 }
-            }).catch((err: any) => {
-                showError(err.message || "Failed to parse XLSX file");
+            }).catch(() => {
+                showError(m.xlsxParseError);
             });
         }
     };
@@ -92,8 +96,8 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, entity, fiel
             const res = await importData(entity, file, { mode: 'upsert', columnMap: mapping }, true);
             setImportResult(res);
             setStep('preview');
-        } catch (err: any) {
-            showError(err.message || 'Failed to preview data');
+        } catch {
+            showError(m.previewError);
         } finally {
             setLoading(false);
         }
@@ -104,12 +108,12 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, entity, fiel
         setLoading(true);
         try {
             await importData(entity, file, { mode: 'upsert', columnMap: mapping }, false);
-            showSuccess('Data imported successfully');
+            showSuccess(m.importSuccess);
             onSuccess?.();
             onClose();
             reset();
-        } catch (err: any) {
-            showError(err.message || 'Failed to import data');
+        } catch {
+            showError(m.importError);
         } finally {
             setLoading(false);
         }
@@ -125,14 +129,14 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, entity, fiel
 
     return (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-boxdark w-full max-w-2xl rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div role="dialog" aria-modal="true" className="bg-white dark:bg-boxdark w-full max-w-2xl rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-stroke dark:border-strokedark flex justify-between items-center">
                     <h3 className="text-xl font-semibold text-black dark:text-white">
-                        Import {entity.charAt(0).toUpperCase() + entity.slice(1)}
+                        {m.title.replace('{entity}', entityLabel)}
                     </h3>
-                    <button onClick={onClose} className="text-body hover:text-primary transition-colors">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button type="button" onClick={onClose} aria-label={m.close} className="text-body hover:text-primary transition-colors">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
@@ -145,16 +149,16 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, entity, fiel
                             <input {...getInputProps()} />
                             <div className="mb-4 flex justify-center">
                                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary">
-                                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                     </svg>
                                 </div>
                             </div>
                             <p className="text-lg font-medium text-black dark:text-white mb-1">
-                                {isDragActive ? 'Drop file here' : 'Click or drag file to upload'}
+                                {isDragActive ? m.dropHere : m.clickOrDrag}
                             </p>
                             <p className="text-sm text-body">
-                                Supports CSV and XLSX files
+                                {m.supportsFormats}
                             </p>
                         </div>
                     )}
@@ -162,7 +166,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, entity, fiel
                     {step === 'map' && (
                         <div className="space-y-4">
                             <p className="text-sm text-body mb-4">
-                                Map the columns from your file to the database fields.
+                                {m.mapInstructions}
                             </p>
                             <div className="space-y-3">
                                 {headers.map(header => (
@@ -176,7 +180,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, entity, fiel
                                             value={mapping[header] || ''}
                                             onChange={(e) => handleMappingChange(header, e.target.value)}
                                         >
-                                            <option value="">Ignore column</option>
+                                            <option value="">{m.ignoreColumn}</option>
                                             {fields.map(f => (
                                                 <option key={f.key} value={f.key}>{f.label}{f.required ? ' *' : ''}</option>
                                             ))}
@@ -191,25 +195,25 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, entity, fiel
                         <div className="space-y-6">
                             <div className="grid grid-cols-3 gap-4">
                                 <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 text-center">
-                                    <p className="text-xs text-body uppercase font-bold mb-1">Total Rows</p>
+                                    <p className="text-xs text-body uppercase font-bold mb-1">{m.totalRows}</p>
                                     <p className="text-2xl font-bold text-primary">{importResult.results.total}</p>
                                 </div>
                                 <div className="p-4 bg-green-500/5 rounded-lg border border-green-500/20 text-center">
-                                    <p className="text-xs text-body uppercase font-bold mb-1">Valid</p>
+                                    <p className="text-xs text-body uppercase font-bold mb-1">{m.valid}</p>
                                     <p className="text-2xl font-bold text-green-500">{importResult.results.validCount}</p>
                                 </div>
                                 <div className="p-4 bg-red-500/5 rounded-lg border border-red-500/20 text-center">
-                                    <p className="text-xs text-body uppercase font-bold mb-1">Invalid</p>
+                                    <p className="text-xs text-body uppercase font-bold mb-1">{m.invalid}</p>
                                     <p className="text-2xl font-bold text-red-500">{importResult.results.invalidCount}</p>
                                 </div>
                             </div>
 
                             {importResult.results.invalidRows.length > 0 && (
                                 <div className="bg-red-500/10 p-4 rounded-lg">
-                                    <p className="text-sm font-bold text-red-500 mb-2">Errors (First 10):</p>
+                                    <p className="text-sm font-bold text-red-500 mb-2">{m.errorsHeading}</p>
                                     <ul className="text-xs text-red-600 space-y-1">
                                         {importResult.results.invalidRows.slice(0, 10).map((err, idx) => (
-                                            <li key={idx}>Row {err.row}: {JSON.stringify(err.errors || err.error)}</li>
+                                            <li key={idx}>{m.rowLabel.replace('{row}', String(err.row))} {JSON.stringify(err.errors || err.error)}</li>
                                         ))}
                                     </ul>
                                 </div>
@@ -217,7 +221,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, entity, fiel
 
                             {importResult.results.preview && (
                                 <div>
-                                    <p className="text-sm font-bold mb-2">Preview (First 5):</p>
+                                    <p className="text-sm font-bold mb-2">{m.previewHeading}</p>
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-xs border-collapse">
                                             <thead>
@@ -247,32 +251,35 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, entity, fiel
                 {/* Footer */}
                 <div className="px-6 py-4 border-t border-stroke dark:border-strokedark bg-gray-50 dark:bg-meta-4 flex justify-between">
                     <button
+                        type="button"
                         onClick={step === 'upload' ? onClose : step === 'map' ? () => setStep('upload') : () => setStep('map')}
                         className="px-6 py-2 border border-stroke dark:border-strokedark rounded-lg hover:bg-white dark:hover:bg-boxdark transition-all"
                         disabled={loading}
                     >
-                        {step === 'upload' ? 'Cancel' : 'Back'}
+                        {step === 'upload' ? m.cancel : m.back}
                     </button>
 
                     <div className="flex gap-3">
                         {step === 'map' && (
                             <button
+                                type="button"
                                 onClick={handlePreview}
                                 className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all flex items-center gap-2"
                                 disabled={loading}
                             >
                                 {loading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                Preview
+                                {m.preview}
                             </button>
                         )}
                         {step === 'preview' && (
                             <button
+                                type="button"
                                 onClick={handleImport}
                                 className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all flex items-center gap-2"
                                 disabled={loading || (importResult?.results.validCount === 0)}
                             >
                                 {loading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                Import {importResult?.results.validCount} Rows
+                                {m.importRows.replace('{count}', String(importResult?.results.validCount ?? 0))}
                             </button>
                         )}
                     </div>

@@ -27,13 +27,13 @@ interface PortalData {
   totals: { count: number; commission: number; revenue: number };
 }
 
-function fmtDate(d: string | null) {
+function fmtDate(d: string | null, locale = "bs-BA") {
   if (!d) return null;
-  return new Date(d).toLocaleString("bs-BA", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(d).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
 }
 
-function fmtCurrency(n: number, currency = "BAM") {
-  return new Intl.NumberFormat("bs-BA", { style: "currency", currency }).format(n || 0);
+function fmtCurrency(n: number, currency = "BAM", locale = "bs-BA") {
+  return new Intl.NumberFormat(locale, { style: "currency", currency }).format(n || 0);
 }
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
@@ -48,8 +48,9 @@ const PARTNER_LABELS: Record<string, string> = {
 };
 
 export default function PublicSubAgentPortal() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const c = t.operations.subagents.portal;
+  const locale = lang === "en" ? "en-GB" : "bs-BA";
   const token = window.location.pathname.split("/").pop() || "";
   const [data, setData] = useState<PortalData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,7 +67,7 @@ export default function PublicSubAgentPortal() {
         const read = async (path: string) => {
           const response = await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token}` }, credentials: 'omit', signal: controller.signal });
           const body = await response.json();
-          if (!response.ok) throw Object.assign(new Error(body.message || 'Nije moguće učitati portal.'), {code:body.code});
+          if (!response.ok) throw Object.assign(new Error(body.message || c.unknownError), {code:body.code});
           return body.data;
         };
         const [profile, rows] = await Promise.all([read('/portal/me'), read('/portal/sales')]);
@@ -80,14 +81,14 @@ export default function PublicSubAgentPortal() {
       } catch (err) {
         if (controller.signal.aborted) return;
         if ((err as {code?:string}).code === 'TOKEN_EXPIRED') setData({status:'expired',agentName:null,orgName:null,partnerType:null,commissionRate:0,lastSeenAt:null,expiresAt:null,sales:[],totals:{count:0,commission:0,revenue:0}});
-        else setError(err instanceof Error ? err.message : 'Nije moguće učitati portal.');
+        else setError(err instanceof Error ? err.message : c.unknownError);
       } finally { if (!controller.signal.aborted) setLoading(false); }
     })();
     return () => controller.abort();
-  }, [token, attempt]);
+  }, [token, attempt, c.unknownError]);
 
   const currencies = [...new Set(data?.sales.map(sale=>sale.currency) || [])];
-  const totalByCurrency = (key:'totalAmount'|'commissionAmount') => currencies.length ? currencies.map(currency=>fmtCurrency((data?.sales || []).filter(sale=>sale.currency===currency).reduce((sum,sale)=>sum+sale[key],0),currency)).join(' · ') : '—';
+  const totalByCurrency = (key:'totalAmount'|'commissionAmount') => currencies.length ? currencies.map(currency=>fmtCurrency((data?.sales || []).filter(sale=>sale.currency===currency).reduce((sum,sale)=>sum+sale[key],0),currency,locale)).join(' · ') : '—';
 
   if (loading) {
     return (
@@ -102,7 +103,7 @@ export default function PublicSubAgentPortal() {
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
         <div className="max-w-md text-center">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{c.error}</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">{error || "Nepoznata greška."}</p><button className="mt-4 rounded-lg bg-brand-500 px-4 py-3 text-white" onClick={()=>setAttempt(value=>value+1)}>{c.retry}</button>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">{error || c.unknownError}</p><button className="mt-4 rounded-lg bg-brand-500 px-4 py-3 text-white" onClick={()=>setAttempt(value=>value+1)}>{c.retry}</button>
         </div>
       </div>
     );
@@ -112,7 +113,7 @@ export default function PublicSubAgentPortal() {
 
   return (
     <>
-      <PageMeta title="Portal subagenta | Travline" description="Pregled vaših prodaja i provizija" />
+      <PageMeta title={c.metaTitle} description={c.metaDescription} />
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Header */}
         <header className="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-800">
@@ -120,12 +121,12 @@ export default function PublicSubAgentPortal() {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{c.title}</p>
-                <h1 className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{data.agentName || "Sub-agent"}</h1>
+                <h1 className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{data.agentName || c.agentFallback}</h1>
                 {data.orgName && <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">{data.orgName}</p>}
               </div>
               <div className="flex flex-col items-end gap-1">
                 <span className={`inline-flex items-center rounded-full bg-${sm.color}-50 px-3 py-1 text-xs font-semibold text-${sm.color}-700 dark:bg-${sm.color}-950 dark:text-${sm.color}-300`}>{sm.label}</span>
-                {data.partnerType && <span className="text-sm text-gray-600 dark:text-gray-400">Tier: <span className="font-medium">{PARTNER_LABELS[data.partnerType] || data.partnerType}</span></span>}
+                {data.partnerType && <span className="text-sm text-gray-600 dark:text-gray-400">{c.tier}: <span className="font-medium">{PARTNER_LABELS[data.partnerType] || data.partnerType}</span></span>}
               </div>
             </div>
           </div>
@@ -167,7 +168,7 @@ export default function PublicSubAgentPortal() {
               {data.expiresAt && (
                 <div className="ml-auto">
                   <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{c.expires}</p>
-                  <p className="mt-0.5 text-sm text-gray-700 dark:text-gray-300">{fmtDate(data.expiresAt)}</p>
+                  <p className="mt-0.5 text-sm text-gray-700 dark:text-gray-300">{fmtDate(data.expiresAt, locale)}</p>
                 </div>
               )}
             </div>
@@ -194,10 +195,10 @@ export default function PublicSubAgentPortal() {
                       <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {data.sales.map((s) => (
                           <tr key={s.id}>
-                            <td className="px-5 py-3 font-medium text-gray-900 dark:text-white">{s.customerName || "Klijent"}</td>
+                            <td className="px-5 py-3 font-medium text-gray-900 dark:text-white">{s.customerName || c.customerFallback}</td>
                             <td className="px-5 py-3 text-gray-600 dark:text-gray-400">{s.departureLabel || "—"}</td>
-                            <td className="px-5 py-3 text-right font-mono text-gray-900 dark:text-white">{fmtCurrency(s.totalAmount,s.currency)}</td>
-                            <td className="px-5 py-3 text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400">{fmtCurrency(s.commissionAmount,s.currency)}</td>
+                            <td className="px-5 py-3 text-right font-mono text-gray-900 dark:text-white">{fmtCurrency(s.totalAmount,s.currency,locale)}</td>
+                            <td className="px-5 py-3 text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400">{fmtCurrency(s.commissionAmount,s.currency,locale)}</td>
                             <td className="px-5 py-3">
                               <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">{s.status}</span>
                             </td>
@@ -205,7 +206,7 @@ export default function PublicSubAgentPortal() {
                               <div className="flex flex-wrap gap-1.5">
                                 {s.documents.map((d) => (
                                   <a key={d.type + d.url} href={d.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700">
-                                    {d.type === "najava" ? "Najava" : d.type === "ugovor" ? "Ugovor" : d.type === "faktura" ? "Faktura" : d.type}
+                                    {c.docTypes[d.type as keyof typeof c.docTypes] || d.type}
                                   </a>
                                 ))}
                                 {s.documents.length === 0 && <span className="text-xs text-gray-400">—</span>}
@@ -221,7 +222,7 @@ export default function PublicSubAgentPortal() {
             </div>
 
             {data.lastSeenAt && (
-              <p className="mt-6 text-center text-xs text-gray-400 dark:text-gray-500">{c.lastSeen}: {fmtDate(data.lastSeenAt)}</p>
+              <p className="mt-6 text-center text-xs text-gray-400 dark:text-gray-500">{c.lastSeen}: {fmtDate(data.lastSeenAt, locale)}</p>
             )}
           </main>
         )}
