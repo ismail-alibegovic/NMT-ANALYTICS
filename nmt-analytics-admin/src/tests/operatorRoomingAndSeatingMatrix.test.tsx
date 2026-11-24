@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { I18nProvider, useT } from '../lib/i18n/context';
+import { bs } from '../lib/i18n/bs';
 import { en } from '../lib/i18n/en';
 
 const apiMocks = vi.hoisted(() => ({
@@ -127,6 +128,7 @@ describe('FLOW-01 operator rooming & seating UI state matrix', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Switch Language' }));
     await waitFor(() => {
       expect(screen.getByTestId('active-lang')).toHaveTextContent('bs');
+      expect(screen.getByText(bs.operations.rooming.unassigned)).toBeInTheDocument();
     });
     expect(apiMocks.getDepartureRoomSlots).toHaveBeenCalledTimes(1);
 
@@ -178,12 +180,12 @@ describe('FLOW-01 operator rooming & seating UI state matrix', () => {
     });
     apiMocks.applyRoomingProposal.mockRejectedValueOnce(Object.assign(new Error('Proposal is stale. Generate a new proposal.'), { status: 409 }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Generate Rooming Proposal' }));
-    expect(await screen.findByText('Rooming proposal')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Proposal' }));
+    fireEvent.click(screen.getByRole('button', { name: en.operations.rooming.generateProposal }));
+    expect(await screen.findByText(en.operations.rooming.proposalTitle)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: en.operations.rooming.applyProposal }));
 
     await waitFor(() => {
-      expect(screen.queryByText('Rooming proposal')).not.toBeInTheDocument();
+      expect(screen.queryByText(en.operations.rooming.proposalTitle)).not.toBeInTheDocument();
       expect(screen.getByText('Proposal is stale. Generate a new proposal.')).toBeInTheDocument();
     });
     expect(apiMocks.getDepartureRoomSlots).toHaveBeenCalledTimes(3);
