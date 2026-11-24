@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import PageMeta from '../../components/common/PageMeta';
 import PageToolbar from '../../components/ui/PageToolbar';
 import IntegrationCard from '../../components/integrations/IntegrationCard';
@@ -12,7 +12,8 @@ import { useApp } from '../../context/AppContext';
 import { useT } from '../../lib/i18n/context';
 
 const Integrations = () => {
-    const { t } = useT();
+    const { t, lang } = useT();
+    const locale = lang === 'en' ? 'en-US' : 'bs-BA';
     const w = t.integrations.widget;
     const { success, error: toastError } = useToast();
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -25,9 +26,11 @@ const Integrations = () => {
     const [analysisData, setAnalysisData] = useState<RevenueAnalysisResponse | null>(null);
 
     const { userContext } = useApp();
+    const orgCurrency = 'BAM';
     const [isETuristaSubmitting, setETuristaSubmitting] = useState(false);
-  const [eTuristaHistory, setETuristaHistory] = useState<any[]>([]);
-  const [copiedWidget, setCopiedWidget] = useState(false);
+    const [eTuristaHistory, setETuristaHistory] = useState<any[]>([]);
+    const [eTuristaHistoryError, setETuristaHistoryError] = useState(false);
+    const [copiedWidget, setCopiedWidget] = useState(false);
     const orgId = userContext?.org?.id || '';
     const publicBase = typeof window !== 'undefined' ? window.location.origin : '';
     const widgetUrl = `${publicBase}/api/public/${orgId}/widget`;
@@ -39,41 +42,45 @@ const Integrations = () => {
       try { await navigator.clipboard.writeText(text); setCopiedWidget(true); setTimeout(() => setCopiedWidget(false), 2000); }
       catch { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); setCopiedWidget(true); setTimeout(() => setCopiedWidget(false), 2000); }
     };
+
+    const handleRefreshETuristaHistory = useCallback(async () => {
+      try {
+        setETuristaHistoryError(false);
+        const history = await getETuristaHistory();
+        setETuristaHistory(history);
+      } catch {
+        setETuristaHistoryError(true);
+      }
+    }, []);
+
     const handleETuristaSubmit = async () => {
       setETuristaSubmitting(true);
       try {
         await submitETurista("");
-        success("eTurista prijava uspješno poslana");
-        const history = await getETuristaHistory();
-        setETuristaHistory(history);
-      } catch (err: any) {
-        toastError(err.message || "Slanje nije uspjelo");
+        success(t.integrations.eTurista.submitSuccess);
+        await handleRefreshETuristaHistory();
+      } catch {
+        toastError(t.integrations.eTurista.submitError);
       } finally {
         setETuristaSubmitting(false);
       }
     };
 
-    const handleRefreshETuristaHistory = async () => {
-      try {
-        const history = await getETuristaHistory();
-        setETuristaHistory(history);
-      } catch (err: any) {
-        toastError(err.message || "Učitavanje nije uspjelo");
-      }
-    };
+    useEffect(() => { void handleRefreshETuristaHistory(); }, [handleRefreshETuristaHistory]);
 
-    useEffect(() => { handleRefreshETuristaHistory(); }, []);
-
-
-    // Mock state for integration status
+    // Session-local status for integration configuration dialog
     const [integrationStatuses, setIntegrationStatuses] = useState<Record<string, 'connected' | 'not_configured'>>({
         'AI Assistant': 'not_configured',
         'Documents Q&A': 'not_configured',
         'Crew Automations': 'not_configured',
+        'CIS / eTurista': 'not_configured',
     });
 
-    const handleConfigure = (title: string) => {
-        setSelectedIntegration(title);
+    const [selectedIntegrationTitle, setSelectedIntegrationTitle] = useState('');
+
+    const handleConfigure = (key: string, localizedTitle: string) => {
+        setSelectedIntegration(key);
+        setSelectedIntegrationTitle(localizedTitle);
         setIsConfigModalOpen(true);
     };
 
@@ -93,38 +100,43 @@ const Integrations = () => {
         try {
             const data = await analyzeRevenueDrop(copilotDateFrom, copilotDateTo);
             setAnalysisData(data);
-            success("Analiza završena");
+            success(t.integrations.copilot.analysisComplete);
         } catch (err: any) {
             console.error('Analysis failed:', err);
-            toastError("Neuspjela analiza. Pokušajte ponovo.");
+            toastError(t.integrations.copilot.analysisFailed);
         } finally {
             setIsAnalyzing(false);
         }
     };
 
+    const severityLabel = (severity: string) => {
+        const map = t.integrations.copilot.severity as Record<string, string>;
+        return map[severity] || severity;
+    };
+
     return (
         <>
-            <PageMeta title="Integrations | Travline" description="Manage system integrations and AI tools" />
+            <PageMeta title={`${t.integrations.title} | Travline`} description={t.integrations.description} />
 
             <PageToolbar
-                title="Integracije i AI Alati"
-                description="Povežite vanjske servise i koristite napredne AI funkcionalnosti"
+                title={t.integrations.pageTitle}
+                description={t.integrations.pageDescription}
                 searchValue=""
                 onSearchChange={() => { }}
-                searchPlaceholder="Traži integracije..." // Hidden if we don't implement filtering logic but keeping prop for now
+                searchPlaceholder={t.integrations.searchPlaceholder}
             />
 
             {/* Integrations Grid */}
             <div className="mb-10">
                 <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 px-1">
-                    Dostupni Moduli
+                    {t.integrations.availableModules}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <IntegrationCard
-                        title="AI Assistant"
-                        description="General purpose chat assistant za pomoć pri upravljanju platformom i generisanju sadržaja."
+                        title={t.integrations.cards.aiAssistantTitle}
+                        description={t.integrations.cards.aiAssistantDesc}
                         status={integrationStatuses['AI Assistant']}
-                        onConfigure={() => handleConfigure('AI Assistant')}
+                        onConfigure={() => handleConfigure('AI Assistant', t.integrations.cards.aiAssistantTitle)}
                         icon={
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -132,10 +144,10 @@ const Integrations = () => {
                         }
                     />
                     <IntegrationCard
-                        title="Documents Q&A (RAG)"
-                        description="Sistem za pretragu i odgovaranje na pitanja na osnovu vaših internih dokumenata i PDF-ova."
+                        title={t.integrations.cards.documentsRagTitle}
+                        description={t.integrations.cards.documentsRagDesc}
                         status={integrationStatuses['Documents Q&A']}
-                        onConfigure={() => handleConfigure('Documents Q&A')}
+                        onConfigure={() => handleConfigure('Documents Q&A', t.integrations.cards.documentsRagTitle)}
                         icon={
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -143,32 +155,32 @@ const Integrations = () => {
                         }
                     />
                     <IntegrationCard
-                        title="Crew Automations"
-                        description="Napredni multi-agent sistem (CrewAI) za automatizaciju složenih poslovnih procesa."
+                        title={t.integrations.cards.crewTitle}
+                        description={t.integrations.cards.crewDesc}
                         status={integrationStatuses['Crew Automations']}
-                        onConfigure={() => handleConfigure('Crew Automations')}
+                        onConfigure={() => handleConfigure('Crew Automations', t.integrations.cards.crewTitle)}
                         icon={
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                             </svg>
                         }
                     />
-                </div>
-            </div>
                     <IntegrationCard
-                        title="CIS / eTurista"
-                        description="Sistem za automatsku prijavu gostiju u CIS/eTurista sistem. Generiše XML/JSON payload iz rezervacija i šalje na vladin endpoint."
-                        status="not_configured"
-                        onConfigure={() => handleConfigure("CIS / eTurista")}
+                        title={t.integrations.cards.eTuristaTitle}
+                        description={t.integrations.cards.eTuristaDesc}
+                        status={integrationStatuses['CIS / eTurista']}
+                        onConfigure={() => handleConfigure('CIS / eTurista', t.integrations.cards.eTuristaTitle)}
                         icon={
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                         }
                     />
+                </div>
+            </div>
 
             {/* Revenue Copilot Section */}
-            <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.05] rounded-xl p-6">
+            <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.05] rounded-xl p-6 mb-6">
                 <div className="flex items-center gap-3 mb-6">
                     <div className="p-2 bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 rounded-lg">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -176,15 +188,18 @@ const Integrations = () => {
                         </svg>
                     </div>
                     <div>
-                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Revenue Copilot</h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Analizirajte trendove prihoda koristeći AI</p>
+                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t.integrations.copilot.title}</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t.integrations.copilot.subtitle}</p>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Od datuma</label>
+                        <label htmlFor="copilot-date-from" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            {t.integrations.copilot.dateFrom}
+                        </label>
                         <input
+                            id="copilot-date-from"
                             type="date"
                             value={copilotDateFrom}
                             onChange={(e) => setCopilotDateFrom(e.target.value)}
@@ -192,8 +207,11 @@ const Integrations = () => {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Do datuma</label>
+                        <label htmlFor="copilot-date-to" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            {t.integrations.copilot.dateTo}
+                        </label>
                         <input
+                            id="copilot-date-to"
                             type="date"
                             value={copilotDateTo}
                             onChange={(e) => setCopilotDateTo(e.target.value)}
@@ -208,9 +226,9 @@ const Integrations = () => {
                         {isAnalyzing ? (
                             <span className="flex items-center gap-2 justify-center">
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                Analiziranje...
+                                {t.integrations.copilot.analyzing}
                             </span>
-                        ) : 'Analiziraj pad prihoda'}
+                        ) : t.integrations.copilot.analyzeButton}
                     </Button>
                 </div>
 
@@ -227,49 +245,48 @@ const Integrations = () => {
                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                                     </svg>
-                                    AI Insight & Analysis
+                                    {t.integrations.copilot.insightTitle}
                                 </h4>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                                     <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-purple-100 dark:border-purple-900/30">
-                                        <span className="text-xs text-gray-500 uppercase tracking-wider">Prihod</span>
+                                        <span className="text-xs text-gray-500 uppercase tracking-wider">{t.integrations.copilot.revenue}</span>
                                         <div className="text-xl font-bold text-gray-900 dark:text-white mt-1">
-                                            {formatCurrency(analysisData.metrics.revenue_current)}
+                                            {formatCurrency(analysisData.metrics.revenue_current, orgCurrency, locale)}
                                         </div>
-                                        <div className={`text-xs mt-1 ${analysisData.metrics.revenue_change_pct >= 0 ? 'text-green-600' : 'text-red-600'
-                                            }`}>
+                                        <div className={`text-xs mt-1 ${analysisData.metrics.revenue_change_pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                             {analysisData.metrics.revenue_change_pct > 0 ? '+' : ''}
-                                            {analysisData.metrics.revenue_change_pct}% u odnosu na prošli period
+                                            {analysisData.metrics.revenue_change_pct}% {t.integrations.copilot.vsPreviousPeriod}
                                         </div>
                                     </div>
 
                                     <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-purple-100 dark:border-purple-900/30">
-                                        <span className="text-xs text-gray-500 uppercase tracking-wider">Broj uplata</span>
+                                        <span className="text-xs text-gray-500 uppercase tracking-wider">{t.integrations.copilot.paymentCount}</span>
                                         <div className="text-xl font-bold text-gray-900 dark:text-white mt-1">
                                             {analysisData.metrics.payment_count_current}
                                         </div>
                                         <div className="text-xs text-gray-400 mt-1">
-                                            Prošli period: {analysisData.metrics.payment_count_previous}
+                                            {t.integrations.copilot.previousPeriod} {analysisData.metrics.payment_count_previous}
                                         </div>
                                     </div>
 
                                     <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-purple-100 dark:border-purple-900/30">
-                                        <span className="text-xs text-gray-500 uppercase tracking-wider">Prosječna uplata</span>
+                                        <span className="text-xs text-gray-500 uppercase tracking-wider">{t.integrations.copilot.avgPayment}</span>
                                         <div className="text-xl font-bold text-gray-900 dark:text-white mt-1">
-                                            {formatCurrency(analysisData.metrics.avg_payment_current)}
+                                            {formatCurrency(analysisData.metrics.avg_payment_current, orgCurrency, locale)}
                                         </div>
                                         <div className="text-xs text-gray-400 mt-1">
-                                            vs {formatCurrency(analysisData.metrics.avg_payment_previous)}
+                                            {t.integrations.copilot.vsLabel} {formatCurrency(analysisData.metrics.avg_payment_previous, orgCurrency, locale)}
                                         </div>
                                     </div>
 
                                     <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-purple-100 dark:border-purple-900/30">
-                                        <span className="text-xs text-gray-500 uppercase tracking-wider">Neuspjelo / Pending</span>
+                                        <span className="text-xs text-gray-500 uppercase tracking-wider">{t.integrations.copilot.failedPending}</span>
                                         <div className="text-xl font-bold text-gray-900 dark:text-white mt-1">
                                             {analysisData.metrics.failed_count_current} / {analysisData.metrics.pending_count_current}
                                         </div>
                                         <div className="text-xs text-gray-400 mt-1">
-                                            Prošli: {analysisData.metrics.failed_count_previous} / {analysisData.metrics.pending_count_previous}
+                                            {t.integrations.copilot.previousShort} {analysisData.metrics.failed_count_previous} / {analysisData.metrics.pending_count_previous}
                                         </div>
                                     </div>
                                 </div>
@@ -279,7 +296,7 @@ const Integrations = () => {
                             {analysisData.signals.length > 0 && (
                                 <div>
                                     <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
-                                        Detektirani Signali
+                                        {t.integrations.copilot.detectedSignals}
                                     </h5>
                                     <div className="space-y-3">
                                         {analysisData.signals.map((signal, idx) => (
@@ -297,11 +314,11 @@ const Integrations = () => {
                                                             {signal.explanation}
                                                         </p>
                                                     </div>
-                                                    <span className={`px-2 py-1 text-xs font-medium rounded capitalize ${signal.severity === 'high' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
+                                                    <span className={`px-2 py-1 text-xs font-medium rounded ${signal.severity === 'high' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
                                                         signal.severity === 'medium' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' :
                                                             'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                                                         }`}>
-                                                        {signal.severity}
+                                                        {severityLabel(signal.severity)}
                                                     </span>
                                                 </div>
                                             </div>
@@ -312,13 +329,13 @@ const Integrations = () => {
 
                             {analysisData.signals.length === 0 && (
                                 <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm italic bg-white dark:bg-gray-800 rounded-lg">
-                                    Nisu detektirani nikakvi negativni signali za odabrani period.
+                                    {t.integrations.copilot.noSignals}
                                 </div>
                             )}
                         </div>
                     ) : (
                         <div className="text-center py-8 text-gray-400 dark:text-gray-500">
-                            <p>Odaberite period i pokrenite analizu da biste vidjeli AI preporuke za optimizaciju prihoda.</p>
+                            <p>{t.integrations.copilot.emptyPrompt}</p>
                         </div>
                     )}
                 </div>
@@ -371,36 +388,45 @@ const Integrations = () => {
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">CIS / eTurista</h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Automatska prijava gostiju u vladin sistem</p>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t.integrations.eTurista.title}</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{t.integrations.eTurista.subtitle}</p>
                 </div>
               </div>
               <div className="mb-4">
                 <Button
                   variant="primary"
-                  onClick={() => handleETuristaSubmit()}
+                  onClick={() => void handleETuristaSubmit()}
                   disabled={isETuristaSubmitting}
                 >
-                  {isETuristaSubmitting ? "Šaljem..." : "Pošalji nove goste u eTurista"}
+                  {isETuristaSubmitting ? t.integrations.eTurista.submitting : t.integrations.eTurista.submitButton}
                 </Button>
               </div>
+              {eTuristaHistoryError && (
+                <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                  {t.integrations.eTurista.historyLoadError}
+                </div>
+              )}
               {eTuristaHistory.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">Historija slanja</h3>
+                <div className="overflow-x-auto">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">{t.integrations.eTurista.historyTitle}</h3>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b dark:border-gray-700">
-                        <th className="text-left py-2 px-2 font-medium text-gray-500">Datum</th>
-                        <th className="text-left py-2 px-2 font-medium text-gray-500">Broj gostiju</th>
-                        <th className="text-left py-2 px-2 font-medium text-gray-500">Status</th>
+                        <th className="text-left py-2 px-2 font-medium text-gray-500">{t.integrations.eTurista.colDate}</th>
+                        <th className="text-left py-2 px-2 font-medium text-gray-500">{t.integrations.eTurista.colGuests}</th>
+                        <th className="text-left py-2 px-2 font-medium text-gray-500">{t.integrations.eTurista.colStatus}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {eTuristaHistory.map((h: any) => (
                         <tr key={h.id} className="border-b dark:border-gray-800">
-                          <td className="py-2 px-2">{new Date(h.submittedAt).toLocaleDateString("bs-BA")}</td>
-                          <td className="py-2 px-2">{h.guestCount}</td>
-                          <td className="py-2 px-2">{h.responseStatus === "success" ? "✅ Poslano" : "❌ Greška"}</td>
+                          <td className="py-2 px-2 dark:text-gray-200">{new Date(h.submittedAt).toLocaleDateString(locale)}</td>
+                          <td className="py-2 px-2 dark:text-gray-200">{h.guestCount}</td>
+                          <td className="py-2 px-2 dark:text-gray-200">
+                            {h.responseStatus === "success"
+                              ? t.integrations.eTurista.statusSuccess
+                              : t.integrations.eTurista.statusError}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -411,7 +437,7 @@ const Integrations = () => {
             <ConfigureIntegrationModal
                 isOpen={isConfigModalOpen}
                 onClose={() => setIsConfigModalOpen(false)}
-                integrationTitle={selectedIntegration}
+                integrationTitle={selectedIntegrationTitle}
                 onSave={handleSaveConfig}
             />
         </>
