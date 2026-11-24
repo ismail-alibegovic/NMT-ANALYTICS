@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import './environment';
-import { checkSupabaseEnvironment } from './lib/supabaseEnvironmentGuard';
+import {
+  checkSupabaseEnvironment,
+  isSupportedSupabaseAnonKey,
+  isSupportedSupabaseServiceKey,
+} from './lib/supabaseEnvironmentGuard';
 
 const rawEnv = {
   ...process.env,
@@ -9,17 +13,25 @@ const rawEnv = {
   SUPABASE_SERVICE_ROLE_KEY: process.env.TRAVLINE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
 };
 
-const envSchema = z.object({
+export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().transform(val => parseInt(val)).default(3001),
 
   // Supabase
   SUPABASE_URL: z.string().url('TRAVLINE_SUPABASE_URL must be a valid URL'),
-  SUPABASE_ANON_KEY: z.string().optional(),
+  SUPABASE_ANON_KEY: z.string()
+    .refine(
+      isSupportedSupabaseAnonKey,
+      'TRAVLINE_SUPABASE_ANON_KEY must not be a privileged key (service_role JWT or sb_secret_...)'
+    )
+    .optional(),
   // Service role key is STRICTLY required for the backend to function correctly
   SUPABASE_SERVICE_ROLE_KEY: z.string()
     .min(1, 'TRAVLINE_SUPABASE_SERVICE_ROLE_KEY is required')
-    .refine(val => val.startsWith('ey'), 'TRAVLINE_SUPABASE_SERVICE_ROLE_KEY must be a valid JWT (starts with "ey")'),
+    .refine(
+      isSupportedSupabaseServiceKey,
+      'TRAVLINE_SUPABASE_SERVICE_ROLE_KEY must be a valid Supabase secret key (sb_secret_...) or service_role JWT (starts with "ey")'
+    ),
 
   // Admin URL for CORS
   ADMIN_URL: z.string().url('ADMIN_URL must be a valid URL').default('http://localhost:5173'),

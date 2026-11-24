@@ -1,9 +1,12 @@
 import { readFileSync } from 'fs';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
+import { envSchema } from '../config';
 import {
   PRODUCTION_SUPABASE_PROJECT_REF,
   checkSupabaseEnvironment,
+  isSupportedSupabaseAnonKey,
+  isSupportedSupabaseServiceKey,
   supabaseRefFromUrl,
 } from '../lib/supabaseEnvironmentGuard';
 
@@ -76,5 +79,100 @@ describe('supabase environment guard', () => {
       supabaseUrl: process.env.TRAVLINE_SUPABASE_URL!, nodeEnv: 'test',
       anonKey: process.env.TRAVLINE_SUPABASE_ANON_KEY, serviceRoleKey: process.env.TRAVLINE_SUPABASE_SERVICE_ROLE_KEY,
     })).toEqual([]);
+  });
+
+  it('accepts modern sb_secret_ and sb_publishable_ keys alongside legacy JWTs in schema and guard', () => {
+    const modernSecret = 'sb_secret_synthetic_prod_key_12345678';
+    const modernPublishable = 'sb_publishable_synthetic_prod_key_12345678';
+    expect(isSupportedSupabaseServiceKey(modernSecret)).toBe(true);
+    expect(isSupportedSupabaseAnonKey(modernPublishable)).toBe(true);
+
+    expect(envSchema.safeParse({
+      NODE_ENV: 'production',
+      SUPABASE_URL: url(PROD),
+      SUPABASE_ANON_KEY: modernPublishable,
+      SUPABASE_SERVICE_ROLE_KEY: modernSecret,
+      ADMIN_URL: 'https://travline-ten.vercel.app',
+    }).success).toBe(true);
+
+    expect(envSchema.safeParse({
+      NODE_ENV: 'production',
+      SUPABASE_URL: url(STAGING),
+      SUPABASE_ANON_KEY: modernPublishable,
+      SUPABASE_SERVICE_ROLE_KEY: modernSecret,
+      ADMIN_URL: 'https://preview.example.test',
+    }).success).toBe(true);
+
+    expect(checkSupabaseEnvironment({
+      supabaseUrl: url(PROD), vercelEnv: 'production', nodeEnv: 'production',
+      anonKey: modernPublishable, serviceRoleKey: modernSecret,
+    })).toEqual([]);
+
+    expect(checkSupabaseEnvironment({
+      supabaseUrl: url(STAGING), vercelEnv: 'preview', nodeEnv: 'production',
+      anonKey: modernPublishable, serviceRoleKey: modernSecret,
+    })).toEqual([]);
+
+    expect(envSchema.safeParse({
+      NODE_ENV: 'production',
+      SUPABASE_URL: url(PROD),
+      SUPABASE_ANON_KEY: jwt({ role: 'anon', ref: PROD }),
+      SUPABASE_SERVICE_ROLE_KEY: jwt({ role: 'service_role', ref: PROD }),
+      ADMIN_URL: 'https://travline-ten.vercel.app',
+    }).success).toBe(true);
+  });
+
+  it('rejects publishable, anon, or malformed keys in SUPABASE_SERVICE_ROLE_KEY and privileged keys in SUPABASE_ANON_KEY without leaking secrets', () => {
+    const fakeSecret = 'sb_secret_leaked_check_value_99999';
+    const fakePublishable = 'sb_publishable_wrong_slot_99999';
+    const anonJwt = jwt({ role: 'anon', ref: STAGING });
+    const serviceJwt = jwt({ role: 'service_role', ref: STAGING });
+
+    const invalidPublishableInService = envSchema.safeParse({
+      NODE_ENV: 'production',
+      SUPABASE_URL: url(STAGING),
+      SUPABASE_SERVICE_ROLE_KEY: fakePublishable,
+    });
+    expect(invalidPublishableInService.success).toBe(false);
+
+    const invalidAnonJwtInService = envSchema.safeParse({
+      NODE_ENV: 'production',
+      SUPABASE_URL: url(STAGING),
+      SUPABASE_SERVICE_ROLE_KEY: anonJwt,
+    });
+    expect(invalidAnonJwtInService.success).toBe(false);
+
+    const invalidSecretInAnon = envSchema.safeParse({
+      NODE_ENV: 'production',
+      SUPABASE_URL: url(STAGING),
+      SUPABASE_ANON_KEY: fakeSecret,
+      SUPABASE_SERVICE_ROLE_KEY: serviceJwt,
+    });
+    expect(invalidSecretInAnon.success).toBe(false);
+
+    const invalidServiceJwtInAnon = envSchema.safeParse({
+      NODE_ENV: 'production',
+      SUPABASE_URL: url(STAGING),
+      SUPABASE_ANON_KEY: serviceJwt,
+      SUPABASE_SERVICE_ROLE_KEY: fakeSecret,
+    });
+    expect(invalidServiceJwtInAnon.success).toBe(false);
+
+    for (const badService of ['', 'opaque-key', 'sb_secret_short', 'sb_secret_bad whitespace_1234', 'eyOnlyTwo.parts']) {
+      expect(envSchema.safeParse({
+        NODE_ENV: 'production',
+        SUPABASE_URL: url(STAGING),
+        SUPABASE_SERVICE_ROLE_KEY: badService,
+      }).success).toBe(false);
+    }
+
+    const guardErrors = checkSupabaseEnvironment({
+      supabaseUrl: url(STAGING), vercelEnv: 'preview', nodeEnv: 'production',
+      anonKey: fakeSecret,
+      serviceRoleKey: fakePublishable,
+    });
+    expect(guardErrors).toHaveLength(2);
+    expect(guardErrors.join('\n')).not.toContain(fakeSecret);
+    expect(guardErrors.join('\n')).not.toContain(fakePublishable);
   });
 });
