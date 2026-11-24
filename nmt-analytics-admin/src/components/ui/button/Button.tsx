@@ -13,6 +13,7 @@ interface ButtonProps {
   className?: string;
   type?: "button" | "submit" | "reset";
   title?: string; // Native HTML tooltip
+  "aria-label"?: string;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -27,6 +28,7 @@ const Button: React.FC<ButtonProps> = ({
   disabled = false,
   type = "button",
   title,
+  "aria-label": ariaLabel,
 }) => {
   // Size Classes
   const sizeClasses = {
@@ -48,6 +50,7 @@ const Button: React.FC<ButtonProps> = ({
     <button
       type={type}
       title={title}
+      aria-label={ariaLabel}
       className={`inline-flex items-center justify-center gap-2 rounded-lg transition ${className} ${sizeClasses[size]
         } ${variantClasses[variant]} ${disabled ? "cursor-not-allowed opacity-50" : ""
         }`}
