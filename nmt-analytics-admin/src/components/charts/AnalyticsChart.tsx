@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 import { DataPoint } from "../../api/metrics";
+import { useT } from "../../lib/i18n";
 
 interface AnalyticsChartProps {
     title: string;
@@ -23,7 +24,9 @@ export default function AnalyticsChart({
     loading = false,
     onPointClick,
 }: AnalyticsChartProps) {
-    const safeData = Array.isArray(data) ? data : [];
+    const { t, lang } = useT();
+    const locale = lang === "en" ? "en-GB" : "bs-BA";
+    const safeData = useMemo(() => (Array.isArray(data) ? data : []), [data]);
 
     const chartData = useMemo(() => {
         if (loading || !safeData.length) {
@@ -35,7 +38,7 @@ export default function AnalyticsChart({
 
         const categories = safeData.map(item => {
             const date = new Date(item.date);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
         });
 
         const series = [
@@ -46,7 +49,7 @@ export default function AnalyticsChart({
         ];
 
         return { categories, series };
-    }, [safeData, loading, title]);
+    }, [safeData, loading, title, locale]);
 
     const options: ApexOptions = {
         legend: {
@@ -116,7 +119,7 @@ export default function AnalyticsChart({
                 show: true
             },
             y: {
-                formatter: (value: number) => `${prefix}${value.toLocaleString()}`,
+                formatter: (value: number) => `${prefix}${value.toLocaleString(locale)}`,
             },
         },
         xaxis: {
@@ -141,7 +144,7 @@ export default function AnalyticsChart({
                     fontSize: "12px",
                     colors: "#6B7280",
                 },
-                formatter: (value: number) => `${prefix}${value.toLocaleString()}`,
+                formatter: (value: number) => `${prefix}${value.toLocaleString(locale)}`,
             },
         },
     };
@@ -166,7 +169,7 @@ export default function AnalyticsChart({
                 <Chart options={options} series={chartData.series} type="area" height={310} />
             ) : (
                 <div className="h-[310px] flex flex-col items-center justify-center text-center">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">No data yet</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t.analyticsChart.noData}</p>
                 </div>
             )}
         </div>

@@ -29,12 +29,12 @@ import {
 import { getSuppliers, type Supplier, type SupplierService } from "../api/suppliers";
 import { canAccessFinances } from "../types/roles";
 
-const formatCurrency = (amount?: number | null, currency = "BAM") =>
-  new Intl.NumberFormat("bs-BA", { style: "currency", currency }).format(Number(amount || 0));
+const formatCurrency = (amount?: number | null, currency = "BAM", locale = "bs-BA") =>
+  new Intl.NumberFormat(locale, { style: "currency", currency }).format(Number(amount || 0));
 
-const formatDate = (value?: string | null) => {
+const formatDate = (value?: string | null, locale = "bs-BA") => {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString("bs-BA", { year: "numeric", month: "2-digit", day: "2-digit" });
+  return new Date(value).toLocaleDateString(locale, { year: "numeric", month: "2-digit", day: "2-digit" });
 };
 
 const costCategories: PackageCostCategory[] = ["hotel", "transport", "flight", "tour", "insurance", "supplier", "extra_service", "other"];
@@ -78,7 +78,8 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 export default function PackageDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { t } = useT();
+  const { t, lang } = useT();
+  const locale = lang === "en" ? "en-GB" : "bs-BA";
   const { user, userContext, loading: authLoading } = useApp();
   const { error: showError } = useToast();
   const [pkg, setPkg] = useState<PackageDetail | null>(null);
@@ -267,7 +268,7 @@ export default function PackageDetail() {
     { key: "service_type", header: t.packages.name, render: (_v, row) => <span className="font-medium text-gray-900 dark:text-white">{row.service_type || "—"}</span> },
     { key: "provider_name", header: t.packages.provider, render: (_v, row) => <span className="text-sm text-gray-600 dark:text-gray-300">{row.provider_name || "—"}</span> },
     { key: "quantity", header: t.packages.quantity, render: (value) => <span className="text-sm text-gray-600 dark:text-gray-300">{value ?? "—"}</span> },
-    { key: "unit_price", header: t.packages.basePrice, render: (_v, row) => <span className="text-sm text-gray-600 dark:text-gray-300">{formatCurrency(row.unit_price, row.currency || pkg?.currency || "BAM")}</span> },
+    { key: "unit_price", header: t.packages.basePrice, render: (_v, row) => <span className="text-sm text-gray-600 dark:text-gray-300">{formatCurrency(row.unit_price, row.currency || pkg?.currency || "BAM", locale)}</span> },
     { key: "notes", header: t.payments.note, render: (value) => <span className="text-sm text-gray-500 dark:text-gray-400">{(value as string) || "—"}</span> },
   ];
 
@@ -277,8 +278,8 @@ export default function PackageDetail() {
       header: t.departures.title,
       render: (_v, row) => (
         <div className="flex flex-col">
-          <span className="font-medium text-gray-900 dark:text-white">{formatDate(row.depart_at)}</span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(row.return_at)}</span>
+          <span className="font-medium text-gray-900 dark:text-white">{formatDate(row.depart_at, locale)}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(row.return_at, locale)}</span>
         </div>
       ),
     },
@@ -370,7 +371,7 @@ export default function PackageDetail() {
                 </div>
               )}
                   <p className="text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">{t.packages.basePrice}</p>
-                  <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{formatCurrency(pkg.price ?? pkg.base_price, pkg.currency)}</p>
+                  <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{formatCurrency(pkg.price ?? pkg.base_price, pkg.currency, locale)}</p>
                 </div>
                 <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
                   <p className="text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">{t.packages.departures}</p>
@@ -381,13 +382,13 @@ export default function PackageDetail() {
           </SectionCard>
 
           <SectionCard title={t.packages.pricingAndDefaults}>
-            <InfoRow label={t.packages.basePrice} value={formatCurrency(pkg.price ?? pkg.base_price, pkg.currency)} />
+            <InfoRow label={t.packages.basePrice} value={formatCurrency(pkg.price ?? pkg.base_price, pkg.currency, locale)} />
             <InfoRow label={t.packages.currency} value={pkg.currency || "BAM"} />
             <InfoRow label={t.packages.duration} value={pkg.durationDays ?? "—"} />
             <InfoRow label={t.packages.maxParticipants} value={pkg.maxParticipants ?? "—"} />
             <InfoRow label={t.packages.tripType} value={pkg.tripType || "—"} />
             <InfoRow label={t.packages.transportType} value={pkg.transportType || "—"} />
-            <InfoRow label={t.packages.createdAt} value={formatDate(pkg.created_at)} />
+            <InfoRow label={t.packages.createdAt} value={formatDate(pkg.created_at, locale)} />
           </SectionCard>
         </div>
 
@@ -412,7 +413,7 @@ export default function PackageDetail() {
                 <div className="grid gap-3 md:grid-cols-3">
                   <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
                     <p className="text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">{t.packages.costing.totalPackageCost}</p>
-                    <p className="mt-2 text-xl font-semibold text-gray-900 dark:text-white">{formatCurrency(costing?.totalCost || 0, costing?.currency || pkg.currency)}</p>
+                    <p className="mt-2 text-xl font-semibold text-gray-900 dark:text-white">{formatCurrency(costing?.totalCost || 0, costing?.currency || pkg.currency, locale)}</p>
                   </div>
                   <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
                     <p className="text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">{t.packages.costing.currency}</p>
@@ -436,7 +437,7 @@ export default function PackageDetail() {
                   <div className="flex flex-wrap gap-2">
                     {costing?.categoryBreakdown.map((item) => (
                       <Badge key={item.category} color="light" size="sm">
-                        {t.packages.costing.categories[item.category as PackageCostCategory] || item.category}: {formatCurrency(item.amount, costing.currency)}
+                        {t.packages.costing.categories[item.category as PackageCostCategory] || item.category}: {formatCurrency(item.amount, costing.currency, locale)}
                       </Badge>
                     ))}
                   </div>
@@ -458,8 +459,8 @@ export default function PackageDetail() {
                           </div>
                           <InfoMini label={t.packages.costing.unit} value={t.packages.costing.units[item.unit]} />
                           <InfoMini label={t.packages.costing.quantity} value={item.quantity} />
-                          <InfoMini label={t.packages.costing.unitCost} value={formatCurrency(item.unitCost, item.currency)} />
-                          <InfoMini label={t.packages.costing.totalCost} value={formatCurrency(item.totalCost, item.currency)} />
+                          <InfoMini label={t.packages.costing.unitCost} value={formatCurrency(item.unitCost, item.currency, locale)} />
+                          <InfoMini label={t.packages.costing.totalCost} value={formatCurrency(item.totalCost, item.currency, locale)} />
                           <div className="flex gap-2 lg:justify-end">
                             <Button size="sm" variant="outline" onClick={() => openEditCost(item)}>{t.packages.costing.edit}</Button>
                             <Button size="sm" variant="outline" onClick={() => removeCostItem(item)}>{t.packages.costing.delete}</Button>
@@ -498,7 +499,7 @@ export default function PackageDetail() {
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{hotelLink.hotel?.destination || t.packages.editor.noHotelDestination}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge color="light" size="sm">{t.packages.priceModifier}: {formatCurrency(hotelLink.priceModifier, pkg.currency || "BAM")}</Badge>
+                        <Badge color="light" size="sm">{t.packages.priceModifier}: {formatCurrency(hotelLink.priceModifier, pkg.currency || "BAM", locale)}</Badge>
                         {hotelLink.hotelId ? (
                           <Button size="sm" variant="outline" onClick={() => navigate(`/operations/hotels?hotelId=${hotelLink.hotelId}`)}>
                             {t.packages.routeToHotel}
@@ -521,11 +522,11 @@ export default function PackageDetail() {
                               </div>
                               <div>
                                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">{t.packages.editor.netPriceLabel}</p>
-                                <p className="font-medium text-gray-900 dark:text-white">{formatCurrency(option.net_price, pkg.currency || "BAM")}</p>
+                                <p className="font-medium text-gray-900 dark:text-white">{formatCurrency(option.net_price, pkg.currency || "BAM", locale)}</p>
                               </div>
                               <div>
                                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">{t.packages.editor.sellPriceLabel}</p>
-                                <p className="font-medium text-gray-900 dark:text-white">{formatCurrency(option.sell_price, pkg.currency || "BAM")}</p>
+                                <p className="font-medium text-gray-900 dark:text-white">{formatCurrency(option.sell_price, pkg.currency || "BAM", locale)}</p>
                               </div>
                               <div>
                                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">{t.packages.editor.availableLabel}</p>
@@ -579,7 +580,7 @@ export default function PackageDetail() {
               )}
               {supplierServices.map((service) => (
                 <option key={service.id} value={service.id}>
-                  {service.supplierName} — {service.name} ({formatCurrency(service.netPrice, service.currency)})
+                  {service.supplierName} — {service.name} ({formatCurrency(service.netPrice, service.currency, locale)})
                 </option>
               ))}
             </select>

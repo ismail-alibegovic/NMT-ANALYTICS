@@ -8,6 +8,7 @@ import { getPackages, Package } from "../../api/packages";
 import { getDepartures, Departure } from "../../api/departures";
 import { getCustomers, Customer } from "../../api/customers";
 import { createReservation } from "../../api/reservations";
+import { useT } from "../../lib/i18n";
 
 interface CreateReservationModalProps {
   isOpen: boolean;
@@ -21,6 +22,8 @@ export default function CreateReservationModal({
   onSuccess,
 }: CreateReservationModalProps) {
   const { success: showSuccess, error: showError } = useToast();
+  const { t, lang } = useT();
+  const locale = lang === "en" ? "en-GB" : "bs-BA";
 
   const [packages, setPackages] = useState<Package[]>([]);
   const [departures, setDepartures] = useState<Departure[]>([]);
@@ -238,7 +241,7 @@ export default function CreateReservationModal({
                 .filter((d) => d.status === "active" && d.booked < d.capacity)
                 .map((d) => (
                   <option key={d.id} value={d.id}>
-                    {new Date(d.depart_at).toLocaleDateString("bs-BA")} — {d.booked}/{d.capacity} popunjeno
+                    {new Date(d.depart_at).toLocaleDateString(locale)} — {d.booked}/{d.capacity} {t.reservations.bookedShort}
                   </option>
                 ))}
             </select>

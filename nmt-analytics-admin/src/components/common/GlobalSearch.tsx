@@ -52,7 +52,8 @@ export default function GlobalSearch({
   onClose: () => void;
 }) {
   const navigate = useNavigate();
-  const { t } = useT();
+  const { t, lang } = useT();
+  const locale = lang === "en" ? "en-GB" : "bs-BA";
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -185,11 +186,11 @@ export default function GlobalSearch({
         // 5. Departures (deep-links directly to /departures/:id)
         if (departuresRes.status === "fulfilled") {
           for (const d of departuresRes.value.data) {
-            const date = d.depart_at ? new Date(d.depart_at).toLocaleDateString() : "";
+            const date = d.depart_at ? new Date(d.depart_at).toLocaleDateString(locale) : "";
             allResults.push({
               id: d.id,
               category: "departure",
-              title: d.packageName || d.destination || "Departure",
+              title: d.packageName || d.destination || t.globalSearch.categories.departure,
               subtitle: `${date} · ${d.booked}/${d.capacity}`,
               href: `/departures/${d.id}`,
             });
@@ -258,7 +259,7 @@ export default function GlobalSearch({
               id: c.id,
               category: "contract",
               title: `${c.contractNumber} — ${c.travelerName}`,
-              subtitle: `${c.status} · ${new Date(c.contractDate).toLocaleDateString()}`,
+              subtitle: `${c.status} · ${new Date(c.contractDate).toLocaleDateString(locale)}`,
               href: "/operations/contracts",
             });
           }
@@ -272,7 +273,7 @@ export default function GlobalSearch({
         setLoading(false);
       }
     },
-    [t]
+    [t, locale]
   );
 
   useEffect(() => {

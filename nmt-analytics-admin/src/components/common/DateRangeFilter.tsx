@@ -1,5 +1,6 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useId } from 'react';
 import { useQueryParams } from '../../hooks/useQueryParams';
+import { useT } from '../../lib/i18n/context';
 
 export interface DateRange {
     from: string;
@@ -12,6 +13,9 @@ interface DateRangeFilterProps {
 }
 
 export default function DateRangeFilter({ onRangeChange }: DateRangeFilterProps) {
+    const id = useId();
+    const { t } = useT();
+    const dr = t.dateRangeFilter;
     const { getParam, setParam } = useQueryParams();
 
     // Initial values from URL or defaults
@@ -30,8 +34,9 @@ export default function DateRangeFilter({ onRangeChange }: DateRangeFilterProps)
     return (
         <div className="flex flex-wrap items-center gap-4 p-4 rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
             <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">From</label>
+                <label htmlFor={`${id}-from`} className="text-xs font-medium text-gray-500 dark:text-gray-400">{dr.from}</label>
                 <input
+                    id={`${id}-from`}
                     type="date"
                     value={from}
                     onChange={(e) => setParam('from', e.target.value)}
@@ -39,8 +44,9 @@ export default function DateRangeFilter({ onRangeChange }: DateRangeFilterProps)
                 />
             </div>
             <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">To</label>
+                <label htmlFor={`${id}-to`} className="text-xs font-medium text-gray-500 dark:text-gray-400">{dr.to}</label>
                 <input
+                    id={`${id}-to`}
                     type="date"
                     value={to}
                     onChange={(e) => setParam('to', e.target.value)}
@@ -48,16 +54,17 @@ export default function DateRangeFilter({ onRangeChange }: DateRangeFilterProps)
                 />
             </div>
             <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Granularity</label>
+                <label htmlFor={`${id}-granularity`} className="text-xs font-medium text-gray-500 dark:text-gray-400">{dr.granularity}</label>
                 <select
+                    id={`${id}-granularity`}
                     value={granularity}
                     onChange={(e) => setParam('granularity', e.target.value)}
                     className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 bg-transparent dark:border-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500 appearance-none bg-no-repeat bg-[right_0.5rem_center]"
                     style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundSize: '1rem' }}
                 >
-                    <option value="day">Daily</option>
-                    <option value="week">Weekly</option>
-                    <option value="month">Monthly</option>
+                    <option value="day">{dr.daily}</option>
+                    <option value="week">{dr.weekly}</option>
+                    <option value="month">{dr.monthly}</option>
                 </select>
             </div>
         </div>
