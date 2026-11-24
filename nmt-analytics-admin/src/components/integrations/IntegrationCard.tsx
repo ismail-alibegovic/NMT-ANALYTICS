@@ -1,5 +1,6 @@
 import Button from '../ui/button/Button';
 import Badge from '../ui/badge/Badge';
+import { useT } from '../../lib/i18n/context';
 
 interface IntegrationCardProps {
     title: string;
@@ -16,6 +17,8 @@ export default function IntegrationCard({
     icon,
     onConfigure
 }: IntegrationCardProps) {
+    const { t } = useT();
+
     return (
         <div className="flex flex-col h-full bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.05] rounded-xl p-6 transition-all hover:shadow-md">
             <div className="flex items-start justify-between mb-4">
@@ -31,7 +34,7 @@ export default function IntegrationCard({
                     color={status === 'connected' ? 'success' : 'light'}
                     size="sm"
                 >
-                    {status === 'connected' ? 'Connected' : 'Not configured'}
+                    {status === 'connected' ? t.integrations.configured : t.integrations.notConfigured}
                 </Badge>
             </div>
 
@@ -48,7 +51,7 @@ export default function IntegrationCard({
                 className={`w-full ${status === 'connected' ? '' : 'bg-brand-500 hover:bg-brand-600 text-white'}`}
                 onClick={onConfigure}
             >
-                {status === 'connected' ? 'Uredi konfiguraciju' : 'Konfiguriraj'}
+                {status === 'connected' ? t.integrations.editConfig : t.integrations.configureAction}
             </Button>
         </div>
     );
