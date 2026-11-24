@@ -17,18 +17,22 @@ rm -rf "$UUID_TMP_DIR"
 # Verify the CommonJS dependency edge that previously failed at runtime.
 node -e "require('./nmt-analytics-api/node_modules/exceljs'); console.log('[vercel] exceljs/uuid compatibility OK')"
 
-# Import the full Express app before release. Vercel runtime secrets are not
-# exposed during the install phase, so use the public anon JWT only as a
-# non-privileged placeholder for boot-time validation; runtime secret presence
-# is verified separately by the deployed Function environment.
-TRAVLINE_SUPABASE_URL="https://hacutwknfgufrqlgdiia.supabase.co" \
-TRAVLINE_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhY3V0d2tuZmd1ZnJxbGdkaWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MjE4NDEsImV4cCI6MjA4MTM5Nzg0MX0.juuA0J0Zr7FGb66RjWR-uULEAe8o3R3lGxk7Ts8zwJ0" \
-TRAVLINE_SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhY3V0d2tuZmd1ZnJxbGdkaWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MjE4NDEsImV4cCI6MjA4MTM5Nzg0MX0.juuA0J0Zr7FGb66RjWR-uULEAe8o3R3lGxk7Ts8zwJ0" \
-ADMIN_URL="https://travline-ten.vercel.app" \
-NODE_ENV="production" \
-DEV_BYPASS_AUTH="false" \
-DEV_AUTO_BOOTSTRAP="false" \
-npx --prefix nmt-analytics-api tsx -e "import('./nmt-analytics-api/src/app.ts').then(() => console.log('[vercel] Express app import OK')).catch((err) => { console.error(err); process.exit(1); })"
+# Import the full Express app before release. This is a boot smoke test only:
+# it uses a local, non-routable placeholder project and a synthetic unsigned
+# token so it can never reach (or need credentials for) a hosted database.
+# Real configuration is validated by scripts/deployment-env.cjs in the build
+# phase and by the API's own runtime guard.
+BOOT_CHECK_KEY="$(node -e "const b=(o)=>Buffer.from(JSON.stringify(o)).toString('base64url');console.log(b({alg:'none',typ:'JWT'})+'.'+b({role:'service_role',ref:'bootcheck'})+'.bootcheck')")"
+env -u VERCEL -u VERCEL_ENV -u TRAVLINE_SUPABASE_PROJECT_REF \
+  TRAVLINE_SUPABASE_URL="http://127.0.0.1:54321" \
+  TRAVLINE_SUPABASE_ANON_KEY="boot-check-placeholder-anon-key" \
+  TRAVLINE_SUPABASE_SERVICE_ROLE_KEY="$BOOT_CHECK_KEY" \
+  SUPABASE_URL="http://127.0.0.1:54321" \
+  ADMIN_URL="https://boot-check.invalid" \
+  NODE_ENV="production" \
+  DEV_BYPASS_AUTH="false" \
+  DEV_AUTO_BOOTSTRAP="false" \
+  npx --prefix nmt-analytics-api tsx -e "import('./nmt-analytics-api/src/app.ts').then(() => console.log('[vercel] Express app import OK')).catch((err) => { console.error(err); process.exit(1); })"
 
 # Clean-install frontend dependencies from the lockfile.
 npm ci --prefix nmt-analytics-admin
