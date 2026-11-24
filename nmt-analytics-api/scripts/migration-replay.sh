@@ -129,6 +129,7 @@ run_contract "$ROOT/scripts/reservation-mutation-atomicity.sql"
 run_contract "$ROOT/scripts/reservation-cancellation-operations.sql"
 run_contract "$ROOT/scripts/signup-provisioning-integrity.sql"
 run_contract "$ROOT/scripts/hotel-inventory-integrity.sql"
+run_contract "$ROOT/scripts/staff-lifecycle-integrity.sql"
 run_contract "$ROOT/scripts/allocation-vehicle-integrity.sql"
 echo "Migration Replay PASS: $count migrations executed"
 

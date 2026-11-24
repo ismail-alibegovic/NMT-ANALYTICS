@@ -32,65 +32,110 @@ const ONBOARDING_STEPS = [
   { key: 'first_package', label: 'Kreirajte prvi aranžman', required: true },
   { key: 'first_departure', label: 'Dodajte prvi termin (polazak)', required: true },
   { key: 'first_reservation', label: 'Kreirajte prvu rezervaciju', required: true },
+  { key: 'pdf_template', label: 'Prilagodite PDF predloške', required: false },
   { key: 'branding_colors', label: 'Prilagodite boje dokumenata', required: false },
-  { key: 'team_member', label: 'Pozovite člana tima', required: false },
+  { key: 'team_member', label: 'Dodajte člana tima', required: false },
 ] as const;
 
-// GET /onboarding/status — checklist + completion
+function isMissingColumnError(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === '42703');
+}
+
+// GET /onboarding/status — checklist + completion (fail-closed on DB errors)
 router.get('/status', async (req: Request, res: Response) => {
   const orgId = req.orgId!;
 
   try {
-    const { data: org, error: orgErr } = await supabaseAdmin
+    let orgResult = await supabaseAdmin
       .from('organizations')
-      .select('id, name, currency')
+      .select('id, name, currency, onboarding_skipped')
       .eq('id', orgId)
       .single();
 
-    if (orgErr || !org) {
+    if (isMissingColumnError(orgResult.error)) {
+      orgResult = await supabaseAdmin
+        .from('organizations')
+        .select('id, name, currency')
+        .eq('id', orgId)
+        .single() as typeof orgResult;
+    }
+
+    if (orgResult.error) {
+      if ((orgResult.error as { code?: string }).code === 'PGRST116') {
+        return apiError(res, 404, "NOT_FOUND", "Organization not found");
+      }
+      console.error('[ONBOARDING] Organization query failed');
+      return apiError(res, 500, "INTERNAL_ERROR", "Failed to load onboarding status");
+    }
+
+    const org = orgResult.data as { id: string; name?: string | null; currency?: string | null; onboarding_skipped?: boolean | null } | null;
+    if (!org) {
       return apiError(res, 404, "NOT_FOUND", "Organization not found");
     }
 
-    // Fetch branding from org_branding table (separate from organizations)
-    let brandingRow: { logo_url?: string | null; primary_color?: string | null } | null = null;
-    try {
-      const { data: br } = await supabaseAdmin
-        .from('org_branding')
-        .select('logo_url, primary_color')
-        .eq('org_id', orgId)
-        .single();
-      brandingRow = br;
-    } catch {
-      // No branding row yet — defaults
+    // Fetch branding from org_branding table (missing row is normal; DB error fails closed)
+    const brandingRes = await supabaseAdmin
+      .from('org_branding')
+      .select('logo_url, primary_color, pdf_template_config')
+      .eq('org_id', orgId)
+      .maybeSingle();
+
+    if (brandingRes.error && (brandingRes.error as { code?: string }).code !== 'PGRST116') {
+      console.error('[ONBOARDING] Branding query failed');
+      return apiError(res, 500, "INTERNAL_ERROR", "Failed to load onboarding status");
+    }
+    const brandingRow = brandingRes.data as {
+      logo_url?: string | null;
+      primary_color?: string | null;
+      pdf_template_config?: Record<string, unknown> | null;
+    } | null;
+
+    const [pk, dp, rt] = await Promise.all([
+      supabaseAdmin.from('packages').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
+      supabaseAdmin.from('departures').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
+      supabaseAdmin.from('reservations').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
+    ]);
+
+    let tm: { count: number | null; error: any };
+    const tmActiveQuery = supabaseAdmin
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId);
+    if (typeof (tmActiveQuery as any).is === 'function') {
+      tm = await (tmActiveQuery as any).is('revoked_at', null);
+      if (isMissingColumnError(tm.error)) {
+        tm = await supabaseAdmin
+          .from('profiles')
+          .select('id', { count: 'exact', head: true })
+          .eq('org_id', orgId);
+      }
+    } else {
+      tm = await tmActiveQuery;
     }
 
-    let packagesCount = 0;
-    let departuresCount = 0;
-    let reservationsCount = 0;
-    let teamCount = 0;
-
-    try {
-      const [pk, dp, rt, tm] = await Promise.all([
-        supabaseAdmin.from('packages').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
-        supabaseAdmin.from('departures').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
-        supabaseAdmin.from('reservations').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
-        supabaseAdmin.from('profiles').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
-      ]);
-      packagesCount = pk.count || 0;
-      departuresCount = dp.count || 0;
-      reservationsCount = rt.count || 0;
-      teamCount = tm.count || 0;
-    } catch {
-      // Some tables may not exist; count stays 0
+    if (pk.error || dp.error || rt.error || tm.error) {
+      console.error('[ONBOARDING] Dependent count query failed');
+      return apiError(res, 500, "INTERNAL_ERROR", "Failed to load onboarding status");
     }
+
+    const packagesCount = pk.count ?? 0;
+    const departuresCount = dp.count ?? 0;
+    const reservationsCount = rt.count ?? 0;
+    const teamCount = tm.count ?? 0;
+    const hasCustomPdfTemplate = Boolean(
+      brandingRow?.pdf_template_config
+      && typeof brandingRow.pdf_template_config === 'object'
+      && Object.keys(brandingRow.pdf_template_config).length > 0,
+    );
 
     const steps = ONBOARDING_STEPS.map(s => {
       let completed = false;
       switch (s.key) {
-        case 'agency_name': completed = !!org.name; break;
-        case 'currency': completed = !!org.currency; break;
-        case 'logo': completed = !!brandingRow?.logo_url; break;
-        case 'branding_colors': completed = !!brandingRow?.primary_color; break;
+        case 'agency_name': completed = Boolean(org.name && org.name.trim()); break;
+        case 'currency': completed = Boolean(org.currency && org.currency.trim()); break;
+        case 'logo': completed = Boolean(brandingRow?.logo_url); break;
+        case 'branding_colors': completed = Boolean(brandingRow?.primary_color); break;
+        case 'pdf_template': completed = hasCustomPdfTemplate; break;
         case 'first_package': completed = packagesCount > 0; break;
         case 'first_departure': completed = departuresCount > 0; break;
         case 'first_reservation': completed = reservationsCount > 0; break;
@@ -110,6 +155,7 @@ router.get('/status', async (req: Request, res: Response) => {
       total: totalCount,
       percentage,
       isComplete,
+      skipped: Boolean(org.onboarding_skipped),
     });
   } catch (err) {
     console.error('[ONBOARDING] Exception:', err);
@@ -127,6 +173,9 @@ router.post('/skip', async (req: Request, res: Response) => {
       .update({ onboarding_skipped: true })
       .eq('id', orgId);
 
+    if (isMissingColumnError(error)) {
+      return apiError(res, 503, "MIGRATION_PENDING", "Onboarding skip requires a database migration");
+    }
     if (error) {
       return apiError(res, 500, "INTERNAL_ERROR", "Failed to skip onboarding");
     }

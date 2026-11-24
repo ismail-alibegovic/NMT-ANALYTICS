@@ -16,6 +16,7 @@ import paymentsRoutes from './payments';
 import adminRoutes from './admin';
 import aiRoutes from './ai';
 import settingsRoutes from './settings';
+import staffRoutes from './staff';
 import notificationsRoutes from './notifications';
 import communicationHistoryRoutes from './communicationHistory';
 import communicationSendRoutes from './communicationSend';
@@ -102,6 +103,7 @@ router.use('/settings', messageTemplatesRoutes);
 router.use('/settings', campaignsRoutes);
 router.use('/settings', automationRulesRoutes);
 router.use('/paylinks', paylinksRoutes);
+router.use('/settings/team', staffRoutes);
 router.use('/settings', settingsRoutes);
 
 // Phase A — TuristAgent adoption (routes are defined with full /contracts prefix)
