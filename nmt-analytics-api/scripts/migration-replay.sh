@@ -102,18 +102,34 @@ VALUES (
 );
 ROLLBACK;
 SQL
-"${PSQL_BASE[@]}" -f "$ROOT/scripts/supplier-confirmation-atomicity.sql"
-"${PSQL_BASE[@]}" -f "$ROOT/scripts/quotation-approval-integrity.sql"
-"${PSQL_BASE[@]}" -f "$ROOT/scripts/quotation-creation-atomicity.sql"
-"${PSQL_BASE[@]}" -f "$ROOT/scripts/quotation-booking-atomicity.sql"
-"${PSQL_BASE[@]}" -f "$ROOT/scripts/supplier-payables-integrity.sql"
-"${PSQL_BASE[@]}" -f "$ROOT/scripts/supplier-payables-overview-integrity.sql"
-"${PSQL_BASE[@]}" -f "$ROOT/scripts/database-function-security.sql"
-"${PSQL_BASE[@]}" -f "$ROOT/scripts/reservation-edit-atomicity.sql"
-"${PSQL_BASE[@]}" -f "$ROOT/scripts/reservation-mutation-atomicity.sql"
-"${PSQL_BASE[@]}" -f "$ROOT/scripts/reservation-cancellation-operations.sql"
-"${PSQL_BASE[@]}" -f "$ROOT/scripts/signup-provisioning-integrity.sql"
-"${PSQL_BASE[@]}" -f "$ROOT/scripts/hotel-inventory-integrity.sql"
+run_contract() {
+  local script_path="$1"
+  local err_file
+  err_file="$(mktemp)"
+  if ! "${PSQL_BASE[@]}" -f "$script_path" 2>"$err_file"; then
+    cat "$err_file" >&2
+    local summary
+    summary="$(head -n 8 "$err_file" | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g')"
+    echo "::error title=$(basename "$script_path")::$summary"
+    rm -f "$err_file"
+    exit 3
+  fi
+  rm -f "$err_file"
+}
+
+run_contract "$ROOT/scripts/supplier-confirmation-atomicity.sql"
+run_contract "$ROOT/scripts/quotation-approval-integrity.sql"
+run_contract "$ROOT/scripts/quotation-creation-atomicity.sql"
+run_contract "$ROOT/scripts/quotation-booking-atomicity.sql"
+run_contract "$ROOT/scripts/supplier-payables-integrity.sql"
+run_contract "$ROOT/scripts/supplier-payables-overview-integrity.sql"
+run_contract "$ROOT/scripts/database-function-security.sql"
+run_contract "$ROOT/scripts/reservation-edit-atomicity.sql"
+run_contract "$ROOT/scripts/reservation-mutation-atomicity.sql"
+run_contract "$ROOT/scripts/reservation-cancellation-operations.sql"
+run_contract "$ROOT/scripts/signup-provisioning-integrity.sql"
+run_contract "$ROOT/scripts/hotel-inventory-integrity.sql"
+run_contract "$ROOT/scripts/allocation-vehicle-integrity.sql"
 echo "Migration Replay PASS: $count migrations executed"
 
 

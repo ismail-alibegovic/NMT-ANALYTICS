@@ -10,14 +10,14 @@ import { useApp } from "../context/AppContext";
 import { useT } from "../lib/i18n/context";
 import { getHotel, getHotelRooms, type Hotel, type HotelAllocation, type HotelRoom } from "../api/operations";
 import { getHotelPackages, type HotelPackage } from "../api/packageHotels";
-import { getDepartures, type Departure } from "../api/departures";
+import { getAllocationDepartures, type Departure } from "../api/departures";
 
-const formatCurrency = (amount?: number | null, currency = "BAM") =>
-  new Intl.NumberFormat("bs-BA", { style: "currency", currency }).format(Number(amount || 0));
+const formatCurrency = (amount?: number | null, currency = "BAM", locale = "bs-BA") =>
+  new Intl.NumberFormat(locale, { style: "currency", currency }).format(Number(amount || 0));
 
-const formatDate = (value?: string | null) => {
+const formatDate = (value?: string | null, locale = "bs-BA") => {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString("bs-BA", { year: "numeric", month: "2-digit", day: "2-digit" });
+  return new Date(value).toLocaleDateString(locale, { year: "numeric", month: "2-digit", day: "2-digit" });
 };
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -47,9 +47,10 @@ type AllocationRow = HotelAllocation & {
 export default function HotelDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { t } = useT();
+  const { t, lang } = useT();
   const { user, loading: authLoading } = useApp();
   const tr = t.operations.hotels;
+  const locale = lang === "en" ? "en-GB" : "bs-BA";
 
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [rooms, setRooms] = useState<HotelRoom[]>([]);
@@ -76,7 +77,7 @@ export default function HotelDetail() {
         }
         const [roomRows, packageRows, departureRows] = await Promise.all([
           getHotelRooms(id), getHotelPackages(id),
-          getDepartures({ limit: 200 }).then(r => r.data || []),
+          getAllocationDepartures(),
         ]);
         if (cancelled) return;
         setHotel(target); setRooms(roomRows); setHotelPackages(packageRows); setDepartures(departureRows);
@@ -100,7 +101,7 @@ export default function HotelDetail() {
   const roomColumns: Column<HotelRoom>[] = [
     { key: "roomType", header: tr.roomTypes, render: (value) => <span className="font-medium text-gray-900 dark:text-white">{value as string}</span> },
     { key: "capacity", header: tr.capacity, render: (value) => <span className="text-sm text-gray-600 dark:text-gray-300">{value as number}</span> },
-    { key: "basePrice", header: tr.price, render: (_v, row) => <span className="text-sm text-gray-600 dark:text-gray-300">{formatCurrency(row.basePrice, row.currency)}</span> },
+    { key: "basePrice", header: tr.price, render: (_v, row) => <span className="text-sm text-gray-600 dark:text-gray-300">{formatCurrency(row.basePrice, row.currency, locale)}</span> },
     { key: "available", header: tr.available, render: (_v, row) => <Badge color={row.available > 0 ? "success" : "light"} size="sm">{row.available}/{row.total}</Badge> },
   ];
 
@@ -143,14 +144,14 @@ export default function HotelDetail() {
       render: (_v, row) => (
         <div className="flex flex-col">
           <span className="font-medium text-gray-900 dark:text-white">{row.departure?.packageName || "—"}</span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">{row.departure?.depart_at ? formatDate(row.departure.depart_at) : "—"}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{row.departure?.depart_at ? formatDate(row.departure.depart_at, locale) : "—"}</span>
         </div>
       ),
     },
     { key: "roomType", header: tr.type, render: (value) => <span className="text-sm text-gray-600 dark:text-gray-300">{value as string}</span> },
     { key: "roomsReserved", header: tr.roomsReserved, render: (value) => <span className="text-sm text-gray-600 dark:text-gray-300">{value as number}</span> },
-    { key: "checkIn", header: tr.checkIn, render: (value) => <span className="text-sm text-gray-600 dark:text-gray-300">{formatDate(value as string)}</span> },
-    { key: "checkOut", header: tr.checkOut, render: (value) => <span className="text-sm text-gray-600 dark:text-gray-300">{formatDate(value as string)}</span> },
+    { key: "checkIn", header: tr.checkIn, render: (value) => <span className="text-sm text-gray-600 dark:text-gray-300">{formatDate(value as string, locale)}</span> },
+    { key: "checkOut", header: tr.checkOut, render: (value) => <span className="text-sm text-gray-600 dark:text-gray-300">{formatDate(value as string, locale)}</span> },
     {
       key: "actions",
       header: "",

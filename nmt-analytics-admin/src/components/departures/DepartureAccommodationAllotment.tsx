@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getDepartureAccommodationAllotments,
   updateDepartureAccommodationAllotment,
@@ -21,53 +21,79 @@ type HotelGroup = {
   items: Allotment[];
 };
 
-const formatMoney = (amount: number) =>
-  new Intl.NumberFormat("bs-BA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
+type AllotmentErrorState =
+  | { kind: "code"; code: "ROOM_SLOT_OCCUPIED" | "ALLOTMENT_BELOW_RESERVED" | "MIGRATION_PENDING" | "VALIDATION_ERROR" | "SAVE_FAILED" }
+  | { kind: "custom"; message: string };
+
+const MAX_ALLOTMENT_ROOMS = 1000;
 
 export default function DepartureAccommodationAllotment({ departureId }: Props) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const { success, error: showError } = useToast();
-  const tx = t?.departure?.accommodationAllotment ?? {
-    loading: 'Loading accommodation inventory…',
-    loadFailed: 'Failed to load departure accommodation.',
-    emptyTitle: 'No accommodation inventory',
-    emptyDescription: 'This departure does not have package accommodation materialized yet.',
-    unknownHotel: 'Hotel',
-    templateRooms: 'Package/template',
-    departureRooms: 'This departure',
-    capacity: 'Person capacity',
-    allocated: 'Reserved',
-    available: 'Available',
-    pricing: 'Net / Sell',
-    save: 'Save',
-    saving: 'Saving…',
-    saveSuccess: 'Accommodation inventory updated',
-    saveFailed: 'Failed to update accommodation inventory',
-    invalidRooms: 'Room count must be zero or greater',
-  };
+  const tx = useMemo(
+    () => ({
+      loading: "Loading accommodation inventory…",
+      loadFailed: "Failed to load departure accommodation.",
+      emptyTitle: "No accommodation inventory",
+      emptyDescription: "This departure does not have package accommodation materialized yet.",
+      unknownHotel: "Hotel",
+      templateRooms: "Package/template",
+      departureRooms: "This departure",
+      capacity: "Person capacity",
+      allocated: "Reserved",
+      available: "Available",
+      pricing: "Net / Sell",
+      save: "Save",
+      saving: "Saving…",
+      saveSuccess: "Accommodation inventory updated",
+      saveFailed: "Failed to update accommodation inventory",
+      invalidRooms: "Room count must be a whole number between 0 and 1000",
+      retry: "Retry",
+      roomSlotOccupied: "Cannot reduce room count because one of the removed room slots is already occupied.",
+      belowReserved: "Room count cannot be lower than the number of already reserved rooms.",
+      migrationPending: "Accommodation inventory updates require a service update.",
+      ...(t?.departure?.accommodationAllotment ?? {}),
+    }),
+    [t?.departure?.accommodationAllotment],
+  );
+
+  const locale = lang === "en" ? "en-GB" : "bs-BA";
+  const formatMoney = (amount: number) =>
+    new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
+
   const [items, setItems] = useState<Allotment[]>([]);
-  const [drafts, setDrafts] = useState<Record<string, number>>({});
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [errorState, setErrorState] = useState<AllotmentErrorState | null>(null);
+  const savingLock = useRef(false);
+  const loadVersion = useRef(0);
 
   const load = useCallback(async () => {
+    const version = ++loadVersion.current;
     setLoading(true);
-    setError(null);
+    setLoadFailed(false);
+    setErrorState(null);
     try {
       const result = await getDepartureAccommodationAllotments(departureId);
-      setItems(result.items || []);
-      setDrafts(Object.fromEntries((result.items || []).map((item) => [item.id, item.departureRooms])));
-    } catch (err: any) {
-      const message = err?.response?.data?.message || err?.message || tx.loadFailed;
-      setError(message);
+      if (version !== loadVersion.current) return;
+      const rows = result.items || [];
+      setItems(rows);
+      setDrafts(Object.fromEntries(rows.map((item) => [item.id, String(item.departureRooms)])));
+    } catch {
+      if (version !== loadVersion.current) return;
+      setLoadFailed(true);
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
-  }, [departureId, tx.loadFailed]);
+  }, [departureId]);
 
   useEffect(() => {
-    load();
+    void load();
+    return () => {
+      loadVersion.current += 1;
+    };
   }, [load]);
 
   const groups = useMemo<HotelGroup[]>(() => {
@@ -89,37 +115,85 @@ export default function DepartureAccommodationAllotment({ departureId }: Props) 
     return Array.from(map.values());
   }, [items, tx.unknownHotel]);
 
+  const resolveErrorText = (state: AllotmentErrorState): string => {
+    if (state.kind === "custom") return state.message;
+    switch (state.code) {
+      case "ROOM_SLOT_OCCUPIED":
+        return tx.roomSlotOccupied;
+      case "ALLOTMENT_BELOW_RESERVED":
+        return tx.belowReserved;
+      case "MIGRATION_PENDING":
+        return tx.migrationPending;
+      case "VALIDATION_ERROR":
+        return tx.invalidRooms;
+      default:
+        return tx.saveFailed;
+    }
+  };
+
+  const classifySaveError = (err: any): AllotmentErrorState => {
+    const code = err?.response?.data?.code || err?.code;
+    if (code === "ROOM_SLOT_OCCUPIED") return { kind: "code", code: "ROOM_SLOT_OCCUPIED" };
+    if (code === "ALLOTMENT_BELOW_RESERVED") return { kind: "code", code: "ALLOTMENT_BELOW_RESERVED" };
+    if (code === "MIGRATION_PENDING") return { kind: "code", code: "MIGRATION_PENDING" };
+    if (code === "VALIDATION_ERROR") return { kind: "code", code: "VALIDATION_ERROR" };
+    const status = err?.response?.status ?? err?.status;
+    if (typeof status === "number" && status >= 500) return { kind: "code", code: "SAVE_FAILED" };
+    const rawMessage = err?.response?.data?.message || err?.message;
+    return rawMessage ? { kind: "custom", message: String(rawMessage) } : { kind: "code", code: "SAVE_FAILED" };
+  };
+
+  const parseDraft = (raw: string | undefined): number | null => {
+    if (raw === undefined || raw.trim() === "") return null;
+    if (!/^\d+$/.test(raw.trim())) return null;
+    const parsed = Number(raw.trim());
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > MAX_ALLOTMENT_ROOMS) return null;
+    return parsed;
+  };
+
   const saveItem = async (item: Allotment) => {
-    const nextValue = Number(drafts[item.id] ?? 0);
-    if (!Number.isInteger(nextValue) || nextValue < 0) {
-      setError(tx.invalidRooms);
+    if (savingLock.current) return;
+    const nextValue = parseDraft(drafts[item.id]);
+    if (nextValue === null) {
+      setErrorState({ kind: "code", code: "VALIDATION_ERROR" });
       return;
     }
 
+    savingLock.current = true;
     setSavingId(item.id);
-    setError(null);
+    setErrorState(null);
     try {
       const updated = await updateDepartureAccommodationAllotment(departureId, item.id, nextValue);
-      setItems((current) => current.map((candidate) => candidate.id === item.id ? updated : candidate));
-      setDrafts((current) => ({ ...current, [item.id]: updated.departureRooms }));
+      setItems((current) => current.map((candidate) => (candidate.id === item.id ? updated : candidate)));
+      setDrafts((current) => ({ ...current, [item.id]: String(updated.departureRooms) }));
       success(tx.saveSuccess);
     } catch (err: any) {
-      const message = err?.response?.data?.message || err?.message || tx.saveFailed;
-      setError(message);
-      showError(message);
+      const nextError = classifySaveError(err);
+      setErrorState(nextError);
+      showError(resolveErrorText(nextError));
     } finally {
+      savingLock.current = false;
       setSavingId(null);
     }
   };
 
+  const visibleError = errorState ? resolveErrorText(errorState) : null;
+
   if (loading) {
-    return <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">{tx.loading}</div>;
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
+        {tx.loading}
+      </div>
+    );
   }
 
-  if (error && items.length === 0) {
+  if (loadFailed) {
     return (
       <div className="rounded-2xl border border-error-200 bg-error-50 p-6 text-sm text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-300">
-        {error}
+        <p role="alert" className="mb-3">{tx.loadFailed}</p>
+        <Button size="sm" variant="outline" onClick={() => void load()}>
+          {tx.retry}
+        </Button>
       </div>
     );
   }
@@ -134,9 +208,9 @@ export default function DepartureAccommodationAllotment({ departureId }: Props) 
 
   return (
     <div className="space-y-4">
-      {error && (
-        <div className="rounded-xl border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-300">
-          {error}
+      {visibleError && (
+        <div role="alert" className="rounded-xl border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-300">
+          {visibleError}
         </div>
       )}
 
@@ -149,9 +223,13 @@ export default function DepartureAccommodationAllotment({ departureId }: Props) 
 
           <div className="divide-y divide-gray-200 dark:divide-gray-800">
             {group.items.map((item) => {
-              const draft = Number(drafts[item.id] ?? 0);
-              const capacity = draft * item.capacityPerRoom;
-              const available = Math.max(0, draft - item.allocated);
+              const rawDraft = drafts[item.id] ?? String(item.departureRooms);
+              const parsedDraft = parseDraft(rawDraft);
+              const displayCount = parsedDraft ?? item.departureRooms;
+              const capacity = displayCount * item.capacityPerRoom;
+              const available = Math.max(0, displayCount - item.allocated);
+              const inputId = `allotment-rooms-${item.id}`;
+              const isSaving = savingId === item.id;
               return (
                 <div key={item.id} className="grid gap-4 px-5 py-4 lg:grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,0.8fr))_auto] lg:items-center">
                   <div>
@@ -163,12 +241,21 @@ export default function DepartureAccommodationAllotment({ departureId }: Props) 
 
                   <Metric label={tx.templateRooms} value={item.templateRooms} />
                   <div>
-                    <p className="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">{tx.departureRooms}</p>
+                    <label htmlFor={inputId} className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                      {tx.departureRooms}
+                    </label>
                     <Input
+                      id={inputId}
                       type="number"
                       min="0"
-                      value={draft}
-                      onChange={(event: any) => setDrafts((current) => ({ ...current, [item.id]: Number(event.target.value) || 0 }))}
+                      max={String(MAX_ALLOTMENT_ROOMS)}
+                      step={1}
+                      disabled={isSaving}
+                      value={rawDraft}
+                      onChange={(event: any) => {
+                        setDrafts((current) => ({ ...current, [item.id]: event.target.value }));
+                        setErrorState(null);
+                      }}
                       className="h-9"
                     />
                   </div>
@@ -184,11 +271,11 @@ export default function DepartureAccommodationAllotment({ departureId }: Props) 
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => saveItem(item)}
-                    disabled={savingId === item.id || draft === item.departureRooms}
+                    onClick={() => void saveItem(item)}
+                    disabled={isSaving || parsedDraft === null || parsedDraft === item.departureRooms}
                     className="justify-center"
                   >
-                    {savingId === item.id ? tx.saving : tx.save}
+                    {isSaving ? tx.saving : tx.save}
                   </Button>
                 </div>
               );

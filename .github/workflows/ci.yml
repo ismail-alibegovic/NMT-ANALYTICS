@@ -180,6 +180,18 @@ jobs:
           PGPASSWORD: postgres
           MIGRATION_REPLAY_DB: travline_replay
 
+      - name: Verify two-session allotment slot concurrency inside replay container
+        env:
+          REPLAY_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          docker exec "$REPLAY_CONTAINER" mkdir -p /tmp/travline-concurrency
+          docker cp nmt-analytics-api/scripts/allocation-slot-concurrency.sh "$REPLAY_CONTAINER:/tmp/travline-concurrency/allocation-slot-concurrency.sh"
+          docker exec \
+            -e PGHOST=127.0.0.1 -e PGPORT=5432 -e PGUSER=postgres -e PGPASSWORD=postgres \
+            -e MIGRATION_REPLAY_DB=travline_replay -e TRAVLINE_ISOLATED_ALLOTMENT_CONCURRENCY=1 \
+            "$REPLAY_CONTAINER" bash /tmp/travline-concurrency/allocation-slot-concurrency.sh
+          docker exec "$REPLAY_CONTAINER" rm -rf /tmp/travline-concurrency
+
       - name: Rehearse 110-to-current upgrade with existing synthetic records
         run: bash nmt-analytics-api/scripts/production-upgrade-rehearsal.sh
         env:
