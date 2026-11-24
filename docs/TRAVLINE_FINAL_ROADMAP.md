@@ -4,6 +4,10 @@ Updated **2026-10-26**. Objective: a stable, secure, professionally usable SaaS 
 
 ## Current decision: NO-GO for commercial production
 
+### 2026-11-24 infrastructure checkpoint
+
+PR #173 is merged at `8ab4a4b6ce7d7032107dcf3d7da31eacb65646ff`. Its Preview deployment passed environment isolation and bundle-secret checks, connected health, synthetic agency login and a package → departure → reservation browser round trip. Staging `hlyqrwytlrimtrjncmez` has 122 migrations; production read-only checks remain at 115 and found none of the synthetic records. See the [hosted ledger](operations/hosted-migration-preflight-ledger.md#6-hosted-checkpoint--2026-11-24) for exact evidence. Production backup/restore, migrations 116→122 and monitoring acceptance remain release blockers. PR #174/#175 integration checks are being rerun against the merged environment protections; their earlier green heads do not substitute for the updated checks.
+
 Completed code is not verified infrastructure. Unit tests, builds, synthetic browser fixtures and isolated Supabase acceptance prove their exercised boundaries only. Do not certify a hosted schema, recovery capability, real agency workflow, production monitoring or full product readiness from those results. No verified production backup/restore inventory, measured hosted RPO/RTO, final deployment acceptance or complete agency onboarding evidence is available here.
 
 The user authorizes safe application development, tests and protected GitHub integration. **No real customer writes, unapproved hosted migrations, destructive hosted actions, provider activation, secret exposure or manual production deployment.** Old task descriptions never override this restriction. Keep an explicit migration order and operational approval ledger; never run historical/demo seeds to provision a real agency.

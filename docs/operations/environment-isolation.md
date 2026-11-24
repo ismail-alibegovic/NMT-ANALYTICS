@@ -1,6 +1,6 @@
 # Environment isolation (Production / Preview / Local)
 
-Status: code guard implemented on branch `claude/brave-mendel-cd5g9f`. Vercel Production-scope configuration was applied on 2026-10-31 (see §10). Staging Supabase and credential rotation are pending approval.
+Status: PR #173 merged on 2026-11-24 at `8ab4a4b6ce7d7032107dcf3d7da31eacb65646ff`. Separate Staging Supabase and Preview credentials are configured and its browser reservation round trip passed (see the [hosted ledger](hosted-migration-preflight-ledger.md#6-hosted-checkpoint--2026-11-24)). Production credential rotation and backup/restore remain pending. Historical observations below retain their dates and are superseded by this checkpoint where stated.
 
 ## 1. Findings that motivated this change (verified 2026-10-31)
 

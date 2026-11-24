@@ -18,7 +18,7 @@ Read-only inspection of hosted Supabase `hacutwknfgufrqlgdiia` confirmed:
 - **Read-Only Metadata Inventory (2026-11-23):** `15` hotels; `0` invalid room stock/labels, orphan/cross-org rooms, or parent-below-stock rows; `0` public tables without RLS; `documents` Storage bucket is private with `0` objects. These read-only checks confirm clean current metadata, **not** backup/recovery readiness or hosted operational acceptance.
 - Consequence: any hosted API request targeting those RPCs (and the new atomic allotment edit RPC once deployed) will fail closed with `503 MIGRATION_PENDING` rather than falling back to unsafe partial writes. **Do not weaken fail-closed behavior.**
 
-## 2. Exact Pending Migration Order (116 → 121)
+## 2. Exact Pending Migration Order (116 → 122)
 
 When an explicit, separately approved maintenance window is authorized after verified backup/restore readiness, migrations must be applied in strict timestamp order:
 
@@ -30,6 +30,7 @@ When an explicit, separately approved maintenance window is authorized after ver
 | 119 | `20261025120000_atomic_signup_provisioning.sql` | PR #164 | Fail-closed `auth.users` signup bootstrap (`handle_new_user` + collision-safe slug) |
 | 120 | `20261026120000_hotel_inventory_integrity.sql` | PR #169 | `NOT VALID` stock constraints (preserves legacy rows), `guard_hotel_stock_total`, `create_hotel_inventory`, `create_hotel_room_inventory` |
 | 121 | `20261123120000_atomic_allotment_and_vehicle_integrity.sql` | Current batch (`fix/commercial-allocation-edit-and-transport-integrity`) | Service-only `update_departure_accommodation_allotment_atomic`, hardened `update_vehicle_atomic` (keeps exact 6-arg signature, `search_path = ''`, explicit registration clear via `''`) |
+| 122 | `20261124120000_staff_lifecycle_and_revocation.sql` | PR #175 | `profiles.revoked_at`, service-only `assign_staff_profile_atomic`, app-metadata-only staff bootstrap; preserves public signup tenant isolation |
 
 ## 3. Verifiable Read-Only Preflight Procedure (Before Any Hosted Apply)
 
@@ -65,13 +66,13 @@ Before any separately approved hosted migration window:
 
 ## 5. Post-Apply Read-Only Verification Queries
 
-After an approved window applies 116→121:
+After an approved window applies 116→122:
 
 ```sql
 -- 1. Exact migration count and latest version
 SELECT COUNT(*) AS applied_count, MAX(version) AS latest_version
 FROM supabase_migrations.schema_migrations;
--- Expected: 121 and 20261123120000
+-- Expected: 122 and 20261124120000
 
 -- 2. Required service-only RPCs present with pinned search_path and safe ACLs
 SELECT p.oid::regprocedure AS signature,
@@ -88,8 +89,17 @@ WHERE n.nspname = 'public'
     'create_hotel_inventory',
     'create_hotel_room_inventory',
     'update_departure_accommodation_allotment_atomic',
-    'update_vehicle_atomic'
+    'update_vehicle_atomic',
+    'assign_staff_profile_atomic'
   )
 ORDER BY p.proname;
 -- Expected: prosecdef=true, search_path pinned, anon_exec=false, auth_exec=false, service_exec=true
 ```
+
+## 6. Hosted checkpoint — 2026-11-24
+
+- PR #173 merged as `8ab4a4b6ce7d7032107dcf3d7da31eacb65646ff`. Its isolated Preview candidate `5213f2f2c08e7b7afa5a57c0129fd05c594d6278` is READY at Vercel deployment `dpl_5Gb5a4YLd7dcrm6kfpGNpxD41NNK`.
+- Separate Staging project `hlyqrwytlrimtrjncmez` is ACTIVE_HEALTHY, with **122** applied migrations, latest `20261124120000`. Preview URL/ref/public keys and the sensitive server key are scoped to Preview; Production retains separate entries. Preview communication jobs remain disabled.
+- Build evidence: `production_project=false`; bundle scan passed for 152 files. Health returned HTTP 200, `database: connected`, dev bypass false, email provider false and Sentry false. Runtime logs confirmed anonymous `/api/customers` requests were rejected by the application with 401.
+- Native browser acceptance: signed in to a synthetic Staging agency, created a package and departure, then created reservation `2b80f6fe-5d1d-4027-b6f2-5c7be01c0433` through the sale wizard. Staging SQL confirmed pending status, total 100 BAM, paid 0. Production read-only queries found **zero** corresponding organization, user, package or reservation records. The synthetic account was then banned and its Auth sessions removed.
+- Production remains at **115** migrations, latest `20261022192823`, with zero Storage objects and zero public tables lacking RLS. No production migration or customer mutation was performed. This Staging exercise is **not** a production backup/restore rehearsal. Commercial release remains **NO-GO** pending recovery, production migrations and monitoring acceptance.
