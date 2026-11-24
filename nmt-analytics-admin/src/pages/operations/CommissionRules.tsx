@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import PageToolbar from "../../components/ui/PageToolbar";
 import Button from "../../components/ui/button/Button";
@@ -8,6 +8,8 @@ import { Modal } from "../../components/ui/modal";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { useToast } from "../../context/ToastContext";
 import { useApp } from "../../context/AppContext";
+import { useT } from "../../lib/i18n/context";
+import { formatCurrency } from "../../utils/business";
 import {
   getCommissionRules,
   createCommissionRule,
@@ -17,27 +19,8 @@ import {
   CommissionRule,
 } from "../../api/operations";
 
-const PARTNER_TYPES = [
-  { value: "bronze", label: "Bronze" },
-  { value: "silver", label: "Silver" },
-  { value: "gold", label: "Gold" },
-  { value: "platinum", label: "Platinum" },
-] as const;
-
-const SERVICE_TYPES = [
-  { value: "", label: "Sve usluge (nije specifično)" },
-  { value: "hotel", label: "Hotel" },
-  { value: "transport", label: "Transport" },
-  { value: "tour", label: "Tura / izlet" },
-  { value: "insurance", label: "Osiguranje" },
-  { value: "extra", label: "Dodatna usluga" },
-] as const;
-
 const PT_COLOR: Record<string, string> = {
   bronze: "neutral", silver: "info", gold: "warning", platinum: "primary",
-};
-const ST_LABEL: Record<string, string> = {
-  hotel: "Hotel", transport: "Transport", tour: "Tura", insurance: "Osiguranje", extra: "Dodatno",
 };
 
 const emptyForm = {
@@ -52,8 +35,17 @@ const emptyForm = {
 export default function CommissionRules() {
   const { success: showSuccess, error: showError } = useToast();
   const { user, loading: authLoading } = useApp();
+  const { t, lang } = useT();
+  const tr = t.operations.commissionRules;
+  const locale = lang === "bs" ? "bs-BA" : "en-GB";
+  const showErrorRef = useRef(showError);
+  showErrorRef.current = showError;
+  const trRef = useRef(tr);
+  trRef.current = tr;
+  const requestVersion = useRef(0);
   const [rules, setRules] = useState<CommissionRule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -61,30 +53,64 @@ export default function CommissionRules() {
 
   const [preview, setPreview] = useState({ partnerType: "bronze", bookingAmount: 1000, serviceType: "" });
   const [previewResult, setPreviewResult] = useState<{ matchedRule: CommissionRule | null; commissionAmount: number; finalAmount: number; breakdown: any } | null>(null);
+  const userId = user?.id;
 
-  const fetchRules = async () => {
+  const partnerTypes = [
+    { value: "bronze", label: tr.tiers.bronze },
+    { value: "silver", label: tr.tiers.silver },
+    { value: "gold", label: tr.tiers.gold },
+    { value: "platinum", label: tr.tiers.platinum },
+  ] as const;
+
+  const serviceTypes = [
+    { value: "", label: tr.serviceAllLong },
+    { value: "hotel", label: tr.serviceTypes.hotel },
+    { value: "transport", label: tr.serviceTypes.transport },
+    { value: "tour", label: tr.serviceTypes.tour },
+    { value: "insurance", label: tr.serviceTypes.insurance },
+    { value: "extra", label: tr.serviceTypes.extra },
+  ] as const;
+
+  const serviceLabels: Record<string, string> = tr.serviceLabels;
+
+  const fetchRules = useCallback(async () => {
+    const version = ++requestVersion.current;
+    setLoading(true);
+    setLoadError(false);
     try {
-      setLoading(true);
       const data = await getCommissionRules();
-      setRules(data);
-    } catch (err: any) {
-      showError(err.message || "Greška pri učitavanju pravila");
+      if (version === requestVersion.current) {
+        setRules(data);
+      }
+    } catch {
+      if (version === requestVersion.current) {
+        setLoadError(true);
+        showErrorRef.current(trRef.current.loadError);
+      }
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (user && !authLoading) fetchRules();
-    else if (!authLoading) setLoading(false);
-  }, [user, authLoading]);
+    if (userId && !authLoading) {
+      void fetchRules();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+    return () => {
+      requestVersion.current += 1;
+    };
+  }, [userId, authLoading, fetchRules]);
 
   const runPreview = async () => {
     try {
       const result = await previewCommission(preview.partnerType, preview.bookingAmount, preview.serviceType || undefined);
       setPreviewResult(result);
-    } catch (err: any) {
-      showError(err.message || "Greška pri preview-u");
+    } catch {
+      showError(tr.previewError);
     }
   };
 
@@ -101,28 +127,29 @@ export default function CommissionRules() {
       };
       if (editingId) {
         await updateCommissionRule(editingId, payload);
-        showSuccess("Pravilo ažurirano");
+        showSuccess(tr.updated);
       } else {
         await createCommissionRule(payload);
-        showSuccess("Pravilo kreirano");
+        showSuccess(tr.created);
       }
       setIsModalOpen(false);
-      fetchRules();
-    } catch (err: any) {
-      showError(err.message || "Greška pri snimanju");
+      void fetchRules();
+    } catch {
+      showError(tr.saveError);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (rule: CommissionRule) => {
-    if (!confirm(`Obrisati pravilo za ${rule.partnerType}?`)) return;
+    const tierLabel = tr.tiers[rule.partnerType] || rule.partnerType;
+    if (!confirm(tr.deleteConfirm.replace("{partnerType}", tierLabel))) return;
     try {
       await deleteCommissionRule(rule.id);
-      showSuccess("Pravilo obrisano");
-      fetchRules();
-    } catch (err: any) {
-      showError(err.message || "Greška pri brisanju");
+      showSuccess(tr.deleted);
+      void fetchRules();
+    } catch {
+      showError(tr.deleteError);
     }
   };
 
@@ -147,40 +174,40 @@ export default function CommissionRules() {
 
   const columns: Column<CommissionRule>[] = [
     {
-      key: "partnerType", header: "Tip partnera",
-      render: (_v, r) => <Badge color={(PT_COLOR[r.partnerType] || "neutral") as any} variant="light">{r.partnerType}</Badge>,
+      key: "partnerType", header: tr.partnerType,
+      render: (_v, r) => <Badge color={(PT_COLOR[r.partnerType] || "neutral") as any} variant="light">{tr.tiers[r.partnerType] || r.partnerType}</Badge>,
     },
     {
-      key: "serviceType", header: "Usluga",
-      render: (_v, r) => <span className="text-sm text-gray-600 dark:text-gray-400">{r.serviceType ? ST_LABEL[r.serviceType] || r.serviceType : "Sve"}</span>,
+      key: "serviceType", header: tr.serviceColumn,
+      render: (_v, r) => <span className="text-sm text-gray-600 dark:text-gray-400">{r.serviceType ? serviceLabels[r.serviceType] || r.serviceType : tr.serviceAllShort}</span>,
     },
     {
-      key: "commissionPct", header: "Provizija %",
+      key: "commissionPct", header: tr.commissionPctColumn,
       render: (_v, r) => <span className="font-mono font-medium text-[#d8a657]">{r.commissionPct}%</span>,
     },
     {
-      key: "markupPct", header: "Markup %",
+      key: "markupPct", header: tr.markupPctColumn,
       render: (_v, r) => <span className="font-mono font-medium">{r.markupPct}%</span>,
     },
-    { key: "priority", header: "Prioritet", render: (_v, r) => <span className="text-sm">{r.priority}</span> },
+    { key: "priority", header: tr.priority, render: (_v, r) => <span className="text-sm">{r.priority}</span> },
     {
-      key: "isActive", header: "Status",
+      key: "isActive", header: tr.status,
       render: (_v, r) => r.isActive
-        ? <Badge color="success" variant="light">Aktivno</Badge>
-        : <Badge color="error" variant="light">Neaktivno</Badge>,
+        ? <Badge color="success" variant="light">{tr.active}</Badge>
+        : <Badge color="error" variant="light">{tr.inactive}</Badge>,
     },
     {
       key: "actions", header: "",
       render: (_v, r) => (
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => openEdit(r)}>Uredi</Button>
-          <Button variant="outline" size="sm" onClick={() => handleDelete(r)} className="!text-red-500">Obriši</Button>
+          <Button variant="outline" size="sm" onClick={() => openEdit(r)}>{t.common.edit}</Button>
+          <Button variant="outline" size="sm" onClick={() => handleDelete(r)} className="!text-red-500">{t.common.delete}</Button>
         </div>
       ),
     },
   ];
 
-  if (authLoading || (loading && !rules.length)) {
+  if (authLoading || (loading && !rules.length && !loadError)) {
     return (
       <div className="flex h-96 items-center justify-center">
         <div className="h-10 w-10 border-2 border-gray-300 border-t-transparent rounded-full animate-spin dark:border-gray-700"></div>
@@ -190,40 +217,40 @@ export default function CommissionRules() {
 
   return (
     <>
-      <PageMeta title="Pravila provizije | Travline" description="Automatska provizija i markup po tipu partnera" />
+      <PageMeta title={`${tr.title} | Travline`} description={tr.description} />
       <PageToolbar
-        title="Pravila provizije"
-        description="Automatska provizija i markup po tipu partnera — pravila se primjenjuju pri generisanju prodaje subagenta"
-        createButton={{ label: "+ Novo pravilo", onClick: openCreate }}
+        title={tr.title}
+        description={tr.descriptionLong}
+        createButton={{ label: tr.add, onClick: openCreate }}
       />
 
       {/* Live preview panel */}
       <div className="mx-6 mb-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700">
           <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
-          <label htmlFor="commission-preview-partner" className="text-sm text-gray-600 dark:text-gray-400">Partner</label>
+          <label htmlFor="commission-preview-partner" className="text-sm text-gray-600 dark:text-gray-400">{tr.partnerLabel}</label>
           <select
             id="commission-preview-partner"
             value={preview.partnerType}
             onChange={(e) => setPreview({ ...preview, partnerType: e.target.value })}
             className="max-w-full bg-transparent text-sm outline-none dark:bg-gray-800"
           >
-            {PARTNER_TYPES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+            {partnerTypes.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
           </div>
           <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
-          <label htmlFor="commission-preview-service" className="text-sm text-gray-600 dark:text-gray-400">Usluga</label>
+          <label htmlFor="commission-preview-service" className="text-sm text-gray-600 dark:text-gray-400">{tr.serviceColumn}</label>
           <select
             id="commission-preview-service"
             value={preview.serviceType}
             onChange={(e) => setPreview({ ...preview, serviceType: e.target.value })}
             className="max-w-full bg-transparent text-sm outline-none dark:bg-gray-800"
           >
-            {SERVICE_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            {serviceTypes.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
           </div>
           <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
-          <label htmlFor="commission-preview-amount" className="text-sm text-gray-600 dark:text-gray-400">Iznos</label>
+          <label htmlFor="commission-preview-amount" className="text-sm text-gray-600 dark:text-gray-400">{tr.amountLabel}</label>
           <input
             type="number"
             id="commission-preview-amount"
@@ -232,32 +259,41 @@ export default function CommissionRules() {
             className="w-24 bg-transparent text-sm outline-none dark:bg-gray-800"
           />
           </div>
-          <Button variant="primary" size="sm" onClick={runPreview}>Izračunaj</Button>
+          <Button variant="primary" size="sm" onClick={runPreview}>{tr.calculate}</Button>
         </div>
 
         {previewResult && (
-          <div className="mt-3 grid grid-cols-3 gap-4 text-sm">
+          <div className="mt-3 grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
             <div>
-              <div className="text-xs text-gray-500 uppercase tracking-wide">Pravilo</div>
-              <span className="font-medium">{previewResult.matchedRule ? `${previewResult.matchedRule.partnerType}${previewResult.matchedRule.serviceType ? " / " + ST_LABEL[previewResult.matchedRule.serviceType] : ""}` : "Bez pravila"}</span>
+              <div className="text-xs text-gray-500 uppercase tracking-wide">{tr.ruleHeading}</div>
+              <span className="font-medium">
+                {previewResult.matchedRule
+                  ? `${tr.tiers[previewResult.matchedRule.partnerType] || previewResult.matchedRule.partnerType}${previewResult.matchedRule.serviceType ? " / " + (serviceLabels[previewResult.matchedRule.serviceType] || previewResult.matchedRule.serviceType) : ""}`
+                  : tr.noMatch}
+              </span>
             </div>
             <div>
-              <div className="text-xs text-gray-500 uppercase tracking-wide">Provizija</div>
-              <span className="font-mono font-medium">{Number(previewResult.commissionAmount).toFixed(2)} BAM</span>
+              <div className="text-xs text-gray-500 uppercase tracking-wide">{tr.commissionAmount}</div>
+              <span className="font-mono font-medium">{formatCurrency(Number(previewResult.commissionAmount), "BAM", locale)}</span>
             </div>
             <div>
-              <div className="text-xs text-gray-500 uppercase tracking-wide">Finalni iznos</div>
-              <span className="font-mono font-medium text-[#d8a657]">{Number(previewResult.finalAmount).toFixed(2)} BAM</span>
+              <div className="text-xs text-gray-500 uppercase tracking-wide">{tr.finalAmount}</div>
+              <span className="font-mono font-medium text-[#d8a657]">{formatCurrency(Number(previewResult.finalAmount), "BAM", locale)}</span>
             </div>
           </div>
         )}
       </div>
 
-      {rules.length === 0 ? (
+      {loadError ? (
+        <div className="mx-6 rounded-xl border border-error-200 bg-error-50 p-6 dark:border-error-500/30 dark:bg-error-500/10">
+          <p role="alert" className="mb-4 text-sm text-error-700 dark:text-error-300">{tr.loadError}</p>
+          <Button variant="outline" onClick={() => void fetchRules()}>{tr.retryLoad}</Button>
+        </div>
+      ) : rules.length === 0 ? (
         <EmptyState
-          title="Nema pravila provizije"
-          description="Kreirajte pravilo za automatsku proviziju i markup po tipu partnera."
-          action={{ label: "+ Novo pravilo", onClick: openCreate }}
+          title={tr.noRules}
+          description={tr.emptyDescription}
+          action={{ label: tr.add, onClick: openCreate }}
         />
       ) : (
         <div className="mx-6">
@@ -265,38 +301,41 @@ export default function CommissionRules() {
         </div>
       )}
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} className="max-w-md">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} className="max-w-md" title={editingId ? tr.editTitle : tr.newTitle}>
         <div className="space-y-4 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {editingId ? "Uredi pravilo" : "Novo pravilo provizije"}
+            {editingId ? tr.editTitle : tr.newTitle}
           </h3>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tip partnera</label>
+            <label htmlFor="commission-rule-partner" className="text-sm font-medium text-gray-700 dark:text-gray-300">{tr.partnerType}</label>
             <select
+              id="commission-rule-partner"
               value={form.partnerType}
               onChange={(e) => setForm({ ...form, partnerType: e.target.value as "bronze" | "silver" | "gold" | "platinum" })}
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-800"
             >
-              {PARTNER_TYPES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+              {partnerTypes.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Usluga (prazno = sve)</label>
+            <label htmlFor="commission-rule-service" className="text-sm font-medium text-gray-700 dark:text-gray-300">{tr.serviceOptionalLabel}</label>
             <select
+              id="commission-rule-service"
               value={form.serviceType}
               onChange={(e) => setForm({ ...form, serviceType: e.target.value })}
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-gray-800"
             >
-              {SERVICE_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              {serviceTypes.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Provizija %</label>
+              <label htmlFor="commission-rule-pct" className="text-sm font-medium text-gray-700 dark:text-gray-300">{tr.commissionPctColumn}</label>
               <input
+                id="commission-rule-pct"
                 type="number" step="0.5" min="0" max="100"
                 value={form.commissionPct}
                 onChange={(e) => setForm({ ...form, commissionPct: Number(e.target.value) })}
@@ -304,8 +343,9 @@ export default function CommissionRules() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Markup %</label>
+              <label htmlFor="commission-rule-markup" className="text-sm font-medium text-gray-700 dark:text-gray-300">{tr.markupPctColumn}</label>
               <input
+                id="commission-rule-markup"
                 type="number" step="0.5" min="0" max="100"
                 value={form.markupPct}
                 onChange={(e) => setForm({ ...form, markupPct: Number(e.target.value) })}
@@ -315,8 +355,9 @@ export default function CommissionRules() {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Prioritet (manji = važniji)</label>
+            <label htmlFor="commission-rule-priority" className="text-sm font-medium text-gray-700 dark:text-gray-300">{tr.priorityHelp}</label>
             <input
+              id="commission-rule-priority"
               type="number" min="0" max="1000"
               value={form.priority}
               onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}
@@ -330,13 +371,13 @@ export default function CommissionRules() {
               onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
               className="rounded"
             />
-            <span className="text-sm text-gray-700 dark:text-gray-300">Aktivno</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">{tr.active}</span>
           </label>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Otkaži</Button>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>{tr.cancel}</Button>
             <Button variant="primary" onClick={handleSave} disabled={saving}>
-              {saving ? "Snimanje…" : editingId ? "Sačuvaj" : "Kreiraj"}
+              {saving ? t.common.saving : editingId ? tr.save : t.common.create}
             </Button>
           </div>
         </div>

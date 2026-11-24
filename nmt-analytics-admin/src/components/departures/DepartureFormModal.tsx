@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useId } from "react";
 import { useT } from "../../lib/i18n";
+import { bs } from "../../lib/i18n/bs";
+import { en } from "../../lib/i18n/en";
 import { toDateTimeInput, fromDateTimeInput } from "../../utils/dateTimeInput";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
@@ -27,7 +29,10 @@ export default function DepartureFormModal({
   isOpen, onClose, title, packages, editingDeparture,
   onSubmit, loading, travelerMode, setTravelerMode, travelerReq, setTravelerReq,
 }: Props) {
-  const { lang } = useT();
+  const { t, lang } = useT();
+  const fallback = lang === "en" ? en : bs;
+  const td = t?.departures ?? fallback.departures;
+  const tc = { ...fallback.common, ...(t?.common ?? {}) };
   const formId = useId();
   const submitLock = useRef(false);
   const [saveError, setSaveError] = useState(false);
@@ -100,7 +105,7 @@ export default function DepartureFormModal({
         {/* Basic fields */}
         <div className="space-y-4">
           <div>
-            <label htmlFor={`${formId}-package`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paket <span className="text-error-500">*</span></label>
+            <label htmlFor={`${formId}-package`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{td.package} <span className="text-error-500">*</span></label>
             <Select
               id={`${formId}-package`}
               required
@@ -111,47 +116,47 @@ export default function DepartureFormModal({
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor={`${formId}-depart`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Polazak <span className="text-error-500">*</span></label>
+              <label htmlFor={`${formId}-depart`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{td.departureDate} <span className="text-error-500">*</span></label>
               <Input id={`${formId}-depart`} required type="datetime-local" value={departAt} onChange={(e: any) => setDepartAt(e.target.value)} />
             </div>
             <div>
-              <label htmlFor={`${formId}-return`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Povratak <span className="text-error-500">*</span></label>
+              <label htmlFor={`${formId}-return`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{td.returnDate} <span className="text-error-500">*</span></label>
               <Input id={`${formId}-return`} required min={departAt || undefined} type="datetime-local" value={returnAt} onChange={(e: any) => setReturnAt(e.target.value)} />
             </div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <label htmlFor={`${formId}-capacity`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kapacitet <span className="text-error-500">*</span></label>
+              <label htmlFor={`${formId}-capacity`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{td.capacity} <span className="text-error-500">*</span></label>
               <Input id={`${formId}-capacity`} required min={1} type="number" value={capacity === "" ? "" : String(capacity)} onChange={(e: any) => setCapacity(e.target.value === "" ? "" : Number(e.target.value))} />
             </div>
             <div>
-              <label htmlFor={`${formId}-booked`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Zauzeto</label>
+              <label htmlFor={`${formId}-booked`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{td.booked}</label>
               <Input id={`${formId}-booked`} min={0} max={capacity === "" ? undefined : capacity} type="number" value={booked === "" ? "" : String(booked)} onChange={(e: any) => setBooked(e.target.value === "" ? "" : Number(e.target.value))} />
             </div>
             <div>
-              <label htmlFor={`${formId}-status`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+              <label htmlFor={`${formId}-status`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{td.status}</label>
               <Select
                 id={`${formId}-status`}
                 value={status}
                 onChange={setStatus}
                 options={[
-                  { value: "active", label: "Aktivan" },
-                  { value: "cancelled", label: "Otkazan" },
-                  { value: "completed", label: "Završen" },
+                  { value: "active", label: td.active },
+                  { value: "cancelled", label: td.cancelled },
+                  { value: "completed", label: td.completed },
                 ]}
               />
             </div>
           </div>
           <div>
-            <label htmlFor={`${formId}-transport`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prijevoz</label>
+            <label htmlFor={`${formId}-transport`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{td.transport}</label>
             <Select
               id={`${formId}-transport`}
               value={transportType}
               onChange={setTransportType}
               options={[
-                { value: "none", label: "Bez prijevoza" },
-                { value: "bus", label: "Autobus" },
-                { value: "flight", label: "Avion" },
+                { value: "none", label: td.transportNone },
+                { value: "bus", label: td.transportBus },
+                { value: "flight", label: td.transportFlight },
               ]}
             />
           </div>
@@ -160,10 +165,10 @@ export default function DepartureFormModal({
         {/* Traveler requirements section */}
         <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
           <div className="mb-4">
-            <h4 className="text-base font-semibold text-gray-900 dark:text-white">Podaci putnika</h4>
+            <h4 className="text-base font-semibold text-gray-900 dark:text-white">{td.travelerDataTitle}</h4>
             {selectedPackage && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Pravila paketa{selectedPackage.travelerRequirements?.documentType != null ? (() => { const dt = selectedPackage.travelerRequirements.documentType; return ': ' + (dt === 'none' ? 'Nije potreban' : dt === 'passport' ? 'Pasoš' : dt === 'id_card' ? 'Lična karta' : '—'); })() : ': Automatska pravila'}
+                {td.packageRules}{selectedPackage.travelerRequirements?.documentType != null ? (() => { const dt = selectedPackage.travelerRequirements.documentType; return ': ' + (dt === 'none' ? td.docNone : dt === 'passport' ? td.docPassport : dt === 'id_card' ? td.docIdCard : '—'); })() : `: ${td.automaticRules}`}
               </p>
             )}
           </div>
@@ -178,7 +183,7 @@ export default function DepartureFormModal({
                 onChange={() => setTravelerMode("inherit")}
                 className="h-4 w-4 text-brand-500"
               />
-              <span className="text-sm text-gray-700 dark:text-gray-300">Koristi pravila paketa</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{td.usePackageRules}</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -189,13 +194,13 @@ export default function DepartureFormModal({
                 onChange={() => setTravelerMode("override")}
                 className="h-4 w-4 text-brand-500"
               />
-              <span className="text-sm text-gray-700 dark:text-gray-300">Prilagodi za ovaj polazak</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{td.overrideForDeparture}</span>
             </label>
           </div>
 
           {travelerMode === "inherit" && selectedPackage?.travelerRequirements && (
             <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 p-3 text-xs text-gray-600 dark:text-gray-400">
-              Koriste se pravila paketa: {selectedPackage.travelerRequirements.documentType === 'none' ? 'Dokument nije potreban' : selectedPackage.travelerRequirements.documentType === 'passport' ? 'Pasoš' : 'Lična karta'}
+              {td.usingPackageRulesPrefix} {selectedPackage.travelerRequirements.documentType === 'none' ? td.docNoneFull : selectedPackage.travelerRequirements.documentType === 'passport' ? td.docPassport : td.docIdCard}
             </div>
           )}
 
@@ -205,14 +210,14 @@ export default function DepartureFormModal({
         </div>
 
         {saveError && <p role="alert" className="rounded-lg bg-error-50 p-3 text-sm text-error-700 dark:bg-error-500/10 dark:text-error-400">
-          {lang === "bs" ? "Polazak nije sačuvan. Uneseni podaci su zadržani; pokušajte ponovo." : "Departure could not be saved. Your entries are preserved; please retry."}
+          {td.saveErrorPreserved}
         </p>}
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
           <Button type="button" variant="outline" onClick={closeForm} disabled={submitting || loading}>
-            Odustani
+            {tc.cancel}
           </Button>
           <Button type="submit" disabled={submitting || loading}>
-            {editingDeparture ? "Sačuvaj" : "Dodaj"}
+            {editingDeparture ? tc.save : tc.add}
           </Button>
         </div>
         </fieldset>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useQueryParams } from "../../hooks/useQueryParams";
 import PageMeta from "../../components/common/PageMeta";
@@ -7,6 +7,7 @@ import { DataTable, Column, Pagination } from "../../components/ui/DataTable";
 import EmptyState from "../../components/ui/EmptyState";
 import Badge from "../../components/ui/badge/Badge";
 import { useToast } from "../../context/ToastContext";
+import { useT } from "../../lib/i18n/context";
 import { formatDate, getDepartureStatus } from "../../utils/business";
 import Button from "../../components/ui/button/Button";
 import DepartureFormModal from "../../components/departures/DepartureFormModal";
@@ -28,21 +29,23 @@ const ITEMS_PER_PAGE = 10;
 
 type ViewMode = "table" | "calendar";
 
-const STATUS_LABELS: Record<string, string> = {
-  active: "Aktivan",
-  cancelled: "Otkazan",
-  completed: "Završen",
-};
-
 export default function Departures() {
   const navigate = useNavigate();
   const { getParam, setParams } = useQueryParams();
   const { error: showError, success: showSuccess } = useToast();
+  const { t, lang } = useT();
+  const td = t.departures;
+  const locale = lang === "bs" ? "bs-BA" : "en-GB";
+  const showErrorRef = useRef(showError);
+  showErrorRef.current = showError;
+  const tdRef = useRef(td);
+  tdRef.current = td;
   const [departures, setDepartures] = useState<Departure[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingDeparture, setEditingDeparture] = useState<Departure | null>(null);
@@ -59,6 +62,12 @@ export default function Departures() {
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
+  const statusLabels: Record<string, string> = {
+    active: td.active,
+    cancelled: td.cancelled,
+    completed: td.completed,
+  };
+
   const fetchPackages = async () => {
     try {
       const response = await getPackages({ limit: 100 });
@@ -70,6 +79,7 @@ export default function Departures() {
 
   const fetchDepartures = useCallback(async (page = 1, mode?: ViewMode) => {
     setLoading(true);
+    setLoadError(false);
     const activeMode = mode || viewMode;
     try {
       const filters: DepartureFilters = {
@@ -88,11 +98,12 @@ export default function Departures() {
       setCurrentPage(page);
     } catch (err: any) {
       console.error('Failed to fetch departures:', err);
-      showError('Failed to load departures');
+      setLoadError(true);
+      showErrorRef.current(tdRef.current.loadError);
     } finally {
       setLoading(false);
     }
-  }, [packageId, dateFrom, dateTo, statusFilter, searchQuery, showError, viewMode]);
+  }, [packageId, dateFrom, dateTo, statusFilter, searchQuery, viewMode]);
 
   useEffect(() => {
     fetchPackages();
@@ -160,13 +171,13 @@ export default function Departures() {
   };
 
   const handleDelete = async (dep: Departure) => {
-    if (!confirm(`Jeste li sigurni da želite obrisati polazak za "${dep.packageName}"?`)) return;
+    if (!confirm(td.confirmDeleteMessage.replace("{name}", dep.packageName || ""))) return;
     try {
       await deleteDeparture(dep.id);
-      showSuccess('Polazak obrisan');
+      showSuccess(td.deleteSuccess);
       fetchDepartures(currentPage);
     } catch {
-      showError('Brisanje polaska nije uspjelo');
+      showError(td.deleteError);
     }
   };
 
@@ -175,10 +186,10 @@ export default function Departures() {
     if (newBooked === dep.booked) return;
     try {
       await updateDeparture(dep.id, { booked: newBooked });
-      showSuccess(`Zauzetost ažurirana: ${dep.booked} → ${newBooked}`);
+      showSuccess(td.occupancyUpdated.replace("{from}", String(dep.booked)).replace("{to}", String(newBooked)));
       fetchDepartures(currentPage);
     } catch {
-      showError('Greška pri ažuriranju zauzetosti');
+      showError(td.occupancyUpdateError);
     }
   };
 
@@ -222,14 +233,14 @@ export default function Departures() {
   const columns: Column<Departure>[] = [
     {
       key: 'packageName',
-      header: 'Paket',
+      header: td.package,
       render: (_, departure) => (
         <div className="min-w-[160px]">
           <button
             type="button"
             onClick={() => navigate(`/departures/${departure.id}`)}
             className="text-left font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 hover:underline"
-            title="Otvori detalje polaska"
+            title={td.openDetails}
           >
             {departure.packageName}
           </button>
@@ -239,25 +250,25 @@ export default function Departures() {
     },
     {
       key: 'depart_at',
-      header: 'Polazak',
+      header: td.departureDate,
       render: (val) => (
         <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-          {formatDate(val as string)}
+          {formatDate(val as string, locale)}
         </span>
       )
     },
     {
       key: 'return_at',
-      header: 'Povratak',
+      header: td.returnDate,
       render: (val) => (
         <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-          {formatDate(val as string)}
+          {formatDate(val as string, locale)}
         </span>
       )
     },
     {
       key: 'capacity',
-      header: 'Popunjenost',
+      header: td.occupancy,
       render: (_, departure) => {
         const capacityInfo = getDepartureStatus(departure.booked, departure.capacity);
         const occupancy = departure.capacity > 0
@@ -275,9 +286,9 @@ export default function Departures() {
                 {departure.booked} / {departure.capacity}
               </span>
               <Badge size="sm" color={capacityInfo.level as any} variant="light">
-                {capacityInfo.status === 'FULL' ? 'PUN' :
-                 capacityInfo.status === 'ALMOST FULL' ? 'SKORO PUN' :
-                 capacityInfo.status === 'FILLING' ? 'POPUNJAVA SE' : 'DOSTUPAN'}
+                {capacityInfo.status === 'FULL' ? td.full :
+                 capacityInfo.status === 'ALMOST FULL' ? td.almostFull :
+                 capacityInfo.status === 'FILLING' ? td.filling : td.available}
               </Badge>
             </div>
             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
@@ -288,19 +299,23 @@ export default function Departures() {
             </div>
             <div className="flex items-center gap-1 mt-1.5">
               <button
+                type="button"
                 onClick={() => handleQuickBooked(departure, -1)}
                 disabled={departure.booked <= 0}
                 className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold"
-                title="Smanji zauzetost"
+                title={td.decreaseBooked}
+                aria-label={td.decreaseBooked}
               >−</button>
               <span className="text-[11px] text-gray-500 dark:text-gray-400 mx-1">
                 {Math.round(occupancy * 100)}%
               </span>
               <button
+                type="button"
                 onClick={() => handleQuickBooked(departure, +1)}
                 disabled={departure.booked >= departure.capacity}
                 className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold"
-                title="Povećaj zauzetost"
+                title={td.increaseBooked}
+                aria-label={td.increaseBooked}
               >+</button>
             </div>
           </div>
@@ -309,10 +324,10 @@ export default function Departures() {
     },
     {
       key: 'status',
-      header: 'Status',
+      header: td.status,
       render: (val) => (
         <Badge size="sm" color={getStatusBadgeColor(val as string)} variant="light">
-          {STATUS_LABELS[val as string] || (val as string)}
+          {statusLabels[val as string] || (val as string)}
         </Badge>
       )
     },
@@ -322,10 +337,10 @@ export default function Departures() {
       render: (_, dep) => (
         <div className="flex gap-1.5 justify-end">
           <Button size="sm" variant="outline" onClick={() => handleEdit(dep)} className="px-2.5 py-1 text-xs">
-            Uredi
+            {t.common.edit}
           </Button>
           <Button size="sm" variant="outline" onClick={() => handleDelete(dep)} className="px-2.5 py-1 text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
-            Obriši
+            {t.common.delete}
           </Button>
         </div>
       )
@@ -334,20 +349,21 @@ export default function Departures() {
 
   return (
     <>
-      <PageMeta title="Polasci | Travline" description="Upravljanje polascima i kapacitetima" />
+      <PageMeta title={`${td.title} | Travline`} description={td.description} />
       <PageToolbar
-        title="Polasci"
-        description="Upravljanje polascima, kapacitetima i terminima"
+        title={td.title}
+        description={td.description}
         searchValue={searchQuery}
         onSearchChange={(query) => setSearchQuery(query)}
-        searchPlaceholder="Traži polaske..."
-        createButton={{ label: "Dodaj polazak", onClick: handleCreate }}
+        searchPlaceholder={td.search}
+        createButton={{ label: td.add, onClick: handleCreate }}
       />
 
       {/* View Toggle + Filters Row */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           <button
+            type="button"
             onClick={() => handleViewChange("table")}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
               viewMode === "table"
@@ -356,9 +372,10 @@ export default function Departures() {
             }`}
           >
             <TableIcon className="w-4 h-4" />
-            Tabela
+            {td.table}
           </button>
           <button
+            type="button"
             onClick={() => handleViewChange("calendar")}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
               viewMode === "calendar"
@@ -367,7 +384,7 @@ export default function Departures() {
             }`}
           >
             <CalenderIcon className="w-4 h-4" />
-            Kalendar
+            {td.calendar}
           </button>
         </div>
       </div>
@@ -377,34 +394,37 @@ export default function Departures() {
           {/* Filters */}
           <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-white dark:bg-white/[0.03] p-4 rounded-xl border border-gray-200 dark:border-white/[0.05]">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paket</label>
+              <label htmlFor="departures-filter-package" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{td.filterPackage}</label>
               <select
+                id="departures-filter-package"
                 value={packageId}
                 onChange={(e) => setPackageId(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/[0.1] dark:bg-gray-900 dark:text-white"
               >
-                <option value="">Svi paketi</option>
+                <option value="">{td.allPackages}</option>
                 {packages.map((pkg) => (
                   <option key={pkg.id} value={pkg.id}>{pkg.name}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+              <label htmlFor="departures-filter-status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{td.status}</label>
               <select
+                id="departures-filter-status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/[0.1] dark:bg-gray-900 dark:text-white"
               >
-                <option value="">Svi statusi</option>
-                <option value="active">Aktivan</option>
-                <option value="completed">Završen</option>
-                <option value="cancelled">Otkazan</option>
+                <option value="">{td.allStatuses}</option>
+                <option value="active">{td.active}</option>
+                <option value="completed">{td.completed}</option>
+                <option value="cancelled">{td.cancelled}</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Od</label>
+              <label htmlFor="departures-filter-from" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{td.filterDateFrom}</label>
               <input
+                id="departures-filter-from"
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
@@ -412,8 +432,9 @@ export default function Departures() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Do</label>
+              <label htmlFor="departures-filter-to" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{td.filterDateTo}</label>
               <input
+                id="departures-filter-to"
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
@@ -426,11 +447,16 @@ export default function Departures() {
             <div className="flex items-center justify-center p-20">
               <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
             </div>
+          ) : loadError ? (
+            <div className="rounded-xl border border-error-200 bg-error-50 p-6 dark:border-error-500/30 dark:bg-error-500/10">
+              <p role="alert" className="mb-4 text-sm text-error-700 dark:text-error-300">{td.loadError}</p>
+              <Button variant="outline" onClick={() => void fetchDepartures(currentPage)}>{td.retryLoad}</Button>
+            </div>
           ) : departures.length === 0 ? (
             <EmptyState
-              title="Nema polazaka"
-              description="Nije pronađen nijedan polazak za odabrane filtere."
-              action={(packageId || dateFrom || dateTo || statusFilter) ? { label: "Očisti filtere", onClick: () => { setPackageId(""); setDateFrom(""); setDateTo(""); setStatusFilter(""); } } : undefined}
+              title={td.noDepartures}
+              description={td.noDeparturesFiltered}
+              action={(packageId || dateFrom || dateTo || statusFilter) ? { label: td.clearFilters, onClick: () => { setPackageId(""); setDateFrom(""); setDateTo(""); setStatusFilter(""); } } : undefined}
             />
           ) : (
             <>
@@ -450,13 +476,20 @@ export default function Departures() {
       )}
 
       {viewMode === "calendar" && (
-        <DepartureCalendarView departures={departures} loading={loading} />
+        loadError ? (
+          <div className="rounded-xl border border-error-200 bg-error-50 p-6 dark:border-error-500/30 dark:bg-error-500/10">
+            <p role="alert" className="mb-4 text-sm text-error-700 dark:text-error-300">{td.loadError}</p>
+            <Button variant="outline" onClick={() => void fetchDepartures(currentPage, "calendar")}>{td.retryLoad}</Button>
+          </div>
+        ) : (
+          <DepartureCalendarView departures={departures} loading={loading} />
+        )
       )}
 
       <DepartureFormModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editingDeparture ? 'Uredi polazak' : 'Dodaj polazak'}
+        title={editingDeparture ? td.edit : td.add}
         packages={packages}
         editingDeparture={editingDeparture}
         onSubmit={handleSubmit}
