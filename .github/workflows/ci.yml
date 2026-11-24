@@ -97,6 +97,11 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
+      - name: Scan admin bundle for server-side secrets
+        run: node ../scripts/check-bundle-secrets.cjs dist
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
   test-admin:
     name: Test Admin
     runs-on: ubuntu-latest
@@ -116,6 +121,29 @@ jobs:
       - run: npm ci
 
       - run: npm test
+
+  deployment-safety:
+    name: Deployment Environment Isolation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: |
+            nmt-analytics-api/package-lock.json
+            nmt-analytics-admin/package-lock.json
+
+      - name: Unit-test deployment guard and bundle scanner
+        run: node --test scripts/deployment-env.test.cjs scripts/check-bundle-secrets.test.cjs
+
+      - run: npm ci --prefix nmt-analytics-api
+      - run: npm ci --prefix nmt-analytics-admin
+
+      - name: Rehearse Vercel builds per target (synthetic values only)
+        run: bash scripts/ci-deployment-safety.sh
 
   migration-replay:
     name: Migration Replay
