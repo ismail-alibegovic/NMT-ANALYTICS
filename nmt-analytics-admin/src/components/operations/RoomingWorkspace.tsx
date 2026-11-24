@@ -31,7 +31,7 @@ type AssignTarget = {
 
 export default function RoomingWorkspace({ departureId, passengers }: Props) {
   const { t } = useT();
-  const rm = t?.departures?.rooming ?? {
+  const rm = t?.departures?.rooming ?? t?.operations?.rooming ?? {
     loading: 'Loading accommodation…',
     unavailable: 'Accommodation data unavailable',
     unassigned: 'Unassigned passengers',

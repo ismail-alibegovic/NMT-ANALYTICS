@@ -1,5 +1,6 @@
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
+import { useT } from "../../lib/i18n/context";
 
 interface DonutChartProps {
   title: string;
@@ -13,6 +14,8 @@ interface DonutChartProps {
 const defaultColors = ["#12B76A", "#F79009", "#F04438", "#667085", "#475467"];
 
 export default function DonutChart({ title, subtitle, labels, series, colors, loading }: DonutChartProps) {
+  const { t, lang } = useT();
+  const locale = lang === "en" ? "en-GB" : "bs-BA";
   const hasData = series.length > 0 && series.some(v => v > 0);
 
   const options: ApexOptions = {
@@ -46,17 +49,17 @@ export default function DonutChart({ title, subtitle, labels, series, colors, lo
               color: "#101828",
               formatter: (val: string) => {
                 const n = parseFloat(val);
-                return isNaN(n) ? val : n.toLocaleString();
+                return isNaN(n) ? val : n.toLocaleString(locale);
               },
             },
             total: {
               show: true,
-              label: "Total",
+              label: t.common.total,
               fontSize: "14px",
               color: "#6B7280",
               formatter: (w: any) => {
                 const totals = w?.globals?.seriesTotals;
-                return totals ? totals.reduce((a: number, b: number) => a + b, 0).toLocaleString() : "0";
+                return totals ? totals.reduce((a: number, b: number) => a + b, 0).toLocaleString(locale) : "0";
               },
             },
           },
@@ -68,7 +71,7 @@ export default function DonutChart({ title, subtitle, labels, series, colors, lo
       enabled: true,
       theme: "light",
       y: {
-        formatter: (val: number) => val.toLocaleString(),
+        formatter: (val: number) => val.toLocaleString(locale),
       },
     },
     responsive: [{
@@ -98,7 +101,7 @@ export default function DonutChart({ title, subtitle, labels, series, colors, lo
         <Chart options={options} series={series} type="donut" height={340} />
       ) : (
         <div className="h-[310px] flex flex-col items-center justify-center text-center">
-          <p className="text-sm text-gray-500 dark:text-gray-400">No payment data yet</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t.common.noPaymentData}</p>
         </div>
       )}
     </div>

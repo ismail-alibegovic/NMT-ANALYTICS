@@ -6,7 +6,7 @@ import { bookQuotation, getQuotation, getQuotationBookingOptions, type Quotation
 import { useT } from '../../lib/i18n/context';
 
 export default function QuotationBookingPanel({quotation:q}:{quotation:Quotation}){
-  const {t}=useT();const c=t.quotations;
+  const {t, lang}=useT();const locale=lang==='en'?'en-GB':'bs-BA';const c=t.quotations;
   const [saved,setSaved]=useState(q.booking || null);
   const [open,setOpen]=useState(false);const [loading,setLoading]=useState(false);const [saving,setSaving]=useState(false);
   const [choices,setChoices]=useState<QuotationBookingDeparture[]>([]);
@@ -56,7 +56,7 @@ export default function QuotationBookingPanel({quotation:q}:{quotation:Quotation
     <p className="mt-2 text-sm text-gray-500">{c.bookingOperational}</p>
     <Modal isOpen={open} onClose={()=>{if(!saving)setOpen(false);}} className="m-4 max-w-xl" title={c.bookQuote}>
       <form onSubmit={e=>{e.preventDefault();void save();}} className="grid max-h-[80vh] gap-4 overflow-y-auto p-6">
-        <p className="font-semibold">{c.sellTotal}: {q.sellTotal.toLocaleString()} {q.currency} · {c.travelers}: {travelers}</p>
+        <p className="font-semibold">{c.sellTotal}: {q.sellTotal.toLocaleString(locale)} {q.currency} · {c.travelers}: {travelers}</p>
         {loading?<p role="status">{c.bookingLoading}</p>:choices.length===0?(!error?<p>{c.bookingNoDepartures}</p>:null):<label className="grid min-w-0 gap-1 text-sm">{c.bookingDeparture}
           <select required value={departureId} onChange={e=>setDepartureId(e.target.value)} className="min-w-0 w-full rounded-lg border border-gray-300 p-2 dark:border-gray-700 dark:bg-gray-900">
             <option value="">{c.bookingSelectDeparture}</option>

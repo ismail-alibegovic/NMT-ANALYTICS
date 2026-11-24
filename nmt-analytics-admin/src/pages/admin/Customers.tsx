@@ -54,8 +54,8 @@ export default function Customers() {
       setTotalItems(response.total || 0);
       setCurrentPage(page);
     } catch (err: any) {
-      setError(err.message || 'Failed to load customers');
-      showError('Failed to load customers');
+      setError(err.message || t.customers.loadError);
+      showError(t.customers.loadError);
     } finally {
       setLoading(false);
     }
@@ -123,7 +123,7 @@ export default function Customers() {
   };
 
   const handleDelete = async (customer: Customer) => {
-    if (!confirm(t.customers.deleteConfirm || `Are you sure you want to delete ${customer.full_name}?`)) return;
+    if (!confirm(t.customers.deleteConfirm)) return;
     try {
       await deleteCustomer(customer.id);
       showSuccess(t.customers.deleteSuccess);
@@ -178,11 +178,21 @@ export default function Customers() {
     {
       key: 'status',
       header: t.common.status,
-      render: (val) => (
-        <Badge color={getStatusColor(val as string)} variant="light" size="sm">
-          {(val as string)?.charAt(0).toUpperCase() + (val as string)?.slice(1)}
-        </Badge>
-      )
+      render: (val) => {
+        const status = String(val || '');
+        const label = status === 'active'
+          ? t.customers.active
+          : status === 'lead'
+            ? t.customers.lead
+            : status === 'archived'
+              ? t.customers.archived
+              : status;
+        return (
+          <Badge color={getStatusColor(status)} variant="light" size="sm">
+            {label}
+          </Badge>
+        );
+      }
     },
     {
       key: 'actions', header: t.common.actions, render: (_, customer) => (
@@ -213,11 +223,11 @@ export default function Customers() {
     { name: 'notes', label: t.customers.notes, type: 'text' as const },
   ];
 
-  if (!authLoading && !user) return <div className="p-6"><EmptyState title="Auth Required" description="Please sign in" /></div>;
+  if (!authLoading && !user) return <div className="p-6"><EmptyState title={t.common.authRequired} description={t.common.pleaseSignIn} /></div>;
 
   return (
     <>
-      <PageMeta title="Customers | Travline" description="Manage your customer database" />
+      <PageMeta title={t.customers.metaTitle} description={t.customers.metaDescription} />
       <PageToolbar
         title={t.customers.title}
         description={t.customers.description}
@@ -267,7 +277,7 @@ export default function Customers() {
         </div>
         {packageFilter && (
           <p className="text-xs text-gray-500 mt-2">
-            Prikazani su klijenti koji imaju rezervaciju za odabrani aranžman.
+            {t.customers.filteredByPackageHint}
           </p>
         )}
       </div>
@@ -278,10 +288,10 @@ export default function Customers() {
         </div>
       ) : error ? (
         <div className="p-6">
-          <EmptyState title="Failed to load customers" description={error} action={{ label: "Try Again", onClick: () => fetchCustomers(currentPage, searchTerm, packageFilter) }} />
+          <EmptyState title={t.customers.loadError} description={error} action={{ label: t.common.tryAgain, onClick: () => fetchCustomers(currentPage, searchTerm, packageFilter) }} />
         </div>
       ) : customers.length === 0 ? (
-        <EmptyState title="No customers found" description={searchTerm ? "Try searching for something else" : "Get started by adding your first customer"} action={!searchTerm ? { label: "Add Customer", onClick: handleCreate } : undefined} />
+        <EmptyState title={t.customers.noCustomers} description={searchTerm ? t.customers.emptySearchDescription : t.customers.emptyFirstDescription} action={!searchTerm ? { label: t.customers.add, onClick: handleCreate } : undefined} />
       ) : (
         <>
           <DataTable data={customers} columns={columns} />
