@@ -106,9 +106,9 @@ export function formatCurrency(amount: number | null | undefined, currency = 'BA
 /**
  * Formats dates consistently.
  */
-export function formatDate(dateString: string): string {
+export function formatDate(dateString: string, locale?: string): string {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('bs-BA');
+    return new Date(dateString).toLocaleDateString(locale || 'bs-BA');
 }
 
 /**

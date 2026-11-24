@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router';
 import PageMeta from '../../components/common/PageMeta';
 import { DataTable, Column, Pagination } from '../../components/ui/DataTable';
@@ -22,31 +22,39 @@ import { formatDate } from '../../utils/business';
 import { useT } from '../../lib/i18n';
 
 const ITEMS_PER_PAGE = 10;
+type UploadErrorKind = 'too_large' | 'failed' | null;
 
 export default function Documents() {
-    const { t } = useT();
+    const { t, lang } = useT();
+    const locale = lang === 'en' ? 'en-US' : 'bs-BA';
     const { success: showSuccess, error: showError } = useToast();
     const { user, loading: authLoading } = useApp();
     const { getParam, setParams } = useQueryParams();
+
+    const showErrorRef = useRef(showError);
+    showErrorRef.current = showError;
+    const loadErrorTextRef = useRef(t.documents.loadError);
+    loadErrorTextRef.current = t.documents.loadError;
+
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [loadError, setLoadError] = useState(false);
     const [totalItems, setTotalItems] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [uploading, setUploading] = useState(false);
     const uploadLock = useRef(false);
     const [uploadDraft, setUploadDraft] = useState<File | null>(null);
-    const [uploadError, setUploadError] = useState('');
+    const [uploadErrorKind, setUploadErrorKind] = useState<UploadErrorKind>(null);
     const deleteLock = useRef(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
-    const fetchDocuments = async (page = 1, search = '') => {
+    const fetchDocuments = useCallback(async (page = 1, search = '') => {
         setLoading(true);
-        setError(null);
+        setLoadError(false);
         try {
             const params: any = { page, limit: ITEMS_PER_PAGE };
             if (search) params.search = search;
@@ -63,46 +71,47 @@ export default function Documents() {
             setCurrentPage(page);
         } catch (err: any) {
             console.error('Fetch error:', err);
-            setError(err.message || 'Failed to load documents');
-            showError('Failed to load documents');
-            setDocuments([]); // Prevent crash
+            setLoadError(true);
+            showErrorRef.current(loadErrorTextRef.current);
+            setDocuments([]);
             setTotalItems(0);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
+    const userId = user?.id;
     useEffect(() => {
-        if (user && !authLoading) {
+        if (userId && !authLoading) {
             const page = parseInt(getParam('page', '1')) || 1;
             const q = getParam('q', '') || '';
             setCurrentPage(page);
             setSearchTerm(q);
-            fetchDocuments(page, q);
+            void fetchDocuments(page, q);
         } else if (!authLoading) {
             setLoading(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user, authLoading]);
+    }, [userId, authLoading, fetchDocuments]);
 
     useEffect(() => {
-        if (user && !authLoading) {
+        if (userId && !authLoading) {
             setParams({
                 page: currentPage > 1 ? currentPage : null,
                 q: searchTerm || null,
             });
         }
-    }, [currentPage, searchTerm, user, authLoading, setParams]);
+    }, [currentPage, searchTerm, userId, authLoading, setParams]);
 
     const handleSearch = (value: string) => {
         setSearchTerm(value);
         setCurrentPage(1);
-        fetchDocuments(1, value);
+        void fetchDocuments(1, value);
     };
 
     const handlePageChange = (page: number) => {
         setCurrentPage(page);
-        fetchDocuments(page, searchTerm);
+        void fetchDocuments(page, searchTerm);
     };
 
     const handleUploadClick = () => {
@@ -111,19 +120,30 @@ export default function Documents() {
 
     const saveUpload = async (file: File) => {
         if (uploadLock.current) return;
-        setUploadDraft(file); setUploadError('');
-        if (file.size > 5 * 1024 * 1024) { setUploadError(t.documents.fileTooLarge); return; }
-        uploadLock.current = true; setUploading(true);
-        const formData = new FormData(); formData.append('file', file);
+        setUploadDraft(file);
+        setUploadErrorKind(null);
+        if (file.size > 5 * 1024 * 1024) {
+            setUploadErrorKind('too_large');
+            return;
+        }
+        uploadLock.current = true;
+        setUploading(true);
+        const formData = new FormData();
+        formData.append('file', file);
         try {
             await uploadDocument(formData);
-            showSuccess(t.documents.uploadSuccess); setUploadDraft(null);
+            showSuccess(t.documents.uploadSuccess);
+            setUploadDraft(null);
             if (fileInputRef.current) fileInputRef.current.value = '';
             void fetchDocuments(1, searchTerm);
-        } catch (err: unknown) {
-            setUploadError((err as {message?:string}).message || t.documents.uploadError);
-        } finally { uploadLock.current = false; setUploading(false); }
+        } catch {
+            setUploadErrorKind('failed');
+        } finally {
+            uploadLock.current = false;
+            setUploading(false);
+        }
     };
+
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) void saveUpload(file);
@@ -140,22 +160,26 @@ export default function Documents() {
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
-        } catch (err: any) {
+        } catch {
             showError(t.documents.downloadError);
         }
     };
 
     const handleDelete = async (doc: Document) => {
         if (deleteLock.current) return;
-        if (!confirm(t.documents.deleteConfirm || `Are you sure you want to delete "${doc.name}"?`)) return;
-        deleteLock.current = true; setDeletingId(doc.id);
+        if (!confirm(t.documents.deleteConfirm)) return;
+        deleteLock.current = true;
+        setDeletingId(doc.id);
         try {
             await deleteDocument(doc.id);
             showSuccess(t.documents.deleteSuccess);
-            fetchDocuments(currentPage, searchTerm);
-        } catch (err: any) {
+            void fetchDocuments(currentPage, searchTerm);
+        } catch {
             showError(t.documents.deleteError);
-        } finally { deleteLock.current = false; setDeletingId(null); }
+        } finally {
+            deleteLock.current = false;
+            setDeletingId(null);
+        }
     };
 
     const formatSize = (bytes: number) => {
@@ -165,6 +189,12 @@ export default function Documents() {
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
+
+    const uploadErrorText = uploadErrorKind === 'too_large'
+        ? t.documents.fileTooLarge
+        : uploadErrorKind === 'failed'
+            ? t.documents.uploadError
+            : null;
 
     const columns: Column<Document>[] = [
         {
@@ -201,8 +231,8 @@ export default function Documents() {
             key: 'type',
             header: t.documents.type,
             render: (val) => {
-                const parts = (val as string).split('/');
-                return parts[parts.length - 1].toUpperCase();
+                const parts = String(val || '').split('/');
+                return (parts[parts.length - 1] || '').toUpperCase();
             }
         },
         {
@@ -212,18 +242,18 @@ export default function Documents() {
         },
         {
             key: 'uploaded_by',
-            header: 'Uploaded By',
+            header: t.documents.uploadedBy,
             render: (_, doc) => (
                 <div className="flex flex-col">
-                    <span className="text-sm font-medium">{doc.profiles?.full_name || 'System'}</span>
-                    <span className="text-xs text-gray-500">{doc.profiles?.email || 'automated'}</span>
+                    <span className="text-sm font-medium">{doc.profiles?.full_name || t.documents.systemActor}</span>
+                    <span className="text-xs text-gray-500">{doc.profiles?.email || t.documents.automatedActor}</span>
                 </div>
             )
         },
         {
             key: 'created_at',
             header: t.documents.uploadedAt,
-            render: (val) => formatDate(val as string)
+            render: (val) => formatDate(val as string, locale)
         },
         {
             key: 'actions',
@@ -234,7 +264,8 @@ export default function Documents() {
                         size="sm"
                         variant="outline"
                         title={`${t.common.download} ${doc.name}`}
-                        onClick={() => handleDownload(doc)}
+                        aria-label={`${t.common.download} ${doc.name}`}
+                        onClick={() => void handleDownload(doc)}
                         className="p-2"
                     >
                         <DownloadIcon className="w-4 h-4" />
@@ -242,8 +273,10 @@ export default function Documents() {
                     <Button
                         size="sm"
                         variant="outline"
-                        title={`${t.common.delete} ${doc.name}`} disabled={deletingId === doc.id}
-                        onClick={() => handleDelete(doc)}
+                        title={`${t.common.delete} ${doc.name}`}
+                        aria-label={`${t.common.delete} ${doc.name}`}
+                        disabled={deletingId === doc.id}
+                        onClick={() => void handleDelete(doc)}
                         className="p-2 text-red-600 hover:text-red-700"
                     >
                         <TrashBinIcon className="w-4 h-4" />
@@ -253,15 +286,18 @@ export default function Documents() {
         },
     ];
 
-    if (!authLoading && !user) return <div className="p-6"><EmptyState title="Auth Required" description="Please sign in" /></div>;
+    if (!authLoading && !user) {
+        return <div className="p-6"><EmptyState title={t.documents.authRequiredTitle} description={t.documents.authRequiredDesc} /></div>;
+    }
 
     return (
         <>
-            <PageMeta title="Documents | Travline" description="Manage and store important files and documents" />
+            <PageMeta title={`${t.documents.title} | Travline`} description={t.documents.pageDescription} />
 
             <input
                 type="file"
-                aria-label={t.documents.upload} disabled={uploading}
+                aria-label={t.documents.upload}
+                disabled={uploading}
                 ref={fileInputRef}
                 onChange={handleFileChange}
                 className="hidden"
@@ -274,7 +310,7 @@ export default function Documents() {
             <PageToolbar
                 title={t.documents.title}
                 description={t.documents.description}
-                searchPlaceholder={t.common.search + '...'}
+                searchPlaceholder={`${t.common.search}...`}
                 searchValue={searchTerm}
                 onSearchChange={handleSearch}
                 actions={
@@ -294,19 +330,31 @@ export default function Documents() {
                 }
             />
 
-            {uploadError && <div role="alert" className="mb-4 space-y-3 rounded-lg border border-error-200 p-4 text-sm text-error-600 dark:border-error-800 dark:text-error-400"><p>{uploadError}</p>{uploadDraft && <><p className="break-words">{uploadDraft.name}</p><Button disabled={uploading || uploadDraft.size > 5 * 1024 * 1024} onClick={()=>void saveUpload(uploadDraft)}>{t.documents.retryUpload}</Button></>}</div>}
+            {uploadErrorText && (
+                <div role="alert" className="mb-4 space-y-3 rounded-lg border border-error-200 p-4 text-sm text-error-600 dark:border-error-800 dark:text-error-400">
+                    <p>{uploadErrorText}</p>
+                    {uploadDraft && (
+                        <>
+                            <p className="break-words">{uploadDraft.name}</p>
+                            <Button disabled={uploading || uploadDraft.size > 5 * 1024 * 1024} onClick={() => void saveUpload(uploadDraft)}>
+                                {t.documents.retryUpload}
+                            </Button>
+                        </>
+                    )}
+                </div>
+            )}
 
             <div className="mb-6 flex flex-col items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20 sm:flex-row sm:items-center">
                 <DocsIcon className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
                 <div className="flex-1">
-                    <p className="text-sm font-medium text-blue-900 dark:text-blue-200">PDF Templates are managed in Settings</p>
-                    <p className="text-xs text-blue-700 dark:text-blue-300">Use Settings to configure invoice, voucher, contract, and receipt templates without changing document storage or generation flows.</p>
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-200">{t.documents.templatesBannerTitle}</p>
+                    <p className="text-xs text-blue-700 dark:text-blue-300">{t.documents.templatesBannerDesc}</p>
                 </div>
                 <Link
                     to="/settings/pdf-templates"
                     className="whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
                 >
-                    Open PDF Templates
+                    {t.documents.openTemplates}
                 </Link>
             </div>
 
@@ -314,19 +362,18 @@ export default function Documents() {
                 <div className="flex items-center justify-center p-20">
                     <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
                 </div>
-            ) : error ? (
-                <div className="p-6">
-                    <EmptyState
-                        title="Failed to load documents"
-                        description={error}
-                        action={{ label: "Try Again", onClick: () => fetchDocuments(currentPage, searchTerm) }}
-                    />
+            ) : loadError ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-800 dark:bg-red-900/20">
+                    <p role="alert" className="mb-4 text-sm text-red-800 dark:text-red-300">{t.documents.loadError}</p>
+                    <Button type="button" variant="outline" onClick={() => void fetchDocuments(currentPage, searchTerm)}>
+                        {t.documents.retry}
+                    </Button>
                 </div>
             ) : (documents || []).length === 0 ? (
                 <EmptyState
-                    title="No documents found"
-                    description={searchTerm ? "Try searching for something else" : "Get started by uploading your first document"}
-                    action={!searchTerm ? { label: "Upload Document", onClick: handleUploadClick } : undefined}
+                    title={t.documents.noDocuments}
+                    description={searchTerm ? t.documents.searchEmptyDesc : t.documents.initialEmptyDesc}
+                    action={!searchTerm ? { label: t.documents.upload, onClick: handleUploadClick } : undefined}
                 />
             ) : (
                 <>
