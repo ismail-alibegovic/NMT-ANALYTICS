@@ -67,7 +67,7 @@ function transformPassenger(p: any) {
 }
 
 /** GET /api/excursions */
-router.get('/excursions', authenticateToken, requireOrgContext, async (req, res, next) => {
+router.get('/excursions', authenticateToken, requireOrgContext, requireMinimumRole('agent'), async (req, res, next) => {
   try {
     const r = listQuerySchema.safeParse(req.query);
     if (!r.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Validation error', r.error.issues);

@@ -113,6 +113,8 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
   const [applyLoading, setApplyLoading] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applyResult, setApplyResult] = useState<string | null>(null);
+  const loadFailedRef = useRef(rm.loadFailed);
+  loadFailedRef.current = rm.loadFailed;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -120,15 +122,22 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
     try {
       setSlots(await getDepartureRoomSlots(departureId));
     } catch (err: any) {
-      setError(err?.message || rm.loadFailed);
+      setError(err?.message || loadFailedRef.current);
     } finally {
       setLoading(false);
     }
-  }, [departureId, rm.loadFailed]);
+  }, [departureId]);
 
   useEffect(() => {
+    setProposal(null);
+    setProposalError(null);
+    setAssignTarget(null);
+    setEditingRoomNumberSlotId(null);
+    setRoomNumberDrafts({});
+    setApplyError(null);
+    setApplyResult(null);
     load();
-  }, [load]);
+  }, [departureId, load]);
 
   const clearProposal = useCallback(() => {
     setProposal(null);
@@ -342,6 +351,7 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
       ) {
         setApplyError((err as any)?.message || rm.staleProposal);
         clearProposal();
+        await load();
       } else {
         setApplyError((err as any)?.message || rm.applyFailed);
       }
