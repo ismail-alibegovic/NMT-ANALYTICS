@@ -1,6 +1,10 @@
 import { useState, useMemo, useCallback } from "react";
+import { useT } from "../../lib/i18n/context";
 import { updatePassengerSeat } from "../../api/departures";
 import type { DeparturePassenger } from "../../api/departures";
+import type { Translations } from "../../lib/i18n/en";
+
+type SeatMapCopy = Translations["departure"]["seatMap"];
 
 export interface SeatMapProps {
   capacity: number;
@@ -23,6 +27,8 @@ export default function SeatMap({
   editable = false,
   onSeatChanged,
 }: SeatMapProps) {
+  const { t } = useT();
+  const sm = t.departure.seatMap;
   const [busy, setBusy] = useState(false);
   const [pendingPassengerId, setPendingPassengerId] = useState<string | null>(null);
   const [highlightedGroupId, setHighlightedGroupId] = useState<string | null>(null);
@@ -118,7 +124,7 @@ export default function SeatMap({
   if (!capacity || capacity <= 0 || transportType === "none") {
     return (
       <div className="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">
-        Seat map not available for this transport type.
+        {sm.unavailable}
       </div>
     );
   }
@@ -132,6 +138,7 @@ export default function SeatMap({
             seatMap={seatMap}
             editable={editable}
             busy={busy}
+            sm={sm}
             onAssign={(num) => {
               if (pendingPassengerId) assignSeat(pendingPassengerId, num);
             }}
@@ -144,6 +151,7 @@ export default function SeatMap({
             seatMap={seatMap}
             editable={editable}
             busy={busy}
+            sm={sm}
             onAssign={(num) => {
               if (pendingPassengerId) assignSeat(pendingPassengerId, num);
             }}
@@ -157,10 +165,10 @@ export default function SeatMap({
         <div className="lg:w-72 flex-shrink-0">
           <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
             <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-              Unassigned passengers
+              {sm.unassigned}
             </h4>
             <p className="text-xs text-gray-500 mb-3">
-              {unassigned.length} passenger{unassigned.length !== 1 ? "s" : ""}
+              {(unassigned.length === 1 ? sm.passengerSingle : sm.passengerPlural).replace("{count}", String(unassigned.length))}
             </p>
 
             {unassignedGroups.map((group) => (
@@ -170,7 +178,7 @@ export default function SeatMap({
                     {group.name}
                   </span>
                   <span className="text-xs text-gray-400">
-                    {group.members.length} members
+                    {sm.membersCount.replace("{count}", String(group.members.length))}
                   </span>
                 </div>
                 {group.members.map((p) => (
@@ -179,12 +187,12 @@ export default function SeatMap({
                     passenger={p}
                     pending={pendingPassengerId === p.passengerId}
                     busy={busy}
+                    sm={sm}
                     onSelect={() =>
                       setPendingPassengerId(
                         pendingPassengerId === p.passengerId ? null : p.passengerId || null
                       )
                     }
-                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
                     onClear={p.passengerId ? () => clearSeat(p.passengerId!) : () => {}}
                   />
                 ))}
@@ -197,6 +205,7 @@ export default function SeatMap({
                 passenger={p}
                 pending={pendingPassengerId === p.passengerId}
                 busy={busy}
+                sm={sm}
                 onSelect={() =>
                   setPendingPassengerId(
                     pendingPassengerId === p.passengerId ? null : p.passengerId || null
@@ -207,7 +216,7 @@ export default function SeatMap({
             ))}
 
             {unassigned.length === 0 && (
-              <p className="text-xs text-gray-400 italic">All passengers assigned</p>
+              <p className="text-xs text-gray-400 italic">{sm.allAssigned}</p>
             )}
           </div>
         </div>
@@ -221,6 +230,7 @@ function BusLayout({
   seatMap,
   editable,
   busy,
+  sm,
   onAssign,
   highlightedGroupId,
   onHighlightGroup,
@@ -229,6 +239,7 @@ function BusLayout({
   seatMap: Map<number, DeparturePassenger>;
   editable: boolean;
   busy: boolean;
+  sm: SeatMapCopy;
   onAssign: (seatNum: number) => void;
   highlightedGroupId: string | null;
   onHighlightGroup: (gid: string | null) => void;
@@ -238,7 +249,7 @@ function BusLayout({
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="text-xs text-gray-400 select-none font-medium tracking-wide uppercase">
-        Front / Driver
+        {sm.frontDriver}
       </div>
       <div className="flex flex-col gap-1.5">
         {Array.from({ length: rows }, (_, ri) => {
@@ -263,6 +274,7 @@ function BusLayout({
                     passenger={seatMap.get(n)}
                     editable={editable}
                     busy={busy}
+                    sm={sm}
                     onAssign={onAssign}
                     highlightedGroupId={highlightedGroupId}
                     onHighlightGroup={onHighlightGroup}
@@ -278,6 +290,7 @@ function BusLayout({
                     passenger={seatMap.get(n)}
                     editable={editable}
                     busy={busy}
+                    sm={sm}
                     onAssign={onAssign}
                     highlightedGroupId={highlightedGroupId}
                     onHighlightGroup={onHighlightGroup}
@@ -292,7 +305,7 @@ function BusLayout({
         })}
       </div>
       <div className="text-xs text-gray-400 select-none font-medium tracking-wide uppercase">
-        Back
+        {sm.back}
       </div>
     </div>
   );
@@ -303,6 +316,7 @@ function FlightLayout({
   seatMap,
   editable,
   busy,
+  sm,
   onAssign,
   highlightedGroupId,
   onHighlightGroup,
@@ -311,6 +325,7 @@ function FlightLayout({
   seatMap: Map<number, DeparturePassenger>;
   editable: boolean;
   busy: boolean;
+  sm: SeatMapCopy;
   onAssign: (seatNum: number) => void;
   highlightedGroupId: string | null;
   onHighlightGroup: (gid: string | null) => void;
@@ -339,6 +354,7 @@ function FlightLayout({
                   passenger={seatMap.get(n)}
                   editable={editable}
                   busy={busy}
+                  sm={sm}
                   onAssign={onAssign}
                   highlightedGroupId={highlightedGroupId}
                   onHighlightGroup={onHighlightGroup}
@@ -354,6 +370,7 @@ function FlightLayout({
                   passenger={seatMap.get(n)}
                   editable={editable}
                   busy={busy}
+                  sm={sm}
                   onAssign={onAssign}
                   highlightedGroupId={highlightedGroupId}
                   onHighlightGroup={onHighlightGroup}
@@ -372,6 +389,7 @@ function Seat({
   passenger,
   editable,
   busy,
+  sm,
   onAssign,
   highlightedGroupId,
   onHighlightGroup,
@@ -380,6 +398,7 @@ function Seat({
   passenger?: DeparturePassenger;
   editable: boolean;
   busy: boolean;
+  sm: SeatMapCopy;
   onAssign: (seatNum: number) => void;
   highlightedGroupId: string | null;
   onHighlightGroup: (gid: string | null) => void;
@@ -409,13 +428,13 @@ function Seat({
   const tooltip = passenger
     ? [
         passenger.fullName,
-        passenger.groupName ? `Group: ${passenger.groupName}` : null,
-        passenger.groupSize ? `Group members: ${passenger.groupSize}` : null,
-        passenger.reservationId ? `Booking: ${passenger.reservationId.slice(0, 8)}` : null,
+        passenger.groupName ? sm.groupLabel.replace("{name}", passenger.groupName) : null,
+        passenger.groupSize ? sm.groupMembersLabel.replace("{count}", String(passenger.groupSize)) : null,
+        passenger.reservationId ? sm.bookingLabel.replace("{id}", passenger.reservationId.slice(0, 8)) : null,
       ]
         .filter(Boolean)
         .join("\n")
-    : `Slobodno sjedište ${num}`;
+    : sm.freeSeat.replace("{num}", String(num));
 
   return (
     <button
@@ -444,11 +463,13 @@ function PassengerAssignRow({
   passenger,
   pending,
   busy,
+  sm,
   onSelect,
 }: {
   passenger: DeparturePassenger;
   pending: boolean;
   busy: boolean;
+  sm: SeatMapCopy;
   onSelect: () => void;
   onClear?: () => void;
 }) {
@@ -460,14 +481,14 @@ function PassengerAssignRow({
         </p>
       </div>
       {pending ? (
-        <span className="text-xs text-amber-600">Seat pending…</span>
+        <span className="text-xs text-amber-600">{sm.seatPending}</span>
       ) : (
         <button
           onClick={onSelect}
           disabled={busy}
           className="text-xs px-3 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-primary hover:text-white transition-colors"
         >
-          Assign seat
+          {sm.assignSeat}
         </button>
       )}
     </div>

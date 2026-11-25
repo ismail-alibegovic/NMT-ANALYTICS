@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useApp } from "../../context/AppContext";
+import { useT } from "../../lib/i18n/context";
 import { logger } from "../../utils/logger";
 import { hasAccess, isUserRole } from "../../types/roles";
 import type { UserRole } from "../../types/roles";
@@ -35,6 +36,8 @@ const routeRequirements: { prefix: string; minRole: UserRole }[] = [
   { prefix: "/admin/waivers", minRole: "manager" },
   { prefix: "/operations/excursions", minRole: "manager" },
   { prefix: "/admin/audit-logs", minRole: "director" },
+  { prefix: "/settings/public-forms", minRole: "viewer" },
+  { prefix: "/settings/pdf-templates", minRole: "manager" },
   { prefix: "/settings", minRole: "director" },
   { prefix: "/payments", minRole: "manager" },
   { prefix: "/payment-dashboard", minRole: "manager" },
@@ -63,6 +66,7 @@ function hasModuleGranted(modules: string[] | undefined, moduleKey: string): boo
 
 export default function AuthGuard({ children }: AuthGuardProps) {
   const { userContext, loading, profileLoading } = useApp();
+  const { t } = useT();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -95,7 +99,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="text-center">
           <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-brand-500" />
-          <p className="text-gray-600 dark:text-gray-400">Loading workspace...</p>
+          <p className="text-gray-600 dark:text-gray-400">{t.common.loadingWorkspace}</p>
         </div>
       </div>
     );

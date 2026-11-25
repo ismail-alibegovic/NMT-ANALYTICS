@@ -305,16 +305,16 @@ export default function Settings() {
       const { data } = await api.get<PlanResponse>('/settings/plan');
       setPlanData(data);
       setPlanMigrationPending(!!data.migrationPending);
-    } catch (error: any) {
-      setPlanMessage({ type: 'error', text: error.message || 'Failed to load plan information' });
+    } catch {
+      setPlanMessage({ type: 'error', text: t.settings.planLoadError });
     }
   };
 
   const fetchTemplates = async () => {
     try {
       setTemplates(await getMessageTemplates());
-    } catch (error: any) {
-      showTemplateMessage(error?.message || 'Failed to load templates', 'error');
+    } catch {
+      showTemplateMessage(t.settings.messageTemplates.loadError, 'error');
     }
   };
 
@@ -448,9 +448,9 @@ export default function Settings() {
 
       await fetchTemplates();
       resetTemplateForm();
-      showTemplateMessage('Template saved', 'success');
-    } catch (error: any) {
-      showTemplateMessage(error?.response?.data?.message || error?.message || 'Failed to save template', 'error');
+      showTemplateMessage(t.settings.messageTemplates.savedSuccess, 'success');
+    } catch {
+      showTemplateMessage(t.settings.messageTemplates.saveError, 'error');
     } finally {
       setTemplateSaving(false);
     }
@@ -473,9 +473,9 @@ export default function Settings() {
       await archiveMessageTemplate(id);
       await fetchTemplates();
       if (templateForm.id === id) resetTemplateForm();
-      showTemplateMessage('Template archived', 'success');
-    } catch (error: any) {
-      showTemplateMessage(error?.response?.data?.message || error?.message || 'Failed to archive template', 'error');
+      showTemplateMessage(t.settings.messageTemplates.archivedSuccess, 'success');
+    } catch {
+      showTemplateMessage(t.settings.messageTemplates.archiveError, 'error');
     } finally {
       setTemplateSaving(false);
     }
@@ -551,7 +551,7 @@ export default function Settings() {
           <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{t.settings.contact}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.emailLabel}</label>
               <input type="email" value={settings.email} onChange={(e) => setSettings({ ...settings, email: e.target.value })}
                 placeholder="info@kompanija.ba"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
@@ -565,7 +565,7 @@ export default function Settings() {
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.address}</label>
               <input type="text" value={settings.address} onChange={(e) => setSettings({ ...settings, address: e.target.value })}
-                placeholder="Ulica i broj, Grad"
+                placeholder={t.settings.addressPlaceholder}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
             </div>
           </div>
@@ -579,10 +579,10 @@ export default function Settings() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.currency}</label>
               <select value={settings.currency} onChange={(e) => setSettings({ ...settings, currency: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent">
-                <option value="BAM">BAM - Konvertibilna marka</option>
-                <option value="EUR">EUR - Euro</option>
-                <option value="USD">USD - US Dollar</option>
-                <option value="HRK">HRK - Hrvatska kuna</option>
+                <option value="BAM">{t.settings.currencies.BAM}</option>
+                <option value="EUR">{t.settings.currencies.EUR}</option>
+                <option value="USD">{t.settings.currencies.USD}</option>
+                <option value="HRK">{t.settings.currencies.HRK}</option>
               </select>
             </div>
             <div>
@@ -819,12 +819,12 @@ export default function Settings() {
 
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="mb-4">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Message templates</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Plain-text reusable email and SMS content for manual messaging.</p>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">{t.settings.messageTemplates.title}</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t.settings.messageTemplates.description}</p>
           </div>
 
           {templateMessage && (
-            <div className={`mb-4 p-3 rounded-lg text-sm ${templateMessage.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400'}`}>
+            <div role={templateMessage.type === 'error' ? 'alert' : 'status'} className={`mb-4 p-3 rounded-lg text-sm ${templateMessage.type === 'success' ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400'}`}>
               {templateMessage.text}
             </div>
           )}
@@ -832,8 +832,9 @@ export default function Settings() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+                <label htmlFor="message-template-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.messageTemplates.name}</label>
                 <input
+                  id="message-template-name"
                   type="text"
                   value={templateForm.name}
                   onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
@@ -841,20 +842,22 @@ export default function Settings() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Channel</label>
+                <label htmlFor="message-template-channel" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.messageTemplates.channel}</label>
                 <select
+                  id="message-template-channel"
                   value={templateForm.channel}
                   onChange={(e) => setTemplateForm({ ...templateForm, channel: e.target.value as MessageTemplateChannel, subject: e.target.value === 'sms' ? '' : templateForm.subject })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
-                  <option value="email">Email</option>
-                  <option value="sms">SMS</option>
+                  <option value="email">{t.settings.messageTemplates.channelEmail}</option>
+                  <option value="sms">{t.settings.messageTemplates.channelSms}</option>
                 </select>
               </div>
               {templateForm.channel === 'email' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
+                  <label htmlFor="message-template-subject" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.messageTemplates.subject}</label>
                   <input
+                    id="message-template-subject"
                     type="text"
                     value={templateForm.subject}
                     onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })}
@@ -863,8 +866,9 @@ export default function Settings() {
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Body</label>
+                <label htmlFor="message-template-body" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.messageTemplates.body}</label>
                 <textarea
+                  id="message-template-body"
                   value={templateForm.body}
                   onChange={(e) => setTemplateForm({ ...templateForm, body: e.target.value })}
                   rows={6}
@@ -873,11 +877,12 @@ export default function Settings() {
               </div>
               <div className="flex items-center gap-3">
                 <button
+                  type="button"
                   onClick={handleSaveTemplate}
                   disabled={templateSaving}
                   className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 disabled:opacity-50"
                 >
-                  {templateSaving ? t.common.saving : templateForm.id ? 'Update template' : 'Create template'}
+                  {templateSaving ? t.common.saving : templateForm.id ? t.settings.messageTemplates.updateAction : t.settings.messageTemplates.createAction}
                 </button>
                 {templateForm.id && (
                   <button
@@ -885,7 +890,7 @@ export default function Settings() {
                     type="button"
                     className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200"
                   >
-                    Cancel edit
+                    {t.settings.messageTemplates.cancelEdit}
                   </button>
                 )}
               </div>
@@ -894,7 +899,7 @@ export default function Settings() {
             <div className="space-y-3">
               {templates.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-4 text-sm text-gray-500 dark:text-gray-400">
-                  No templates yet.
+                  {t.settings.messageTemplates.empty}
                 </div>
               ) : templates.map((template) => (
                 <div key={template.id} className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
@@ -905,7 +910,7 @@ export default function Settings() {
                         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300">{template.channel.toUpperCase()}</span>
                         {!template.is_active && (
                           <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400">
-                            Archived
+                            {t.settings.messageTemplates.archivedBadge}
                           </span>
                         )}
                       </div>
@@ -918,7 +923,7 @@ export default function Settings() {
                         type="button"
                         className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200"
                       >
-                        Edit
+                        {t.settings.messageTemplates.editAction}
                       </button>
                       {template.is_active && (
                         <button
@@ -926,7 +931,7 @@ export default function Settings() {
                           type="button"
                           className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300"
                         >
-                          Archive
+                          {t.settings.messageTemplates.archiveAction}
                         </button>
                       )}
                     </div>
@@ -957,7 +962,7 @@ export default function Settings() {
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.invoiceFooterLabel}</label>
               <textarea value={settings.invoice_footer} onChange={(e) => setSettings({ ...settings, invoice_footer: e.target.value })}
-                rows={3} placeholder="Hvala Vam na povjerenju."
+                rows={3} placeholder={t.settings.invoiceFooterPlaceholder}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
             </div>
           </div>
@@ -978,7 +983,7 @@ export default function Settings() {
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.settings.brandingDisplayName}</label>
               <input type="text" value={branding.display_name} onChange={(e) => setBranding({ ...branding, display_name: e.target.value })}
-                placeholder={settings.name || 'Moja Agencija'}
+                placeholder={settings.name || t.settings.brandingDisplayNamePlaceholder}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
             </div>
             <div>
@@ -1018,8 +1023,8 @@ export default function Settings() {
             <div className="rounded-lg overflow-hidden">
               <div className="px-6 py-4 flex items-center justify-between" style={{ backgroundColor: branding.primary_color }}>
                 <div>
-                  <span className="text-white text-lg font-bold tracking-wide">VOUCHER</span>
-                  <p className="text-white/80 text-xs mt-0.5">{branding.display_name || settings.name || 'Travel Agency'}</p>
+                  <span className="text-white text-lg font-bold tracking-wide">{t.settings.brandingVoucherBadge}</span>
+                  <p className="text-white/80 text-xs mt-0.5">{branding.display_name || settings.name || t.settings.brandingAgencyFallback}</p>
                 </div>
                 {branding.logo_url && (
                   <img src={branding.logo_url} alt="Logo" className="h-8 w-auto object-contain bg-white/10 rounded p-1" />
@@ -1159,7 +1164,7 @@ export default function Settings() {
                       {isActive && <span className="text-xs px-2 py-0.5 rounded-full bg-primary text-white">{t.settings.planActiveBadge}</span>}
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                      {(t.settings as any).planTierDescriptions?.[tier.key] || `${tier.modules.length} modules`}
+                      {(t.settings as any).planTierDescriptions?.[tier.key] || t.settings.planModuleCount.replace('{count}', String(tier.modules.length))}
                     </p>
                     <div className="space-y-1 mb-3">
                       {tier.modules.map((m) => (

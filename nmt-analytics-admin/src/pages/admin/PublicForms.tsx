@@ -13,6 +13,7 @@ import { useToast } from '../../context/ToastContext';
 import { useT } from '../../lib/i18n/context';
 import { useApp } from '../../context/AppContext';
 import { hasAccess } from '../../types/roles';
+import { formatDate, formatDateTime } from '../../utils/business';
 import {
   createForm,
   deleteForm,
@@ -246,7 +247,7 @@ export default function PublicForms() {
       key: 'updatedAt',
       header: c.table.updated,
       render: (value) =>
-        value ? new Date(String(value)).toLocaleString(lang === 'bs' ? 'bs-BA' : 'en-US') : '—',
+        value ? formatDateTime(String(value), lang === 'bs' ? 'bs-BA' : 'en-US') : '—',
     },
     {
       key: 'actions',
@@ -620,7 +621,7 @@ export default function PublicForms() {
                     <option value="">{c.context.none}</option>
                     {departuresForPackage.map((departure) => (
                       <option key={departure.id} value={departure.id}>
-                        {departure.packageName} — {new Date(departure.depart_at).toLocaleDateString(lang === 'bs' ? 'bs-BA' : 'en-US')}
+                        {departure.packageName} — {formatDate(departure.depart_at, lang === 'bs' ? 'bs-BA' : 'en-US')}
                       </option>
                     ))}
                   </select>
@@ -787,7 +788,7 @@ export default function PublicForms() {
                 <div key={submission.id} className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {new Date(submission.submittedAt).toLocaleString(lang === 'bs' ? 'bs-BA' : 'en-US')}
+                      {formatDateTime(submission.submittedAt, lang === 'bs' ? 'bs-BA' : 'en-US')}
                     </div>
                     {submission.inquiryId ? (
                       <Link to={`/inquiries?search=${encodeURIComponent(submission.inquiryId)}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">

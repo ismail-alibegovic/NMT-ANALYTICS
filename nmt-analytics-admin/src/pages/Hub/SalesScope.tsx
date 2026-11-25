@@ -125,6 +125,7 @@ export function ScopeHeader({
 }
 
 export function SectionGrid({ sections }: { sections: Section[] }) {
+  const { t } = useT();
   return (
     <section>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -142,7 +143,7 @@ export function SectionGrid({ sections }: { sections: Section[] }) {
                 </span>
                 {s.badge === "live" && (
                   <span className="rounded-full bg-emerald-50 text-xs font-semibold text-emerald-600 px-2.5 py-1 dark:bg-emerald-500/10 dark:text-emerald-400">
-                    live
+                    {t.hub.liveBadge}
                   </span>
                 )}
               </div>

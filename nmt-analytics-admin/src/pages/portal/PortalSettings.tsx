@@ -3,8 +3,10 @@ import { useT } from '../../lib/i18n/context';
 import { useApp } from '../../context/AppContext';
 import { useBranding } from '../../components/portal/BrandingProvider';
 import { updateBranding } from '../../api/branding';
-import { hasAccess, ROLE_LABELS, type UserRole } from '../../types/roles';
+import { hasAccess, isUserRole, type UserRole } from '../../types/roles';
 import { useToast } from '../../context/ToastContext';
+
+type PortalSettingsErrorCode = 'only_directors' | 'invalid_hex' | 'invalid_logo_url' | 'save_failed';
 
 export default function PortalSettings() {
   const { t } = useT();
@@ -20,6 +22,7 @@ export default function PortalSettings() {
   const [accentColor, setAccentColor] = useState('#0EA5E9');
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [errorCode, setErrorCode] = useState<PortalSettingsErrorCode | null>(null);
 
   useEffect(() => {
     if (initialized || !branding) return;
@@ -30,20 +33,39 @@ export default function PortalSettings() {
     setInitialized(true);
   }, [branding, initialized]);
 
+  const resolveErrorText = (code: PortalSettingsErrorCode): string => {
+    switch (code) {
+      case 'only_directors':
+        return t.portal.settings.onlyDirectorsToast;
+      case 'invalid_hex':
+        return t.portal.settings.invalidHexColor;
+      case 'invalid_logo_url':
+        return t.portal.settings.invalidLogoUrl;
+      default:
+        return t.portal.settings.saveError;
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
+    setErrorCode(null);
+
     if (!canEdit) {
-      toast.error('Only directors may edit branding.');
+      setErrorCode('only_directors');
+      toast.error(t.portal.settings.onlyDirectorsToast);
       return;
     }
     // Basic validation — backend is strict (regex /^#[0-9A-Fa-f]{6}$/)
     const hex = /^#[0-9A-Fa-f]{6}$/;
     if (!hex.test(primaryColor) || !hex.test(accentColor)) {
-      toast.error('Colors must be a valid #RRGGBB hex.');
+      setErrorCode('invalid_hex');
+      toast.error(t.portal.settings.invalidHexColor);
       return;
     }
     if (logoUrl && !/^https?:\/\//i.test(logoUrl)) {
-      toast.error('Logo URL must start with http(s)://');
+      setErrorCode('invalid_logo_url');
+      toast.error(t.portal.settings.invalidLogoUrl);
       return;
     }
     setSaving(true);
@@ -58,12 +80,16 @@ export default function PortalSettings() {
       toast.success(t.portal.settings.saved);
       // refresh provider cache too
       await refresh();
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to save branding.');
+    } catch {
+      setErrorCode('save_failed');
+      toast.error(t.portal.settings.saveError);
     } finally {
       setSaving(false);
     }
   };
+
+  const roleKey = userContext?.role;
+  const localizedRole = isUserRole(roleKey) ? t.profile.roles[roleKey] : t.profile.roles.viewer;
 
   return (
     <div className="space-y-6">
@@ -74,15 +100,21 @@ export default function PortalSettings() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Branding editor */}
-        <form onSubmit={handleSave} className="space-y-5 rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900 lg:col-span-2">
+        <form onSubmit={handleSave} noValidate className="space-y-5 rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900 lg:col-span-2">
           <div>
             <h2 className="text-base font-semibold text-gray-800 dark:text-white">{t.portal.settings.brand}</h2>
             {!canEdit && (
               <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                Read-only — only directors can update branding.
+                {t.portal.settings.readOnlyNotice}
               </p>
             )}
           </div>
+
+          {errorCode && (
+            <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+              {resolveErrorText(errorCode)}
+            </div>
+          )}
 
           {/* Live preview banner */}
           <div
@@ -101,7 +133,7 @@ export default function PortalSettings() {
               )}
               <div>
                 <p className="text-sm font-semibold text-white">{displayName || t.portal.layout.appTitle}</p>
-                <p className="text-xs text-white/80">Live preview</p>
+                <p className="text-xs text-white/80">{t.portal.settings.livePreview}</p>
               </div>
             </div>
           </div>
@@ -111,7 +143,7 @@ export default function PortalSettings() {
             <input
               type="text"
               value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              onChange={(e) => { setDisplayName(e.target.value); setErrorCode(null); }}
               maxLength={200}
               disabled={!canEdit || saving}
               className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 disabled:opacity-60"
@@ -124,7 +156,7 @@ export default function PortalSettings() {
             <input
               type="url"
               value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
+              onChange={(e) => { setLogoUrl(e.target.value); setErrorCode(null); }}
               disabled={!canEdit || saving}
               className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 disabled:opacity-60"
               placeholder="https://..."
@@ -134,10 +166,20 @@ export default function PortalSettings() {
           {/* Colors */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={t.portal.settings.primaryColor}>
-              <ColorInput value={primaryColor} onChange={setPrimaryColor} disabled={!canEdit || saving} />
+              <ColorInput
+                value={primaryColor}
+                onChange={(val) => { setPrimaryColor(val); setErrorCode(null); }}
+                disabled={!canEdit || saving}
+                pickerLabel={t.portal.settings.pickColor}
+              />
             </Field>
             <Field label={t.portal.settings.accentColor}>
-              <ColorInput value={accentColor} onChange={setAccentColor} disabled={!canEdit || saving} />
+              <ColorInput
+                value={accentColor}
+                onChange={(val) => { setAccentColor(val); setErrorCode(null); }}
+                disabled={!canEdit || saving}
+                pickerLabel={t.portal.settings.pickColor}
+              />
             </Field>
           </div>
 
@@ -148,7 +190,7 @@ export default function PortalSettings() {
               disabled={!canEdit || saving}
               className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {saving ? '...' : t.portal.settings.save}
+              {saving ? t.portal.settings.saving : t.portal.settings.save}
             </button>
           </div>
         </form>
@@ -161,11 +203,8 @@ export default function PortalSettings() {
           </div>
           <dl className="space-y-3 text-sm">
             <Row label={t.portal.settings.email} value={userContext?.user?.email || '—'} />
-            <Row
-              label={t.portal.settings.role}
-              value={ROLE_LABELS[(userContext?.role as UserRole) || 'viewer']}
-            />
-            <Row label={t.portal.settings.name ?? 'Organization'} value={userContext?.org?.name || '—'} />
+            <Row label={t.portal.settings.role} value={localizedRole} />
+            <Row label={t.portal.settings.organization} value={userContext?.org?.name || '—'} />
           </dl>
         </aside>
       </div>
@@ -186,10 +225,12 @@ function ColorInput({
   value,
   onChange,
   disabled,
+  pickerLabel,
 }: {
   value: string;
   onChange: (v: string) => void;
   disabled?: boolean;
+  pickerLabel: string;
 }) {
   return (
     <div className="flex items-center gap-3">
@@ -199,7 +240,7 @@ function ColorInput({
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         className="h-10 w-12 cursor-pointer rounded-lg border border-gray-200 dark:border-gray-700"
-        aria-label="Pick color"
+        aria-label={pickerLabel}
       />
       <input
         type="text"

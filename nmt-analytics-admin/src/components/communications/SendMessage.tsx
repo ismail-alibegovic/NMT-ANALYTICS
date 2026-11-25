@@ -5,6 +5,7 @@ import Label from '../form/Label';
 import Select from '../form/Select';
 import { useT } from '../../lib/i18n/context';
 import { Modal } from '../ui/modal';
+import { formatDate } from '../../utils/business';
 import { getMessageTemplates, type MessageTemplate } from '../../api/messageTemplates';
 import { getDepartures, getDeparturePassengers, getPassengerGroups, type Departure, type DeparturePassenger } from '../../api/departures';
 import { getReservations, type Reservation } from '../../api/reservations';
@@ -74,7 +75,7 @@ export default function SendMessage({ onSent, presetTemplate, presetChannel }: S
   const localizedDate = (value?: string | null) => {
     if (!value) return '';
     const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(dateLocale);
+    return Number.isNaN(d.getTime()) ? '' : formatDate(d, dateLocale);
   };
 
   // Reset preview whenever the target definition changes.
@@ -609,13 +610,10 @@ export default function SendMessage({ onSent, presetTemplate, presetChannel }: S
       {error && <p className="text-sm text-error-600 dark:text-error-400">{error}</p>}
       {success && <p className="text-sm text-success-600 dark:text-success-500">{success}</p>}
 
-      <Modal isOpen={pendingTemplate !== null} onClose={cancelOverwrite} showCloseButton>
-        <div className="flex flex-col gap-4">
-          <h3 className="text-lg font-semibold text-gray-950 dark:text-white">
-            {s.overwriteTitle}
-          </h3>
+      <Modal isOpen={pendingTemplate !== null} onClose={cancelOverwrite} showCloseButton className="max-w-md" title={s.overwriteTitle}>
+        <div className="flex flex-col gap-4 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400">{s.overwriteDesc}</p>
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
             <Button variant="outline" onClick={cancelOverwrite}>
               {s.overwriteKeep}
             </Button>

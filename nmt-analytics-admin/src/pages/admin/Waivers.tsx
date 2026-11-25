@@ -3,6 +3,7 @@ import PageMeta from "../../components/common/PageMeta";
 import { Modal } from "../../components/ui/modal";
 import { useT } from "../../lib/i18n";
 import api from "../../lib/apiClient";
+import { formatDateTime } from "../../utils/business";
 
 type Template = { id: string; title: string; body_text: string; is_active: boolean };
 type RecordRow = { id: string; passenger_name_snapshot: string; template_title: string; status: string; signed_at: string | null };
@@ -108,7 +109,7 @@ export default function WaiversPage() {
         <form onSubmit={issue} className="space-y-4">
           <label htmlFor="waiver-departure" className="block">{c.departure}</label>
           <select id="waiver-departure" required disabled={busy} value={departure} onChange={e => setDeparture(e.target.value)} className={field}>
-            <option value="">{c.select}</option>{departures.map(d => <option value={d.id} key={d.id}>{d.package_name} · {new Date(d.depart_at).toLocaleString(lang === "bs" ? "bs-BA" : "en-GB")}</option>)}
+            <option value="">{c.select}</option>{departures.map(d => <option value={d.id} key={d.id}>{d.package_name} · {formatDateTime(d.depart_at, lang === "bs" ? "bs-BA" : "en-GB")}</option>)}
           </select>
           <label htmlFor="waiver-passenger" className="block">{c.passenger}</label>
           <select id="waiver-passenger" required disabled={busy || !selected} value={passenger} onChange={e => setPassenger(e.target.value)} className={field}>

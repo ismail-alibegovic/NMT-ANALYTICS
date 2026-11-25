@@ -7,8 +7,8 @@ import { useT } from "../../lib/i18n/context";
 import { useToast } from "../../context/ToastContext";
 import { getDepartures, Departure } from "../../api/departures";
 import { getAvailability, AvailabilityResponse, AvailabilityRoom } from "../../api/availability";
-import { formatDate } from "../../utils/business";
 import { GridIcon, TimeIcon } from "../../icons";
+import { formatDate } from "../../utils/business";
 
 type Band = "green" | "amber" | "red";
 
@@ -38,15 +38,9 @@ const bandBar: Record<Band, string> = {
   red: "bg-rose-500",
 };
 
-const statusLabel = (status: string): string => {
-  switch (status) {
-    case "available": return "Available";
-    case "almost_full": return "Filling up";
-    case "full": return "Full";
-    case "completed": return "Completed";
-    case "cancelled": return "Cancelled";
-    default: return status;
-  }
+const formatShortDate = (value: string, locale: string) => {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "—" : formatDate(parsed, locale);
 };
 
 type Row = {
@@ -56,7 +50,8 @@ type Row = {
 };
 
 export default function Availability() {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const locale = lang === "en" ? "en-GB" : "bs-BA";
   const tr = t.operations.availability;
   const { error: showError } = useToast();
   const navigate = useNavigate();
@@ -78,11 +73,11 @@ export default function Availability() {
       const res = await getDepartures({ limit: 200 });
       setDepartures(res.data || []);
     } catch (e: any) {
-      showError(e?.message || "Failed to load departures");
+      showError(e?.message || tr.loadError);
     } finally {
       setLoadingDeps(false);
     }
-  }, [showError]);
+  }, [showError, tr.loadError]);
 
   const fetchAvailability = useCallback(async () => {
     if (departures.length === 0) return;
@@ -117,11 +112,11 @@ export default function Availability() {
     const map = new Map<string, string>();
     for (const d of departures) {
       const id = d.package_id;
-      const name = d.packages?.name || d.packageName || "(unknown)";
+      const name = d.packages?.name || d.packageName || tr.unknownPackage;
       if (!map.has(id)) map.set(id, name);
     }
     return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
-  }, [departures]);
+  }, [departures, tr.unknownPackage]);
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -169,7 +164,7 @@ export default function Availability() {
         description={tr.description}
         searchValue={search}
         onSearchChange={setSearch}
-        searchPlaceholder={`${tr.packageName} / ${tr.transport} / ${formatDate(new Date().toISOString())}`}
+        searchPlaceholder={`${tr.packageName} / ${tr.transport} / ${formatShortDate(new Date().toISOString(), locale)}`}
         filters={[
           { key: "package", label: tr.filterPackage, options: [{ value: "all", label: tr.allPackages }, ...packageOptions], value: packageFilter, onChange: setPackageFilter },
           { key: "status", label: tr.filterStatus, options: [{ value: "all", label: tr.allStatuses }, ...statusOptions], value: statusFilter, onChange: setStatusFilter },
@@ -196,7 +191,7 @@ export default function Availability() {
 
       {lastFetch && (
         <div className="mt-2 text-xs text-gray-400">
-          {tr.lastRefreshed || "Last refreshed"}: {lastFetch.toLocaleTimeString()}
+          {tr.lastRefreshed}: {locale.startsWith("bs") ? `${String(lastFetch.getHours()).padStart(2, "0")}:${String(lastFetch.getMinutes()).padStart(2, "0")}:${String(lastFetch.getSeconds()).padStart(2, "0")}` : lastFetch.toLocaleTimeString(locale)}
         </div>
       )}
 
@@ -212,7 +207,7 @@ export default function Availability() {
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredRows.map((row) => (
-              <DepartureCard key={row.departure.id} row={row} tr={tr} onOpen={() => navigate(`/departures/${row.departure.id}?tab=passengers`)} />
+              <DepartureCard key={row.departure.id} row={row} tr={tr} locale={locale} onOpen={() => navigate(`/departures/${row.departure.id}?tab=passengers`)} />
             ))}
           </div>
         )}
@@ -236,7 +231,7 @@ function StatCard({ label, value, tone }: { label: string; value: number; tone: 
   );
 }
 
-function DepartureCard({ row, tr, onOpen }: { row: Row; tr: any; onOpen: () => void }) {
+function DepartureCard({ row, tr, locale, onOpen }: { row: Row; tr: any; locale: string; onOpen: () => void }) {
   const { departure, availability, error } = row;
   const pkgName = departure.packages?.name || departure.packageName || "";
   const dest = departure.packages?.destination || departure.destination || "";
@@ -245,6 +240,8 @@ function DepartureCard({ row, tr, onOpen }: { row: Row; tr: any; onOpen: () => v
   const available = availability?.available ?? Math.max(0, capacity - booked);
   const band = error ? "red" : bandFromAvail(available, capacity);
   const remainRatio = capacity > 0 ? Math.min(1, booked / capacity) : 0;
+  const rawStatus = availability?.occupancy_status ?? "";
+  const badgeLabel = tr.statuses?.[rawStatus] || rawStatus;
 
   return (
     <div className={`rounded-xl border-2 p-4 transition hover:shadow-md ${bandClasses[band]}`}>
@@ -252,12 +249,12 @@ function DepartureCard({ row, tr, onOpen }: { row: Row; tr: any; onOpen: () => v
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
             <TimeIcon className="size-3.5" />
-            <span>{formatDate(departure.depart_at)}</span>
+            <span>{formatShortDate(departure.depart_at, locale)}</span>
           </div>
           <h3 className="mt-1 truncate text-base font-semibold text-gray-900 dark:text-white">{pkgName}</h3>
           {dest && <div className="truncate text-sm text-gray-500 dark:text-gray-400">{dest}</div>}
         </div>
-        <BandBadge band={band} label={statusLabel(availability?.occupancy_status ?? "")} bandText={bandText} />
+        <BandBadge band={band} label={badgeLabel} bandText={bandText} />
       </div>
 
       <div className="mt-3 space-y-1">

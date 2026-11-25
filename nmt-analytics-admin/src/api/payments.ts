@@ -207,6 +207,7 @@ export interface PaymentDashboardMetric {
     currency: string;
     paymentStatus: string;
     reservationStatus: string;
+    isOverdue?: boolean;
 }
 
 export interface PaymentDashboardPayment {
@@ -223,15 +224,21 @@ export interface PaymentDashboardPayment {
 }
 
 export interface PaymentDashboardResponse {
+    currency?: string | null;
+    availableCurrencies?: string[];
+    multiCurrency?: boolean;
     metrics: {
-        totalPaidToday: number;
-        totalPaidThisMonth: number;
-        totalPendingAmount: number;
-        totalFailedAmount: number;
-        overdueAmount: number;
+        totalPaidToday: number | null;
+        totalPaidThisMonth: number | null;
+        totalPendingAmount: number | null;
+        totalFailedAmount: number | null;
+        overdueAmount: number | null;
         overdueCount: number;
+        openBalanceAmount?: number | null;
+        openBalanceCount?: number;
         pendingCount: number;
     };
+    openBalanceReservations?: PaymentDashboardMetric[];
     overdueReservations: PaymentDashboardMetric[];
     pendingPayments: PaymentDashboardPayment[];
     recentPayments: PaymentDashboardPayment[];
@@ -240,8 +247,10 @@ export interface PaymentDashboardResponse {
 /**
  * Get payment dashboard data
  */
-export async function getPaymentDashboard(): Promise<PaymentDashboardResponse> {
-    const { data } = await get<PaymentDashboardResponse>('/payments/dashboard');
+export async function getPaymentDashboard(currency?: string): Promise<PaymentDashboardResponse> {
+    const { data } = await get<PaymentDashboardResponse>('/payments/dashboard', {
+        params: currency ? { currency } : undefined,
+    });
     return data;
 }
 

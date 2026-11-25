@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import { DataTable, Column } from "../../components/ui/DataTable";
 import Badge from "../../components/ui/badge/Badge";
@@ -6,6 +6,9 @@ import EmptyState from "../../components/ui/EmptyState";
 import Button from "../../components/ui/button/Button";
 import DonutChart from "../../components/charts/DonutChart";
 import { useToast } from "../../context/ToastContext";
+import { useApp } from "../../context/AppContext";
+import { useT } from "../../lib/i18n/context";
+import { formatCurrency, formatDate } from "../../utils/business";
 import { getPayments, Payment, PaymentFilters } from "../../api/payments";
 import { getTransactions, Transaction, TransactionFilters } from "../../api/transactions";
 import { getPaymentDashboard, PaymentDashboardResponse, PaymentDashboardPayment, PaymentDashboardMetric } from "../../api/payments";
@@ -14,33 +17,8 @@ import { DollarLineIcon, BoxIconLine, ArrowDownIcon, AlertIcon, DownloadIcon } f
 
 const ITEMS_PER_PAGE = 10;
 
-const formatCurrency = (amount: number, currency = "BAM") =>
-  new Intl.NumberFormat("bs-BA", { style: "currency", currency }).format(amount);
-
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return "-";
-  return new Date(dateStr).toLocaleDateString("bs-BA", {
-    year: "numeric", month: "2-digit", day: "2-digit",
-  });
-};
-
 type BadgeColor = "primary" | "success" | "error" | "warning" | "info" | "light" | "dark";
-
-const statusBadge = (status: string) => {
-  const colors: Record<string, BadgeColor> = {
-    succeeded: "success", pending: "warning", failed: "error", refunded: "info", cancelled: "dark",
-    unpaid: "error", partially_paid: "warning", paid: "success",
-  };
-  return <Badge color={colors[status] || "light"}>{status.replace(/_/g, " ").toUpperCase()}</Badge>;
-};
-
 type Tab = "dashboard" | "payments" | "transactions";
-
-const tabs: { key: Tab; label: string }[] = [
-  { key: "dashboard", label: "Dashboard" },
-  { key: "payments", label: "Payments" },
-  { key: "transactions", label: "Transactions" },
-];
 
 function MetricCard({ title, value, icon: Icon, subtitle, color }: {
   title: string; value: string; icon: React.FC<React.SVGProps<SVGSVGElement>>; subtitle?: string; color?: string;
@@ -83,19 +61,30 @@ function exportTableToCsv(rows: any[], filename: string, columns: { key: string;
 }
 
 export default function UnifiedPayments() {
+  const { userContext } = useApp();
+  const { t, lang } = useT();
+  const locale = lang === "en" ? "en-US" : "bs-BA";
+  const u = t.payments.unified;
   const { error: showError } = useToast();
+  const showErrorRef = useRef(showError);
+  showErrorRef.current = showError;
+  const uRef = useRef(u);
+  uRef.current = u;
+
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
 
   // ---- Dashboard state ----
   const [dashboard, setDashboard] = useState<PaymentDashboardResponse | null>(null);
   const [statusDist, setStatusDist] = useState<PaymentStatusResponse | null>(null);
   const [dashLoading, setDashLoading] = useState(true);
+  const [dashError, setDashError] = useState(false);
 
   // ---- Payments state ----
   const [payments, setPayments] = useState<Payment[]>([]);
   const [payTotal, setPayTotal] = useState(0);
   const [payPage, setPayPage] = useState(1);
   const [payLoading, setPayLoading] = useState(false);
+  const [payError, setPayError] = useState(false);
   const [payFrom, setPayFrom] = useState("");
   const [payTo, setPayTo] = useState("");
 
@@ -104,90 +93,121 @@ export default function UnifiedPayments() {
   const [txTotal, setTxTotal] = useState(0);
   const [txPage, setTxPage] = useState(1);
   const [txLoading, setTxLoading] = useState(false);
+  const [txError, setTxError] = useState(false);
   const [txFrom, setTxFrom] = useState("");
   const [txTo, setTxTo] = useState("");
   const [txType, setTxType] = useState("");
 
-  const payTotalPages = Math.ceil(payTotal / ITEMS_PER_PAGE);
-  const txTotalPages = Math.ceil(txTotal / ITEMS_PER_PAGE);
+  const payTotalPages = Math.max(1, Math.ceil(payTotal / ITEMS_PER_PAGE));
+  const txTotalPages = Math.max(1, Math.ceil(txTotal / ITEMS_PER_PAGE));
+
+  const tabs: { key: Tab; label: string }[] = [
+    { key: "dashboard", label: u.tabs.dashboard },
+    { key: "payments", label: u.tabs.payments },
+    { key: "transactions", label: u.tabs.transactions },
+  ];
 
   // ---- Fetch Dashboard ----
-  useEffect(() => {
-    if (activeTab !== "dashboard") return;
+  const fetchDashboard = useCallback(async () => {
     setDashLoading(true);
-    (async () => {
-      try {
-        const [dash, dist] = await Promise.all([
-          getPaymentDashboard(),
-          getPaymentStatusDistribution(),
-        ]);
-        setDashboard(dash);
-        setStatusDist(dist);
-      } catch (err) {
-        console.error("Failed to load payment dashboard:", err);
-        showError("Failed to load payment dashboard");
-      } finally {
-        setDashLoading(false);
-      }
-    })();
-  }, [activeTab, showError]);
+    setDashError(false);
+    try {
+      const [dash, dist] = await Promise.all([
+        getPaymentDashboard(),
+        getPaymentStatusDistribution(),
+      ]);
+      setDashboard(dash);
+      setStatusDist(dist);
+    } catch (err) {
+      console.error("Failed to load payment dashboard:", err);
+      setDashError(true);
+      showErrorRef.current(uRef.current.dashboardLoadError);
+    } finally {
+      setDashLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "dashboard") void fetchDashboard();
+  }, [activeTab, fetchDashboard]);
 
   // ---- Fetch Payments ----
   const fetchPayments = useCallback(async (page = 1) => {
     setPayLoading(true);
+    setPayError(false);
     try {
       const filters: PaymentFilters = { page, limit: ITEMS_PER_PAGE };
       if (payFrom) filters.from = payFrom;
       if (payTo) filters.to = payTo;
       const res = await getPayments(filters);
-      setPayments(res.data);
-      setPayTotal(res.pagination.total);
+      setPayments(res.data || []);
+      setPayTotal(res.pagination?.total || 0);
       setPayPage(page);
-    } catch (err: any) {
-      showError("Failed to load payments");
+    } catch {
+      setPayError(true);
+      setPayments([]);
+      showErrorRef.current(uRef.current.paymentsLoadError);
     } finally {
       setPayLoading(false);
     }
-  }, [payFrom, payTo, showError]);
+  }, [payFrom, payTo]);
 
   useEffect(() => {
-    if (activeTab === "payments") fetchPayments(1);
+    if (activeTab === "payments") void fetchPayments(1);
   }, [activeTab, fetchPayments]);
 
   // ---- Fetch Transactions ----
   const fetchTransactions = useCallback(async (page = 1) => {
     setTxLoading(true);
+    setTxError(false);
     try {
       const filters: TransactionFilters = { page, limit: ITEMS_PER_PAGE };
       if (txFrom) filters.dateFrom = txFrom;
       if (txTo) filters.dateTo = txTo;
       if (txType) filters.type = txType;
       const res = await getTransactions(filters);
-      setTransactions(res.data);
-      setTxTotal(res.total);
+      setTransactions(res.data || []);
+      setTxTotal(res.total || 0);
       setTxPage(page);
-    } catch (err: any) {
-      showError("Failed to load transactions");
+    } catch {
+      setTxError(true);
+      setTransactions([]);
+      showErrorRef.current(uRef.current.transactionsLoadError);
     } finally {
       setTxLoading(false);
     }
-  }, [txFrom, txTo, txType, showError]);
+  }, [txFrom, txTo, txType]);
 
   useEffect(() => {
-    if (activeTab === "transactions") fetchTransactions(1);
+    if (activeTab === "transactions") void fetchTransactions(1);
   }, [activeTab, fetchTransactions]);
 
-  // ---- Chart data ----
-  const statusLabels: Record<string, string> = {
-    succeeded: "Succeeded", pending: "Pending", failed: "Failed", refunded: "Refunded", cancelled: "Cancelled",
+  const statusBadge = (status: string) => {
+    const colors: Record<string, BadgeColor> = {
+      succeeded: "success", pending: "warning", failed: "error", refunded: "info", cancelled: "dark",
+      unpaid: "error", partially_paid: "warning", paid: "success",
+    };
+    const label = (u.statuses as Record<string, string>)[status] || status.replace(/_/g, " ");
+    return <Badge color={colors[status] || "light"}>{label}</Badge>;
   };
+
+  const formatMethod = (method: unknown) => {
+    if (!method || typeof method !== "string") return "-";
+    const mapped = (t.payment.methods as Record<string, string>)[method];
+    return mapped || method.replace(/_/g, " ");
+  };
+
+  const formatTxType = (type: string) =>
+    (u.txTypes as Record<string, string>)[type] || type;
+
+  // ---- Chart data ----
   const statusOrder = ["succeeded", "pending", "failed", "refunded", "cancelled"];
   const chartLabels: string[] = [];
   const chartSeries: number[] = [];
   if (statusDist?.breakdown) {
     for (const s of statusOrder) {
       if (statusDist.breakdown[s]) {
-        chartLabels.push(statusLabels[s] || s);
+        chartLabels.push((u.statuses as Record<string, string>)[s] || s);
         chartSeries.push(statusDist.breakdown[s].total);
       }
     }
@@ -196,93 +216,110 @@ export default function UnifiedPayments() {
 
   // ---- Columns ----
   const overdueColumns: Column<PaymentDashboardMetric>[] = [
-    { key: "customerName", header: "Putnik", render: (_, r) => (
+    { key: "customerName", header: u.columns.traveler, render: (_, r) => (
       <div>
         <div className="font-medium">{r.customerName}</div>
         {r.customerPhone && <div className="text-xs text-gray-500">{r.customerPhone}</div>}
       </div>
     )},
-    { key: "packageName", header: "Aranžman" },
-    { key: "departureDate", header: "Polazak", render: (v) => formatDate(v as string) },
-    { key: "balanceDue", header: "Dug", render: (v, r) => (
-      <span className="font-semibold text-error-600">{formatCurrency(v as number, r.currency)}</span>
+    { key: "packageName", header: u.columns.package },
+    { key: "departureDate", header: u.columns.departure, render: (v) => formatDate(v as string, locale) },
+    { key: "balanceDue", header: u.columns.balanceDue, render: (v, r) => (
+      <span className="font-semibold text-error-600">{formatCurrency(v as number, r.currency || "BAM", locale)}</span>
     )},
-    { key: "paymentStatus", header: "Status", render: (v) => statusBadge(v as string) },
+    { key: "paymentStatus", header: u.columns.status, render: (v) => statusBadge(v as string) },
   ];
 
   const paymentColumns: Column<PaymentDashboardPayment>[] = [
-    { key: "customerName", header: "Putnik" },
-    { key: "amount", header: "Iznos", render: (v, p) => (
-      <span className="font-semibold">{formatCurrency(v as number, p.currency)}</span>
+    { key: "customerName", header: u.columns.traveler },
+    { key: "amount", header: u.columns.amount, render: (v, p) => (
+      <span className="font-semibold">{formatCurrency(v as number, p.currency || "BAM", locale)}</span>
     )},
-    { key: "status", header: "Status", render: (v) => statusBadge(v as string) },
-    { key: "paymentDate", header: "Datum", render: (v) => formatDate(v as string) },
-    { key: "paymentMethod", header: "Način", render: (v) => v ? (v as string).replace(/_/g, " ") : "-" },
-    { key: "createdAt", header: "Kreirano", render: (v) => formatDate(v as string) },
+    { key: "status", header: u.columns.status, render: (v) => statusBadge(v as string) },
+    { key: "paymentDate", header: u.columns.date, render: (v) => formatDate(v as string, locale) },
+    { key: "paymentMethod", header: u.columns.method, render: (v) => formatMethod(v) },
+    { key: "createdAt", header: u.columns.createdAt, render: (v) => formatDate(v as string, locale) },
   ];
 
   const paymentListColumns: Column<Payment>[] = [
-    { key: "id", header: "ID", render: (v) => <span className="text-xs font-mono">{(v as string).substring(0, 8)}</span> },
-    { key: "amount", header: "Iznos", render: (v, r) => formatCurrency(v as number, r.currency) },
-    { key: "payment_method", header: "Način", render: (v) => v ? (v as string).replace(/_/g, " ") : "-" },
-    { key: "status", header: "Status", render: (v) => statusBadge(v as string) },
-    { key: "paymentDate", header: "Datum", render: (v) => formatDate(v as string) },
-    { key: "reservation", header: "Rezervacija", render: (v) => v ? (v as any).customerName || "-" : "-" },
+    { key: "id", header: u.columns.id, render: (v) => <span className="text-xs font-mono">{v ? String(v).substring(0, 8) : "—"}</span> },
+    { key: "amount", header: u.columns.amount, render: (v, r) => formatCurrency(v as number, r.currency || "BAM", locale) },
+    { key: "payment_method", header: u.columns.method, render: (v) => formatMethod(v) },
+    { key: "status", header: u.columns.status, render: (v) => statusBadge(v as string) },
+    { key: "paymentDate", header: u.columns.date, render: (v) => formatDate(v as string, locale) },
+    { key: "reservation", header: u.columns.reservation, render: (v) => v ? (v as any).customerName || "-" : "-" },
   ];
 
   const txColumns: Column<Transaction>[] = [
-    { key: "id", header: "ID", render: (v) => <span className="text-xs font-mono">{(v as string).substring(0, 8)}</span> },
-    { key: "type", header: "Tip" },
-    { key: "amount", header: "Iznos", render: (v, r) => formatCurrency(v as number, r.currency) },
-    { key: "note", header: "Napomena" },
-    { key: "occurred_at", header: "Datum", render: (v) => formatDate(v as string) },
+    { key: "id", header: u.columns.id, render: (v) => <span className="text-xs font-mono">{v ? String(v).substring(0, 8) : "—"}</span> },
+    { key: "type", header: u.columns.type, render: (v) => formatTxType(String(v || "")) },
+    { key: "amount", header: u.columns.amount, render: (v, r) => formatCurrency(v as number, r.currency || "BAM", locale) },
+    { key: "note", header: u.columns.note },
+    { key: "occurred_at", header: u.columns.date, render: (v) => formatDate(v as string, locale) },
   ];
 
   // ---- Export ----
   const m = dashboard?.metrics;
-  const hasOverdue = dashboard?.overdueReservations && dashboard.overdueReservations.length > 0;
-  const hasRecent = dashboard?.recentPayments && dashboard.recentPayments.length > 0;
+  const orgCurrency = dashboard?.currency || userContext?.org?.currency || "BAM";
+  const isMixedCurrency = Boolean(dashboard?.multiCurrency);
+  const metricMoney = (val: number | null | undefined) =>
+    dashError ? "—" : isMixedCurrency || val == null ? t.reports.selectCurrency : formatCurrency(val, orgCurrency, locale);
+  const hasOverdue = Boolean(dashboard?.overdueReservations && dashboard.overdueReservations.length > 0);
+  const hasRecent = Boolean(dashboard?.recentPayments && dashboard.recentPayments.length > 0);
 
   const overdueCsvCols = [
-    { key: "customerName", label: "Putnik" },
-    { key: "packageName", label: "Aranzman" },
-    { key: "departureDate", label: "Polazak" },
-    { key: "balanceDue", label: "Dug" },
-    { key: "paymentStatus", label: "Status" },
+    { key: "customerName", label: u.columns.traveler },
+    { key: "packageName", label: u.columns.package },
+    { key: "departureDate", label: u.columns.departure },
+    { key: "balanceDue", label: u.columns.balanceDue },
+    { key: "paymentStatus", label: u.columns.status },
   ];
   const paymentCsvCols = [
-    { key: "customerName", label: "Putnik" },
-    { key: "amount", label: "Iznos" },
-    { key: "status", label: "Status" },
-    { key: "paymentDate", label: "Datum" },
+    { key: "customerName", label: u.columns.traveler },
+    { key: "amount", label: u.columns.amount },
+    { key: "status", label: u.columns.status },
+    { key: "paymentDate", label: u.columns.date },
   ];
 
   return (
     <>
-      <PageMeta title="Payments | Travline" description="Unified payment management" />
+      <PageMeta title={`${t.payments.title} | Travline`} description={t.payments.description} />
 
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Payments</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage all payment activity in one place</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.payments.title}</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{u.pageSubtitle}</p>
       </div>
 
-      {/* Metric Cards - Always visible */}
+      {/* Metric Cards - Fail-closed when dashboard query fails */}
+      {!dashError && (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:gap-6 mb-6">
-        <MetricCard title="Paid Today" value={formatCurrency(m?.totalPaidToday ?? 0)} icon={DollarLineIcon} color="bg-success-500" />
-        <MetricCard title="Paid This Month" value={formatCurrency(m?.totalPaidThisMonth ?? 0)} icon={BoxIconLine} color="bg-brand-500" />
-        <MetricCard title="Overdue" value={formatCurrency(m?.overdueAmount ?? 0)} icon={ArrowDownIcon}
-          subtitle={`${m?.overdueCount ?? 0} overdue`} color="bg-error-500" />
-        <MetricCard title="Pending" value={formatCurrency(m?.totalPendingAmount ?? 0)} icon={AlertIcon}
-          subtitle={`${m?.pendingCount ?? 0} pending`} color="bg-warning-500" />
+        <MetricCard title={u.paidToday} value={metricMoney(m?.totalPaidToday)} icon={DollarLineIcon} color="bg-success-500" />
+        <MetricCard title={u.paidThisMonth} value={metricMoney(m?.totalPaidThisMonth)} icon={BoxIconLine} color="bg-brand-500" />
+        <MetricCard
+          title={u.overdue}
+          value={metricMoney(m?.overdueAmount)}
+          icon={ArrowDownIcon}
+          subtitle={u.overdueCount.replace("{count}", String(m?.overdueCount ?? 0))}
+          color="bg-error-500"
+        />
+        <MetricCard
+          title={u.pending}
+          value={metricMoney(m?.totalPendingAmount)}
+          icon={AlertIcon}
+          subtitle={u.pendingCount.replace("{count}", String(m?.pendingCount ?? 0))}
+          color="bg-warning-500"
+        />
       </div>
+      )}
 
       {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-        <nav className="flex gap-6">
+        <nav className="flex gap-6 overflow-x-auto">
           {tabs.map(tab => (
             <button key={tab.key}
+              type="button"
               onClick={() => setActiveTab(tab.key)}
-              className={`pb-3 text-sm font-medium transition-colors border-b-2 ${
+              className={`pb-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
                 activeTab === tab.key
                   ? "border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400"
                   : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
@@ -296,24 +333,30 @@ export default function UnifiedPayments() {
 
       {/* Tab Content */}
       {activeTab === "dashboard" && (
+        dashError ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 dark:border-red-800 dark:bg-red-900/20">
+            <p role="alert" className="mb-4 text-sm text-red-800 dark:text-red-300">{u.dashboardLoadError}</p>
+            <Button type="button" variant="outline" onClick={() => void fetchDashboard()}>{u.retry}</Button>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-5 md:p-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-error-500" />
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Overdue Reservations</h3>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">{u.overdueReservations}</h3>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="outline" onClick={() => {
                     if (hasOverdue) exportTableToCsv(dashboard!.overdueReservations, "overdue-reservations.csv", overdueCsvCols);
                   }} disabled={!hasOverdue} className="flex items-center gap-1 text-xs">
-                    <DownloadIcon className="w-3.5 h-3.5" /> CSV
+                    <DownloadIcon className="w-3.5 h-3.5" /> {u.exportCsv}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     if (hasRecent) exportTableToCsv(dashboard!.recentPayments, "recent-payments.csv", paymentCsvCols);
                   }} disabled={!hasRecent} className="flex items-center gap-1 text-xs">
-                    <DownloadIcon className="w-3.5 h-3.5" /> Payments CSV
+                    <DownloadIcon className="w-3.5 h-3.5" /> {u.exportPaymentsCsv}
                   </Button>
                 </div>
               </div>
@@ -322,84 +365,95 @@ export default function UnifiedPayments() {
               ) : hasOverdue ? (
                 <DataTable data={dashboard!.overdueReservations} columns={overdueColumns} />
               ) : (
-                <EmptyState title="No overdue reservations" description="All reservations are up to date with payments." />
+                <EmptyState title={u.noOverdueTitle} description={u.noOverdueDesc} />
               )}
             </div>
 
             <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-5 md:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-2 h-2 rounded-full bg-warning-500" />
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Pending Payments</h3>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">{u.pendingPayments}</h3>
               </div>
               {dashLoading ? (
                 <div className="flex justify-center p-8"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
               ) : dashboard?.pendingPayments && dashboard.pendingPayments.length > 0 ? (
                 <DataTable data={dashboard.pendingPayments} columns={paymentColumns} />
               ) : (
-                <EmptyState title="No pending payments" description="All payments have been processed." />
+                <EmptyState title={u.noPendingTitle} description={u.noPendingDesc} />
               )}
             </div>
 
             <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-5 md:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-2 h-2 rounded-full bg-success-500" />
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Recent Payments</h3>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">{u.recentPayments}</h3>
               </div>
               {dashLoading ? (
                 <div className="flex justify-center p-8"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
               ) : dashboard?.recentPayments && dashboard.recentPayments.length > 0 ? (
                 <DataTable data={dashboard.recentPayments} columns={paymentColumns} />
               ) : (
-                <EmptyState title="No recent payments" description="No successful payments recorded yet." />
+                <EmptyState title={u.noRecentTitle} description={u.noRecentDesc} />
               )}
             </div>
           </div>
 
           <div>
             <DonutChart
-              title="Payment Distribution"
-              subtitle="Total amounts by status"
+              title={u.distributionTitle}
+              subtitle={u.distributionSubtitle}
               labels={chartLabels}
               series={chartSeries}
               colors={statusColors}
             />
           </div>
         </div>
+        )
       )}
 
       {activeTab === "payments" && (
         <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-5 md:p-6">
           <div className="flex flex-wrap items-center gap-3 mb-4">
-            <input type="date" value={payFrom} onChange={e => { setPayFrom(e.target.value); setPayPage(1); }}
-              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent text-sm" />
+            <input type="date" aria-label={u.dateFromLabel} value={payFrom} onChange={e => { setPayFrom(e.target.value); setPayPage(1); }}
+              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent text-sm dark:text-white" />
             <span className="text-gray-400 text-sm">—</span>
-            <input type="date" value={payTo} onChange={e => { setPayTo(e.target.value); setPayPage(1); }}
-              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent text-sm" />
-            <Button size="sm" onClick={() => fetchPayments(1)} className="ml-2">Filter</Button>
+            <input type="date" aria-label={u.dateToLabel} value={payTo} onChange={e => { setPayTo(e.target.value); setPayPage(1); }}
+              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent text-sm dark:text-white" />
+            <Button size="sm" onClick={() => void fetchPayments(1)} className="ml-2">{u.filterButton}</Button>
             {(payFrom || payTo) && (
-              <button onClick={() => { setPayFrom(""); setPayTo(""); }} className="text-xs text-gray-500 hover:text-gray-700">
-                Clear
+              <button type="button" onClick={() => { setPayFrom(""); setPayTo(""); }} className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400">
+                {u.clearFilters}
               </button>
             )}
           </div>
 
           {payLoading ? (
             <div className="flex justify-center p-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+          ) : payError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-800 dark:bg-red-900/20">
+              <p role="alert" className="mb-4 text-sm text-red-800 dark:text-red-300">{u.paymentsLoadError}</p>
+              <Button type="button" variant="outline" onClick={() => void fetchPayments(payPage)}>{u.retry}</Button>
+            </div>
           ) : payments.length > 0 ? (
             <>
               <DataTable data={payments} columns={paymentListColumns} />
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <span className="text-sm text-gray-500">Page {payPage} of {payTotalPages} ({payTotal} total)</span>
+              <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <span className="text-sm text-gray-500">
+                  {u.pageSummary
+                    .replace("{page}", String(payPage))
+                    .replace("{totalPages}", String(payTotalPages))
+                    .replace("{total}", String(payTotal))}
+                </span>
                 <div className="flex gap-2">
-                  <button onClick={() => fetchPayments(payPage - 1)} disabled={payPage <= 1}
-                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-40">← Prev</button>
-                  <button onClick={() => fetchPayments(payPage + 1)} disabled={payPage >= payTotalPages}
-                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-40">Next →</button>
+                  <button type="button" onClick={() => void fetchPayments(payPage - 1)} disabled={payPage <= 1}
+                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-40 dark:text-gray-200">{u.prevPage}</button>
+                  <button type="button" onClick={() => void fetchPayments(payPage + 1)} disabled={payPage >= payTotalPages}
+                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-40 dark:text-gray-200">{u.nextPage}</button>
                 </div>
               </div>
             </>
           ) : (
-            <EmptyState title="No payments found" description="No payments match your filters." />
+            <EmptyState title={t.payments.noPayments} description={u.noPaymentsDesc} />
           )}
         </div>
       )}
@@ -407,43 +461,53 @@ export default function UnifiedPayments() {
       {activeTab === "transactions" && (
         <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-5 md:p-6">
           <div className="flex flex-wrap items-center gap-3 mb-4">
-            <select value={txType} onChange={e => { setTxType(e.target.value); setTxPage(1); }}
-              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent text-sm">
-              <option value="">All types</option>
-              <option value="payment">Payment</option>
-              <option value="refund">Refund</option>
-              <option value="adjustment">Adjustment</option>
+            <select aria-label={u.typeFilterLabel} value={txType} onChange={e => { setTxType(e.target.value); setTxPage(1); }}
+              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent text-sm dark:text-white dark:bg-gray-900">
+              <option value="">{t.payments.allTypes}</option>
+              <option value="payment">{u.txTypes.payment}</option>
+              <option value="refund">{u.txTypes.refund}</option>
+              <option value="adjustment">{u.txTypes.adjustment}</option>
             </select>
-            <input type="date" value={txFrom} onChange={e => { setTxFrom(e.target.value); setTxPage(1); }}
-              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent text-sm" />
+            <input type="date" aria-label={u.dateFromLabel} value={txFrom} onChange={e => { setTxFrom(e.target.value); setTxPage(1); }}
+              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent text-sm dark:text-white" />
             <span className="text-gray-400 text-sm">—</span>
-            <input type="date" value={txTo} onChange={e => { setTxTo(e.target.value); setTxPage(1); }}
-              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent text-sm" />
-            <Button size="sm" onClick={() => fetchTransactions(1)} className="ml-2">Filter</Button>
+            <input type="date" aria-label={u.dateToLabel} value={txTo} onChange={e => { setTxTo(e.target.value); setTxPage(1); }}
+              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent text-sm dark:text-white" />
+            <Button size="sm" onClick={() => void fetchTransactions(1)} className="ml-2">{u.filterButton}</Button>
             {(txFrom || txTo || txType) && (
-              <button onClick={() => { setTxFrom(""); setTxTo(""); setTxType(""); }} className="text-xs text-gray-500 hover:text-gray-700">
-                Clear
+              <button type="button" onClick={() => { setTxFrom(""); setTxTo(""); setTxType(""); }} className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400">
+                {u.clearFilters}
               </button>
             )}
           </div>
 
           {txLoading ? (
             <div className="flex justify-center p-12"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+          ) : txError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-800 dark:bg-red-900/20">
+              <p role="alert" className="mb-4 text-sm text-red-800 dark:text-red-300">{u.transactionsLoadError}</p>
+              <Button type="button" variant="outline" onClick={() => void fetchTransactions(txPage)}>{u.retry}</Button>
+            </div>
           ) : transactions.length > 0 ? (
             <>
               <DataTable data={transactions} columns={txColumns} />
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <span className="text-sm text-gray-500">Page {txPage} of {txTotalPages} ({txTotal} total)</span>
+              <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <span className="text-sm text-gray-500">
+                  {u.pageSummary
+                    .replace("{page}", String(txPage))
+                    .replace("{totalPages}", String(txTotalPages))
+                    .replace("{total}", String(txTotal))}
+                </span>
                 <div className="flex gap-2">
-                  <button onClick={() => fetchTransactions(txPage - 1)} disabled={txPage <= 1}
-                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-40">← Prev</button>
-                  <button onClick={() => fetchTransactions(txPage + 1)} disabled={txPage >= txTotalPages}
-                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-40">Next →</button>
+                  <button type="button" onClick={() => void fetchTransactions(txPage - 1)} disabled={txPage <= 1}
+                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-40 dark:text-gray-200">{u.prevPage}</button>
+                  <button type="button" onClick={() => void fetchTransactions(txPage + 1)} disabled={txPage >= txTotalPages}
+                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-40 dark:text-gray-200">{u.nextPage}</button>
                 </div>
               </div>
             </>
           ) : (
-            <EmptyState title="No transactions found" description="No transactions match your filters." />
+            <EmptyState title={u.noTransactionsTitle} description={u.noTransactionsDesc} />
           )}
         </div>
       )}

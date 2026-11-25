@@ -1,5 +1,7 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { captureError } from '../../lib/sentry';
+import { bs } from '../../lib/i18n/bs';
+import { en } from '../../lib/i18n/en';
 
 interface Props {
   children: ReactNode;
@@ -9,6 +11,29 @@ interface State {
   hasError: boolean;
   error?: Error;
   errorId?: string;
+  copied?: boolean;
+}
+
+/**
+ * Resolve active UI language without React context because ErrorBoundary
+ * wraps I18nProvider at the application root and must stay bootstrap-safe.
+ */
+function resolveBootstrapLang(): 'bs' | 'en' {
+  try {
+    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('travline_lang') : null;
+    if (stored === 'bs' || stored === 'en') return stored;
+  } catch { /* Storage may be blocked in private/restricted environments. */ }
+  try {
+    const docLang = typeof document !== 'undefined' ? document.documentElement?.lang : '';
+    if (docLang?.toLowerCase().startsWith('en')) return 'en';
+    if (docLang?.toLowerCase().startsWith('bs')) return 'bs';
+  } catch { /* Ignore DOM access issues during early bootstrap. */ }
+  try {
+    const navLang = typeof navigator !== 'undefined' ? navigator.language : '';
+    if (navLang?.toLowerCase().startsWith('en')) return 'en';
+    if (navLang?.toLowerCase().startsWith('bs')) return 'bs';
+  } catch { /* Ignore navigator access issues. */ }
+  return 'bs';
 }
 
 class ErrorBoundary extends Component<Props, State> {
@@ -67,7 +92,7 @@ class ErrorBoundary extends Component<Props, State> {
 
     try {
       await navigator.clipboard.writeText(JSON.stringify(errorDetails, null, 2));
-      // Could show a toast here, but for now just copy silently
+      this.setState({ copied: true });
     } catch (err) {
       console.warn('Failed to copy error details to clipboard:', err);
     }
@@ -75,6 +100,7 @@ class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
+      const copy = resolveBootstrapLang() === 'en' ? en.errorBoundary : bs.errorBoundary;
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
           <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 text-center">
@@ -84,6 +110,7 @@ class ErrorBoundary extends Component<Props, State> {
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -94,10 +121,10 @@ class ErrorBoundary extends Component<Props, State> {
               </svg>
             </div>
             <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              Something went wrong
+              {copy.title}
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              An unexpected error occurred. Please try refreshing the page or sign in again.
+              {copy.description}
             </p>
             {this.state.errorId && (
               <p className="mb-4 font-mono text-[0.7rem] text-gray-400 dark:text-gray-500">
@@ -106,35 +133,39 @@ class ErrorBoundary extends Component<Props, State> {
             )}
             <div className="space-y-2">
               <button
+                type="button"
                 onClick={() => window.location.reload()}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
               >
-                Refresh Page
+                {copy.refreshPage}
               </button>
               <button
+                type="button"
                 onClick={this.handleGoToLogin}
                 className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
               >
-                Go to Login
+                {copy.goToLogin}
               </button>
               <button
-                onClick={() => this.setState({ hasError: false, error: undefined })}
+                type="button"
+                onClick={() => this.setState({ hasError: false, error: undefined, copied: false })}
                 className="w-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium py-2 px-4 rounded-md transition-colors"
               >
-                Try Again
+                {copy.tryAgain}
               </button>
             </div>
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <div className="mt-4 text-left">
                 <button
+                  type="button"
                   onClick={this.handleCopyErrorDetails}
                   className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-md transition-colors mb-2"
                 >
-                  Copy Error Details
+                  {this.state.copied ? copy.copiedDetails : copy.copyDetails}
                 </button>
                 <details>
                   <summary className="cursor-pointer text-sm text-gray-500 dark:text-gray-400">
-                    Error Details (Development)
+                    {copy.devDetails}
                   </summary>
                   <pre className="mt-2 text-xs bg-gray-100 dark:bg-gray-700 p-2 rounded overflow-auto">
                     {this.state.error.stack}

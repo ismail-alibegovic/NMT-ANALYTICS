@@ -11,6 +11,7 @@ import Label from '../components/form/Label';
 import { useToast } from '../context/ToastContext';
 import { createInquiry, getInquiries, updateInquiry, type CreateInquiry, type Inquiry, type InquiryStage, type InquiryTripType } from '../api/inquiries';
 import { useT } from '../lib/i18n/context';
+import { formatDateTime } from '../utils/business';
 
 const STAGE_KEYS: InquiryStage[] = ['new', 'qualified', 'proposal', 'follow_up', 'won', 'lost'];
 
@@ -23,7 +24,8 @@ const CURRENCIES = ['BAM', 'EUR', 'USD'] as const;
 const emptyForm: CreateInquiry = { contactName: '', phone: null, email: null, tripType: 'other', source: 'phone', destination: null, travelStart: null, travelEnd: null, travelers: 1, budget: null, currency: 'BAM', nextActionAt: null, notes: null };
 
 export default function Inquiries() {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const locale = lang === 'en' ? 'en-GB' : 'bs-BA';
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { success, error: showError } = useToast();
@@ -88,8 +90,8 @@ export default function Inquiries() {
                   return (
                   <article key={item.id} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
                     <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="truncate text-sm font-semibold text-gray-900 dark:text-white">{item.contactName}</h3><p className="mt-0.5 truncate text-xs text-gray-500">{item.destination || t.inquiries.noDestination}</p></div><Badge size="sm" color="primary">{t.inquiries.tripType[item.tripType as InquiryTripType] || item.tripType}</Badge></div>
-                    <div className="mt-3 flex items-center justify-between text-xs text-gray-500"><span>{item.travelers} {item.travelers === 1 ? t.inquiries.travelers_one : t.inquiries.travelers_other}</span><span>{item.budget ? `${item.budget.toLocaleString('bs-BA')} ${item.currency}` : t.inquiries.noBudget}</span></div>
-                    {item.nextActionAt && <p className="mt-3 text-xs font-medium text-warning-600 dark:text-warning-400">{t.inquiries.nextAction} {new Date(item.nextActionAt).toLocaleString('bs-BA')}</p>}
+                    <div className="mt-3 flex items-center justify-between text-xs text-gray-500"><span>{item.travelers} {item.travelers === 1 ? t.inquiries.travelers_one : t.inquiries.travelers_other}</span><span>{item.budget ? `${item.budget.toLocaleString(locale)} ${item.currency}` : t.inquiries.noBudget}</span></div>
+                    {item.nextActionAt && <p className="mt-3 text-xs font-medium text-warning-600 dark:text-warning-400">{t.inquiries.nextAction} {formatDateTime(item.nextActionAt, locale)}</p>}
                     <button type="button" onClick={() => navigate(`/itineraries?new=1&inquiryId=${item.id}`)} className="mt-3 text-xs font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">{t.inquiries.createItinerary}</button>
                     <select value={item.stage} onChange={(event) => void move(item, event.target.value as InquiryStage)} className="mt-4 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-xs text-gray-700 dark:border-gray-700 dark:text-gray-200" aria-label={`${t.inquiries.stage[stage]} — ${item.contactName}`}>{STAGE_KEYS.map((option) => <option key={option} value={option}>{t.inquiries.stage[option]}</option>)}</select>
                   </article>

@@ -70,8 +70,8 @@ export default function QuickCreateModal({ isOpen, onClose }: QuickCreateModalPr
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="mx-4 max-w-xl overflow-hidden rounded-xl" title={copy.title}>
-      <div className="px-6 pb-6 pt-4">
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-xl" title={copy.title}>
+      <div className="px-6 py-5">
         <p className="mb-4 max-w-md text-sm leading-6 text-gray-500 dark:text-gray-400">{copy.subtitle}</p>
         <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
           {options.map((option) => {

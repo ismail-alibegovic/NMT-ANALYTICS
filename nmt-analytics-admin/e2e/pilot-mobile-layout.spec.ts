@@ -29,11 +29,11 @@ for(const theme of ['light','dark'])for(const width of [390,768,1440])test(`dire
  await page.getByRole('button',{name:/sign in/i}).click();await expect(page).not.toHaveURL(/auth\/signin/);
  await page.goto('/operations/commission-rules');await expect(page).toHaveURL(/\/operations\/commission-rules$/);
  await expect(page.locator('html')).toHaveClass(theme==='dark'?/dark/:/^$/);
- const button=page.getByRole('button',{name:'Izračunaj',exact:true});await expect(button).toBeVisible();
+ const button=page.getByRole('button',{name:'Calculate',exact:true});await expect(button).toBeVisible();
  const box=(await button.boundingBox())!;expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width);
- await page.getByLabel('Partner',{exact:true}).selectOption('gold');await page.getByLabel('Usluga',{exact:true}).selectOption('transport');await page.getByLabel('Iznos',{exact:true}).fill('2500');
+ await page.getByLabel('Partner',{exact:true}).selectOption('gold');await page.getByLabel('Service',{exact:true}).selectOption('transport');await page.getByLabel('Amount',{exact:true}).fill('2500');
  const response=page.waitForResponse(r=>r.url().includes('/api/commission-rules/preview')&&r.request().method()==='GET');
- await button.click();expect((await response).status()).toBe(200);await expect(page.getByText('Finalni iznos',{exact:true})).toBeVisible();
+ await button.click();expect((await response).status()).toBe(200);await expect(page.getByText('Final amount',{exact:true})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  await page.screenshot({path:info.outputPath('commission-preview.png'),fullPage:true});
 });

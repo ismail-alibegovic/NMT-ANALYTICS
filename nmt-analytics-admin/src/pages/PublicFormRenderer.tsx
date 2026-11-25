@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router';
 import { get, post } from '../api/client';
 import { useT } from '../lib/i18n/context';
+import { formatDate } from '../utils/business';
 
 type PublicFieldType = 'short_text' | 'long_text' | 'email' | 'phone' | 'number' | 'date' | 'select' | 'multiselect' | 'checkbox';
 
@@ -427,8 +428,8 @@ export default function PublicFormRenderer() {
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-brand-100 pt-3 dark:border-brand-900/30">
                 <div className="text-xs text-gray-600 dark:text-gray-300">
                   <span className="font-medium text-gray-900 dark:text-white">{c.departureDate}: </span>
-                  {new Date(form.departure.departAt).toLocaleDateString(lang === 'bs' ? 'bs-BA' : 'en-US')}
-                  {form.departure.returnAt ? ` – ${new Date(form.departure.returnAt).toLocaleDateString(lang === 'bs' ? 'bs-BA' : 'en-US')}` : ''}
+                  {formatDate(form.departure.departAt, lang === 'bs' ? 'bs-BA' : 'en-US')}
+                  {form.departure.returnAt ? ` – ${formatDate(form.departure.returnAt, lang === 'bs' ? 'bs-BA' : 'en-US')}` : ''}
                 </div>
                 <div>
                   {form.departure.available > 0 ? (
@@ -458,8 +459,9 @@ export default function PublicFormRenderer() {
                 >
                   <option value="">{c.selectPlaceholder}</option>
                   {form.availableDepartures.map((dep) => {
-                    const startStr = new Date(dep.departAt).toLocaleDateString(lang === 'bs' ? 'bs-BA' : 'en-US');
-                    const endStr = dep.returnAt ? new Date(dep.returnAt).toLocaleDateString(lang === 'bs' ? 'bs-BA' : 'en-US') : '';
+                    const depLocale = lang === 'bs' ? 'bs-BA' : 'en-US';
+                    const startStr = formatDate(dep.departAt, depLocale);
+                    const endStr = dep.returnAt ? formatDate(dep.returnAt, depLocale) : '';
                     const availText = dep.available > 0 ? `${dep.available} ${c.spotsLeft}` : c.soldOut;
                     return (
                       <option key={dep.id} value={dep.id}>

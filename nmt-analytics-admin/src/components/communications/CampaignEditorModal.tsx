@@ -19,6 +19,7 @@ import { getMessageTemplates, type MessageTemplate } from '../../api/messageTemp
 import { getDepartures, type Departure } from '../../api/departures';
 import { getReservations, type Reservation } from '../../api/reservations';
 import { hasUnsupportedPlaceholder, SMS_MAX_LENGTH } from '../../lib/templateVariables';
+import { formatDate } from '../../utils/business';
 
 interface CampaignEditorModalProps {
   isOpen: boolean;
@@ -154,7 +155,7 @@ export default function CampaignEditorModal({
     () =>
       departures.map((departure) => ({
         value: departure.id,
-        label: `${departure.packageName || departure.destination || departure.packages?.name || s.untitledDeparture}${departure.depart_at ? ` · ${new Date(departure.depart_at).toLocaleDateString(locale)}` : ''}`,
+        label: `${departure.packageName || departure.destination || departure.packages?.name || s.untitledDeparture}${departure.depart_at ? ` · ${formatDate(departure.depart_at, locale)}` : ''}`,
       })),
     [departures, locale, s.untitledDeparture],
   );
@@ -264,11 +265,14 @@ export default function CampaignEditorModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-4xl" showCloseButton>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-        <h3 className="text-lg font-semibold text-gray-950 dark:text-white">
-          {campaign ? s.form.editTitle : s.form.createTitle}
-        </h3>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      className="max-w-4xl"
+      showCloseButton
+      title={campaign ? s.form.editTitle : s.form.createTitle}
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6 p-6">
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-4">

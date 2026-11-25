@@ -10,6 +10,7 @@ import Label from '../components/form/Label';
 import { Modal } from '../components/ui/modal';
 import { useToast } from '../context/ToastContext';
 import { useT } from '../lib/i18n/context';
+import { formatDate } from '../utils/business';
 import {
   getQuotation, updateQuotation, quotationPdfUrl,
   addQuotationItem, editQuotationItem, deleteQuotationItem,
@@ -27,7 +28,7 @@ const emptyItem: CreateQuotationItem = {
 };
 
 export default function QuotationDetail() {
-  const { id = '' } = useParams(); const { t } = useT(); const c = t.quotations;
+  const { id = '' } = useParams(); const { t, lang } = useT(); const locale = lang === 'en' ? 'en-GB' : 'bs-BA'; const c = t.quotations;
   const { success, error: showError } = useToast();
   const [data, setData] = useState<Quotation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -127,7 +128,7 @@ export default function QuotationDetail() {
           <span className="text-sm font-mono text-gray-500 dark:text-gray-400">{data.reference}</span>
         </div>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {data.validUntil ? `${c.validUntil}: ${new Date(data.validUntil).toLocaleDateString()}` : c.noExpiry}
+          {data.validUntil ? `${c.validUntil}: ${formatDate(data.validUntil, locale)}` : c.noExpiry}
         </p>
         {isStandalone ? (
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{c.standaloneLabel}</p>
@@ -153,10 +154,10 @@ export default function QuotationDetail() {
     <QuotationBookingPanel key={data.id} quotation={data} />
 
     <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-      <Pill label={c.netTotal} value={`${data.netTotal.toLocaleString()} ${data.currency}`} />
+      <Pill label={c.netTotal} value={`${data.netTotal.toLocaleString(locale)} ${data.currency}`} />
       <Pill label={c.markup} value={`${data.markupStrategy === 'uniform' ? `${data.globalMarkupPercent}% ${c.uniform}` : c.perItem}`} />
-      <Pill label={c.sellTotal} value={`${data.sellTotal.toLocaleString()} ${data.currency}`} />
-      <Pill label={c.marginTotal} value={`${data.marginTotal.toLocaleString()} ${data.currency}`} />
+      <Pill label={c.sellTotal} value={`${data.sellTotal.toLocaleString(locale)} ${data.currency}`} />
+      <Pill label={c.marginTotal} value={`${data.marginTotal.toLocaleString(locale)} ${data.currency}`} />
     </div>
 
     {data.bookingContext?.source === 'itinerary' && (
@@ -225,16 +226,16 @@ export default function QuotationDetail() {
                     </div>
                     {item.location && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{item.location}</p>}
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {item.quantity} × {item.netUnitPrice.toLocaleString()} {item.currency} · {item.unit}
+                      {item.quantity} × {item.netUnitPrice.toLocaleString(locale)} {item.currency} · {item.unit}
                     </p>
                     {item.description && <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{item.description}</p>}
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
-                      {item.sellLineTotal.toLocaleString()} {item.currency}
+                      {item.sellLineTotal.toLocaleString(locale)} {item.currency}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {c.net}: {item.netLineTotal.toLocaleString()} {item.currency} · {item.markupPercent}%
+                      {c.net}: {item.netLineTotal.toLocaleString(locale)} {item.currency} · {item.markupPercent}%
                     </p>
                   </div>
                   {canEditItems && (

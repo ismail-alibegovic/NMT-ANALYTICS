@@ -153,11 +153,14 @@ export default function TemplateEditorModal({
     'h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs bg-transparent border-error-500 focus:border-error-400 focus:ring-error-500/15 dark:text-error-400 dark:border-error-500 dark:focus:border-error-800 focus:outline-none focus:ring-2';
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-4xl" showCloseButton>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-        <h3 className="text-lg font-semibold text-gray-950 dark:text-white">
-          {isEditing ? s.editTitle : s.createTitle}
-        </h3>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      className="max-w-4xl"
+      showCloseButton
+      title={isEditing ? s.editTitle : s.createTitle}
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6 p-6">
 
         <div className="flex flex-col gap-6 lg:flex-row">
           <div className="min-w-0 flex-1 space-y-4">

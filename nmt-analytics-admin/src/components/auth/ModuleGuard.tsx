@@ -1,6 +1,8 @@
-import { useNavigate } from "react-router";
+import { Link } from "react-router";
 import { useApp } from "../../context/AppContext";
+import { useT } from "../../lib/i18n/context";
 import { logger } from "../../utils/logger";
+import { LockIcon } from "../../icons";
 
 /**
  * ModuleGuard — frontend entitlement gate for premium modules.
@@ -8,32 +10,17 @@ import { logger } from "../../utils/logger";
  * Mirrors the backend `requireModule()` middleware: an item renders only if
  * the user's enabled module set (returned by `GET /me/context` as
  * `modules`) contains the `moduleKey`.
- *
- * Design notes:
- * - Trial-plan tenants must not see premium routes (analytics, payments,
- *   integrations, documents) or premium operations (subagents, hotels,
- *   excursions, commission rules) — the sidebar `canSeeItem` already
- *   filters by `nav.module`; this component gates the *route element*
- *   itself so direct navigation to a gated URL doesn't leak the page.
- * - The backend `requireModule` is the security boundary; `ModuleGuard`
- *   is a UX/defense-in-depth layer. If a user without `analytics` hits
- *   `/reports` directly, ModuleGuard redirects to `/` instead of
- *   rendering a 402-bearing page shell.
- * - DEV fallback: in dev builds, when `modules` is empty (e.g. cold-start
- *   race with `/me/context`), we render the children to avoid spuriously
- *   hiding premium surfaces during local iteration. Mirrors the sidebar's
- *   same-rooted `canSeeItem` dev fallback.
  */
 interface ModuleGuardProps {
   moduleKey: string;
   children: React.ReactNode;
-  /** Rendered instead of redirecting when the module is absent. Optional. */
+  /** Rendered instead of the default restricted state when the module is absent. Optional. */
   fallback?: React.ReactNode;
 }
 
 export function ModuleGuard({ moduleKey, children, fallback }: ModuleGuardProps) {
   const { userContext, loading, profileLoading } = useApp();
-  const navigate = useNavigate();
+  const { t } = useT();
 
   // Wait for authoritative context before mounting protected children.
   if (loading || profileLoading) {
@@ -56,11 +43,32 @@ export function ModuleGuard({ moduleKey, children, fallback }: ModuleGuardProps)
   }
 
   logger.warn(
-    `[ModuleGuard] Module "${moduleKey}" not enabled for this user — redirecting to "/".`
+    `[ModuleGuard] Module "${moduleKey}" not enabled for this user.`
   );
-  // Defer navigate out of render to keep React happy.
-  queueMicrotask(() => navigate("/", { replace: true }));
-  return null;
+
+  return (
+    <div className="mx-auto max-w-lg py-12">
+      <div className="rounded-2xl border border-amber-200 bg-white p-8 text-center shadow-sm dark:border-amber-800/40 dark:bg-white/[0.03]">
+        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
+          <LockIcon className="size-6" />
+        </div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          {t.common.moduleRestrictedTitle}
+        </h2>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          {t.common.moduleRestrictedDesc}
+        </p>
+        <div className="mt-6">
+          <Link
+            to="/home"
+            className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
+          >
+            {t.common.backToHome}
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default ModuleGuard;

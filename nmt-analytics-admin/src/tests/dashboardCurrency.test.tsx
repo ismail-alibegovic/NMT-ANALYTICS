@@ -37,37 +37,55 @@ vi.mock('../context/ToastContext', () => ({
   useToast: () => ({ error: vi.fn(), success: vi.fn() }),
 }));
 
+const mockTranslations = {
+  common: {
+    error: 'Error',
+    total: 'Total',
+    noPaymentData: 'No payment data yet',
+    currency: 'Currency',
+    tryAgain: 'Try Again',
+    backToHome: 'Back to home',
+  },
+  reports: {
+    selectCurrency: 'Select currency',
+  },
+  dashboard: {
+    title: 'Dashboard',
+    description: 'Dashboard description',
+    exportData: 'Export',
+    totalRevenue: 'Total Revenue',
+    totalBookings: 'Total Bookings',
+    totalCustomers: 'Total Customers',
+    avgBooking: 'Avg Booking',
+    cancelRate: 'Cancel Rate',
+    revenueTrend: 'Revenue Trend',
+    revenueGenerated: 'Revenue generated',
+    bookingsTrend: 'Bookings Trend',
+    bookingsOverTime: 'Bookings over time',
+    yourBookings: 'Your bookings',
+    reservationsOverview: 'Reservations overview',
+    topPackages: 'Top Packages',
+    unknownPackage: 'Unknown Package',
+    bookings: 'bookings',
+    revenue: 'Revenue',
+    noData: 'No data',
+    noDataDesc: 'No data description',
+    noBookings: 'No bookings',
+    noBookingsDesc: 'No bookings description',
+    createPackage: 'Create package',
+    viewReservations: 'View reservations',
+    createReservation: 'Create reservation',
+    loadError: 'Unable to load analytics data. Please try again.',
+    upgradeRequiredTitle: 'Analytics is not included in your current plan',
+    upgradeRequiredDesc: 'Upgrade your plan in agency settings to access analytics and performance charts.',
+  },
+};
+
+const langState = { lang: 'bs' as 'bs' | 'en' };
+
 vi.mock('../lib/i18n/context', () => ({
-  useTranslation: () => ({
-    common: { error: 'Error' },
-    dashboard: {
-      title: 'Dashboard',
-      description: 'Dashboard description',
-      exportData: 'Export',
-      totalRevenue: 'Total Revenue',
-      totalBookings: 'Total Bookings',
-      totalCustomers: 'Total Customers',
-      avgBooking: 'Avg Booking',
-      cancelRate: 'Cancel Rate',
-      revenueTrend: 'Revenue Trend',
-      revenueGenerated: 'Revenue generated',
-      bookingsTrend: 'Bookings Trend',
-      bookingsOverTime: 'Bookings over time',
-      yourBookings: 'Your bookings',
-      reservationsOverview: 'Reservations overview',
-      topPackages: 'Top Packages',
-      unknownPackage: 'Unknown Package',
-      bookings: 'bookings',
-      revenue: 'Revenue',
-      noData: 'No data',
-      noDataDesc: 'No data description',
-      noBookings: 'No bookings',
-      noBookingsDesc: 'No bookings description',
-      createPackage: 'Create package',
-      viewReservations: 'View reservations',
-      createReservation: 'Create reservation',
-    },
-  }),
+  useTranslation: () => mockTranslations,
+  useT: () => ({ t: mockTranslations, lang: langState.lang, setLang: vi.fn(), toggleLang: vi.fn() }),
 }));
 
 vi.mock('../components/common/PageMeta', () => ({
@@ -100,6 +118,7 @@ vi.mock('../icons', () => {
     DownloadIcon: Icon,
     GroupIcon: Icon,
     ShootingStarIcon: Icon,
+    LockIcon: Icon,
   };
 });
 
@@ -183,6 +202,10 @@ function renderDashboard() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  langState.lang = 'bs';
+  getAnalyticsOverview.mockImplementation(async () => overviewResponse);
+  getDashboardStats.mockImplementation(async () => dashboardResponse);
+  getRevenueSeries.mockImplementation(async () => revenueResponse);
   seedSingleCurrency('BAM', 100);
 });
 
@@ -228,5 +251,30 @@ describe('Dashboard currency handling', () => {
       expect(getRevenueSeries).toHaveBeenLastCalledWith('2026-01-01', '2026-01-31', 'day', 'EUR');
     });
     expect((await screen.findAllByText(/200,00\s*€/)).length).toBeGreaterThan(0);
+  });
+
+  it('renders localized upgrade panel on HTTP 402 MODULE_NOT_ENTITLED with a single fetch attempt and no retry loop', async () => {
+    const err402: any = new Error('The "Trial" plan does not include the "analytics" module.');
+    err402.status = 402;
+    err402.code = 'MODULE_NOT_ENTITLED';
+    getAnalyticsOverview.mockRejectedValue(err402);
+
+    renderDashboard();
+
+    expect(await screen.findByText('Analytics is not included in your current plan')).toBeInTheDocument();
+    expect(screen.queryByText(/Select currency/)).not.toBeInTheDocument();
+    expect(getAnalyticsOverview).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders explicit loadError state with retry button on 500 error instead of fake zero KPIs', async () => {
+    const err500: any = new Error('Database error');
+    err500.status = 500;
+    getAnalyticsOverview.mockRejectedValue(err500);
+
+    renderDashboard();
+
+    expect(await screen.findByText('Unable to load analytics data. Please try again.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument();
+    expect(screen.queryByText(/0,00\s*KM/)).not.toBeInTheDocument();
   });
 });

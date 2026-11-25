@@ -186,20 +186,21 @@ export default function AutomationEditorModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} showCloseButton className="max-w-2xl">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      showCloseButton
+      className="max-w-2xl"
+      title={isEditing ? a.editTitle : a.newTitle}
+      description={a.subtitle}
+    >
       <form
-        className="space-y-5"
+        className="space-y-5 p-6"
         onSubmit={(e) => {
           e.preventDefault();
           handleSave();
         }}
       >
-        <div>
-          <h2 className="text-lg font-semibold text-gray-950 dark:text-white">
-            {isEditing ? a.editTitle : a.newTitle}
-          </h2>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{a.subtitle}</p>
-        </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="automation-name">{a.name}</Label>

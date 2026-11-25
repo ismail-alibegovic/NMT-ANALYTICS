@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, type ComponentType, type SVGProps, useCallback, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "../lib/i18n/context";
+import { bs as bsDict } from "../lib/i18n/bs";
+import { formatCurrency } from "../utils/business";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
@@ -77,26 +79,19 @@ import { sendDepartureManualMessage } from "../api/manualMessaging";
 import { canAccessFinances } from "../types/roles";
 import SupplierPayablesPanel from "../components/departures/SupplierPayablesPanel";
 import { getSuppliers, type Supplier } from "../api/suppliers";
+import { formatDate as formatSafeDate, formatDateTime as formatSafeDateTime } from "../utils/business";
 
-const formatCurrency = (amount: number, currency = "BAM") =>
-  new Intl.NumberFormat("bs-BA", { style: "currency", currency }).format(amount || 0);
-
-const formatDate = (dateStr: string) => {
+const formatDate = (dateStr: string, locale = "bs-BA") => {
   if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("bs-BA", {
-    year: "numeric", month: "2-digit", day: "2-digit",
-  });
+  return formatSafeDate(dateStr, locale);
 };
 
-const formatDateTime = (dateStr: string) => {
+const formatDateTime = (dateStr: string, locale = "bs-BA") => {
   if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleString("bs-BA", {
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit",
-  });
+  return formatSafeDateTime(dateStr, locale);
 };
 
-const statusBadge = (status?: string | null) => {
+const statusBadge = (status: string | null | undefined, labels: Record<string, string>) => {
   const normalizedStatus = status ?? "unknown";
   const colors: Record<string, any> = {
     active: "info",
@@ -105,7 +100,7 @@ const statusBadge = (status?: string | null) => {
     confirmed: "success",
     pending: "warning",
   };
-  return <Badge color={colors[normalizedStatus] || "light"} size="sm">{normalizedStatus.toUpperCase()}</Badge>;
+  return <Badge color={colors[normalizedStatus] || "light"} size="sm">{labels[normalizedStatus] || normalizedStatus}</Badge>;
 };
 
 type Tab = "overview" | "passengers" | "razvrstavanje" | "drustva" | "hotels" | "finance";
@@ -116,7 +111,12 @@ export default function DepartureDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const t = useTranslation();
+  const locale = t.departure.overview === bsDict.departure.overview ? "bs-BA" : "en-GB";
   const { error: showError, success: showSuccess } = useToast();
+  const showErrorRef = useRef(showError);
+  showErrorRef.current = showError;
+  const loadErrorMsgRef = useRef(t.departure.loadError);
+  loadErrorMsgRef.current = t.departure.loadError;
   const { userContext } = useApp();
   const canViewFinance = canAccessFinances(userContext?.role);
   const [departure, setDeparture] = useState<Departure | null>(null);
@@ -343,11 +343,6 @@ export default function DepartureDetail() {
       .finally(() => setResLoading(false));
   }, [showAddModal, id]);
 
-  useEffect(() => {
-    if (!id) return;
-    loadDeparture();
-  }, [id, showError]);
-
   const loadDeparture = useCallback(async () => {
     if (!id) return;
     setLoading(true);
@@ -362,11 +357,16 @@ export default function DepartureDetail() {
       setGroups(grps);
     } catch (err: any) {
       console.error("Failed to load departure:", err);
-      showError(err?.message || "Failed to load departure details");
+      showErrorRef.current(loadErrorMsgRef.current);
     } finally {
       setLoading(false);
     }
-  }, [id, showError]);
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    void loadDeparture();
+  }, [id, loadDeparture]);
 
   const passengers: DeparturePassenger[] = Array.isArray((manifest as any)?.manifest)
     ? (manifest as any).manifest
@@ -627,7 +627,7 @@ export default function DepartureDetail() {
     {
       label: t.departure.billing,
       detail: totalDebt > 0
-        ? t.departure.remainingDebt.replace("{amount}", formatCurrency(totalDebt, currency))
+        ? t.departure.remainingDebt.replace("{amount}", formatCurrency(totalDebt, currency, locale))
         : t.departure.noDebt,
       ready: totalGuests > 0 && totalDebt <= 0,
     },
@@ -669,7 +669,7 @@ export default function DepartureDetail() {
         </div>
       ),
     },
-    { key: "phone", header: "Telefon", render: (v) => v ? <span className="text-gray-600 dark:text-gray-300">{String(v)}</span> : <span className="text-gray-400">—</span> },
+    { key: "phone", header: t.departure.phone, render: (v) => v ? <span className="text-gray-600 dark:text-gray-300">{String(v)}</span> : <span className="text-gray-400">—</span> },
     {
       key: "seat",
       header: t.departure.seat,
@@ -698,8 +698,8 @@ export default function DepartureDetail() {
         </button>
       ),
     },
-    { key: "paidAmount", header: "Plaćeno", render: (v) => <span className="text-success-600 dark:text-success-400 font-medium">{formatCurrency(Number(v), currency)}</span> },
-    { key: "debtAmount", header: "Dug", render: (v) => Number(v) > 0 ? <span className="text-error-600 font-semibold">{formatCurrency(Number(v), currency)}</span> : <span className="text-gray-400">—</span> },
+    { key: "paidAmount", header: t.departure.colPaid, render: (v) => <span className="text-success-600 dark:text-success-400 font-medium">{formatCurrency(Number(v), currency, locale)}</span> },
+    { key: "debtAmount", header: t.departure.colDebt, render: (v) => Number(v) > 0 ? <span className="text-error-600 font-semibold">{formatCurrency(Number(v), currency, locale)}</span> : <span className="text-gray-400">—</span> },
     {
       key: "documentReadinessStatus",
       header: t.departure.documents,
@@ -763,7 +763,7 @@ export default function DepartureDetail() {
   // paidAmount) rendered "undefined". These columns read the actual fields.
   const groupPassengerCols: Column<any>[] = [
     { key: "name", header: t.departure.fullName, render: (v) => <span className="font-medium dark:text-white">{v ? String(v) : "—"}</span> },
-    { key: "phone", header: "Telefon", render: (v) => v ? <span className="text-gray-600 dark:text-gray-300">{String(v)}</span> : <span className="text-gray-400">—</span> },
+    { key: "phone", header: t.departure.phone, render: (v) => v ? <span className="text-gray-600 dark:text-gray-300">{String(v)}</span> : <span className="text-gray-400">—</span> },
     { key: "partySize", header: t.departure.partySize, render: (v) => <span className="text-gray-600 dark:text-gray-300">{Number(v) || 1}</span> },
     {
       key: "roomType",
@@ -961,7 +961,7 @@ export default function DepartureDetail() {
   if (loading) {
     return (
       <>
-        <PageMeta title="Polazak | Travline" description="Detalji polaska" />
+        <PageMeta title={t.departure.loadingTitle} description={t.departure.loadingDescription} />
         <div className="p-4 sm:p-6">
           <div className="mb-5 h-8 w-24 animate-pulse rounded-lg bg-gray-200 dark:bg-gray-800" />
           <div className="h-52 animate-pulse rounded-2xl bg-gray-100 dark:bg-white/[0.04]" />
@@ -995,7 +995,7 @@ export default function DepartureDetail() {
 
   return (
     <>
-      <PageMeta title={`${departure.packageName} | Travline`} description={`Polazak ${formatDate(departure.depart_at)}`} />
+      <PageMeta title={`${departure.packageName} | Travline`} description={t.departure.departureDateMeta.replace("{date}", formatDate(departure.depart_at, locale))} />
 
       <div className="p-4 sm:p-6">
         <button
@@ -1012,7 +1012,7 @@ export default function DepartureDetail() {
             <div className="min-w-0">
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-600 dark:text-brand-400">{t.departure.travelWorkspace}</span>
-                {statusBadge(departure.status)}
+                {statusBadge(departure.status, t.departure.statusLabels)}
               </div>
               <h1 className="text-2xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-3xl">{departure.packageName}</h1>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{departure.destination}</p>
@@ -1026,7 +1026,7 @@ export default function DepartureDetail() {
               <div className="mt-5 flex flex-col gap-2 text-sm text-gray-600 dark:text-gray-300 sm:flex-row sm:flex-wrap sm:gap-x-6">
                 <span className="inline-flex items-center gap-2">
                   <CalenderIcon className="size-4 text-gray-400" aria-hidden="true" />
-                  {formatDateTime(departure.depart_at)} — {formatDateTime(departure.return_at)}
+                  {formatDateTime(departure.depart_at, locale)} — {formatDateTime(departure.return_at, locale)}
                 </span>
                 <span className="inline-flex items-center gap-2">
                   <PlugInIcon className="size-4 text-gray-400" aria-hidden="true" />
@@ -1139,7 +1139,7 @@ export default function DepartureDetail() {
 
           <div className="grid border-t border-gray-200 dark:border-gray-800 sm:grid-cols-2 xl:grid-cols-4">
             <WorkspaceMetric icon={GroupIcon} label={t.departure.metricPassengers} value={`${totalGuests}`} detail={t.departure.metricConfirmedSuffix.replace("{n}", String(confirmedGuests))} />
-            <WorkspaceMetric icon={DollarLineIcon} label={t.departure.metricCollected} value={formatCurrency(totalPaid, currency)} detail={totalDebt > 0 ? t.departure.metricDebtSuffix.replace("{amount}", formatCurrency(totalDebt, currency)) : t.departure.metricNoDebt} attention={totalDebt > 0} />
+            <WorkspaceMetric icon={DollarLineIcon} label={t.departure.metricCollected} value={formatCurrency(totalPaid, currency, locale)} detail={totalDebt > 0 ? t.departure.metricDebtSuffix.replace("{amount}", formatCurrency(totalDebt, currency, locale)) : t.departure.metricNoDebt} attention={totalDebt > 0} />
             {capabilities?.hasAccommodation && <WorkspaceMetric icon={BoxIcon} label={t.departure.metricAccommodation} value={`${allocationHotelCount || relatedHotels.length}`} detail={allocations.length > 0 ? t.departure.metricAllocationsSuffix.replace("{n}", String(allocations.length)) : t.departure.metricNoAllocation} attention={allocations.length === 0} />}
             <WorkspaceMetric icon={ListIcon} label={t.departure.metricReadiness} value={`${readinessPct}%`} detail={t.departure.metricReadySuffix.replace("{ready}", String(readyCount)).replace("{total}", String(readinessItems.length))} attention={readinessPct < 100} />
           </div>
@@ -1168,7 +1168,7 @@ export default function DepartureDetail() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="font-semibold text-gray-950 dark:text-white">{t.departure.metricReadiness}</h2>
-                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Stvarno stanje ključnih priprema za ovaj polazak.</p>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t.departure.readinessSubtitle}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800" aria-hidden="true">
@@ -1199,8 +1199,8 @@ export default function DepartureDetail() {
                                   {departure.linkedFlight.departure_airport} → {departure.linkedFlight.arrival_airport}
                                 </p>
                                 <div className="mt-3 grid gap-2 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-2">
-                                  <span>{t.departure.departureTime}: {formatDateTime(departure.linkedFlight.departure_time)}</span>
-                                  <span>{t.departure.arrivalTime}: {formatDateTime(departure.linkedFlight.arrival_time)}</span>
+                                  <span>{t.departure.departureTime}: {formatDateTime(departure.linkedFlight.departure_time, locale)}</span>
+                                  <span>{t.departure.arrivalTime}: {formatDateTime(departure.linkedFlight.arrival_time, locale)}</span>
                                 </div>
                               </>
                             ) : (
@@ -1283,8 +1283,8 @@ export default function DepartureDetail() {
                                       {seg.flight.departureAirport} → {seg.flight.arrivalAirport}
                                     </p>
                                     <div className="mt-2 grid gap-2 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-2">
-                                      <span>{t.departure.departureTime}: {formatDateTime(seg.flight.departureTime)}</span>
-                                      <span>{t.departure.arrivalTime}: {formatDateTime(seg.flight.arrivalTime)}</span>
+                                      <span>{t.departure.departureTime}: {formatDateTime(seg.flight.departureTime, locale)}</span>
+                                      <span>{t.departure.arrivalTime}: {formatDateTime(seg.flight.arrivalTime, locale)}</span>
                                     </div>
                                   </>
                                 )}
@@ -1356,7 +1356,7 @@ export default function DepartureDetail() {
                       <span className="mt-0.5 block text-sm text-gray-500 dark:text-gray-400">{item.detail}</span>
                     </span>
                     <span className={`hidden text-xs font-semibold sm:block ${item.ready ? "text-success-600 dark:text-success-400" : "text-warning-600 dark:text-warning-400"}`}>
-                      {item.ready ? "Spremno" : "Potrebna pažnja"}
+                      {item.ready ? t.departure.readyBadge : t.departure.attentionBadge}
                     </span>
                     <AngleRightIcon className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
                   </button>
@@ -1365,14 +1365,14 @@ export default function DepartureDetail() {
             </section>
 
             <aside className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
-              <h2 className="font-semibold text-gray-950 dark:text-white">Sažetak putovanja</h2>
+              <h2 className="font-semibold text-gray-950 dark:text-white">{t.departure.tripSummary}</h2>
               <dl className="mt-5 space-y-4">
-                <TripFact label="Period" value={`${formatDate(departure.depart_at)} — ${formatDate(departure.return_at)}`} />
-                <TripFact label="Trajanje" value={`${Math.max(1, Math.ceil((new Date(departure.return_at).getTime() - new Date(departure.depart_at).getTime()) / 86400000))} dana`} />
-                <TripFact label="Kapacitet" value={`${totalGuests} / ${departure.capacity} mjesta (${occupancyPct}%)`} attention={overCapacity > 0} />
-                <TripFact label="Rezervacije" value={`${summary.totalReservations ?? 0}`} />
-                <TripFact label="Prodajni agenti" value={`${groups?.byAgent.length ?? 0}`} />
-                <TripFact label="Vodiči" value={`${summary.guides?.length ?? 0}`} />
+                <TripFact label={t.departure.factPeriod} value={`${formatDate(departure.depart_at, locale)} — ${formatDate(departure.return_at, locale)}`} />
+                <TripFact label={t.departure.factDuration} value={t.departure.durationDays.replace("{count}", String(Math.max(1, Math.ceil((new Date(departure.return_at).getTime() - new Date(departure.depart_at).getTime()) / 86400000))))} />
+                <TripFact label={t.departure.factCapacity} value={t.departure.capacitySummary.replace("{guests}", String(totalGuests)).replace("{capacity}", String(departure.capacity)).replace("{pct}", String(occupancyPct))} attention={overCapacity > 0} />
+                <TripFact label={t.departure.factReservations} value={`${summary.totalReservations ?? 0}`} />
+                <TripFact label={t.departure.factSalesAgents} value={`${groups?.byAgent.length ?? 0}`} />
+                <TripFact label={t.departure.factGuides} value={`${summary.guides?.length ?? 0}`} />
               </dl>
               {relatedHotels.length > 0 && (
                 <div className="mt-6 border-t border-gray-200 pt-4 dark:border-gray-800">
@@ -1460,7 +1460,7 @@ export default function DepartureDetail() {
                     title={t.departure.documentsMenu.manifestPdf}
                   >
                     <DocsIcon className="size-4 text-brand-600" aria-hidden="true" />
-                    Manifest (PDF)
+                    {t.departure.manifestPdfShort}
                   </Button>
                   <Button
                     variant="outline"
@@ -1471,7 +1471,7 @@ export default function DepartureDetail() {
                     title={t.departure.documentsMenu.manifestCsv}
                   >
                     <DownloadIcon className="size-4 text-green-600" aria-hidden="true" />
-                    CSV / Excel
+                    {t.departure.manifestCsvShort}
                   </Button>
                   <Button size="sm" onClick={openAddModal} className="gap-1.5">
                     <PlusIcon className="size-4" aria-hidden="true" />
@@ -1499,20 +1499,20 @@ export default function DepartureDetail() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Pregled putnika grupisanih po {groupBy === "hotel" ? "hotelu" : "agentu prodaje"}.
+                {groupBy === "hotel" ? t.departure.groupingIntroHotel : t.departure.groupingIntroAgent}
               </p>
               <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-800 p-1">
                 <button
                   onClick={() => setGroupBy("hotel")}
                   className={`px-3 py-1.5 text-sm rounded-md transition-colors ${groupBy === "hotel" ? "bg-brand-500 text-white" : "text-gray-500"}`}
                 >
-                  Po hotelu
+                  {t.departure.groupByHotel}
                 </button>
                 <button
                   onClick={() => setGroupBy("agent")}
                   className={`px-3 py-1.5 text-sm rounded-md transition-colors ${groupBy === "agent" ? "bg-brand-500 text-white" : "text-gray-500"}`}
                 >
-                  Po agentu
+                  {t.departure.groupByAgent}
                 </button>
               </div>
             </div>
@@ -1523,9 +1523,9 @@ export default function DepartureDetail() {
                   <div key={idx} className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
                     <div className="flex items-center justify-between px-6 py-4 bg-gray-50 dark:bg-white/[0.02] border-b border-gray-200 dark:border-gray-800">
                       <div>
-                        <h4 className="font-semibold text-gray-900 dark:text-white">{g.label || (groupBy === "hotel" ? "—bez hotela—" : "—direktna prodaja—")}</h4>
+                        <h4 className="font-semibold text-gray-900 dark:text-white">{g.label || (groupBy === "hotel" ? t.departure.noHotelFallback : t.departure.directSaleFallback)}</h4>
                         <p className="text-xs text-gray-500 mt-0.5">
-                          {g.count} putnik{g.count !== 1 ? "a" : ""}
+                          {(g.count === 1 ? t.departure.passengerCountSingular : t.departure.passengerCountPlural).replace("{count}", String(g.count))}
                         </p>
                       </div>
                       <Badge color="primary" size="sm">{g.count}</Badge>
@@ -1538,7 +1538,7 @@ export default function DepartureDetail() {
               </div>
             ) : (
               <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
-                <EmptyState title="Nema grupa" description={`Nema podataka za grupisanje po ${groupBy === "hotel" ? "hotelu" : "agentu"}.`} />
+                <EmptyState title={t.departure.noGroupsTitle} description={groupBy === "hotel" ? t.departure.noGroupsHotelDesc : t.departure.noGroupsAgentDesc} />
               </div>
             )}
           </div>
@@ -1582,15 +1582,15 @@ export default function DepartureDetail() {
                   </div>
                 )}
                 <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  <FinanceCard label={t.departure.finance.revenue} value={formatCurrency(profitability.revenue, profitability.currency)} />
-                  <FinanceCard label={t.departure.finance.collected} value={formatCurrency(profitability.collected, profitability.currency)} />
-                  <FinanceCard label={t.departure.finance.outstanding} value={formatCurrency(profitability.outstanding, profitability.currency)} attention={profitability.outstanding > 0} />
-                  <FinanceCard label={t.departure.finance.supplierCosts} value={formatCurrency(profitability.supplierCosts, profitability.currency)} />
-                  <FinanceCard label={t.departure.finance.supplierPaid} value={formatCurrency(profitability.supplierPaid ?? 0, profitability.currency)} />
-                  <FinanceCard label={t.departure.finance.supplierOutstanding} value={formatCurrency(profitability.supplierOutstanding ?? 0, profitability.currency)} attention={(profitability.supplierOutstanding ?? 0) > 0} />
-                  <FinanceCard label={t.departure.finance.grossProfit} value={formatCurrency(profitability.estimatedGrossProfit, profitability.currency)} />
+                  <FinanceCard label={t.departure.finance.revenue} value={formatCurrency(profitability.revenue, profitability.currency, locale)} />
+                  <FinanceCard label={t.departure.finance.collected} value={formatCurrency(profitability.collected, profitability.currency, locale)} />
+                  <FinanceCard label={t.departure.finance.outstanding} value={formatCurrency(profitability.outstanding, profitability.currency, locale)} attention={profitability.outstanding > 0} />
+                  <FinanceCard label={t.departure.finance.supplierCosts} value={formatCurrency(profitability.supplierCosts, profitability.currency, locale)} />
+                  <FinanceCard label={t.departure.finance.supplierPaid} value={formatCurrency(profitability.supplierPaid ?? 0, profitability.currency, locale)} />
+                  <FinanceCard label={t.departure.finance.supplierOutstanding} value={formatCurrency(profitability.supplierOutstanding ?? 0, profitability.currency, locale)} attention={(profitability.supplierOutstanding ?? 0) > 0} />
+                  <FinanceCard label={t.departure.finance.grossProfit} value={formatCurrency(profitability.estimatedGrossProfit, profitability.currency, locale)} />
                   <FinanceCard label={t.departure.finance.margin} value={profitability.marginPct === null ? "—" : `${profitability.marginPct.toFixed(2)}%`} />
-                  <FinanceCard label={t.departure.finance.realizedCash} value={formatCurrency(profitability.realizedCashProfit ?? 0, profitability.currency)} />
+                  <FinanceCard label={t.departure.finance.realizedCash} value={formatCurrency(profitability.realizedCashProfit ?? 0, profitability.currency, locale)} />
                 </section>
                 <SupplierPayablesPanel key={id} departureId={id!} costs={profitability.costItems} onChanged={() => { void loadProfitability(); }} />
                 <section className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
@@ -1627,12 +1627,12 @@ export default function DepartureDetail() {
                               )}
                             </div>
                             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                              {item.quantity} × {formatCurrency(item.unitCost, item.currency)}
+                              {item.quantity} × {formatCurrency(item.unitCost, item.currency, locale)}
                               {item.notes ? ` · ${item.notes}` : ""}
                             </p>
                           </div>
                           <div className="flex items-center justify-between gap-3 sm:justify-end">
-                            <span className="font-semibold text-gray-950 dark:text-white">{formatCurrency(item.totalCost, item.currency)}</span>
+                            <span className="font-semibold text-gray-950 dark:text-white">{formatCurrency(item.totalCost, item.currency, locale)}</span>
                             <button
                               type="button"
                               onClick={() => openConfirmationModal(item)}
@@ -1681,7 +1681,7 @@ export default function DepartureDetail() {
                               <span className="font-medium text-gray-950 dark:text-white">{event.costItemLabel}</span>
                               {event.note ? <span className="text-gray-500 dark:text-gray-400">{event.note}</span> : null}
                               <span className="text-xs text-gray-400 dark:text-gray-500">
-                                {new Date(event.createdAt).toLocaleString()}
+                                {new Date(event.createdAt).toLocaleString(locale)}
                                 {event.actorEmail ? ` · ${t.departure.supplierConfirmations.requestedBy.replace("{email}", event.actorEmail)}` : ""}
                               </span>
                             </li>
@@ -1701,8 +1701,8 @@ export default function DepartureDetail() {
         {activeTab === "hotels" && !capabilities?.hasAccommodation && (
           <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-gray-800 rounded-2xl p-6">
             <EmptyState
-              title="Nema smještaja"
-              description="Ovaj polazak ne uključuje smještaj."
+              title={t.departure.noAccommodationTitle}
+              description={t.departure.noAccommodationDesc}
             />
           </div>
         )}
@@ -1806,14 +1806,10 @@ export default function DepartureDetail() {
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
         className="max-w-md"
+        title={t.departure.editPassenger}
+        description={targetPassenger?.fullName}
       >
         <div className="p-6">
-          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">{t.departure.editPassenger}</h2>
-          {targetPassenger && (
-            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-              <span className="font-medium text-gray-700 dark:text-gray-200">{targetPassenger.fullName}</span>
-            </p>
-          )}
 
           {paxError && (
             <div className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-500/10 dark:text-error-400">
@@ -1886,78 +1882,88 @@ export default function DepartureDetail() {
       <Modal
         isOpen={showCostModal}
         onClose={() => { if (!costSaveLock.current) setShowCostModal(false); }}
-        className="mx-4 max-h-[calc(100dvh-2rem)] max-w-md overflow-y-auto"
+        className="max-w-md"
+        title={editingCostItem ? t.departure.finance.editCost : t.departure.finance.addCost}
+        description={t.departure.finance.costModalDescription}
       >
-        <div className="p-6">
-          {profitError && <p role="alert" className="mb-3 text-sm text-red-600">{profitError}</p>}
-          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">
-            {editingCostItem ? t.departure.finance.editCost : t.departure.finance.addCost}
-          </h2>
-          <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">{t.departure.finance.costModalDescription}</p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSaveCostItem();
+          }}
+        >
+          <div className="p-6">
+            {profitError && <p role="alert" className="mb-4 rounded-lg bg-error-50 p-3 text-sm text-error-700 dark:bg-error-500/10 dark:text-error-400">{profitError}</p>}
 
-          <fieldset disabled={costSaving} className="min-w-0 space-y-4">
-            <div>
-              <Label htmlFor="cost-category">{t.departure.finance.category}</Label>
-              <Select
-                id="cost-category"
-                value={costForm.category}
-                onChange={(value) => setCostForm((prev) => ({ ...prev, category: value as DepartureCostCategory }))}
-                options={costCategories.map((category) => ({
-                  value: category,
-                  label: (t.departure.finance.categories as Record<string, string>)[category] || category,
-                }))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="cost-label">{t.departure.finance.label}</Label>
-              <Input id="cost-label" value={costForm.label} onChange={(e) => setCostForm((prev) => ({ ...prev, label: e.target.value }))} />
-            </div>
-            <div>
-              <label htmlFor="cost-supplier" className="mb-1 block text-sm">{t.supplierPayables.supplier}</label>
-              <select id="cost-supplier" value={costForm.supplierId} onChange={e => setCostForm(prev => ({ ...prev, supplierId: e.target.value }))}
-                className="h-11 w-full min-w-0 rounded-lg border border-gray-300 p-2 dark:border-gray-700 dark:bg-gray-900">
-                <option value="">{t.supplierPayables.noSupplier}</option>
-                {costForm.supplierId && !costSuppliers.some(s => s.id === costForm.supplierId) && <option value={costForm.supplierId}>{editingCostItem?.supplierName || costForm.supplierId}</option>}
-                {costSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              {costSupplierError && <p role="alert" className="mt-1 text-sm text-red-600">{t.supplierPayables.supplierLoadError}</p>}
-            </div>
-            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+            <fieldset disabled={costSaving} className="min-w-0 space-y-4">
               <div>
-                <Label htmlFor="cost-quantity">{t.departure.finance.quantity}</Label>
-                <Input id="cost-quantity" type="number" min="0.01" step={0.01} value={costForm.quantity} onChange={(e) => setCostForm((prev) => ({ ...prev, quantity: e.target.value }))} />
+                <Label htmlFor="cost-category">{t.departure.finance.category}</Label>
+                <Select
+                  id="cost-category"
+                  value={costForm.category}
+                  onChange={(value) => setCostForm((prev) => ({ ...prev, category: value as DepartureCostCategory }))}
+                  options={costCategories.map((category) => ({
+                    value: category,
+                    label: (t.departure.finance.categories as Record<string, string>)[category] || category,
+                  }))}
+                />
               </div>
               <div>
-                <Label htmlFor="cost-unit-cost">{t.departure.finance.unitCost}</Label>
-                <Input id="cost-unit-cost" type="number" min="0" step={0.01} value={costForm.unitCost} onChange={(e) => setCostForm((prev) => ({ ...prev, unitCost: e.target.value }))} />
+                <Label htmlFor="cost-label">{t.departure.finance.label}</Label>
+                <Input id="cost-label" value={costForm.label} onChange={(e) => setCostForm((prev) => ({ ...prev, label: e.target.value }))} />
               </div>
-            </div>
-            <div>
-              <Label htmlFor="cost-notes">{t.departure.finance.notes}</Label>
-              <Input id="cost-notes" value={costForm.notes} onChange={(e) => setCostForm((prev) => ({ ...prev, notes: e.target.value }))} />
-            </div>
-          </fieldset>
+              <div>
+                <Label htmlFor="cost-supplier">{t.supplierPayables.supplier}</Label>
+                <select
+                  id="cost-supplier"
+                  value={costForm.supplierId}
+                  onChange={e => setCostForm(prev => ({ ...prev, supplierId: e.target.value }))}
+                  className="h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                >
+                  <option value="">{t.supplierPayables.noSupplier}</option>
+                  {costForm.supplierId && !costSuppliers.some(s => s.id === costForm.supplierId) && <option value={costForm.supplierId}>{editingCostItem?.supplierName || costForm.supplierId}</option>}
+                  {costSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                {costSupplierError && <p role="alert" className="mt-1.5 text-xs text-error-500">{t.supplierPayables.supplierLoadError}</p>}
+              </div>
+              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="cost-quantity">{t.departure.finance.quantity}</Label>
+                  <Input id="cost-quantity" type="number" min="0.01" step={0.01} value={costForm.quantity} onChange={(e) => setCostForm((prev) => ({ ...prev, quantity: e.target.value }))} />
+                </div>
+                <div>
+                  <Label htmlFor="cost-unit-cost">{t.departure.finance.unitCost}</Label>
+                  <Input id="cost-unit-cost" type="number" min="0" step={0.01} value={costForm.unitCost} onChange={(e) => setCostForm((prev) => ({ ...prev, unitCost: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="cost-notes">{t.departure.finance.notes}</Label>
+                <Input id="cost-notes" value={costForm.notes} onChange={(e) => setCostForm((prev) => ({ ...prev, notes: e.target.value }))} />
+              </div>
+            </fieldset>
+          </div>
 
-          <div className="mt-6 flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setShowCostModal(false)} disabled={costSaving}>{t.common.cancel}</Button>
-            <Button onClick={handleSaveCostItem} disabled={costSaving}>
+          <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-4 dark:border-gray-800">
+            <Button type="button" variant="outline" onClick={() => setShowCostModal(false)} disabled={costSaving}>{t.common.cancel}</Button>
+            <Button type="submit" disabled={costSaving}>
               {costSaving ? t.common.saving : t.common.save}
             </Button>
           </div>
-        </div>
+        </form>
       </Modal>
       {/* SUPPLIER CONFIRMATION MODAL */}
       <Modal
         isOpen={!!confirmationModalItem}
         onClose={() => setConfirmationModalItem(null)}
         className="max-w-md"
+        title={t.departure.supplierConfirmations.setStatus}
+        description={
+          confirmationModalItem
+            ? `${confirmationModalItem.label}${confirmationModalItem.supplierName ? ` · ${confirmationModalItem.supplierName}` : ""}`
+            : undefined
+        }
       >
         <div className="p-6">
-          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">{t.departure.supplierConfirmations.setStatus}</h2>
-          <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-            {confirmationModalItem?.label}
-            {confirmationModalItem?.supplierName ? ` · ${confirmationModalItem.supplierName}` : ""}
-          </p>
           <div className="space-y-4">
             <div>
               <Label>{t.departure.supplierConfirmations.statusLabel}</Label>
@@ -1979,7 +1985,7 @@ export default function DepartureDetail() {
               />
             </div>
           </div>
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
             <Button variant="outline" onClick={() => setConfirmationModalItem(null)} disabled={confirmationSavingId !== null}>
               {t.departure.supplierConfirmations.cancel}
             </Button>
@@ -1995,14 +2001,10 @@ export default function DepartureDetail() {
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         className="max-w-md"
+        title={t.departure.deletePassenger}
+        description={targetPassenger ? t.departure.deletePassengerConfirm.replace("{name}", targetPassenger.fullName) : undefined}
       >
         <div className="p-6">
-          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">{t.departure.deletePassenger}</h2>
-          {targetPassenger && (
-            <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-              {t.departure.deletePassengerConfirm.replace("{name}", targetPassenger.fullName)}
-            </p>
-          )}
           <p className="mb-4 text-sm text-warning-600 dark:text-warning-400">
             {t.departure.deletePassengerWarning}
           </p>
@@ -2013,7 +2015,7 @@ export default function DepartureDetail() {
             </div>
           )}
 
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
             <Button variant="outline" onClick={() => setShowDeleteModal(false)} disabled={paxSaving}>
               {t.common.cancel}
             </Button>
@@ -2028,15 +2030,14 @@ export default function DepartureDetail() {
         isOpen={!!editingPassenger}
         onClose={() => setEditingPassenger(null)}
         className="max-w-lg"
+        title={t.departure.editDocuments}
+        description={
+          editingPassenger
+            ? `${editingPassenger.fullName}${editingPassenger.passport_number ? ` · ${editingPassenger.passport_number}` : ""}`
+            : undefined
+        }
       >
         <div className="p-6">
-          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">{t.departure.editDocuments}</h2>
-          {editingPassenger && (
-            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-              <span className="font-medium text-gray-700 dark:text-gray-200">{editingPassenger.fullName}</span>
-              {editingPassenger.passport_number && <span className="ml-2">· {editingPassenger.passport_number}</span>}
-            </p>
-          )}
 
           {docError && (
             <div className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-500/10 dark:text-error-400">
@@ -2181,8 +2182,8 @@ export default function DepartureDetail() {
                           {flight.departureAirport} → {flight.arrivalAirport}
                         </p>
                         <div className="mt-3 grid gap-2 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-2">
-                          <span>{t.departure.departureTime}: {formatDateTime(flight.departureTime)}</span>
-                          <span>{t.departure.arrivalTime}: {formatDateTime(flight.arrivalTime)}</span>
+                          <span>{t.departure.departureTime}: {formatDateTime(flight.departureTime, locale)}</span>
+                          <span>{t.departure.arrivalTime}: {formatDateTime(flight.arrivalTime, locale)}</span>
                         </div>
                       </div>
                       {segmentMode ? (

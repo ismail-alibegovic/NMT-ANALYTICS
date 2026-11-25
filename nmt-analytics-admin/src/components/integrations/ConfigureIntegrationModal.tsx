@@ -5,6 +5,7 @@ import Input from '../form/input/InputField';
 import Label from '../form/Label';
 import Select from '../form/Select';
 import { useToast } from '../../context/ToastContext';
+import { useT } from '../../lib/i18n/context';
 
 interface ConfigureIntegrationModalProps {
     isOpen: boolean;
@@ -19,6 +20,7 @@ export default function ConfigureIntegrationModal({
     integrationTitle,
     onSave
 }: ConfigureIntegrationModalProps) {
+    const { t } = useT();
     const { success: showSuccess } = useToast();
     const [apiUrl, setApiUrl] = useState('');
     const [apiKey, setApiKey] = useState('');
@@ -37,13 +39,13 @@ export default function ConfigureIntegrationModal({
     const handleSave = () => {
         setIsSaving(true);
 
-        // Simulate API call
+        // Session-only configuration state; external providers stay disabled unless explicitly provisioned server-side.
         setTimeout(() => {
             onSave({ apiUrl, apiKey, model });
-            showSuccess(`Konfiguracija za ${integrationTitle} je spremljena.`);
+            showSuccess(t.integrations.modal.savedToast.replace('{integration}', integrationTitle));
             setIsSaving(false);
             onClose();
-        }, 800);
+        }, 150);
     };
 
     const modelOptions = [
@@ -58,23 +60,26 @@ export default function ConfigureIntegrationModal({
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={`Konfiguracija: ${integrationTitle}`}
+            title={`${t.integrations.modal.titlePrefix} ${integrationTitle}`}
             className="max-w-xl"
         >
             <div className="p-6 space-y-4">
+                <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                    {t.integrations.modal.previewOnlyNote}
+                </p>
                 <div>
-                    <Label htmlFor="apiUrl">API URL</Label>
+                    <Label htmlFor="apiUrl">{t.integrations.modal.apiUrlLabel}</Label>
                     <Input
                         id="apiUrl"
                         value={apiUrl}
                         onChange={(e) => setApiUrl(e.target.value)}
                         placeholder="https://api.example.com/v1"
                     />
-                    <p className="text-xs text-gray-400 mt-1">Ostavite prazno za default URL.</p>
+                    <p className="text-xs text-gray-400 mt-1">{t.integrations.modal.apiUrlHint}</p>
                 </div>
 
                 <div>
-                    <Label htmlFor="apiKey">API Key</Label>
+                    <Label htmlFor="apiKey">{t.integrations.modal.apiKeyLabel}</Label>
                     <Input
                         id="apiKey"
                         type="password"
@@ -85,7 +90,7 @@ export default function ConfigureIntegrationModal({
                 </div>
 
                 <div>
-                    <Label htmlFor="model">Model</Label>
+                    <Label htmlFor="model">{t.integrations.modal.modelLabel}</Label>
                     <Select
                         options={modelOptions}
                         defaultValue={model}
@@ -99,14 +104,14 @@ export default function ConfigureIntegrationModal({
                         onClick={onClose}
                         disabled={isSaving}
                     >
-                        Odustani
+                        {t.integrations.modal.cancel}
                     </Button>
                     <Button
                         onClick={handleSave}
                         disabled={isSaving || !apiKey}
                         className="bg-brand-500 hover:bg-brand-600 text-white"
                     >
-                        {isSaving ? 'Spremanje...' : 'Spremi promjene'}
+                        {isSaving ? t.integrations.modal.saving : t.integrations.modal.saveChanges}
                     </Button>
                 </div>
             </div>

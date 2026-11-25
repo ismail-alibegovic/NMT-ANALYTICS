@@ -211,13 +211,12 @@ export default function AutomationTab() {
         rule={editTarget}
       />
 
-      <Modal isOpen={deleteTarget !== null} onClose={() => setDeleteTarget(null)} showCloseButton>
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-950 dark:text-white">{a.deleteTitle}</h3>
+      <Modal isOpen={deleteTarget !== null} onClose={() => setDeleteTarget(null)} showCloseButton className="max-w-md" title={a.deleteTitle}>
+        <div className="space-y-4 p-6">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {a.deleteConfirm.replace("{name}", deleteTarget?.name || "")}
           </p>
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               {a.cancel}
             </Button>

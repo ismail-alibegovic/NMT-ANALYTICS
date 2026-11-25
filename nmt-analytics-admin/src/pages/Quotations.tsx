@@ -10,12 +10,13 @@ import Label from '../components/form/Label';
 import { Modal } from '../components/ui/modal';
 import { useToast } from '../context/ToastContext';
 import { useT } from '../lib/i18n/context';
+import { formatDate } from '../utils/business';
 import { createQuotation, getQuotations, type CreateQuotation, type Quotation } from '../api/quotations';
 import { getItinerary, getItineraries, type Itinerary } from '../api/itineraries';
 
 
 export default function Quotations() {
-  const { t } = useT(); const c = t.quotations; const navigate = useNavigate(); const [params, setParams] = useSearchParams();
+  const { t, lang } = useT(); const locale = lang === 'en' ? 'en-GB' : 'bs-BA'; const c = t.quotations; const navigate = useNavigate(); const [params, setParams] = useSearchParams();
   const { success, error: showError } = useToast();
   const [rows, setRows] = useState<Quotation[]>([]); const [itineraries, setItineraries] = useState<Itinerary[]>([]);
   const sourceRequest = useRef(0);
@@ -141,13 +142,13 @@ export default function Quotations() {
               <Badge size="sm" color={statusColor(row.status)}>{c.statuses[row.status]}</Badge>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-              <span>{c.net}: {row.netTotal.toLocaleString()} {row.currency}</span>
-              <span className="text-right">{c.sell}: {row.sellTotal.toLocaleString()} {row.currency}</span>
-              <span>{c.margin}: {row.marginTotal.toLocaleString()} {row.currency}</span>
+              <span>{c.net}: {row.netTotal.toLocaleString(locale)} {row.currency}</span>
+              <span className="text-right">{c.sell}: {row.sellTotal.toLocaleString(locale)} {row.currency}</span>
+              <span>{c.margin}: {row.marginTotal.toLocaleString(locale)} {row.currency}</span>
             </div>
             {row.validUntil && (
               <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
-                {c.validUntil}: {new Date(row.validUntil).toLocaleDateString()}
+                {c.validUntil}: {formatDate(row.validUntil, locale)}
               </p>
             )}
           </button>

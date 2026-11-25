@@ -4,6 +4,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
+import { useT } from "../../lib/i18n/context";
 import { Departure } from "../../api/departures";
 
 interface CalendarEvent {
@@ -40,6 +41,8 @@ function formatEventTitle(departure: Departure): string {
 
 export default function DepartureCalendarView({ departures, loading }: Props) {
   const calendarRef = useRef<FullCalendar>(null);
+  const { t, lang } = useT();
+  const td = t.departures;
 
   const events: CalendarEvent[] = departures.map(d => {
     const colors = getEventColor(d);
@@ -79,20 +82,20 @@ export default function DepartureCalendarView({ departures, loading }: Props) {
         slotMinTime="06:00:00"
         slotMaxTime="22:00:00"
         firstDay={1}
-        locale="bs"
+        locale={lang === "bs" ? "bs" : "en"}
         buttonText={{
-          today: "Danas",
-          month: "Mjesec",
-          week: "Sedmica",
-          list: "Lista",
+          today: td.calendarToday,
+          month: td.calendarMonth,
+          week: td.calendarWeek,
+          list: td.calendarList,
         }}
         eventTimeFormat={{
           hour: "2-digit",
           minute: "2-digit",
         }}
         dayMaxEvents={3}
-        moreLinkText={(num) => `+${num} više`}
-        noEventsText="Nema polazaka u ovom periodu"
+        moreLinkText={(num) => td.calendarMore.replace("{count}", String(num))}
+        noEventsText={td.calendarNoEvents}
       />
     </div>
   );

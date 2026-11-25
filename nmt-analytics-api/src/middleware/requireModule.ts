@@ -16,7 +16,7 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { apiError } from "../lib/errors";
-import { planGrants, isPlanTier, PLAN_LABELS, type PlanTier } from "../lib/planModules";
+import { planGrants, normalizePlanTier, PLAN_LABELS } from "../lib/planModules";
 
 export function requireModule(moduleKey: string): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -39,12 +39,8 @@ export function requireModule(moduleKey: string): RequestHandler {
         .maybeSingle();
 
       // Defensive: column may be absent until the migration is applied.
-      // In that case, treat the org as 'trial'.
-      let plan: PlanTier = "trial";
-      if (!orgErr && org) {
-        const raw = (org as Record<string, unknown>).plan;
-        if (typeof raw === "string" && isPlanTier(raw)) plan = raw;
-      }
+      // In that case, treat the org as 'trial'. DB values 'core'/'full' map cleanly too.
+      const plan = normalizePlanTier(!orgErr && org ? (org as Record<string, unknown>).plan : undefined);
 
       // 2. Plan-tier entitlement check.
       if (!planGrants(plan, moduleKey)) {

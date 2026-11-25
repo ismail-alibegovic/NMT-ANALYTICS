@@ -15,7 +15,14 @@ interface I18nContextType {
   toggleLang: () => void;
 }
 
-const I18nContext = createContext<I18nContextType | null>(null);
+const DEFAULT_I18N: I18nContextType = {
+  lang: 'bs',
+  t: bs,
+  setLang: () => {},
+  toggleLang: () => {},
+};
+
+const I18nContext = createContext<I18nContextType>(DEFAULT_I18N);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
@@ -49,9 +56,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 }
 
 export function useT() {
-  const ctx = useContext(I18nContext);
-  if (!ctx) throw new Error('useT must be used within I18nProvider');
-  return ctx;
+  return useContext(I18nContext);
 }
 
 export function useTranslation() {

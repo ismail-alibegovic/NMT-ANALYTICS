@@ -18,6 +18,7 @@ import {
 } from '../../api/campaigns';
 import { CalenderIcon, ListIcon, PaperPlaneIcon, PencilIcon, PlusIcon, TrashBinIcon } from '../../icons';
 import CampaignEditorModal from './CampaignEditorModal';
+import { formatDate, formatDateTime } from '../../utils/business';
 
 type ChannelFilter = 'all' | CampaignChannel;
 
@@ -300,14 +301,14 @@ export default function CampaignsTab() {
                         <span>
                           {s.scheduledAt.replace(
                             '{date}',
-                            new Date(campaign.scheduled_at).toLocaleString(locale),
+                            formatDateTime(campaign.scheduled_at, locale),
                           )}
                         </span>
                       ) : null}
                       <span>
                         {s.updatedAt.replace(
                           '{date}',
-                          new Date(campaign.updated_at || campaign.created_at).toLocaleDateString(locale),
+                          formatDate(campaign.updated_at || campaign.created_at, locale),
                         )}
                       </span>
                     </div>
@@ -383,16 +384,15 @@ export default function CampaignsTab() {
         </div>
       ) : null}
 
-      <Modal isOpen={scheduleOpen} onClose={() => { if (!scheduling) { setScheduleOpen(false); setScheduleTarget(null); setScheduleDate(''); } }} showCloseButton>
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-950 dark:text-white">
-              {scheduleTarget?.status === 'scheduled' ? s.reschedule : s.scheduleTitle}
-            </h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {scheduleTarget?.status === 'scheduled' ? s.scheduleDesc : s.scheduleDesc}
-            </p>
-          </div>
+      <Modal
+        isOpen={scheduleOpen}
+        onClose={() => { if (!scheduling) { setScheduleOpen(false); setScheduleTarget(null); setScheduleDate(''); } }}
+        showCloseButton
+        className="max-w-md"
+        title={scheduleTarget?.status === 'scheduled' ? s.reschedule : s.scheduleTitle}
+        description={s.scheduleDesc}
+      >
+        <div className="space-y-4 p-6">
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{s.scheduleDate}</label>
@@ -422,15 +422,18 @@ export default function CampaignsTab() {
         </div>
       </Modal>
 
-      <Modal isOpen={cancelScheduleTarget !== null} onClose={() => setCancelScheduleTarget(null)} showCloseButton>
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-950 dark:text-white">{s.cancelScheduleConfirm}</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {s.cancelScheduleConfirmDesc.replace('{name}', cancelScheduleTarget?.name || '')}
-            </p>
-          </div>
-          <div className="flex items-center justify-end gap-3">
+      <Modal
+        isOpen={cancelScheduleTarget !== null}
+        onClose={() => setCancelScheduleTarget(null)}
+        showCloseButton
+        className="max-w-md"
+        title={s.cancelScheduleConfirm}
+      >
+        <div className="space-y-4 p-6">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {s.cancelScheduleConfirmDesc.replace('{name}', cancelScheduleTarget?.name || '')}
+          </p>
+          <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
             <Button variant="outline" onClick={() => setCancelScheduleTarget(null)}>
               {s.cancel}
             </Button>
@@ -455,15 +458,18 @@ export default function CampaignsTab() {
         campaign={editTarget}
       />
 
-      <Modal isOpen={deleteTarget !== null} onClose={() => setDeleteTarget(null)} showCloseButton>
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-950 dark:text-white">{s.deleteConfirmTitle}</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {s.deleteConfirmDesc.replace('{name}', deleteTarget?.name || '')}
-            </p>
-          </div>
-          <div className="flex items-center justify-end gap-3">
+      <Modal
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        showCloseButton
+        className="max-w-md"
+        title={s.deleteConfirmTitle}
+      >
+        <div className="space-y-4 p-6">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {s.deleteConfirmDesc.replace('{name}', deleteTarget?.name || '')}
+          </p>
+          <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               {s.cancel}
             </Button>
@@ -474,22 +480,19 @@ export default function CampaignsTab() {
         </div>
       </Modal>
 
-      <Modal isOpen={launchTarget !== null} onClose={closeLaunchModal} showCloseButton>
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-950 dark:text-white">
-              {launchResult ? s.launchSummaryTitle : s.launchConfirmTitle}
-            </h3>
-            {launchResult ? (
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {s.launchSummaryDesc.replace('{name}', launchTarget?.name || '')}
-              </p>
-            ) : (
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {s.launchConfirmDesc.replace('{name}', launchTarget?.name || '')}
-              </p>
-            )}
-          </div>
+      <Modal
+        isOpen={launchTarget !== null}
+        onClose={closeLaunchModal}
+        showCloseButton
+        className="max-w-lg"
+        title={launchResult ? s.launchSummaryTitle : s.launchConfirmTitle}
+        description={
+          launchResult
+            ? s.launchSummaryDesc.replace('{name}', launchTarget?.name || '')
+            : s.launchConfirmDesc.replace('{name}', launchTarget?.name || '')
+        }
+      >
+        <div className="space-y-4 p-6">
 
           {launchTarget ? (
             <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm dark:border-gray-800 dark:bg-white/[0.03]">

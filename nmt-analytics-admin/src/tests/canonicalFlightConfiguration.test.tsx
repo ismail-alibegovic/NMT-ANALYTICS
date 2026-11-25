@@ -194,9 +194,9 @@ describe("M13.2 — DepartureDetail canonical flight configuration UI", () => {
 
     expect(await screen.findByText(en.departure.finance.grossProfit)).toBeInTheDocument();
     const text = document.body.textContent || "";
-    expect(text).toContain("1.000,00");
-    expect(text).toContain("300,00");
-    expect(text).toContain("700,00");
+    expect(text).toContain("1,000.00");
+    expect(text).toContain("300.00");
+    expect(text).toContain("700.00");
     expect(screen.getByText(en.departure.finance.emptyCostsTitle)).toBeInTheDocument();
   });
 

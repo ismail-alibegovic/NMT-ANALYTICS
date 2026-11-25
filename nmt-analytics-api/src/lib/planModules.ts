@@ -23,8 +23,7 @@ export const PLAN_LABELS: Record<PlanTier, string> = {
   enterprise: "Enterprise",
 };
 
-// Canonical module keys (must match the values seeded into org_modules by
-// migration 20260711010000_self_service_signup.sql).
+// Canonical core V1 module keys (aligned with SQL plan_module_map).
 export const MODULE_KEYS = [
   "dashboard",
   "travel_core",
@@ -42,64 +41,50 @@ export const MODULE_KEYS = [
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
+export type EntitledModuleKey =
+  | ModuleKey
+  | "sub_agents"
+  | "hotels"
+  | "excursions"
+  | "waivers"
+  | "proposals";
+
+const CORE_V1_MODULES: EntitledModuleKey[] = [...MODULE_KEYS];
+const PRO_EXTRA_MODULES: EntitledModuleKey[] = [
+  "sub_agents",
+  "hotels",
+  "excursions",
+  "waivers",
+];
 
 // Plan → granted modules. Lower tiers are strict subsets of higher tiers.
-export const PLAN_MODULE_MAP: Record<PlanTier, ReadonlySet<ModuleKey>> = {
-  trial: new Set<ModuleKey>([
-    "dashboard",
-    "travel_core",
-    "customers",
-    "packages",
-    "departures",
-    "reservations",
-    "settings",
-  ]),
-  starter: new Set<ModuleKey>([
-    "dashboard",
-    "travel_core",
-    "analytics",
-    "customers",
-    "packages",
-    "departures",
-    "reservations",
-    "payments",
-    "transactions",
-    "settings",
-  ]),
-  pro: new Set<ModuleKey>([
-    "dashboard",
-    "travel_core",
-    "analytics",
-    "documents",
-    "integrations",
-    "customers",
-    "packages",
-    "departures",
-    "reservations",
-    "payments",
-    "transactions",
-    "reports",
-    "settings",
-  ]),
-  enterprise: new Set<ModuleKey>([
-    "dashboard",
-    "travel_core",
-    "analytics",
-    "documents",
-    "integrations",
-    "customers",
-    "packages",
-    "departures",
-    "reservations",
-    "payments",
-    "transactions",
-    "reports",
-    "settings",
+// DB plan_module_map grants all 13 core V1 modules to 'trial' and 'core' ('starter')
+// so newly registered and staging/trial agencies can operate every V1 screen cleanly.
+export const PLAN_MODULE_MAP: Record<PlanTier, ReadonlySet<EntitledModuleKey>> = {
+  trial: new Set<EntitledModuleKey>(CORE_V1_MODULES),
+  starter: new Set<EntitledModuleKey>(CORE_V1_MODULES),
+  pro: new Set<EntitledModuleKey>([...CORE_V1_MODULES, ...PRO_EXTRA_MODULES]),
+  enterprise: new Set<EntitledModuleKey>([
+    ...CORE_V1_MODULES,
+    ...PRO_EXTRA_MODULES,
+    "proposals",
   ]),
 };
 
 export function isPlanTier(v: unknown): v is PlanTier {
   return typeof v === "string" && (PLAN_TIERS as string[]).includes(v);
+}
+
+/**
+ * Normalize database/legacy plan names ('core' → 'starter', 'full' → 'enterprise')
+ * onto canonical API PlanTier values, defaulting safely to 'trial'.
+ */
+export function normalizePlanTier(v: unknown): PlanTier {
+  if (typeof v !== "string") return "trial";
+  const normalized = v.trim().toLowerCase();
+  if (normalized === "core") return "starter";
+  if (normalized === "full") return "enterprise";
+  return isPlanTier(normalized) ? normalized : "trial";
 }
 
 // Effective granted flag for a single (plan, moduleKey) pair.
@@ -109,5 +94,22 @@ export function planGrants(
   plan: PlanTier,
   moduleKey: string
 ): boolean {
-  return PLAN_MODULE_MAP[plan]?.has(moduleKey as ModuleKey) ?? false;
+  return PLAN_MODULE_MAP[plan]?.has(moduleKey as EntitledModuleKey) ?? false;
+}
+
+/**
+ * Compute effective enabled modules for `/me/context`:
+ *   effective = PLAN_MODULE_MAP[plan] minus org_modules rows where enabled === false.
+ * Local `enabled = true` cannot grant a module outside the plan ceiling.
+ */
+export function resolveEffectiveModules(
+  plan: PlanTier,
+  orgModuleRows: Array<{ module_key: string; enabled?: boolean | null }>
+): string[] {
+  const disabledLocally = new Set(
+    (orgModuleRows || [])
+      .filter((row) => row.enabled === false)
+      .map((row) => row.module_key)
+  );
+  return Array.from(PLAN_MODULE_MAP[plan]).filter((moduleKey) => !disabledLocally.has(moduleKey));
 }

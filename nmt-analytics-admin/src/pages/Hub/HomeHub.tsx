@@ -11,7 +11,7 @@ import {
 } from "../../api/analytics";
 import { getDepartures, getReadinessSummary } from "../../api/departures";
 import { getReservations, type Reservation } from "../../api/reservations";
-import { getPaymentDashboard, type PaymentDashboardMetric } from "../../api/payments";
+import { getPaymentDashboard, type PaymentDashboardMetric, type PaymentDashboardResponse } from "../../api/payments";
 import {
   ArrowRightIcon,
   PlusIcon,
@@ -24,6 +24,7 @@ import {
   GroupIcon,
   CheckCircleIcon,
   LockIcon,
+  AlertIcon,
 } from "../../icons";
 import { useApp } from "../../context/AppContext";
 import { hasAccess, UserRole } from "../../types/roles";
@@ -37,6 +38,8 @@ type PaymentRow = {
   packageName: string;
   amount: string;
   daysOpen: number;
+  isOverdue: boolean;
+  dueLabel: string;
   href: string;
 };
 
@@ -84,14 +87,8 @@ const fmtCurrency = (n: number | null | undefined, lang: Lang = "bs", currency =
   if (n == null || Number.isNaN(n)) return "\u2014";
   const code = (currency || "BAM").toUpperCase();
   if (code === "BAM") return lang === "bs" ? `${groupInt(n, "bs")} KM` : `KM ${groupInt(n, "en")}`;
+  if (code === "USD") return `$${groupInt(n, lang)}`;
   return lang === "bs" ? `${groupInt(n, "bs")} ${code}` : `${code} ${groupInt(n, "en")}`;
-};
-
-const fmtCompact = (n: number | null | undefined) => {
-  if (n == null || Number.isNaN(n)) return "\u2014";
-  const abs = Math.abs(n);
-  if (abs >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}K`;
-  return String(Math.round(n));
 };
 
 const fmtNumber = (n: number | null | undefined, lang: Lang = "bs") => {
@@ -99,11 +96,14 @@ const fmtNumber = (n: number | null | undefined, lang: Lang = "bs") => {
   return groupInt(n, lang);
 };
 
-/** "petak, 31. juli" / "Friday, 31 July" */
-const fmtDateLine = (d: Date, lang: Lang) =>
-  lang === "bs"
-    ? `${BS_DAYS[d.getDay()]}, ${d.getDate()}. ${BS_MONTHS[d.getMonth()]}`
-    : d.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" });
+/** "Srijeda, 25. novembar" / "Wednesday, 25 November" */
+const fmtDateLine = (d: Date, lang: Lang) => {
+  if (lang === "bs") {
+    const day = BS_DAYS[d.getDay()];
+    return `${day.charAt(0).toUpperCase()}${day.slice(1)}, ${d.getDate()}. ${BS_MONTHS[d.getMonth()]}`;
+  }
+  return d.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" });
+};
 
 const fmtMonthShort = (d: Date, lang: Lang) =>
   lang === "bs" ? BS_MONTHS_SHORT[d.getMonth()] : d.toLocaleDateString("en-US", { month: "short" });
@@ -166,7 +166,8 @@ const ComboChart: React.FC<{
   height?: number;
   barColor?: string;
   lineColor?: string;
-}> = ({ bars, line, height = 96, barColor = "#c7cfe0", lineColor = "#465fff" }) => {
+  ariaLabel?: string;
+}> = ({ bars, line, height = 96, barColor = "#c7cfe0", lineColor = "#465fff", ariaLabel = "Bookings trend" }) => {
   const width = 640;
   const n = Math.max(bars.length, line.length);
   if (!n) return null;
@@ -191,7 +192,7 @@ const ComboChart: React.FC<{
   const last = lineCoords[lineCoords.length - 1];
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} preserveAspectRatio="none" role="img" aria-label="Bookings trend" className="block w-full">
+    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} preserveAspectRatio="none" role="img" aria-label={ariaLabel} className="block w-full">
       <defs>
         <linearGradient id="bookLine" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={lineColor} stopOpacity={0.18} />
@@ -244,13 +245,12 @@ const HomeHub: React.FC = () => {
   const [overview, setOverview] = useState<OverviewAnalyticsV2 | null>(null);
   const [departures, setDepartures] = useState<any[]>([]);
   const [revenue, setRevenue] = useState<RevenueSeriesDataPoint[]>([]);
-  const [watchPayments, setWatchPayments] = useState<PaymentRow[]>([]);
+  const [paymentDashboard, setPaymentDashboard] = useState<PaymentDashboardResponse | null>(null);
   const [pendingReservations, setPendingReservations] = useState(0);
   const [pendingReservationRows, setPendingReservationRows] = useState<Reservation[]>([]);
-  const [overdueCount, setOverdueCount] = useState(0);
-  const [overdueReservations, setOverdueReservations] = useState<PaymentDashboardMetric[]>([]);
   const [readinessAlerts, setReadinessAlerts] = useState<ReadinessAlert[]>([]);
   const [queueError, setQueueError] = useState(false);
+  const [financeError, setFinanceError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [bookingsTab, setBookingsTab] = useState<"upcoming" | "past">("upcoming");
   const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
@@ -280,18 +280,18 @@ const HomeHub: React.FC = () => {
         const fortnightAgo = new Date(today.getTime() - 14 * 86_400_000).toISOString().split("T")[0];
         const monetaryFilters = selectedCurrency ? { currency: selectedCurrency } : {};
 
-        const [ov, deps, rev, paymentsDashboard, pending, readinessSummaryRes] = await Promise.allSettled([
-          getAnalyticsOverviewV2({ from: fortnightAgo, to: todayISO, ...monetaryFilters }),
-          getDepartures({ status: "active", dateFrom: todayISO, limit: 12 }),
-          getRevenueSeries({ from: fortnightAgo, to: todayISO, bucket: "daily", ...monetaryFilters }),
-          showFinance ? getPaymentDashboard() : Promise.resolve(null),
+        const [ov, deps, rev, paymentsDashboardRes, pending, readinessSummaryRes] = await Promise.allSettled([
+          showFinance ? getAnalyticsOverviewV2({ from: fortnightAgo, to: todayISO, ...monetaryFilters }) : Promise.resolve(null),
+          getDepartures({ status: "active", limit: 20 }),
+          showFinance ? getRevenueSeries({ from: fortnightAgo, to: todayISO, bucket: "daily", ...monetaryFilters }) : Promise.resolve([]),
+          showFinance ? getPaymentDashboard(selectedCurrency || undefined) : Promise.resolve(null),
           getReservations({ status: "pending", limit: 3 }),
           getReadinessSummary(todayISO, 12),
         ]);
 
         if (!active) return;
-        if (ov.status === "fulfilled") setOverview(ov.value);
-        if (deps.status === "fulfilled") setDepartures((deps.value as any)?.data || []);
+        setOverview(ov.status === "fulfilled" ? ov.value : null);
+        setDepartures(deps.status === "fulfilled" ? ((deps.value as any)?.data || []) : []);
 
         if (readinessSummaryRes.status === "fulfilled") {
           const departureSummaries = readinessSummaryRes.value?.departures || [];
@@ -409,43 +409,30 @@ const HomeHub: React.FC = () => {
           setReadinessAlerts(alerts.slice(0, 4));
         }
 
-        if (rev.status === "fulfilled") setRevenue(rev.value || []);
+        setRevenue(rev.status === "fulfilled" ? (rev.value || []) : []);
         if (pending.status === "fulfilled") {
           setPendingReservations(pending.value.total);
           setPendingReservationRows(pending.value.data || []);
+        } else {
+          setPendingReservations(0);
+          setPendingReservationRows([]);
         }
         setQueueError(
           deps.status === "rejected" ||
           pending.status === "rejected" ||
           readinessSummaryRes.status === "rejected" ||
-          (showFinance && paymentsDashboard.status === "rejected")
+          (showFinance && paymentsDashboardRes.status === "rejected")
         );
-        [ov, deps, rev, paymentsDashboard, pending, readinessSummaryRes].forEach((result) => {
+        setFinanceError(
+          showFinance && (ov.status === "rejected" || rev.status === "rejected" || paymentsDashboardRes.status === "rejected")
+        );
+        [ov, deps, rev, paymentsDashboardRes, pending, readinessSummaryRes].forEach((result) => {
           if (result.status === "rejected") logger.error("[HomeHub] partial load failed", result.reason);
         });
-        if (paymentsDashboard.status === "fulfilled" && paymentsDashboard.value) {
-          setOverdueCount(paymentsDashboard.value.metrics.overdueCount || 0);
-          setOverdueReservations(paymentsDashboard.value.overdueReservations || []);
-          const rows = (paymentsDashboard.value.overdueReservations || [])
-            .slice(0, 4)
-            .map((r) => {
-              const departureDate = new Date(r.departureDate);
-              const daysOpen = Number.isNaN(departureDate.getTime())
-                ? 0
-                : Math.max(0, Math.round((Date.now() - departureDate.getTime()) / 86_400_000));
-              return {
-                id: r.id,
-                customerName: r.customerName,
-                packageName: r.packageName,
-                amount: fmtCurrency(r.balanceDue, lang, r.currency || hubCurrency),
-                daysOpen,
-                href: `/reservations/${r.id}`,
-              } as PaymentRow;
-            });
-          setWatchPayments(rows);
-        }
+        setPaymentDashboard(paymentsDashboardRes.status === "fulfilled" ? paymentsDashboardRes.value : null);
       } catch (err) {
         logger.error("[HomeHub] load failed", err);
+        if (active) setFinanceError(showFinance);
       } finally {
         if (active) setLoading(false);
       }
@@ -453,7 +440,7 @@ const HomeHub: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [showFinance, lang, selectedCurrency]);
+  }, [showFinance, selectedCurrency]);
 
   const allDepartures = useMemo(
     () =>
@@ -477,13 +464,65 @@ const HomeHub: React.FC = () => {
     [allDepartures, now]
   );
 
-  const availableCurrencies = overview?.availableCurrencies || [];
-  const hasMixedCurrencies = Boolean((overview?.multiCurrency || availableCurrencies.length > 1) && !selectedCurrency);
-  const canShowMoney = !hasMixedCurrencies;
+  const availableCurrencies = useMemo(() => {
+    const set = new Set<string>();
+    (overview?.availableCurrencies || []).forEach((c) => set.add(c));
+    (paymentDashboard?.availableCurrencies || []).forEach((c) => set.add(c));
+    return Array.from(set).sort();
+  }, [overview?.availableCurrencies, paymentDashboard?.availableCurrencies]);
+  const hasMixedCurrencies = Boolean((overview?.multiCurrency || paymentDashboard?.multiCurrency || availableCurrencies.length > 1) && !selectedCurrency);
+  const canShowMoney = !hasMixedCurrencies && !financeError;
   const revenuePoints = useMemo(() => canShowMoney ? revenue.map((p) => p.total_paid_sum || 0) : [], [canShowMoney, revenue]);
   const grossPoints = useMemo(() => canShowMoney ? revenue.map((p) => p.total_amount_sum || 0) : [], [canShowMoney, revenue]);
-  const hubCurrency = selectedCurrency || overview?.currency || (availableCurrencies.length === 1 ? availableCurrencies[0] : (userContext?.org as any)?.currency || "BAM");
-  const openBalance = canShowMoney ? overview?.total_balance_sum : null;
+  const hubCurrency = selectedCurrency || paymentDashboard?.currency || overview?.currency || (availableCurrencies.length === 1 ? availableCurrencies[0] : (userContext?.org as any)?.currency || "BAM");
+
+  const openBalanceItems = useMemo<PaymentDashboardMetric[]>(() => {
+    if (!paymentDashboard) return [];
+    return paymentDashboard.openBalanceReservations ?? paymentDashboard.overdueReservations ?? [];
+  }, [paymentDashboard]);
+
+  const openBalance = useMemo<number | null>(() => {
+    if (!canShowMoney) return null;
+    if (paymentDashboard?.metrics?.openBalanceAmount !== undefined) {
+      return paymentDashboard.metrics.openBalanceAmount;
+    }
+    return overview?.total_balance_sum ?? null;
+  }, [canShowMoney, paymentDashboard, overview?.total_balance_sum]);
+
+  const openBalanceCount = useMemo(() => {
+    if (paymentDashboard?.metrics?.openBalanceCount !== undefined) {
+      return paymentDashboard.metrics.openBalanceCount;
+    }
+    if (openBalanceItems.length > 0) return openBalanceItems.length;
+    return paymentDashboard?.metrics?.overdueCount ?? 0;
+  }, [paymentDashboard, openBalanceItems]);
+
+  const watchPayments = useMemo<PaymentRow[]>(() => {
+    if (financeError || hasMixedCurrencies) return [];
+    return openBalanceItems.slice(0, 4).map((r) => {
+      const departureDate = r.departureDate ? new Date(r.departureDate) : null;
+      const isOverdue = r.isOverdue ?? Boolean(departureDate && !Number.isNaN(departureDate.getTime()) && departureDate.getTime() < Date.now());
+      const daysOpen = isOverdue && departureDate && !Number.isNaN(departureDate.getTime())
+        ? Math.max(1, Math.round((Date.now() - departureDate.getTime()) / 86_400_000))
+        : 0;
+      const dueLabel = isOverdue
+        ? `${daysOpen}d`
+        : r.departureDate
+          ? relativeDayLabel(r.departureDate, lang)
+          : "";
+      return {
+        id: r.id,
+        customerName: r.customerName,
+        packageName: r.packageName,
+        amount: fmtCurrency(r.balanceDue, lang, r.currency || hubCurrency),
+        daysOpen,
+        isOverdue,
+        dueLabel,
+        href: `/reservations/${r.id}`,
+      };
+    });
+  }, [financeError, hasMixedCurrencies, hubCurrency, lang, openBalanceItems]);
+
   const activeCount = overview?.reservations_count || 0;
   const paidCount = overview?.paid_count || 0;
 
@@ -526,7 +565,7 @@ const HomeHub: React.FC = () => {
       });
     });
     if (showFinance) {
-      overdueReservations.slice(0, 2).forEach((reservation) => {
+      openBalanceItems.slice(0, 2).forEach((reservation) => {
         items.push({
           id: `overdue-${reservation.id}`,
           title: reservation.customerName,
@@ -560,8 +599,8 @@ const HomeHub: React.FC = () => {
       });
     }
     return items.slice(0, 6);
-  }, [hub.todayPendingReservations, lang, loading, nearDepartures, overdueReservations, pendingReservationRows, readinessAlerts, showFinance]);
-  const isNewOrg = !loading && overview?.reservations_count === 0 && departures.length === 0;
+  }, [hub.todayPendingReservations, hubCurrency, lang, loading, nearDepartures, openBalanceItems, pendingReservationRows, readinessAlerts, showFinance]);
+  const isNewOrg = !loading && !financeError && !queueError && overview?.reservations_count === 0 && departures.length === 0 && openBalanceCount === 0;
   return (
     <>
       <PageMeta title={`Travline — ${hub.title}`} description={hub.subtitle} />
@@ -581,7 +620,7 @@ const HomeHub: React.FC = () => {
                     {greeting}
                     <span className="text-brand-500">.</span>
                   </span>
-                  <span className="text-[0.82rem] font-medium capitalize text-gray-400 dark:text-gray-500">
+                  <span className="text-[0.82rem] font-medium text-gray-400 dark:text-gray-500">
                     {dateLine}
                   </span>
                 </h1>
@@ -605,7 +644,7 @@ const HomeHub: React.FC = () => {
           {showFinance && availableCurrencies.length > 1 && (
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <span className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
-                Currency
+                {t.common.currency}
               </span>
               {availableCurrencies.map((currency) => (
                 <button
@@ -649,7 +688,7 @@ const HomeHub: React.FC = () => {
                     {showFinance && (
                       <Link to="/payments" className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200/80 bg-rose-50/70 px-2.5 py-1 text-[11px] font-semibold text-rose-800 transition-colors hover:bg-rose-100 dark:border-rose-800/40 dark:bg-rose-950/30 dark:text-rose-300">
                         <span className="size-1.5 rounded-full bg-rose-500" />
-                        {hub.attentionOutstanding}: {fmtNumber(overdueCount, lang)}
+                        {hub.attentionOutstanding}: {fmtNumber(openBalanceCount, lang)}
                       </Link>
                     )}
                     <Link to="/operations/calendar" className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200/80 bg-brand-50/70 px-2.5 py-1 text-[11px] font-semibold text-brand-800 transition-colors hover:bg-brand-100 dark:border-brand-800/40 dark:bg-brand-950/30 dark:text-brand-300">
@@ -705,13 +744,13 @@ const HomeHub: React.FC = () => {
                       <button
                         key={tab}
                         onClick={() => setBookingsTab(tab)}
-                        className={`rounded-lg px-3 py-1 text-[0.72rem] font-semibold capitalize transition-all ${
+                        className={`rounded-lg px-3 py-1 text-[0.72rem] font-semibold transition-all ${
                           bookingsTab === tab
                             ? "bg-brand-500 text-white shadow-xs"
                             : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
                         }`}
                       >
-                        {tab === "upcoming" ? hub.recentDepartures.split(" ")[0] : "Past"}
+                        {tab === "upcoming" ? hub.upcomingDeparturesTab : hub.pastDeparturesTab}
                       </button>
                     ))}
                   </div>
@@ -721,12 +760,16 @@ const HomeHub: React.FC = () => {
                 <div className="mb-3.5 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-gray-50/50 p-1 dark:border-gray-800 dark:bg-white/[0.02]">
                   {loading ? (
                     <div className={`h-[96px] w-full animate-pulse rounded-lg bg-gray-100 dark:bg-white/[0.04]`} />
+                  ) : financeError ? (
+                    <div className="flex h-[96px] items-center justify-center px-4">
+                      <p className="text-xs text-rose-600 dark:text-rose-400">{hub.financeLoadError}</p>
+                    </div>
                   ) : hasMixedCurrencies ? (
                     <div className="flex h-[96px] items-center justify-center px-4">
-                      <p className="text-xs text-gray-400 dark:text-gray-500">Select currency</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">{t.reports.selectCurrency}</p>
                     </div>
                   ) : grossPoints.length >= 2 ? (
-                    <ComboChart bars={grossPoints} line={revenuePoints} height={96} />
+                    <ComboChart bars={grossPoints} line={revenuePoints} height={96} ariaLabel={t.dashboard.bookingsTrend} />
                   ) : (
                     <div className="flex h-[96px] items-center justify-center px-4">
                       <p className="text-xs font-medium text-gray-400 dark:text-gray-500">{hub.quietPeriod}</p>
@@ -752,7 +795,7 @@ const HomeHub: React.FC = () => {
                     <div className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-dashed border-gray-200 px-4 py-6 dark:border-gray-800">
                       <CalenderIcon className="size-4 text-gray-300 dark:text-gray-600" />
                       <span className="text-xs text-gray-400 dark:text-gray-500">
-                        {bookingsTab === "upcoming" ? hub.noDepartures : hub.noDepartures}
+                        {bookingsTab === "upcoming" ? hub.noDepartures : hub.noPastDepartures}
                       </span>
                     </div>
                   </div>
@@ -850,9 +893,8 @@ const HomeHub: React.FC = () => {
                   <Panel className="p-4">
                     <SectionLabel>{hub.kpiRevenue}</SectionLabel>
                     <div className="mt-2.5 flex items-baseline gap-2">
-                      <span className="text-sm font-bold text-brand-500">$</span>
                       <span className="text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white">
-                        {loading ? "—" : fmtCompact(overview?.total_paid_sum)}
+                        {loading ? "—" : financeError ? "—" : hasMixedCurrencies ? t.reports.selectCurrency : fmtCurrency(overview?.total_paid_sum, lang, hubCurrency)}
                       </span>
                     </div>
                   </Panel>
@@ -861,9 +903,8 @@ const HomeHub: React.FC = () => {
                       {hub.kpiOutstanding}
                     </SectionLabel>
                     <div className="mt-2.5 flex items-baseline gap-2">
-                      <span className={`text-sm font-bold ${(openBalance || 0) > 0 ? "text-amber-500" : "text-gray-400"}`}>$</span>
-                      <span className="text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white">
-                        {loading ? "—" : openBalance == null ? "Select currency" : fmtCompact(openBalance)}
+                      <span className={`text-2xl font-bold tabular-nums tracking-tight ${(openBalance || 0) > 0 ? "text-amber-600 dark:text-amber-400" : "text-gray-900 dark:text-white"}`}>
+                        {loading ? "—" : financeError ? "—" : openBalance == null ? t.reports.selectCurrency : fmtCurrency(openBalance, lang, hubCurrency)}
                       </span>
                     </div>
                   </Panel>
@@ -902,12 +943,16 @@ const HomeHub: React.FC = () => {
                         </li>
                       ))}
                     </ul>
+                  ) : financeError ? (
+                    <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-rose-200/80 bg-rose-50/70 px-4 py-6 text-center dark:border-rose-800/40 dark:bg-rose-950/20">
+                      <p role="alert" className="text-xs font-semibold text-rose-700 dark:text-rose-300">{hub.financeLoadError}</p>
+                    </div>
                   ) : hasMixedCurrencies ? (
                     <div className="flex flex-1 flex-col items-center justify-center gap-2 py-6 text-center">
-                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Select currency</p>
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t.reports.selectCurrency}</p>
                       <p className="text-xs text-gray-400 dark:text-gray-500">{hub.paymentsPanel}</p>
                     </div>
-                  ) : watchPayments.length === 0 ? (
+                  ) : watchPayments.length === 0 && (openBalance ?? 0) === 0 ? (
                     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center">
                       <span className="flex size-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500 ring-4 ring-emerald-500/10 dark:bg-emerald-500/10 dark:text-emerald-400">
                         <CheckCircleIcon className="size-5" />
@@ -942,9 +987,9 @@ const HomeHub: React.FC = () => {
                               <div className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
                                 {p.amount}
                               </div>
-                              {p.daysOpen > 0 && (
-                                <div className="mt-0.5 text-[0.66rem] font-medium leading-none text-amber-500 dark:text-amber-400">
-                                  {p.daysOpen}d
+                              {p.dueLabel && (
+                                <div className={`mt-0.5 text-[0.66rem] font-medium leading-none ${p.isOverdue ? "text-rose-500 dark:text-rose-400" : "text-amber-600 dark:text-amber-400"}`}>
+                                  {p.dueLabel}
                                 </div>
                               )}
                             </div>
@@ -960,13 +1005,31 @@ const HomeHub: React.FC = () => {
               {showFinance && (
                 <Panel className="flex shrink-0 items-center gap-3.5 p-4">
                   <span
-                    className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm shadow-emerald-500/30"
+                    className={`flex size-10 shrink-0 items-center justify-center rounded-xl text-white shadow-sm ${
+                      financeError
+                        ? "bg-rose-500 shadow-rose-500/30"
+                        : (openBalance ?? 0) > 0 || hasMixedCurrencies
+                          ? "bg-amber-500 shadow-amber-500/30"
+                          : "bg-emerald-500 shadow-emerald-500/30"
+                    }`}
                   >
-                    <CheckCircleIcon className="size-5" />
+                    {financeError || (openBalance ?? 0) > 0 || hasMixedCurrencies ? (
+                      <AlertIcon className="size-5" />
+                    ) : (
+                      <CheckCircleIcon className="size-5" />
+                    )}
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-gray-900 dark:text-white">
-                      {openBalance == null ? "Select currency" : openBalance > 0 ? fmtCurrency(openBalance, lang, hubCurrency) : hub.allSettled}
+                      {loading
+                        ? "—"
+                        : financeError
+                          ? hub.financeLoadError
+                          : openBalance == null
+                            ? t.reports.selectCurrency
+                            : openBalance > 0
+                              ? fmtCurrency(openBalance, lang, hubCurrency)
+                              : hub.allSettled}
                     </p>
                     <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{hub.paymentsPanel}</p>
                   </div>
@@ -976,6 +1039,7 @@ const HomeHub: React.FC = () => {
 
             {/* ════ COL 3 — Workspaces + Shortcuts ════ */}
             <aside className="flex min-w-0 flex-col gap-5 lg:min-h-0">
+              {workspaces.length > 0 && (
               <Panel className="shrink-0 p-5 pb-4">
                 <SectionLabel>{hub.workspacesTitle}</SectionLabel>
                 <nav className="mt-3.5 flex flex-col gap-1.5">
@@ -998,6 +1062,7 @@ const HomeHub: React.FC = () => {
                   ))}
                 </nav>
               </Panel>
+              )}
 
               <Panel className="flex min-h-0 flex-1 flex-col p-5">
                 <SectionLabel>{hub.shortcutsTitle}</SectionLabel>
@@ -1026,7 +1091,7 @@ const HomeHub: React.FC = () => {
           {/* Footer */}
           <footer className="mt-4 shrink-0 px-1">
             <p className="text-[0.66rem] font-medium text-gray-400 dark:text-gray-500">
-              © {new Date().getFullYear()} {(orgName || "NMT Analytics")} — {hub.subtitle}
+              © {new Date().getFullYear()} {(orgName || t.app.name)} — {hub.subtitle}
             </p>
           </footer>
         </div>

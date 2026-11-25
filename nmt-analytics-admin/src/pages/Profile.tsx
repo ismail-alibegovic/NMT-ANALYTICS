@@ -1,17 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { get, patch } from "../api/client";
 import { useApp } from "../context/AppContext";
 import { useNavigate } from "react-router";
 import Button from "../components/ui/button/Button";
+import PageMeta from "../components/common/PageMeta";
 import { useToast } from "../context/ToastContext";
 import PageToolbar from "../components/ui/PageToolbar";
 import { UserCircleIcon } from "../icons";
-import { ROLE_LABELS, UserRole, isUserRole } from "../types/roles";
-
-function getRoleLabel(role?: string) {
-    if (isUserRole(role)) return ROLE_LABELS[role as UserRole];
-    return "Korisnik";
-}
+import { isUserRole } from "../types/roles";
+import { useT } from "../lib/i18n/context";
 
 interface ProfileData {
     id: string;
@@ -28,61 +25,82 @@ interface OrganizationData {
 }
 
 export default function Profile() {
+    const { t } = useT();
     const { user, loading: authLoading } = useApp();
     const navigate = useNavigate();
     const toast = useToast();
 
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState<"success" | "error" | null>(null);
     const [profile, setProfile] = useState<ProfileData | null>(null);
     const [organization, setOrganization] = useState<OrganizationData | null>(null);
+    const savingLock = useRef(false);
 
     // Form states
     const [fullName, setFullName] = useState("");
 
-    useEffect(() => {
-        if (!authLoading && !user) {
-            navigate("/auth/signin");
-            return;
-        }
+    const loadErrorTextRef = useRef(t.profile.loadError);
+    loadErrorTextRef.current = t.profile.loadError;
+    const toastErrorRef = useRef(toast.error);
+    toastErrorRef.current = toast.error;
 
-        if (user) {
-            fetchProfile();
-        }
-    }, [user, authLoading, navigate]);
-
-    const fetchProfile = async () => {
+    const fetchProfile = useCallback(async () => {
         try {
             setLoading(true);
-            const { data } = await get<{profile: ProfileData; organization: OrganizationData | null}>('/me/profile');
+            setLoadError(false);
+            const { data } = await get<{ profile: ProfileData; organization: OrganizationData | null }>('/me/profile');
             setProfile(data.profile);
             setFullName(data.profile.full_name || "");
             setOrganization(data.organization);
         } catch (err: any) {
             console.error("Error fetching profile:", err);
-            toast.error("Failed to load profile data");
+            setLoadError(true);
+            toastErrorRef.current(loadErrorTextRef.current);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    const userId = user?.id;
+
+    useEffect(() => {
+        if (!authLoading && !userId) {
+            navigate("/auth/signin");
+            return;
+        }
+
+        if (userId) {
+            void fetchProfile();
+        }
+    }, [userId, authLoading, navigate, fetchProfile]);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user) return;
+        if (!user || loadError || savingLock.current) return;
 
+        savingLock.current = true;
+        setSaving(true);
+        setSaveStatus(null);
         try {
-            setSaving(true);
             await patch('/me/profile', { full_name: fullName });
-
-            toast.success("Profile updated successfully");
+            setSaveStatus("success");
+            toast.success(t.profile.updateSuccess);
             await fetchProfile();
         } catch (err: any) {
             console.error("Error updating profile:", err);
-            toast.error(err.message || "Failed to update profile");
+            setSaveStatus("error");
+            toast.error(t.profile.updateError);
         } finally {
+            savingLock.current = false;
             setSaving(false);
         }
     };
+
+    const roleLabel = isUserRole(profile?.role)
+        ? t.profile.roles[profile.role]
+        : t.profile.defaultRole;
 
     if (authLoading || loading) {
         return (
@@ -92,11 +110,28 @@ export default function Profile() {
         );
     }
 
+    if (loadError) {
+        return (
+            <div className="p-6 max-w-4xl mx-auto">
+                <PageMeta title={`${t.profile.title} | Travline`} description={t.profile.description} />
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-6 dark:border-red-800 dark:bg-red-900/20">
+                    <p role="alert" className="mb-4 text-sm text-red-800 dark:text-red-300">
+                        {t.profile.loadError}
+                    </p>
+                    <Button type="button" variant="outline" onClick={() => void fetchProfile()}>
+                        {t.profile.retry}
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="p-6 max-w-4xl mx-auto">
+            <PageMeta title={`${t.profile.title} | Travline`} description={t.profile.description} />
             <PageToolbar
-                title="Korisnički Profil"
-                description="Pregled i uređivanje vaših ličnih podataka"
+                title={t.profile.pageTitle}
+                description={t.profile.pageDescription}
                 searchValue=""
                 onSearchChange={() => { }}
                 searchPlaceholder=""
@@ -114,13 +149,13 @@ export default function Profile() {
                                 {fullName || user?.email?.split("@")[0]}
                             </h2>
                             <p className="text-gray-500 dark:text-gray-400 text-sm">
-                                {getRoleLabel(profile?.role)}
+                                {roleLabel}
                             </p>
                             <div className="mt-4 w-full pt-4 border-t border-gray-100 dark:border-gray-800 text-left">
-                                <div className="text-xs text-gray-400 uppercase font-semibold mb-1">Email adresa</div>
+                                <div className="text-xs text-gray-400 uppercase font-semibold mb-1">{t.profile.emailAddress}</div>
                                 <div className="text-sm dark:text-gray-200 truncate">{user?.email}</div>
 
-                                <div className="text-xs text-gray-400 uppercase font-semibold mt-4 mb-1">User ID</div>
+                                <div className="text-xs text-gray-400 uppercase font-semibold mt-4 mb-1">{t.profile.userId}</div>
                                 <div className="text-xs font-mono text-gray-400 dark:text-gray-500 truncate">{user?.id}</div>
                             </div>
                         </div>
@@ -128,14 +163,14 @@ export default function Profile() {
 
                     {organization && (
                         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
-                            <h3 className="font-bold mb-4 dark:text-white">Organizacija</h3>
+                            <h3 className="font-bold mb-4 dark:text-white">{t.profile.orgnization}</h3>
                             <div className="space-y-3">
                                 <div>
-                                    <div className="text-xs text-gray-400 uppercase font-semibold">Naziv</div>
+                                    <div className="text-xs text-gray-400 uppercase font-semibold">{t.profile.organizationName}</div>
                                     <div className="text-sm dark:text-gray-200">{organization.name}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-gray-400 uppercase font-semibold">Slug</div>
+                                    <div className="text-xs text-gray-400 uppercase font-semibold">{t.profile.slug}</div>
                                     <div className="text-sm dark:text-gray-200 font-mono italic">/{organization.slug}</div>
                                 </div>
                             </div>
@@ -146,33 +181,45 @@ export default function Profile() {
                 {/* Right Column: Edit Form */}
                 <div className="md:col-span-2 space-y-6">
                     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 shadow-sm">
-                        <h3 className="text-lg font-bold mb-6 dark:text-white">Lični podaci</h3>
+                        <h3 className="text-lg font-bold mb-6 dark:text-white">{t.profile.personalInfo}</h3>
+
+                        {saveStatus && (
+                            <div
+                                role={saveStatus === "error" ? "alert" : "status"}
+                                className={`mb-4 rounded-lg p-3 text-sm ${saveStatus === "success" ? "bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400" : "bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300"}`}
+                            >
+                                {saveStatus === "success" ? t.profile.updateSuccess : t.profile.updateError}
+                            </div>
+                        )}
 
                         <form onSubmit={handleSave} className="space-y-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Puno ime i prezime
+                                <label htmlFor="profile-full-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    {t.profile.fullName}
                                 </label>
                                 <input
+                                    id="profile-full-name"
                                     type="text"
                                     value={fullName}
-                                    onChange={(e) => setFullName(e.target.value)}
-                                    className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-transparent px-4 py-3 text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none"
-                                    placeholder="Unesite vaše ime"
+                                    onChange={(e) => { setFullName(e.target.value); setSaveStatus(null); }}
+                                    disabled={saving}
+                                    className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-transparent px-4 py-3 text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none dark:text-white"
+                                    placeholder={t.profile.fullNamePlaceholder}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 opacity-60">
-                                    Email (Samo za čitanje)
+                                <label htmlFor="profile-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 opacity-60">
+                                    {t.profile.emailReadOnly}
                                 </label>
                                 <input
+                                    id="profile-email"
                                     type="email"
                                     value={user?.email || ""}
                                     disabled
-                                    className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm cursor-not-allowed opacity-60"
+                                    className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm cursor-not-allowed opacity-60 dark:text-gray-300"
                                 />
-                                <p className="mt-2 text-xs text-gray-500 italic">Email se može promijeniti samo kroz postavke sigurnosti.</p>
+                                <p className="mt-2 text-xs text-gray-500 italic">{t.profile.emailReadOnlyHint}</p>
                             </div>
 
                             <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-end">
@@ -181,7 +228,7 @@ export default function Profile() {
                                     disabled={saving}
                                     className="px-8"
                                 >
-                                    {saving ? "Spašavanje..." : "Spasi izmjene"}
+                                    {saving ? t.profile.saving : t.profile.saveChanges}
                                 </Button>
                             </div>
                         </form>

@@ -20,6 +20,7 @@ import {
   Hotel, HotelRoom,
 } from "../../api/operations";
 import { getAllocationDepartures, Departure } from "../../api/departures";
+import { formatDate } from "../../utils/business";
 
 const starOptions = Array.from({ length: 5 }, (_, i) => ({ value: String(i + 1), label: "★".repeat(i + 1) + " " + (i + 1) }));
 const currencyOptions = [{ value: "BAM", label: "BAM" }, { value: "EUR", label: "EUR" }, { value: "USD", label: "USD" }];
@@ -93,11 +94,13 @@ export default function Hotels() {
     }
   };
 
+  const userId = user?.id;
+
   useEffect(() => {
-    if (user && !authLoading) fetchHotels();
+    if (userId && !authLoading) fetchHotels();
     else if (!authLoading) setLoading(false);
     return () => { requestVersion.current++; };
-  }, [user, authLoading]);
+  }, [userId, authLoading]);
 
   useEffect(() => {
     if (loading || loadError || roomModalOpen) return;
@@ -184,9 +187,9 @@ export default function Hotels() {
   };
 
   const handleDeleteHotel = async (h: Hotel) => {
-    if (!confirm(`Delete hotel ${h.name}?`)) return;
-    try { await deleteHotel(h.id); showSuccess("Hotel deleted"); fetchHotels(); }
-    catch (err: any) { showError(err.message || "Failed to delete hotel"); }
+    if (!confirm(tr.deleteConfirm.replace("{name}", h.name))) return;
+    try { await deleteHotel(h.id); showSuccess(tr.hotelDeleted); fetchHotels(); }
+    catch { showError(tr.hotelDeleteError); }
   };
 
   const handleCreateRoom = async () => {
@@ -200,8 +203,8 @@ export default function Hotels() {
   };
 
   const handleDeleteRoom = async (roomId: string) => {
-    try { await deleteHotelRoom(roomId); showSuccess("Room deleted"); fetchHotels(); }
-    catch (err: any) { showError(err.message || "Failed to delete room"); }
+    try { await deleteHotelRoom(roomId); showSuccess(tr.roomDeleted); fetchHotels(); }
+    catch { showError(tr.roomDeleteError); }
   };
 
   const handleCreateAllocation = async () => {
@@ -246,8 +249,12 @@ export default function Hotels() {
       if (rooms.length === 0) return <span className="text-xs text-gray-400">—</span>;
       return (
         <div className="flex flex-col gap-0.5 text-xs">
-          <span className="font-medium text-gray-700 dark:text-gray-300">{rooms.length} type{rooms.length > 1 ? "s" : ""}</span>
-          <span className={totalAvail === 0 ? "text-red-600 font-medium" : "text-gray-500 dark:text-gray-400"}>{totalAvail} / {totalCap} available</span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">
+            {rooms.length === 1 ? tr.roomTypeSingle.replace("{count}", "1") : tr.roomTypePlural.replace("{count}", String(rooms.length))}
+          </span>
+          <span className={totalAvail === 0 ? "text-red-600 font-medium" : "text-gray-500 dark:text-gray-400"}>
+            {tr.roomsAvailable.replace("{avail}", String(totalAvail)).replace("{cap}", String(totalCap))}
+          </span>
         </div>);
     } },
     { key: "allocations", header: tr.allocations || "Alloc", render: (_v, h) => { const allocs = (h as Hotel).allocations || []; return <span className="text-xs text-gray-600 dark:text-gray-300">{allocs.length}</span>; } },
@@ -255,9 +262,9 @@ export default function Hotels() {
     { key: "actions", header: tr.actions || "Actions", render: (_, h) => (
       <div className="flex gap-2">
         <Button size="sm" variant="outline" onClick={() => navigate(`/operations/hotels/${(h as Hotel).id}`)} className="p-2">{tr.open || "Open"}</Button>
-        <Button size="sm" variant="outline" onClick={() => { setSelectedHotel(h as Hotel); setRoomLoading(true); setRoomModalOpen(true); }} title="Room types" className="p-2 text-blue-600"><EyeIcon className="w-4 h-4" /></Button>
+        <Button size="sm" variant="outline" onClick={() => { setSelectedHotel(h as Hotel); setRoomLoading(true); setRoomModalOpen(true); }} title={tr.roomTypes} aria-label={tr.roomTypes} className="p-2 text-blue-600"><EyeIcon className="w-4 h-4" /></Button>
         <Button size="sm" variant="outline" onClick={() => openAllocation(h as Hotel)} title={tr.allocate} aria-label={tr.allocate} className="p-2 text-purple-600"><TableIcon className="w-4 h-4" /></Button>
-        <Button size="sm" variant="outline" onClick={() => handleDeleteHotel(h as Hotel)} title="Delete" className="p-2 text-red-600"><TrashBinIcon className="w-4 h-4" /></Button>
+        <Button size="sm" variant="outline" onClick={() => handleDeleteHotel(h as Hotel)} title={tr.delete} aria-label={tr.delete} className="p-2 text-red-600"><TrashBinIcon className="w-4 h-4" /></Button>
       </div>) },
   ];
 
@@ -334,7 +341,7 @@ export default function Hotels() {
                     <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{r.basePrice} {r.currency}</span>
                     <Badge size="sm" color={r.available > 0 ? "success" : "light"} className="ml-2">{r.available}/{r.total} {tr.available || "available"}</Badge>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => handleDeleteRoom(r.id)} className="text-red-600 p-1">✕</Button>
+                  <Button size="sm" variant="outline" onClick={() => handleDeleteRoom(r.id)} title={tr.deleteRoomLabel} aria-label={tr.deleteRoomLabel} className="text-red-600 p-1">✕</Button>
                 </div>
               ))}
             </div>
@@ -354,7 +361,7 @@ export default function Hotels() {
             <div className="sm:col-span-2"><Field label={tr.departure} htmlFor="allocation-departure">
               <Select id="allocation-departure" value={selectedDeparture} onChange={setSelectedDeparture} options={[
                 {value: "", label: tr.selectDeparture},
-                ...departureList.map(d => ({value: d.id, label: `${d.packageName || tr.departure} — ${new Date(d.depart_at).toLocaleDateString(lang === 'bs' ? 'bs-BA' : 'en-GB')}`})),
+                ...departureList.map(d => ({value: d.id, label: `${d.packageName || tr.departure} — ${formatDate(d.depart_at, lang === 'bs' ? 'bs-BA' : 'en-GB')}`})),
               ]}/>
             </Field></div>
             <Field label={tr.roomType} htmlFor="allocation-type"><Input id="allocation-type" placeholder={tr.roomTypeExample} value={allocRoomType} onChange={e => setAllocRoomType(e.target.value)}/></Field>
