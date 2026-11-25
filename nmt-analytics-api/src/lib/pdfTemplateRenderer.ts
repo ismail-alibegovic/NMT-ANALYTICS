@@ -503,17 +503,19 @@ function drawHeader(args: BlockArgs): void {
     metaY += 16;
   }
 
-  const orgX = banner.orgAlign === 'right' ? 395 : LEFT;
-  const orgWidth = banner.orgAlign === 'right' ? 150 : 300;
+  const orgX = banner.orgAlign === 'right' ? 335 : LEFT;
+  const orgWidth = banner.orgAlign === 'right' ? 210 : 300;
   const orgOpts = banner.orgAlign === 'right'
     ? { width: orgWidth, align: 'right' as const }
     : { width: orgWidth };
 
   if (banner.title !== 'VOUCHER') {
-    doc.fillColor('#FFFFFF').fontSize(18).font('DejaVu-Bold')
-      .text(org.name || 'Travel Agency', orgX, 35, orgOpts);
-    doc.fontSize(9).font('DejaVu').fillColor(BANNER_SUB);
-    let oy = 65;
+    const orgName = org.name || 'Travel Agency';
+    const nameSize = orgName.length > 22 ? 14 : 18;
+    doc.fillColor('#FFFFFF').fontSize(nameSize).font('DejaVu-Bold')
+      .text(orgName, orgX, 30, orgOpts);
+    doc.fontSize(8.5).font('DejaVu').fillColor(BANNER_SUB);
+    let oy = Math.max(58, doc.y + 4);
     const orgLines = [
       org.address,
       org.email,
@@ -523,7 +525,7 @@ function drawHeader(args: BlockArgs): void {
     ].filter(Boolean) as string[];
     for (const line of orgLines) {
       doc.text(line, orgX, oy, orgOpts);
-      oy += 13;
+      oy = Math.max(oy + 12, doc.y + 2);
     }
   }
 
