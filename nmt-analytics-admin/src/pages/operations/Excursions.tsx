@@ -181,14 +181,14 @@ export default function Excursions() {
       />
 
       {/* Reservation selector — always visible */}
-      <div className="mb-6">
+      <div className="mb-6 min-w-0">
         <label htmlFor="excursion-reservation-select" className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">{tr.selectReservation}</label>
-        <div className="flex gap-2 max-w-2xl">
+        <div className="flex min-w-0 w-full max-w-2xl gap-2">
           <select
             id="excursion-reservation-select"
             value={selectedResId}
             onChange={e => setSelectedResId(e.target.value)}
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700"
+            className="min-w-0 w-full max-w-full flex-1 truncate rounded-lg border border-gray-300 px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700"
           >
             <option value="">{tr.selectReservationPlaceholder}</option>
             {reservationList.map((r) => (

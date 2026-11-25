@@ -44,8 +44,10 @@ vi.mock('../api/payments', () => ({
   getPaymentDashboard: (currency?: string) => getPaymentDashboard(currency),
 }));
 
+const mockRole = { value: 'manager' as 'director' | 'manager' | 'agent' | 'viewer' };
+
 vi.mock('../context/AppContext', () => ({
-  useApp: () => ({ userContext: { role: 'manager', org: { name: 'Travline', currency: 'BAM' } } }),
+  useApp: () => ({ userContext: { role: mockRole.value, org: { name: 'Travline', currency: 'BAM' } } }),
 }));
 
 vi.mock('../context/QuickCreateContext', () => ({
@@ -229,6 +231,7 @@ function renderHub() {
 
 beforeEach(() => {
   mockLang.value = 'bs';
+  mockRole.value = 'manager';
   readinessResponse = { departures: [] };
   readinessError = false;
   paymentDashboardError = false;
@@ -364,5 +367,17 @@ describe('HomeHub financial reconciliation & failure safety', () => {
 
     expect((await screen.findAllByText('Financial data unavailable')).length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByText('All settled')).not.toBeInTheDocument();
+  });
+
+  it('skips manager-only analytics/finance API calls and hides empty Workspaces card for agent role', async () => {
+    mockRole.value = 'agent';
+    seedSingle('BAM');
+    renderHub();
+
+    expect(await screen.findByText('Pending reservations: 0')).toBeInTheDocument();
+    expect(getAnalyticsOverviewV2).not.toHaveBeenCalled();
+    expect(getRevenueSeries).not.toHaveBeenCalled();
+    expect(getPaymentDashboard).not.toHaveBeenCalled();
+    expect(screen.queryByText('Workspaces')).not.toBeInTheDocument();
   });
 });

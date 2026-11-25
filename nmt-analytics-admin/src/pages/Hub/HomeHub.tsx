@@ -281,9 +281,9 @@ const HomeHub: React.FC = () => {
         const monetaryFilters = selectedCurrency ? { currency: selectedCurrency } : {};
 
         const [ov, deps, rev, paymentsDashboardRes, pending, readinessSummaryRes] = await Promise.allSettled([
-          getAnalyticsOverviewV2({ from: fortnightAgo, to: todayISO, ...monetaryFilters }),
+          showFinance ? getAnalyticsOverviewV2({ from: fortnightAgo, to: todayISO, ...monetaryFilters }) : Promise.resolve(null),
           getDepartures({ status: "active", limit: 20 }),
-          getRevenueSeries({ from: fortnightAgo, to: todayISO, bucket: "daily", ...monetaryFilters }),
+          showFinance ? getRevenueSeries({ from: fortnightAgo, to: todayISO, bucket: "daily", ...monetaryFilters }) : Promise.resolve([]),
           showFinance ? getPaymentDashboard(selectedCurrency || undefined) : Promise.resolve(null),
           getReservations({ status: "pending", limit: 3 }),
           getReadinessSummary(todayISO, 12),
@@ -1039,6 +1039,7 @@ const HomeHub: React.FC = () => {
 
             {/* ════ COL 3 — Workspaces + Shortcuts ════ */}
             <aside className="flex min-w-0 flex-col gap-5 lg:min-h-0">
+              {workspaces.length > 0 && (
               <Panel className="shrink-0 p-5 pb-4">
                 <SectionLabel>{hub.workspacesTitle}</SectionLabel>
                 <nav className="mt-3.5 flex flex-col gap-1.5">
@@ -1061,6 +1062,7 @@ const HomeHub: React.FC = () => {
                   ))}
                 </nav>
               </Panel>
+              )}
 
               <Panel className="flex min-h-0 flex-1 flex-col p-5">
                 <SectionLabel>{hub.shortcutsTitle}</SectionLabel>
