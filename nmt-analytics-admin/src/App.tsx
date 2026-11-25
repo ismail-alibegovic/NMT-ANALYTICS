@@ -35,6 +35,7 @@ const UnifiedPayments = lazy(() => import("./pages/admin/UnifiedPayments"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Academy = lazy(() => import("./pages/Academy"));
 const AiSettings = lazy(() => import("./pages/admin/AiSettings"));
+const AiAssistant = lazy(() => import("./pages/AiAssistant"));
 const Integrations = lazy(() => import("./pages/admin/Integrations"));
 const Settings = lazy(() => import("./pages/admin/Settings"));
 const PublicForms = lazy(() => import("./pages/admin/PublicForms"));
@@ -153,6 +154,7 @@ export default function App() {
           <Route path="/payments" element={<SuspenseWrapper><ModuleGuard moduleKey="payments"><UnifiedPayments /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/reports" element={<SuspenseWrapper><ModuleGuard moduleKey="analytics" fallback={<NotFoundClientOnly />}><Reports /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/academy" element={<SuspenseWrapper><Academy /></SuspenseWrapper>} />
+          <Route path="/ai-assistant" element={<SuspenseWrapper><ModuleGuard moduleKey="ai_assistant" fallback={<NotFoundClientOnly />}><AiAssistant /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/integrations" element={<SuspenseWrapper><ModuleGuard moduleKey="integrations" fallback={<NotFoundClientOnly />}><Integrations /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/settings" element={<SuspenseWrapper><Settings /></SuspenseWrapper>} />
           <Route path="/settings/ai" element={<SuspenseWrapper><AiSettings /></SuspenseWrapper>} />

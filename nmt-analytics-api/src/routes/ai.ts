@@ -5,6 +5,8 @@ import { requireMinimumRole } from '../middleware/requireRole';
 import { requireModule } from '../middleware/requireModule';
 import { apiError } from '../lib/errors';
 import { supabaseAdmin } from '../lib/supabase';
+import { buildOrgAiContext } from '../lib/aiContextBuilder';
+import { executeOrgAiCompletion } from '../lib/aiProviderService';
 import { z } from 'zod';
 
 const router = Router();
@@ -328,5 +330,70 @@ router.get('/ai/recommend-packages', authenticateToken, requireOrgContext, requi
     }
 });
 
+const AssistantSchema = z.object({
+    question: z.string().trim().min(1).max(2000),
+    locale: z.enum(['bs', 'en']).default('bs'),
+});
+
+router.post(
+    '/ai/assistant',
+    authenticateToken,
+    requireOrgContext,
+    requireMinimumRole('agent'),
+    requireModule('ai_assistant'),
+    async (req: Request, res: Response) => {
+        const parsed = AssistantSchema.safeParse(req.body);
+        if (!parsed.success) {
+            return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid assistant request', parsed.error.issues);
+        }
+
+        const { question, locale } = parsed.data;
+        const orgId = req.orgId!;
+        const userRole = req.user?.role || 'agent';
+
+        try {
+            const contextSnapshot = await buildOrgAiContext(orgId, userRole);
+            const systemPrompt = [
+                'You are Travline AI, a strictly read-only assistant for a travel agency.',
+                `Respond in ${locale === 'bs' ? 'Bosnian (bs)' : 'English (en)'}.`,
+                'Answer ONLY using the verified organization snapshot below and Travline operational rules:',
+                '- Packages are reusable templates; Departures are dated trip instances.',
+                '- Non-fiscal payment receipts use PU-YYYY-XXXX and are immutable once issued.',
+                '- Cancelled reservations are excluded from departure manifests and batch vouchers.',
+                'If data is not in the snapshot, say so clearly. Never invent numbers or claim to execute write actions.',
+                `VERIFIED_ORG_SNAPSHOT: ${JSON.stringify(contextSnapshot)}`,
+            ].join('\n');
+
+            const completion = await executeOrgAiCompletion(orgId, req.user?.id || null, 'read_only_assistant', {
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: question },
+                ],
+                temperature: 0.2,
+                maxTokens: 800,
+            });
+
+            return res.json({
+                answer: completion.text,
+                provider: completion.provider,
+                model: completion.model,
+                usage: completion.usage,
+                groundedAt: contextSnapshot.generatedAt,
+                roleScope: contextSnapshot.roleScope,
+            });
+        } catch (err: any) {
+            if (err?.message === 'NO_ACTIVE_AI_PROVIDER') {
+                return apiError(
+                    res,
+                    503,
+                    'NO_ACTIVE_AI_PROVIDER',
+                    'No active AI provider is configured for this organization or platform.',
+                );
+            }
+            console.error('[AI Assistant] Error:', err?.message || err);
+            return apiError(res, 500, 'AI_ASSISTANT_ERROR', 'Failed to generate AI assistant response');
+        }
+    },
+);
 
 export default router;
