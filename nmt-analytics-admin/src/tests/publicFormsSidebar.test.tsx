@@ -44,20 +44,52 @@ function renderSidebar(path = '/dashboard') {
   );
 }
 
-describe('AppSidebar — Public Forms product integration', () => {
+describe('AppSidebar — Public Forms & RBAC role visibility', () => {
   beforeEach(() => {
-    appState.role = 'manager';
-    appState.modules = ['customers', 'packages', 'reservations'];
+    appState.role = 'director';
+    appState.modules = ['customers', 'packages', 'reservations', 'departures', 'payments', 'travel_core', 'analytics', 'integrations', 'documents'];
   });
 
-  it('shows the Settings entry in the System section', () => {
-    renderSidebar('/settings');
+  it('shows Settings in the System section for directors and hides it from managers', () => {
+    const dir = renderSidebar('/settings');
     const settingsLink = screen.getByText('Settings').closest('a');
     expect(settingsLink).toBeTruthy();
     expect(settingsLink!.getAttribute('href')).toBe('/settings');
+    dir.unmount();
+
+    appState.role = 'manager';
+    renderSidebar('/dashboard');
+    expect(screen.queryByText('Settings')).toBeNull();
+  });
+
+  it('shows core agency modules and Waivers for directors, while scoping manager and agent appropriately', () => {
+    appState.role = 'director';
+    const { unmount } = renderSidebar('/home');
+    for (const label of ['Clients', 'Packages', 'Reservations', 'Departures', 'Payments', 'Waivers', 'Public Forms', 'Settings']) {
+      expect(screen.getByText(label)).toBeTruthy();
+    }
+    unmount();
+
+    appState.role = 'manager';
+    const mgr = renderSidebar('/home');
+    for (const label of ['Clients', 'Packages', 'Reservations', 'Departures', 'Payments', 'Waivers', 'Public Forms']) {
+      expect(screen.getByText(label)).toBeTruthy();
+    }
+    expect(screen.queryByText('Settings')).toBeNull();
+    mgr.unmount();
+
+    appState.role = 'agent';
+    renderSidebar('/home');
+    for (const label of ['Clients', 'Packages', 'Reservations', 'Departures', 'Public Forms']) {
+      expect(screen.getByText(label)).toBeTruthy();
+    }
+    expect(screen.queryByText('Payments')).toBeNull();
+    expect(screen.queryByText('Waivers')).toBeNull();
+    expect(screen.queryByText('Settings')).toBeNull();
   });
 
   it('shows the Public Forms entry in the Sales section near Inquiries', () => {
+    appState.role = 'manager';
     renderSidebar('/inquiries');
     const formsLink = screen.getByText('Public Forms').closest('a');
     expect(formsLink).toBeTruthy();

@@ -10,6 +10,7 @@ import { getInquiries } from "../../api/inquiries";
 import { getQuotations } from "../../api/quotations";
 import { getSuppliers } from "../../api/suppliers";
 import { useT } from "../../lib/i18n/context";
+import { formatDate } from "../../utils/business";
 
 export type SearchCategory =
   | "customer"
@@ -186,7 +187,7 @@ export default function GlobalSearch({
         // 5. Departures (deep-links directly to /departures/:id)
         if (departuresRes.status === "fulfilled") {
           for (const d of departuresRes.value.data) {
-            const date = d.depart_at ? new Date(d.depart_at).toLocaleDateString(locale) : "";
+            const date = d.depart_at ? formatDate(d.depart_at, locale) : "";
             allResults.push({
               id: d.id,
               category: "departure",
@@ -259,7 +260,7 @@ export default function GlobalSearch({
               id: c.id,
               category: "contract",
               title: `${c.contractNumber} — ${c.travelerName}`,
-              subtitle: `${c.status} · ${new Date(c.contractDate).toLocaleDateString(locale)}`,
+              subtitle: `${c.status} · ${formatDate(c.contractDate, locale)}`,
               href: "/operations/contracts",
             });
           }

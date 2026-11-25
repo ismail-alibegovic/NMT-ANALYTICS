@@ -294,13 +294,15 @@ export interface ReservationInstallment {
   created_at: string;
 }
 
+import { formatDate as formatSafeDate } from '../utils/business';
+
 export function formatReservationCurrency(amount: number, currency: string = 'BAM') {
   return new Intl.NumberFormat('bs-BA', { style: 'currency', currency }).format(amount || 0);
 }
 
 export function formatReservationDate(dateStr?: string) {
   if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString('bs-BA', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  return formatSafeDate(dateStr, 'bs-BA');
 }
 
 export function reservationPaymentStatusBadge(reservation: Reservation) {

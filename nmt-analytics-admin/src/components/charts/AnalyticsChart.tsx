@@ -3,6 +3,7 @@ import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 import { DataPoint } from "../../api/metrics";
 import { useT } from "../../lib/i18n";
+import { formatShortMonthDay } from "../../utils/business";
 
 interface AnalyticsChartProps {
     title: string;
@@ -36,10 +37,7 @@ export default function AnalyticsChart({
             };
         }
 
-        const categories = safeData.map(item => {
-            const date = new Date(item.date);
-            return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
-        });
+        const categories = safeData.map(item => formatShortMonthDay(item.date, locale));
 
         const series = [
             {

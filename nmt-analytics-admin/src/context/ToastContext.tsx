@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, useMemo, ReactNode } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 
 interface ToastContextType {
@@ -19,7 +19,7 @@ interface ToastProviderProps {
 }
 
 export function ToastProvider({ children }: ToastProviderProps) {
-  const value: ToastContextType = {
+  const value = useMemo<ToastContextType>(() => ({
     success: (message: string) => toast.success(message),
     error: (message: string) => toast.error(message),
     showSuccess: (message: string) => toast.success(message),
@@ -34,7 +34,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
         toast.dismiss();
       }
     },
-  };
+  }), []);
 
   return (
     <ToastContext.Provider value={value}>

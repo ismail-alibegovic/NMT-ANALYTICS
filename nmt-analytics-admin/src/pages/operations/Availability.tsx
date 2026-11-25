@@ -8,6 +8,7 @@ import { useToast } from "../../context/ToastContext";
 import { getDepartures, Departure } from "../../api/departures";
 import { getAvailability, AvailabilityResponse, AvailabilityRoom } from "../../api/availability";
 import { GridIcon, TimeIcon } from "../../icons";
+import { formatDate } from "../../utils/business";
 
 type Band = "green" | "amber" | "red";
 
@@ -39,7 +40,7 @@ const bandBar: Record<Band, string> = {
 
 const formatShortDate = (value: string, locale: string) => {
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? "—" : parsed.toLocaleDateString(locale);
+  return Number.isNaN(parsed.getTime()) ? "—" : formatDate(parsed, locale);
 };
 
 type Row = {
@@ -190,7 +191,7 @@ export default function Availability() {
 
       {lastFetch && (
         <div className="mt-2 text-xs text-gray-400">
-          {tr.lastRefreshed}: {lastFetch.toLocaleTimeString(locale)}
+          {tr.lastRefreshed}: {locale.startsWith("bs") ? `${String(lastFetch.getHours()).padStart(2, "0")}:${String(lastFetch.getMinutes()).padStart(2, "0")}:${String(lastFetch.getSeconds()).padStart(2, "0")}` : lastFetch.toLocaleTimeString(locale)}
         </div>
       )}
 

@@ -10,6 +10,7 @@ import Label from '../components/form/Label';
 import { Modal } from '../components/ui/modal';
 import { useToast } from '../context/ToastContext';
 import { useT } from '../lib/i18n/context';
+import { formatDate } from '../utils/business';
 import { createQuotation, getQuotations, type CreateQuotation, type Quotation } from '../api/quotations';
 import { getItinerary, getItineraries, type Itinerary } from '../api/itineraries';
 
@@ -147,7 +148,7 @@ export default function Quotations() {
             </div>
             {row.validUntil && (
               <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
-                {c.validUntil}: {new Date(row.validUntil).toLocaleDateString(locale)}
+                {c.validUntil}: {formatDate(row.validUntil, locale)}
               </p>
             )}
           </button>

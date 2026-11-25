@@ -304,15 +304,12 @@ export default function TemplatesTab({ onUseTemplate }: TemplatesTabProps) {
       />
 
       {/* Delete Confirm Modal */}
-      <Modal isOpen={deleteTarget !== null} onClose={() => setDeleteTarget(null)} showCloseButton>
-        <div className="flex flex-col gap-4">
-          <h3 className="text-lg font-semibold text-gray-950 dark:text-white">
-            {s.deleteConfirmTitle}
-          </h3>
+      <Modal isOpen={deleteTarget !== null} onClose={() => setDeleteTarget(null)} showCloseButton className="max-w-md" title={s.deleteConfirmTitle}>
+        <div className="flex flex-col gap-4 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             {s.deleteConfirmDesc.replace('{name}', deleteTarget?.name ?? '')}
           </p>
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
             <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
               {s.cancel}
             </Button>

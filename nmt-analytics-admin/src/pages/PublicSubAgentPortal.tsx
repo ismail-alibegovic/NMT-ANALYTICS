@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useT } from "../lib/i18n/context";
 import PageMeta from "../components/common/PageMeta";
+import { formatCurrency as formatSafeCurrency, formatDateTime } from "../utils/business";
 
 interface PortalSale {
   id: string;
@@ -29,11 +30,13 @@ interface PortalData {
 
 function fmtDate(d: string | null, locale = "bs-BA") {
   if (!d) return null;
-  return new Date(d).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
+  return locale === "bs-BA"
+    ? formatDateTime(d, locale)
+    : new Date(d).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
 }
 
 function fmtCurrency(n: number, currency = "BAM", locale = "bs-BA") {
-  return new Intl.NumberFormat(locale, { style: "currency", currency }).format(n || 0);
+  return formatSafeCurrency(n, currency, locale);
 }
 
 const STATUS_META: Record<string, { label: string; color: string }> = {

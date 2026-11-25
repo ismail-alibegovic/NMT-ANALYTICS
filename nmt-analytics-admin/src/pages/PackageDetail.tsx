@@ -28,13 +28,14 @@ import {
 } from "../api/packages";
 import { getSuppliers, type Supplier, type SupplierService } from "../api/suppliers";
 import { canAccessFinances } from "../types/roles";
+import { formatCurrency as formatSafeCurrency, formatDate as formatSafeDate } from "../utils/business";
 
 const formatCurrency = (amount?: number | null, currency = "BAM", locale = "bs-BA") =>
-  new Intl.NumberFormat(locale, { style: "currency", currency }).format(Number(amount || 0));
+  formatSafeCurrency(amount, currency, locale);
 
 const formatDate = (value?: string | null, locale = "bs-BA") => {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString(locale, { year: "numeric", month: "2-digit", day: "2-digit" });
+  return formatSafeDate(value, locale);
 };
 
 const costCategories: PackageCostCategory[] = ["hotel", "transport", "flight", "tour", "insurance", "supplier", "extra_service", "other"];

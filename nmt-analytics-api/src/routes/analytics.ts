@@ -403,7 +403,7 @@ router.get('/analytics/dashboard', authenticateToken, requireOrgContext, require
     return res.json(stats);
   } catch (error) {
     console.error('ANALYTICS ERROR (Dashboard):', error);
-    return res.json({ revenue: 0, bookings_count: 0, average_booking_value: 0, revenue_by_month: [], bookings_by_month: [], top_packages: [] });
+    return apiError(res, 500, 'QUERY_ERROR', 'Failed to fetch dashboard statistics', error instanceof Error ? error.message : String(error));
   }
 });
 
@@ -418,7 +418,7 @@ router.get('/dashboard', authenticateToken, requireOrgContext, async (req: Reque
     return res.json(stats);
   } catch (error) {
     console.error('ANALYTICS ERROR (Dashboard):', error);
-    return res.json({ revenue: 0, bookings_count: 0, average_booking_value: 0, revenue_by_month: [], bookings_by_month: [], top_packages: [] });
+    return apiError(res, 500, 'QUERY_ERROR', 'Failed to fetch dashboard statistics', error instanceof Error ? error.message : String(error));
   }
 });
 
@@ -510,7 +510,7 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, requi
     // Build reservation metrics query
     let reservationQuery = supabaseAdmin
       .from('reservations')
-      .select('total_amount, paid_amount, balance_due, payment_status, currency')
+      .select('total_amount, paid_amount, balance_due, payment_status, currency, status')
       .eq('org_id', orgId);
 
     if (from) reservationQuery = reservationQuery.gte('reservation_at', from);
@@ -524,9 +524,10 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, requi
       return apiError(res, 500, "QUERY_ERROR", "Failed to fetch reservation metrics", reservationError.message);
     }
 
+    const nonCancelledReservations = (allReservations || []).filter((row: any) => row.status !== 'cancelled');
     const reservations = selectedCurrency
-      ? (allReservations || []).filter(row => normalizeCurrency(row.currency) === selectedCurrency)
-      : (allReservations || []);
+      ? nonCancelledReservations.filter(row => normalizeCurrency(row.currency) === selectedCurrency)
+      : nonCancelledReservations;
 
     // Calculate reservation metrics
     const reservationBreakdown = buildCurrencyBreakdown(reservations || [], {
@@ -574,7 +575,7 @@ router.get('/analytics/overview-v2', authenticateToken, requireOrgContext, requi
       ? datePayments.filter(row => normalizeCurrency(row.currency) === selectedCurrency)
       : datePayments;
     const availableCurrencies = Array.from(new Set([
-      ...(allReservations || []).map(row => normalizeCurrency(row.currency)),
+      ...nonCancelledReservations.map(row => normalizeCurrency(row.currency)),
       ...datePayments.map(row => normalizeCurrency(row.currency)),
     ])).sort();
 

@@ -79,20 +79,16 @@ import { sendDepartureManualMessage } from "../api/manualMessaging";
 import { canAccessFinances } from "../types/roles";
 import SupplierPayablesPanel from "../components/departures/SupplierPayablesPanel";
 import { getSuppliers, type Supplier } from "../api/suppliers";
+import { formatDate as formatSafeDate, formatDateTime as formatSafeDateTime } from "../utils/business";
 
 const formatDate = (dateStr: string, locale = "bs-BA") => {
   if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString(locale, {
-    year: "numeric", month: "2-digit", day: "2-digit",
-  });
+  return formatSafeDate(dateStr, locale);
 };
 
 const formatDateTime = (dateStr: string, locale = "bs-BA") => {
   if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleString(locale, {
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit",
-  });
+  return formatSafeDateTime(dateStr, locale);
 };
 
 const statusBadge = (status: string | null | undefined, labels: Record<string, string>) => {
@@ -1810,14 +1806,10 @@ export default function DepartureDetail() {
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
         className="max-w-md"
+        title={t.departure.editPassenger}
+        description={targetPassenger?.fullName}
       >
         <div className="p-6">
-          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">{t.departure.editPassenger}</h2>
-          {targetPassenger && (
-            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-              <span className="font-medium text-gray-700 dark:text-gray-200">{targetPassenger.fullName}</span>
-            </p>
-          )}
 
           {paxError && (
             <div className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-500/10 dark:text-error-400">
@@ -1890,78 +1882,88 @@ export default function DepartureDetail() {
       <Modal
         isOpen={showCostModal}
         onClose={() => { if (!costSaveLock.current) setShowCostModal(false); }}
-        className="mx-4 max-h-[calc(100dvh-2rem)] max-w-md overflow-y-auto"
+        className="max-w-md"
+        title={editingCostItem ? t.departure.finance.editCost : t.departure.finance.addCost}
+        description={t.departure.finance.costModalDescription}
       >
-        <div className="p-6">
-          {profitError && <p role="alert" className="mb-3 text-sm text-red-600">{profitError}</p>}
-          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">
-            {editingCostItem ? t.departure.finance.editCost : t.departure.finance.addCost}
-          </h2>
-          <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">{t.departure.finance.costModalDescription}</p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSaveCostItem();
+          }}
+        >
+          <div className="p-6">
+            {profitError && <p role="alert" className="mb-4 rounded-lg bg-error-50 p-3 text-sm text-error-700 dark:bg-error-500/10 dark:text-error-400">{profitError}</p>}
 
-          <fieldset disabled={costSaving} className="min-w-0 space-y-4">
-            <div>
-              <Label htmlFor="cost-category">{t.departure.finance.category}</Label>
-              <Select
-                id="cost-category"
-                value={costForm.category}
-                onChange={(value) => setCostForm((prev) => ({ ...prev, category: value as DepartureCostCategory }))}
-                options={costCategories.map((category) => ({
-                  value: category,
-                  label: (t.departure.finance.categories as Record<string, string>)[category] || category,
-                }))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="cost-label">{t.departure.finance.label}</Label>
-              <Input id="cost-label" value={costForm.label} onChange={(e) => setCostForm((prev) => ({ ...prev, label: e.target.value }))} />
-            </div>
-            <div>
-              <label htmlFor="cost-supplier" className="mb-1 block text-sm">{t.supplierPayables.supplier}</label>
-              <select id="cost-supplier" value={costForm.supplierId} onChange={e => setCostForm(prev => ({ ...prev, supplierId: e.target.value }))}
-                className="h-11 w-full min-w-0 rounded-lg border border-gray-300 p-2 dark:border-gray-700 dark:bg-gray-900">
-                <option value="">{t.supplierPayables.noSupplier}</option>
-                {costForm.supplierId && !costSuppliers.some(s => s.id === costForm.supplierId) && <option value={costForm.supplierId}>{editingCostItem?.supplierName || costForm.supplierId}</option>}
-                {costSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              {costSupplierError && <p role="alert" className="mt-1 text-sm text-red-600">{t.supplierPayables.supplierLoadError}</p>}
-            </div>
-            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+            <fieldset disabled={costSaving} className="min-w-0 space-y-4">
               <div>
-                <Label htmlFor="cost-quantity">{t.departure.finance.quantity}</Label>
-                <Input id="cost-quantity" type="number" min="0.01" step={0.01} value={costForm.quantity} onChange={(e) => setCostForm((prev) => ({ ...prev, quantity: e.target.value }))} />
+                <Label htmlFor="cost-category">{t.departure.finance.category}</Label>
+                <Select
+                  id="cost-category"
+                  value={costForm.category}
+                  onChange={(value) => setCostForm((prev) => ({ ...prev, category: value as DepartureCostCategory }))}
+                  options={costCategories.map((category) => ({
+                    value: category,
+                    label: (t.departure.finance.categories as Record<string, string>)[category] || category,
+                  }))}
+                />
               </div>
               <div>
-                <Label htmlFor="cost-unit-cost">{t.departure.finance.unitCost}</Label>
-                <Input id="cost-unit-cost" type="number" min="0" step={0.01} value={costForm.unitCost} onChange={(e) => setCostForm((prev) => ({ ...prev, unitCost: e.target.value }))} />
+                <Label htmlFor="cost-label">{t.departure.finance.label}</Label>
+                <Input id="cost-label" value={costForm.label} onChange={(e) => setCostForm((prev) => ({ ...prev, label: e.target.value }))} />
               </div>
-            </div>
-            <div>
-              <Label htmlFor="cost-notes">{t.departure.finance.notes}</Label>
-              <Input id="cost-notes" value={costForm.notes} onChange={(e) => setCostForm((prev) => ({ ...prev, notes: e.target.value }))} />
-            </div>
-          </fieldset>
+              <div>
+                <Label htmlFor="cost-supplier">{t.supplierPayables.supplier}</Label>
+                <select
+                  id="cost-supplier"
+                  value={costForm.supplierId}
+                  onChange={e => setCostForm(prev => ({ ...prev, supplierId: e.target.value }))}
+                  className="h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                >
+                  <option value="">{t.supplierPayables.noSupplier}</option>
+                  {costForm.supplierId && !costSuppliers.some(s => s.id === costForm.supplierId) && <option value={costForm.supplierId}>{editingCostItem?.supplierName || costForm.supplierId}</option>}
+                  {costSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                {costSupplierError && <p role="alert" className="mt-1.5 text-xs text-error-500">{t.supplierPayables.supplierLoadError}</p>}
+              </div>
+              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="cost-quantity">{t.departure.finance.quantity}</Label>
+                  <Input id="cost-quantity" type="number" min="0.01" step={0.01} value={costForm.quantity} onChange={(e) => setCostForm((prev) => ({ ...prev, quantity: e.target.value }))} />
+                </div>
+                <div>
+                  <Label htmlFor="cost-unit-cost">{t.departure.finance.unitCost}</Label>
+                  <Input id="cost-unit-cost" type="number" min="0" step={0.01} value={costForm.unitCost} onChange={(e) => setCostForm((prev) => ({ ...prev, unitCost: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="cost-notes">{t.departure.finance.notes}</Label>
+                <Input id="cost-notes" value={costForm.notes} onChange={(e) => setCostForm((prev) => ({ ...prev, notes: e.target.value }))} />
+              </div>
+            </fieldset>
+          </div>
 
-          <div className="mt-6 flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setShowCostModal(false)} disabled={costSaving}>{t.common.cancel}</Button>
-            <Button onClick={handleSaveCostItem} disabled={costSaving}>
+          <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-4 dark:border-gray-800">
+            <Button type="button" variant="outline" onClick={() => setShowCostModal(false)} disabled={costSaving}>{t.common.cancel}</Button>
+            <Button type="submit" disabled={costSaving}>
               {costSaving ? t.common.saving : t.common.save}
             </Button>
           </div>
-        </div>
+        </form>
       </Modal>
       {/* SUPPLIER CONFIRMATION MODAL */}
       <Modal
         isOpen={!!confirmationModalItem}
         onClose={() => setConfirmationModalItem(null)}
         className="max-w-md"
+        title={t.departure.supplierConfirmations.setStatus}
+        description={
+          confirmationModalItem
+            ? `${confirmationModalItem.label}${confirmationModalItem.supplierName ? ` · ${confirmationModalItem.supplierName}` : ""}`
+            : undefined
+        }
       >
         <div className="p-6">
-          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">{t.departure.supplierConfirmations.setStatus}</h2>
-          <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-            {confirmationModalItem?.label}
-            {confirmationModalItem?.supplierName ? ` · ${confirmationModalItem.supplierName}` : ""}
-          </p>
           <div className="space-y-4">
             <div>
               <Label>{t.departure.supplierConfirmations.statusLabel}</Label>
@@ -1983,7 +1985,7 @@ export default function DepartureDetail() {
               />
             </div>
           </div>
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
             <Button variant="outline" onClick={() => setConfirmationModalItem(null)} disabled={confirmationSavingId !== null}>
               {t.departure.supplierConfirmations.cancel}
             </Button>
@@ -1999,14 +2001,10 @@ export default function DepartureDetail() {
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         className="max-w-md"
+        title={t.departure.deletePassenger}
+        description={targetPassenger ? t.departure.deletePassengerConfirm.replace("{name}", targetPassenger.fullName) : undefined}
       >
         <div className="p-6">
-          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">{t.departure.deletePassenger}</h2>
-          {targetPassenger && (
-            <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-              {t.departure.deletePassengerConfirm.replace("{name}", targetPassenger.fullName)}
-            </p>
-          )}
           <p className="mb-4 text-sm text-warning-600 dark:text-warning-400">
             {t.departure.deletePassengerWarning}
           </p>
@@ -2017,7 +2015,7 @@ export default function DepartureDetail() {
             </div>
           )}
 
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
             <Button variant="outline" onClick={() => setShowDeleteModal(false)} disabled={paxSaving}>
               {t.common.cancel}
             </Button>
@@ -2032,15 +2030,14 @@ export default function DepartureDetail() {
         isOpen={!!editingPassenger}
         onClose={() => setEditingPassenger(null)}
         className="max-w-lg"
+        title={t.departure.editDocuments}
+        description={
+          editingPassenger
+            ? `${editingPassenger.fullName}${editingPassenger.passport_number ? ` · ${editingPassenger.passport_number}` : ""}`
+            : undefined
+        }
       >
         <div className="p-6">
-          <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white">{t.departure.editDocuments}</h2>
-          {editingPassenger && (
-            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-              <span className="font-medium text-gray-700 dark:text-gray-200">{editingPassenger.fullName}</span>
-              {editingPassenger.passport_number && <span className="ml-2">· {editingPassenger.passport_number}</span>}
-            </p>
-          )}
 
           {docError && (
             <div className="mb-4 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-700 dark:border-error-800 dark:bg-error-500/10 dark:text-error-400">

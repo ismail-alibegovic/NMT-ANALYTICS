@@ -20,6 +20,7 @@ import {
   Hotel, HotelRoom,
 } from "../../api/operations";
 import { getAllocationDepartures, Departure } from "../../api/departures";
+import { formatDate } from "../../utils/business";
 
 const starOptions = Array.from({ length: 5 }, (_, i) => ({ value: String(i + 1), label: "★".repeat(i + 1) + " " + (i + 1) }));
 const currencyOptions = [{ value: "BAM", label: "BAM" }, { value: "EUR", label: "EUR" }, { value: "USD", label: "USD" }];
@@ -360,7 +361,7 @@ export default function Hotels() {
             <div className="sm:col-span-2"><Field label={tr.departure} htmlFor="allocation-departure">
               <Select id="allocation-departure" value={selectedDeparture} onChange={setSelectedDeparture} options={[
                 {value: "", label: tr.selectDeparture},
-                ...departureList.map(d => ({value: d.id, label: `${d.packageName || tr.departure} — ${new Date(d.depart_at).toLocaleDateString(lang === 'bs' ? 'bs-BA' : 'en-GB')}`})),
+                ...departureList.map(d => ({value: d.id, label: `${d.packageName || tr.departure} — ${formatDate(d.depart_at, lang === 'bs' ? 'bs-BA' : 'en-GB')}`})),
               ]}/>
             </Field></div>
             <Field label={tr.roomType} htmlFor="allocation-type"><Input id="allocation-type" placeholder={tr.roomTypeExample} value={allocRoomType} onChange={e => setAllocRoomType(e.target.value)}/></Field>

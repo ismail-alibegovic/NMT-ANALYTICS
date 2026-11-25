@@ -4,6 +4,7 @@ import Select from "../form/Select";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import { useT } from "../../lib/i18n/context";
+import { formatDateTime as formatSafeDateTime } from "../../utils/business";
 import {
   CommunicationChannel,
   CommunicationHistoryItem,
@@ -21,13 +22,7 @@ interface CommunicationHistoryPanelProps {
 
 const formatDateTime = (value: string | null | undefined, locale: string) => {
   if (!value) return "—";
-  return new Date(value).toLocaleString(locale, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatSafeDateTime(value, locale);
 };
 
 const statusTone: Record<CommunicationStatus, string> = {

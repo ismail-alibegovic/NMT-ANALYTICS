@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useId } from "react";
 import { useT } from "../../lib/i18n/context";
 import type { DeparturePassenger, PassengerGroup } from "../../api/departures";
 import {
@@ -8,6 +8,10 @@ import {
   replacePassengerGroupMembers,
 } from "../../api/departures";
 import { computeGroupSeatingStatus } from "../../utils/seatGeometry";
+import { Modal } from "../ui/modal";
+import Button from "../ui/button/Button";
+import Label from "../form/Label";
+import Input from "../form/input/InputField";
 
 const SEAT_PREFERENCES = [
   { value: "keep_together", key: "preferences.keep_together" as const },
@@ -37,6 +41,7 @@ interface DrustvaTabProps {
 
 export default function DrustvaTab({ departureId, passengers, groups, onRefresh }: DrustvaTabProps) {
   const { t } = useT();
+  const fieldId = useId();
   const [modal, setModal] = useState<{ mode: "create" | "edit"; group?: PassengerGroup } | null>(null);
   const [_membersModal, _setMembersModal] = useState<PassengerGroup | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<PassengerGroup | null>(null);
@@ -68,17 +73,17 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
       unassigned: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
     };
     const labels: Record<string, string> = {
-      together: "Zajedno",
-      partial: "Djelomično",
-      split: "Razdvojeni",
-      unassigned: "Neraspoređeni",
+      together: t.departure.drustva.seatStatus.together,
+      partial: t.departure.drustva.seatStatus.partial,
+      split: t.departure.drustva.seatStatus.split,
+      unassigned: t.departure.drustva.seatStatus.unassigned,
     };
     return (
       <span className={`rounded-md px-2 py-1 text-xs font-medium ${variants[status.status] || variants.unassigned}`}>
         {labels[status.status] || status.status}
       </span>
     );
-  }, []);
+  }, [t]);
 
   
   const occupiedByOtherGroup = useCallback(
@@ -358,234 +363,217 @@ export default function DrustvaTab({ departureId, passengers, groups, onRefresh 
       )}
 
       {/* Create/Edit Modal */}
-      {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={closeModal}>
-          <div
-            className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900 dark:text-white">
-                {modal.mode === "create"
-                  ? String(t.departure.drustva.newGroup)
-                  : String(t.departure.drustva.editGroup)}
-              </h3>
-              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+      <Modal
+        isOpen={!!modal}
+        onClose={() => { if (!saving) closeModal(); }}
+        className="max-w-lg"
+        title={
+          modal?.mode === "edit"
+            ? String(t.departure.drustva.editGroup)
+            : String(t.departure.drustva.newGroup)
+        }
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSave();
+          }}
+        >
+          <fieldset disabled={saving} className="space-y-4 px-6 py-5">
+            {error && (
+              <div role="alert" className="rounded-lg bg-error-50 p-3 text-sm text-error-700 dark:bg-error-500/10 dark:text-error-400">
+                {error}
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor={`${fieldId}-name`}>{String(t.departure.drustva.groupName)}</Label>
+              <Input
+                id={`${fieldId}-name`}
+                type="text"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder={String(t.departure.drustva.groupNamePlaceholder)}
+              />
             </div>
 
-            <div className="px-6 py-4 space-y-4">
-              {error && (
-                <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-sm text-red-600 dark:text-red-400">{error}</div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {String(t.departure.drustva.groupName)}
-                </label>
-                <input
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder={String(t.departure.drustva.groupNamePlaceholder)}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                />
+            <div>
+              <Label>{String(t.departure.drustva.color)}</Label>
+              <div className="flex flex-wrap gap-2">
+                {COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`${String(t.departure.drustva.color)} ${c}`}
+                    onClick={() => setFormColor(c)}
+                    className={`size-8 rounded-full border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                      formColor === c ? "scale-110 border-gray-900 dark:border-white" : "border-transparent"
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
               </div>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {String(t.departure.drustva.color)}
+            {modal?.mode === "edit" && (
+              <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                <label className="flex items-center justify-between gap-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <span>{String(t.departure.drustva.lockState)}</span>
+                  <select
+                    value={formLocked ? "locked" : "unlocked"}
+                    onChange={(e) => setFormLocked(e.target.value === "locked")}
+                    className="h-10 rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 shadow-theme-xs focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  >
+                    <option value="unlocked">{String(t.departure.drustva.unlocked)}</option>
+                    <option value="locked">{String(t.departure.drustva.locked)}</option>
+                  </select>
                 </label>
-                <div className="flex gap-2 flex-wrap">
-                  {COLORS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setFormColor(c)}
-                      className={`size-8 rounded-full border-2 transition-all ${
-                        formColor === c ? "border-gray-900 dark:border-white scale-110" : "border-transparent"
-                      }`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {modal.mode === "edit" && (
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
-                  <label className="flex items-center justify-between gap-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    <span>{String(t.departure.drustva.lockState)}</span>
-                    <select
-                      value={formLocked ? "locked" : "unlocked"}
-                      onChange={(e) => setFormLocked(e.target.value === "locked")}
-                      className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                    >
-                      <option value="unlocked">{String(t.departure.drustva.unlocked)}</option>
-                      <option value="locked">{String(t.departure.drustva.locked)}</option>
-                    </select>
-                  </label>
-                  {formLocked && (
-                    <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-                      {String(t.departure.drustva.lockedMembersHelp)}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {String(t.departure.drustva.primaryPassenger)}
-                </label>
-                <select
-                  aria-label={String(t.departure.drustva.primaryPassenger)}
-                  value={formPrimary || ""}
-                  onChange={(e) => setFormPrimary(e.target.value || null)}
-                  disabled={modal?.mode === "edit" && formLocked}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                >
-                  <option value="">{String(t.departure.drustva.selectPrimary)}</option>
-                  {formMemberIds.map((pid) => {
-                    const p = passengerById().get(pid);
-                    if (!p) return null;
-                    return (
-                      <option key={pid} value={pid}>
-                        {p.fullName || pid.slice(0, 8)}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {String(t.departure.drustva.seatPreference)}
-                </label>
-                <select
-                  value={formSeatPref}
-                  onChange={(e) => setFormSeatPref(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                >
-                  <option value="">—</option>
-                  {SEAT_PREFERENCES.map((sp) => (
-                    <option key={sp.value} value={sp.value}>
-                      {String(t.departure.drustva[sp.key])}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {String(t.departure.drustva.accommodationPreference)}
-                </label>
-                <select
-                  value={formAccommPref}
-                  onChange={(e) => setFormAccommPref(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                >
-                  <option value="">—</option>
-                  {ACCOMMODATION_PREFERENCES.map((ap) => (
-                    <option key={ap.value} value={ap.value}>
-                      {String(t.departure.drustva[ap.key])}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {String(t.departure.drustva.members)}
-                </label>
-                {passengers.length === 0 ? (
-                  <p className="text-xs text-gray-400">{String(t.departure.drustva.noAvailablePassengers)}</p>
-                ) : (
-                  <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-800">
-                    {passengers.map((p) => {
-                      if (!p.id) return null;
-                      const isOtherGroup = occupiedByOtherGroup(modal.group?.id || "").has(p.id);
-                      const membersLocked = modal.mode === "edit" && formLocked;
-                      return (
-                        <label
-                          key={p.id}
-                          className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 ${
-                            isOtherGroup || membersLocked ? "opacity-50 cursor-not-allowed" : ""
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={formMemberIds.includes(p.id)}
-                            disabled={isOtherGroup || membersLocked}
-                            onChange={() => {
-                              if (membersLocked) return;
-                              const nextMemberIds = formMemberIds.includes(p.id!)
-                                ? formMemberIds.filter((x) => x !== p.id)
-                                : [...formMemberIds, p.id!];
-                              setMembersAndPrimary(nextMemberIds);
-                            }}
-                            className="rounded border-gray-300 text-brand-500 focus:ring-brand-500"
-                          />
-                          <span className="flex-1">
-                            {p.fullName || p.id.slice(0, 8)}
-                          </span>
-                          {isOtherGroup && (
-                            <span className="text-xs text-gray-400">{String(t.departure.drustva.locked)}</span>
-                          )}
-                        </label>
-                      );
-                    })}
-                  </div>
+                {formLocked && (
+                  <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                    {String(t.departure.drustva.lockedMembersHelp)}
+                  </p>
                 )}
               </div>
+            )}
+
+            <div>
+              <Label htmlFor={`${fieldId}-primary`}>{String(t.departure.drustva.primaryPassenger)}</Label>
+              <select
+                id={`${fieldId}-primary`}
+                aria-label={String(t.departure.drustva.primaryPassenger)}
+                value={formPrimary || ""}
+                onChange={(e) => setFormPrimary(e.target.value || null)}
+                disabled={modal?.mode === "edit" && formLocked}
+                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+              >
+                <option value="">{String(t.departure.drustva.selectPrimary)}</option>
+                {formMemberIds.map((pid) => {
+                  const p = passengerById().get(pid);
+                  if (!p) return null;
+                  return (
+                    <option key={pid} value={pid}>
+                      {p.fullName || pid.slice(0, 8)}
+                    </option>
+                  );
+                })}
+              </select>
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-3">
-              <button
-                onClick={closeModal}
-                className="px-4 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            <div>
+              <Label htmlFor={`${fieldId}-seat`}>{String(t.departure.drustva.seatPreference)}</Label>
+              <select
+                id={`${fieldId}-seat`}
+                value={formSeatPref}
+                onChange={(e) => setFormSeatPref(e.target.value)}
+                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
               >
-                {String(t.departure.drustva.cancel)}
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving || formMemberIds.length === 0}
-                className="px-4 py-2 text-sm font-medium rounded-lg bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50"
-              >
-                {saving ? "..." : String(t.departure.drustva.save)}
-              </button>
+                <option value="">—</option>
+                {SEAT_PREFERENCES.map((sp) => (
+                  <option key={sp.value} value={sp.value}>
+                    {String(t.departure.drustva[sp.key])}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            <div>
+              <Label htmlFor={`${fieldId}-accomm`}>{String(t.departure.drustva.accommodationPreference)}</Label>
+              <select
+                id={`${fieldId}-accomm`}
+                value={formAccommPref}
+                onChange={(e) => setFormAccommPref(e.target.value)}
+                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+              >
+                <option value="">—</option>
+                {ACCOMMODATION_PREFERENCES.map((ap) => (
+                  <option key={ap.value} value={ap.value}>
+                    {String(t.departure.drustva[ap.key])}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label>{String(t.departure.drustva.members)}</Label>
+              {passengers.length === 0 ? (
+                <p className="text-xs text-gray-400">{String(t.departure.drustva.noAvailablePassengers)}</p>
+              ) : (
+                <div className="max-h-40 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-700">
+                  {passengers.map((p) => {
+                    if (!p.id) return null;
+                    const isOtherGroup = occupiedByOtherGroup(modal?.group?.id || "").has(p.id);
+                    const membersLocked = modal?.mode === "edit" && formLocked;
+                    return (
+                      <label
+                        key={p.id}
+                        className={`flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800/70 ${
+                          isOtherGroup || membersLocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formMemberIds.includes(p.id)}
+                          disabled={isOtherGroup || membersLocked}
+                          onChange={() => {
+                            if (membersLocked) return;
+                            const nextMemberIds = formMemberIds.includes(p.id!)
+                              ? formMemberIds.filter((x) => x !== p.id)
+                              : [...formMemberIds, p.id!];
+                            setMembersAndPrimary(nextMemberIds);
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                        />
+                        <span className="flex-1">
+                          {p.fullName || p.id.slice(0, 8)}
+                        </span>
+                        {isOtherGroup && (
+                          <span className="text-xs text-gray-400">{String(t.departure.drustva.locked)}</span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </fieldset>
+
+          <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-4 dark:border-gray-800">
+            <Button type="button" variant="outline" onClick={closeModal} disabled={saving}>
+              {String(t.departure.drustva.cancel)}
+            </Button>
+            <Button type="submit" disabled={saving || formMemberIds.length === 0}>
+              {saving ? t.common.saving : String(t.departure.drustva.save)}
+            </Button>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
 
       {/* Delete Confirmation */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setDeleteConfirm(null)}>
-          <div
-            className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-2xl w-full max-w-md mx-4 p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">{String(t.departure.drustva.confirmDeleteTitle)}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{String(t.departure.drustva.confirmDeleteDesc)}</p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
-                {String(t.departure.drustva.cancel)}
-              </button>
-              <button
-                onClick={() => handleDelete(deleteConfirm)}
-                className="px-4 py-2 text-sm font-medium rounded-lg bg-red-500 text-white hover:bg-red-600"
-              >
-                {String(t.departure.drustva.deleteGroup)}
-              </button>
-            </div>
+      <Modal
+        isOpen={!!deleteConfirm}
+        onClose={() => { if (!saving) setDeleteConfirm(null); }}
+        className="max-w-md"
+        title={String(t.departure.drustva.confirmDeleteTitle)}
+      >
+        <div className="p-6">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {String(t.departure.drustva.confirmDeleteDesc)}
+          </p>
+          <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
+            <Button type="button" variant="outline" onClick={() => setDeleteConfirm(null)} disabled={saving}>
+              {String(t.departure.drustva.cancel)}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => deleteConfirm && void handleDelete(deleteConfirm)}
+              disabled={saving}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {String(t.departure.drustva.deleteGroup)}
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

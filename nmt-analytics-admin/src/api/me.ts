@@ -20,8 +20,10 @@ export interface UserContext {
     id: string;
     name: string;
     slug: string;
+    currency?: string;
   };
   role: string;
+  plan?: string;
   modules: string[];
   agencyProfiles: string[];
   capabilities: string[];

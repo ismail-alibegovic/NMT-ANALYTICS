@@ -7,7 +7,7 @@ import { auditSettingsUpdate, logAuditEntry } from '../middleware/auditLogger';
 import { apiError } from "../lib/errors";
 
 import { requireMinimumRole } from '../middleware/requireRole';
-import { PLAN_TIERS, PLAN_MODULE_MAP, PLAN_LABELS, isPlanTier, type PlanTier, type ModuleKey } from '../lib/planModules';
+import { PLAN_TIERS, PLAN_MODULE_MAP, PLAN_LABELS, normalizePlanTier, type PlanTier, type EntitledModuleKey } from '../lib/planModules';
 import {
   AGENCY_CAPABILITIES,
   AGENCY_PROFILES,
@@ -438,7 +438,7 @@ router.patch('/branding', auditSettingsUpdate, async (req: any, res: Response) =
 // Until then, all orgs default to 'trial' and PATCH attempts return 501.
 // GET /settings/plan — current plan + entitled modules list + entitlement matrix
 // Helpers for /plan routes
-function planModuleList(t: PlanTier): ModuleKey[] {
+function planModuleList(t: PlanTier): EntitledModuleKey[] {
   return Array.from(PLAN_MODULE_MAP[t]);
 }
 
@@ -449,7 +449,6 @@ router.get('/plan', requireMinimumRole('director'), async (req, res: Response) =
   const orgId = req.orgId!;
   try {
     // Defensive: column may be absent until migration applied.
-    let plan: PlanTier = 'trial';
     const { data: org, error } = await supabaseAdmin
       .from('organizations')
       .select('id, plan')
@@ -459,9 +458,7 @@ router.get('/plan', requireMinimumRole('director'), async (req, res: Response) =
     if (error && !/plan.*column|column.*plan|Could not find the 'plan'/i.test(error.message || '')) {
       return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to fetch organization', error.message);
     }
-    // Defensive: column may be absent until migration applied.
-    const rawPlan = (org as Record<string, unknown> | null)?.plan;
-    if (typeof rawPlan === 'string' && isPlanTier(rawPlan)) plan = rawPlan;
+    const plan = normalizePlanTier((org as Record<string, unknown> | null)?.plan);
 
     return res.json({
       plan,

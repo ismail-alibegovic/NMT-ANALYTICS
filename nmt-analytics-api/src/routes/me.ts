@@ -7,6 +7,7 @@ import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
 import { config } from '../config';
 import { apiError } from "../lib/errors";
 import { resolveAgencyConfiguration } from '../lib/agencyCapabilities';
+import { normalizePlanTier, resolveEffectiveModules } from '../lib/planModules';
 
 const router = Router();
 
@@ -59,21 +60,25 @@ router.get('/me/context', authenticateToken, requireOrgContext, async (req, res)
     if (config.DEV_BYPASS_AUTH) {
       const { data: devOrg } = await supabaseAdmin
         .from('organizations')
-        .select('id, name, slug, agency_profiles, enabled_capabilities')
+        .select('id, name, slug, currency, plan, agency_profiles, enabled_capabilities')
         .eq('id', req.orgId!)
         .single();
       const devAgencyConfiguration = resolveAgencyConfiguration(
         devOrg?.agency_profiles,
         devOrg?.enabled_capabilities,
       );
+      const devPlan = normalizePlanTier((devOrg as Record<string, unknown> | null)?.plan);
       const response = {
         user: {
           id: req.user!.id,
           email: req.user!.email
         },
-        org: devOrg || { id: req.orgId, name: 'Travline', slug: 'travline' },
+        org: devOrg
+          ? { ...devOrg, currency: (devOrg as Record<string, unknown>).currency || 'BAM' }
+          : { id: req.orgId, name: 'Travline', slug: 'travline', currency: 'BAM' },
         role: req.user!.role || 'director',
-        modules: ['dashboard', 'customers', 'packages', 'reservations', 'departures', 'payments', 'transactions', 'analytics', 'integrations', 'travel_core', 'documents', 'accounting'],
+        plan: devPlan,
+        modules: resolveEffectiveModules(devPlan, []),
         agencyProfiles: devAgencyConfiguration.profiles,
         capabilities: devAgencyConfiguration.capabilities,
         agencyProfileConfigured: devAgencyConfiguration.configured,
@@ -85,7 +90,7 @@ router.get('/me/context', authenticateToken, requireOrgContext, async (req, res)
     // Fetch organization details
     let { data: org, error: orgError } = await supabaseAdmin
       .from('organizations')
-      .select('id, name, slug, agency_profiles, enabled_capabilities')
+      .select('id, name, slug, currency, plan, agency_profiles, enabled_capabilities')
       .eq('id', req.orgId!)
       .single();
 
@@ -93,7 +98,7 @@ router.get('/me/context', authenticateToken, requireOrgContext, async (req, res)
       console.warn(`[ME/CONTEXT] Extended agency profile columns unavailable; using legacy context:`, orgError.message);
       const legacyResult = await supabaseAdmin
         .from('organizations')
-        .select('id, name, slug')
+        .select('id, name, slug, currency')
         .eq('id', req.orgId!)
         .single();
       org = legacyResult.data as typeof org;
@@ -109,26 +114,32 @@ router.get('/me/context', authenticateToken, requireOrgContext, async (req, res)
       org && 'enabled_capabilities' in org ? org.enabled_capabilities : null,
     );
 
-    // Fetch enabled modules
+    // Fetch org_modules local overrides (explicit enabled=false disables an entitled module)
     const { data: orgModules, error: modulesError } = await supabaseAdmin
       .from('org_modules')
-      .select('module_key')
-      .eq('org_id', req.orgId!)
-      .eq('enabled', true);
+      .select('module_key, enabled')
+      .eq('org_id', req.orgId!);
 
     if (modulesError) {
       console.warn(`[ME/CONTEXT] Error fetching modules:`, modulesError);
     }
 
-    const modules = (orgModules || []).map(m => m.module_key);
+    const effectivePlan = normalizePlanTier((org as Record<string, unknown> | null)?.plan);
+    const modules = resolveEffectiveModules(
+      effectivePlan,
+      (orgModules || []) as Array<{ module_key: string; enabled?: boolean | null }>,
+    );
 
     const response = {
       user: {
         id: req.user!.id,
         email: req.user!.email
       },
-      org: org || { id: req.orgId, name: 'Unknown', slug: 'unknown' },
+      org: org
+        ? { ...org, currency: (org as Record<string, unknown>).currency || 'BAM' }
+        : { id: req.orgId, name: 'Unknown', slug: 'unknown', currency: 'BAM' },
       role: req.user!.role || 'viewer',
+      plan: effectivePlan,
       modules,
       agencyProfiles: agencyConfiguration.profiles,
       capabilities: agencyConfiguration.capabilities,

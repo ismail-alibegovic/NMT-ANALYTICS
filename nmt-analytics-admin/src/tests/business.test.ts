@@ -6,6 +6,9 @@ import {
   getDepartureStatus,
   OccupancyStatus,
   formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatShortMonthDay,
   getPaymentStatusBadge,
 } from '../utils/business'
 
@@ -143,4 +146,26 @@ it('keeps explicit Bosnian monetary formatting when browser locale data falls ba
     expect(formatCurrency(0, 'JPY', 'bs-BA')).toBe('0\u00a0JPY');
     expect(formatCurrency(1234.5, 'EUR', 'en-GB')).toBe('€1,234.50');
   } finally { mock.mockRestore(); }
+});
+
+describe('Chrome-safe Bosnian date formatting', () => {
+  it('formats Bosnian dates and short month/day deterministically even if V8 lacks bs-BA ICU data', () => {
+    const nativeToLocaleDate = Date.prototype.toLocaleDateString;
+    const nativeToLocaleString = Date.prototype.toLocaleString;
+    Date.prototype.toLocaleDateString = vi.fn(() => '2026 M11 25') as any;
+    Date.prototype.toLocaleString = vi.fn(() => '2026 M11 25, 14:05') as any;
+    try {
+      expect(formatDate('2026-11-25T10:00:00', 'bs-BA')).toBe('25. 11. 2026.');
+      expect(formatDateTime('2026-11-25T14:05:00', 'bs-BA')).toBe('25. 11. 2026. 14:05');
+      expect(formatShortMonthDay('2041-04-23T08:00:00Z', 'bs-BA')).toBe('23. apr');
+    } finally {
+      Date.prototype.toLocaleDateString = nativeToLocaleDate;
+      Date.prototype.toLocaleString = nativeToLocaleString;
+    }
+  });
+
+  it('delegates English date formatting cleanly without Bosnian M-format bugs', () => {
+    expect(formatDate('2026-11-25T10:00:00Z', 'en-GB')).not.toMatch(/M\d{2}/);
+    expect(formatShortMonthDay('2041-04-23T08:00:00Z', 'en-GB')).toBe('23 Apr');
+  });
 });

@@ -11,13 +11,14 @@ import { useT } from "../lib/i18n/context";
 import { getHotel, getHotelRooms, type Hotel, type HotelAllocation, type HotelRoom } from "../api/operations";
 import { getHotelPackages, type HotelPackage } from "../api/packageHotels";
 import { getAllocationDepartures, type Departure } from "../api/departures";
+import { formatCurrency as formatSafeCurrency, formatDate as formatSafeDate } from "../utils/business";
 
 const formatCurrency = (amount?: number | null, currency = "BAM", locale = "bs-BA") =>
-  new Intl.NumberFormat(locale, { style: "currency", currency }).format(Number(amount || 0));
+  formatSafeCurrency(amount, currency, locale);
 
 const formatDate = (value?: string | null, locale = "bs-BA") => {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString(locale, { year: "numeric", month: "2-digit", day: "2-digit" });
+  return formatSafeDate(value, locale);
 };
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {

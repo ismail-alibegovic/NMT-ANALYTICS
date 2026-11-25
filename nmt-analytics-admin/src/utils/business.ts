@@ -103,12 +103,49 @@ export function formatCurrency(amount: number | null | undefined, currency = 'BA
     return formatter.format(amount || 0);
 }
 
+export const BS_MONTHS_SHORT = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'] as const;
+
+const isBosnianLocale = (locale?: string) => !locale || locale.toLowerCase().startsWith('bs');
+
 /**
- * Formats dates consistently.
+ * Formats dates consistently and avoids Chrome V8 missing bs-BA ICU data (`2026 M11 25`).
  */
-export function formatDate(dateString: string, locale?: string): string {
+export function formatDate(dateString: string | Date | null | undefined, locale?: string): string {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString(locale || 'bs-BA');
+    const d = dateString instanceof Date ? dateString : new Date(dateString);
+    if (Number.isNaN(d.getTime())) return '-';
+    if (isBosnianLocale(locale)) {
+        return `${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()}.`;
+    }
+    return d.toLocaleDateString(locale);
+}
+
+/**
+ * Formats date and time consistently without Chrome V8 missing bs-BA ICU data.
+ */
+export function formatDateTime(dateString: string | Date | null | undefined, locale?: string): string {
+    if (!dateString) return '-';
+    const d = dateString instanceof Date ? dateString : new Date(dateString);
+    if (Number.isNaN(d.getTime())) return '-';
+    if (isBosnianLocale(locale)) {
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return `${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()}. ${hh}:${mm}`;
+    }
+    return d.toLocaleString(locale);
+}
+
+/**
+ * Formats short day + month labels consistently for charts and compact lists.
+ */
+export function formatShortMonthDay(dateString: string | Date | null | undefined, locale?: string): string {
+    if (!dateString) return '-';
+    const d = dateString instanceof Date ? dateString : new Date(dateString);
+    if (Number.isNaN(d.getTime())) return '-';
+    if (isBosnianLocale(locale)) {
+        return `${d.getDate()}. ${BS_MONTHS_SHORT[d.getMonth()]}`;
+    }
+    return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
 
 /**

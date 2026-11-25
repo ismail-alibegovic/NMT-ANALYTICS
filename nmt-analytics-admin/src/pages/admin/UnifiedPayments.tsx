@@ -6,6 +6,7 @@ import EmptyState from "../../components/ui/EmptyState";
 import Button from "../../components/ui/button/Button";
 import DonutChart from "../../components/charts/DonutChart";
 import { useToast } from "../../context/ToastContext";
+import { useApp } from "../../context/AppContext";
 import { useT } from "../../lib/i18n/context";
 import { formatCurrency, formatDate } from "../../utils/business";
 import { getPayments, Payment, PaymentFilters } from "../../api/payments";
@@ -60,6 +61,7 @@ function exportTableToCsv(rows: any[], filename: string, columns: { key: string;
 }
 
 export default function UnifiedPayments() {
+  const { userContext } = useApp();
   const { t, lang } = useT();
   const locale = lang === "en" ? "en-US" : "bs-BA";
   const u = t.payments.unified;
@@ -258,6 +260,10 @@ export default function UnifiedPayments() {
 
   // ---- Export ----
   const m = dashboard?.metrics;
+  const orgCurrency = dashboard?.currency || userContext?.org?.currency || "BAM";
+  const isMixedCurrency = Boolean(dashboard?.multiCurrency);
+  const metricMoney = (val: number | null | undefined) =>
+    dashError ? "—" : isMixedCurrency || val == null ? t.reports.selectCurrency : formatCurrency(val, orgCurrency, locale);
   const hasOverdue = Boolean(dashboard?.overdueReservations && dashboard.overdueReservations.length > 0);
   const hasRecent = Boolean(dashboard?.recentPayments && dashboard.recentPayments.length > 0);
 
@@ -284,25 +290,27 @@ export default function UnifiedPayments() {
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{u.pageSubtitle}</p>
       </div>
 
-      {/* Metric Cards - Always visible */}
+      {/* Metric Cards - Fail-closed when dashboard query fails */}
+      {!dashError && (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:gap-6 mb-6">
-        <MetricCard title={u.paidToday} value={formatCurrency(m?.totalPaidToday ?? 0, "BAM", locale)} icon={DollarLineIcon} color="bg-success-500" />
-        <MetricCard title={u.paidThisMonth} value={formatCurrency(m?.totalPaidThisMonth ?? 0, "BAM", locale)} icon={BoxIconLine} color="bg-brand-500" />
+        <MetricCard title={u.paidToday} value={metricMoney(m?.totalPaidToday)} icon={DollarLineIcon} color="bg-success-500" />
+        <MetricCard title={u.paidThisMonth} value={metricMoney(m?.totalPaidThisMonth)} icon={BoxIconLine} color="bg-brand-500" />
         <MetricCard
           title={u.overdue}
-          value={formatCurrency(m?.overdueAmount ?? 0, "BAM", locale)}
+          value={metricMoney(m?.overdueAmount)}
           icon={ArrowDownIcon}
           subtitle={u.overdueCount.replace("{count}", String(m?.overdueCount ?? 0))}
           color="bg-error-500"
         />
         <MetricCard
           title={u.pending}
-          value={formatCurrency(m?.totalPendingAmount ?? 0, "BAM", locale)}
+          value={metricMoney(m?.totalPendingAmount)}
           icon={AlertIcon}
           subtitle={u.pendingCount.replace("{count}", String(m?.pendingCount ?? 0))}
           color="bg-warning-500"
         />
       </div>
+      )}
 
       {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">

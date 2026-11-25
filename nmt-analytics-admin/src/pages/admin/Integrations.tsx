@@ -6,7 +6,7 @@ import ConfigureIntegrationModal from '../../components/integrations/ConfigureIn
 import Button from '../../components/ui/button/Button';
 import { useToast } from '../../context/ToastContext';
 import { analyzeRevenueDrop, RevenueAnalysisResponse } from '../../api/ai';
-import { formatCurrency } from '../../utils/business';
+import { formatCurrency, formatDate } from '../../utils/business';
 import { submitETurista, getETuristaHistory } from '../../api/eturista';
 import { useApp } from '../../context/AppContext';
 import { useT } from '../../lib/i18n/context';
@@ -420,7 +420,7 @@ const Integrations = () => {
                     <tbody>
                       {eTuristaHistory.map((h: any) => (
                         <tr key={h.id} className="border-b dark:border-gray-800">
-                          <td className="py-2 px-2 dark:text-gray-200">{new Date(h.submittedAt).toLocaleDateString(locale)}</td>
+                          <td className="py-2 px-2 dark:text-gray-200">{formatDate(h.submittedAt, locale)}</td>
                           <td className="py-2 px-2 dark:text-gray-200">{h.guestCount}</td>
                           <td className="py-2 px-2 dark:text-gray-200">
                             {h.responseStatus === "success"

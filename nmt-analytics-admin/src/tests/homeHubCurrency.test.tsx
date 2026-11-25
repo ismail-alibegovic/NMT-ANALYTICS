@@ -16,7 +16,12 @@ const getAnalyticsOverviewV2 = vi.fn(async (_filters?: any) => overviewResponse)
 const getRevenueSeries = vi.fn(async (_filters?: any) => revenueResponse);
 const getDepartures = vi.fn(async (_params?: any) => ({ data: [] }));
 const getReservations = vi.fn(async (_params?: any) => ({ total: 0, data: [] }));
-const getPaymentDashboard = vi.fn(async () => ({ metrics: { overdueCount: 0 }, overdueReservations: [] }));
+let paymentDashboardResponse: any = { metrics: { overdueCount: 0, openBalanceCount: 0, openBalanceAmount: 0 }, overdueReservations: [], openBalanceReservations: [] };
+let paymentDashboardError = false;
+const getPaymentDashboard = vi.fn(async (_currency?: string) => {
+  if (paymentDashboardError) throw new Error('payment dashboard unavailable');
+  return paymentDashboardResponse;
+});
 
 vi.mock('../api/analytics', () => ({
   getAnalyticsOverviewV2: (filters?: any) => getAnalyticsOverviewV2(filters),
@@ -36,7 +41,7 @@ vi.mock('../api/reservations', () => ({
 }));
 
 vi.mock('../api/payments', () => ({
-  getPaymentDashboard: () => getPaymentDashboard(),
+  getPaymentDashboard: (currency?: string) => getPaymentDashboard(currency),
 }));
 
 vi.mock('../context/AppContext', () => ({
@@ -64,8 +69,11 @@ vi.mock('../icons', () => {
     GroupIcon: Icon,
     CheckCircleIcon: Icon,
     LockIcon: Icon,
+    AlertIcon: Icon,
   };
 });
+
+const mockLang = { value: 'bs' as 'bs' | 'en' };
 
 const hub = {
   title: 'Hub',
@@ -96,13 +104,23 @@ const hub = {
   needsAttentionClearDetail: 'Nothing pending',
   todayQueueClearDetail: 'Nothing pending',
   recentDepartures: 'Recent departures',
+  upcomingDeparturesTab: 'Predstojeći',
+  pastDeparturesTab: 'Prošli',
+  noDepartures: 'No departures',
+  noPastDepartures: 'Nema prošlih polazaka.',
+  financeLoadError: 'Financial data unavailable',
   quietPeriod: 'Quiet period',
   recent: 'Recent',
+  kpiReservations: 'Reservations',
+  psPaid: 'Paid',
   kpiRevenue: 'Revenue',
   kpiOutstanding: 'Outstanding',
   focusOutstanding: 'Outstanding focus',
+  viewAll: 'View all',
   paymentsPanel: 'Payments panel',
   allSettled: 'All settled',
+  workspacesTitle: 'Workspaces',
+  shortcutsTitle: 'Shortcuts',
   finTitle: 'Finance',
   sysTitle: 'System',
   sReservations: 'Reservations',
@@ -114,10 +132,33 @@ const hub = {
 };
 
 vi.mock('../lib/i18n/context', () => ({
-  useT: () => ({ t: { hub, reservations: { customer: 'Customer' }, common: { amount: 'Amount' } }, lang: 'bs' }),
+  useT: () => ({
+    t: {
+      app: { name: 'Travline' },
+      hub,
+      dashboard: { bookingsTrend: 'Bookings trend' },
+      reports: { selectCurrency: 'Select currency' },
+      reservations: { customer: 'Customer' },
+      common: { amount: 'Amount', currency: 'Currency', loadingWorkspace: 'Loading...' },
+    },
+    lang: mockLang.value,
+  }),
 }));
 
 function seedSingle(currency: string) {
+  paymentDashboardError = false;
+  paymentDashboardResponse = {
+    currency,
+    availableCurrencies: [currency],
+    multiCurrency: false,
+    metrics: {
+      overdueCount: 0,
+      openBalanceCount: 2,
+      openBalanceAmount: currency === 'EUR' ? 50 : 20,
+    },
+    overdueReservations: [],
+    openBalanceReservations: [],
+  };
   overviewResponse = {
     reservations_count: 2,
     total_amount_sum: currency === 'EUR' ? 200 : 100,
@@ -142,6 +183,19 @@ function seedSingle(currency: string) {
 }
 
 function seedMixed() {
+  paymentDashboardError = false;
+  paymentDashboardResponse = {
+    currency: null,
+    availableCurrencies: ['BAM', 'EUR'],
+    multiCurrency: true,
+    metrics: {
+      overdueCount: 0,
+      openBalanceCount: 2,
+      openBalanceAmount: null,
+    },
+    overdueReservations: [],
+    openBalanceReservations: [],
+  };
   overviewResponse = {
     reservations_count: 2,
     total_amount_sum: null,
@@ -174,8 +228,10 @@ function renderHub() {
 }
 
 beforeEach(() => {
+  mockLang.value = 'bs';
   readinessResponse = { departures: [] };
   readinessError = false;
+  paymentDashboardError = false;
   vi.clearAllMocks();
   seedSingle('BAM');
 });
@@ -251,5 +307,62 @@ describe('HomeHub supplier readiness', () => {
     readinessError = true;
     renderHub();
     expect(await screen.findByText('Queue error')).toBeInTheDocument();
+  });
+});
+
+describe('HomeHub financial reconciliation & failure safety', () => {
+  it('reconciles non-zero open balances (partial payment & refund) consistently across KPI, list, attention badge, and payment panel without $ leaks', async () => {
+    seedSingle('BAM');
+    paymentDashboardResponse = {
+      currency: 'BAM',
+      availableCurrencies: ['BAM'],
+      multiCurrency: false,
+      metrics: {
+        overdueCount: 0,
+        openBalanceCount: 2,
+        openBalanceAmount: 2120,
+      },
+      overdueReservations: [],
+      openBalanceReservations: [
+        {
+          id: 'res-1',
+          customerName: 'Amina Hadžić',
+          packageName: 'Istanbul Autumn',
+          balanceDue: 1500,
+          currency: 'BAM',
+          departureDate: '2027-07-15T00:00:00.000Z',
+          isOverdue: false,
+        },
+        {
+          id: 'res-2',
+          customerName: 'Emir Kovač',
+          packageName: 'Mostar Weekend',
+          balanceDue: 620,
+          currency: 'BAM',
+          departureDate: '2027-07-15T00:00:00.000Z',
+          isOverdue: false,
+        },
+      ],
+    };
+
+    const { container } = renderHub();
+
+    expect((await screen.findAllByText('2.120 KM')).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('Outstanding: 2')).toBeInTheDocument();
+    expect(screen.getByText('1.500 KM')).toBeInTheDocument();
+    expect(screen.getByText('620 KM')).toBeInTheDocument();
+    expect(screen.queryByText('All settled')).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain('$');
+    expect(screen.getByRole('button', { name: 'Prošli' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Past' })).not.toBeInTheDocument();
+  });
+
+  it('never renders fake zero balances or All settled when payment dashboard fails', async () => {
+    seedSingle('BAM');
+    paymentDashboardError = true;
+    renderHub();
+
+    expect((await screen.findAllByText('Financial data unavailable')).length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText('All settled')).not.toBeInTheDocument();
   });
 });

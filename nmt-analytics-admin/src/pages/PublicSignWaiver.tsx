@@ -4,6 +4,7 @@ import { Helmet } from "react-helmet-async";
 import PageMeta from "../components/common/PageMeta";
 import { useT } from "../lib/i18n";
 import api from "../lib/apiClient";
+import { formatDateTime } from "../utils/business";
 
 type Declaration = { id: string; label: string; required?: boolean };
 type Waiver = {
@@ -102,7 +103,7 @@ export default function PublicSignWaiver() {
           <h1 className="break-words text-2xl font-bold">{waiver.template_title}</h1>
           <p className="mt-3 break-words">{[waiver.package_name, waiver.destination].filter(Boolean).join(" · ")}</p>
           <p className="my-6 whitespace-pre-wrap break-words leading-relaxed">{waiver.template_body}</p>
-          <p className="mb-5 text-sm">{c.expires}: {new Date(waiver.expires_at).toLocaleString(lang === "bs" ? "bs-BA" : "en-GB")}</p>
+          <p className="mb-5 text-sm">{c.expires}: {formatDateTime(waiver.expires_at, lang === "bs" ? "bs-BA" : "en-GB")}</p>
           <form onSubmit={submit} className="space-y-4">
             <label className="block">{c.name}<input required maxLength={200} autoComplete="name" disabled={saving} value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white p-3 dark:border-gray-600 dark:bg-gray-800" /></label>
             <p className="text-sm">{c.typed}</p>

@@ -10,6 +10,7 @@ import { TrashBinIcon, PlusIcon, CopyIcon } from "../../icons";
 import { useToast } from "../../context/ToastContext";
 import { useApp } from "../../context/AppContext";
 import { useT } from "../../lib/i18n/context";
+import { formatDate } from "../../utils/business";
 import {
   getSubAgents, createSubAgent, deleteSubAgent,
   issueSubAgentPortalToken, revokeSubAgentPortalToken,
@@ -264,7 +265,7 @@ export default function SubAgents() {
             ) : (
               <div className="text-sm text-gray-600 dark:text-gray-400">
                 {portalModalAgent.portalTokenExpiresAt
-                  ? <>{tr.portal.expires}: {new Date(portalModalAgent.portalTokenExpiresAt).toLocaleDateString(locale)}. {tr.replaceLink}</>
+                  ? <>{tr.portal.expires}: {formatDate(portalModalAgent.portalTokenExpiresAt, locale)}. {tr.replaceLink}</>
                   : tr.noLink}
               </div>
             )}

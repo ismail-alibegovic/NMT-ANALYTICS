@@ -10,6 +10,7 @@ import Label from '../components/form/Label';
 import { Modal } from '../components/ui/modal';
 import { useToast } from '../context/ToastContext';
 import { useT } from '../lib/i18n/context';
+import { formatDate } from '../utils/business';
 import {
   getQuotation, updateQuotation, quotationPdfUrl,
   addQuotationItem, editQuotationItem, deleteQuotationItem,
@@ -127,7 +128,7 @@ export default function QuotationDetail() {
           <span className="text-sm font-mono text-gray-500 dark:text-gray-400">{data.reference}</span>
         </div>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {data.validUntil ? `${c.validUntil}: ${new Date(data.validUntil).toLocaleDateString(locale)}` : c.noExpiry}
+          {data.validUntil ? `${c.validUntil}: ${formatDate(data.validUntil, locale)}` : c.noExpiry}
         </p>
         {isStandalone ? (
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{c.standaloneLabel}</p>

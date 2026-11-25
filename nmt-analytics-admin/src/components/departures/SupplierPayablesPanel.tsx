@@ -142,9 +142,9 @@ export default function SupplierPayablesPanel({ departureId, costs, onChanged }:
           </details>
         </article>)}
       </div>}
-    <Modal isOpen={!!form} onClose={() => { if (!saveLock.current) setForm(null); }} className="m-4 max-w-lg" title={title}>
-      <form onSubmit={e => { e.preventDefault(); submit(); }} className="grid max-h-[80vh] min-w-0 gap-4 overflow-y-auto p-6">
-        <h3 className="font-semibold">{title}</h3>
+    <Modal isOpen={!!form} onClose={() => { if (!saveLock.current) setForm(null); }} className="max-w-lg" title={title}>
+      <form onSubmit={e => { e.preventDefault(); submit(); }} className="grid min-w-0 gap-4">
+        <div className="grid min-w-0 gap-4 px-6 py-5">
         {form?.kind === 'issue' ? <>
           <label className="grid min-w-0 gap-1">{c.costItem}<select className={classes} required disabled={!!pending} value={costId} onChange={e => setCostId(e.target.value)}>
             <option value="">{c.selectCost}</option>{eligible.map(cost => <option key={cost.id} value={cost.id}>{cost.label} · {cost.supplierName} · {money(cost.totalCost, cost.currency)}</option>)}
@@ -157,9 +157,10 @@ export default function SupplierPayablesPanel({ departureId, costs, onChanged }:
           <label className="grid min-w-0 gap-1">{c.reference}<input className={classes} maxLength={200} disabled={!!pending} value={reference} onChange={e => setReference(e.target.value)} /></label>
           <label className="grid min-w-0 gap-1">{c.note}<textarea className={classes} maxLength={1000} required={form?.kind === 'reversal'} disabled={!!pending} value={note} onChange={e => setNote(e.target.value)} /></label>
         </>}
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        {error && <p role="alert" className="text-sm text-error-600 dark:text-error-400">{error}</p>}
         {pending && <p className="text-sm">{c.pending}</p>}
-        <div className="flex flex-wrap justify-end gap-2"><Button variant="outline" type="button" disabled={saving} onClick={() => { if (!saveLock.current) setForm(null); }}>{c.close}</Button>
+        </div>
+        <div className="flex flex-wrap justify-end gap-3 border-t border-gray-100 px-6 py-4 dark:border-gray-800"><Button variant="outline" type="button" disabled={saving} onClick={() => { if (!saveLock.current) setForm(null); }}>{c.close}</Button>
           <Button type="submit" disabled={saving}>{saving ? c.saving : pending ? c.retryPending : c.confirm}</Button></div>
       </form>
     </Modal>

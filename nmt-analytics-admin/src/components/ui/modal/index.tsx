@@ -14,27 +14,33 @@ interface ModalProps {
   showCloseButton?: boolean; // New prop to control close button visibility
   isFullscreen?: boolean; // Default to false for backwards compatibility
   title?: string; // Optional title for the modal
+  description?: string; // Optional subtitle/description below modal title
   scrollable?: boolean;
   closeLabel?: string;
+  closeDisabled?: boolean;
 }
 
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   children,
-  className,
+  className = "",
   showCloseButton = true, // Default to true for backwards compatibility
   isFullscreen = false,
   title,
+  description,
   scrollable = false,
   closeLabel,
+  closeDisabled = false,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
+  const closeDisabledRef = useRef(closeDisabled);
   const titleId = useId();
   const { t } = useT();
 
   useEffect(() => { closeRef.current = onClose; }, [onClose]);
+  useEffect(() => { closeDisabledRef.current = closeDisabled; }, [closeDisabled]);
 
   useEffect(() => {
     const modal = modalRef.current;
@@ -58,6 +64,7 @@ export const Modal: React.FC<ModalProps> = ({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!isTop()) return;
       if (event.key === "Escape") {
+        if (closeDisabledRef.current) return;
         event.preventDefault();
         event.stopImmediatePropagation();
         closeRef.current();
@@ -95,16 +102,17 @@ export const Modal: React.FC<ModalProps> = ({
 
   if (!isOpen) return null;
 
+  const hasExplicitWidth = /\bmax-w-/.test(className);
   const contentClasses = isFullscreen
-    ? "relative w-full h-full overflow-y-auto"
-    : "relative w-full max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl bg-white dark:bg-gray-900";
+    ? "relative w-full h-full overflow-y-auto outline-none focus:outline-none"
+    : `relative w-full ${hasExplicitWidth ? "" : "max-w-lg"} max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-2xl border border-gray-200 bg-white shadow-2xl outline-none focus:outline-none dark:border-gray-800 dark:bg-gray-900`;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center overflow-y-auto modal z-99999">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center overflow-y-auto p-4 modal">
       {!isFullscreen && (
         <div
-          className="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"
-          onClick={onClose}
+          className="fixed inset-0 h-full w-full bg-gray-900/50 backdrop-blur-xs transition-opacity dark:bg-black/65"
+          onClick={() => { if (!closeDisabled) onClose(); }}
         ></div>
       )}
       <div
@@ -113,19 +121,20 @@ export const Modal: React.FC<ModalProps> = ({
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
-        className={`${contentClasses} text-gray-900 dark:text-gray-100 ${scrollable ? "mx-3 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain" : ""} ${className}`}
+        className={`${contentClasses} text-gray-900 dark:text-gray-100 ${scrollable ? "overscroll-contain" : ""} ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {showCloseButton && (
           <button
             type="button"
-            aria-label={closeLabel || t.common.close}
+            disabled={closeDisabled}
+            aria-label={closeLabel || t?.common?.close || "Close"}
             onClick={onClose}
-            className="absolute right-3 top-3 z-999 flex h-9.5 w-9.5 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white sm:right-6 sm:top-6 sm:h-11 sm:w-11"
+            className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
           >
             <svg
-              width="24"
-              height="24"
+              width="20"
+              height="20"
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -140,8 +149,11 @@ export const Modal: React.FC<ModalProps> = ({
           </button>
         )}
         {title && (
-          <div className="p-6 pb-4 pr-16 sm:pr-20 border-b border-gray-100 dark:border-gray-800">
-            <h3 id={titleId} className="text-xl font-bold text-gray-900 dark:text-white">{title}</h3>
+          <div className="border-b border-gray-100 px-6 py-4 pr-14 dark:border-gray-800">
+            <h3 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+            {description && (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</p>
+            )}
           </div>
         )}
         <div>{children}</div>

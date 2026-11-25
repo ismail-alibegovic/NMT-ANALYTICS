@@ -10,6 +10,7 @@ import { auditPaymentCreate, auditPaymentUpdate } from '../middleware/auditLogge
 import { notifyPaymentReceived } from '../lib/notificationService';
 import { EmailService } from '../lib/email/EmailService';
 import { requireMinimumRole } from '../middleware/requireRole';
+import { fromMoneyCents, normalizeCurrency, toMoneyCents } from '../lib/currency';
 
 
 const router = Router();
@@ -935,17 +936,21 @@ export default router;
 
 // ============================================================================
 // GET /api/payments/dashboard
-// Returns payment dashboard data: metrics, overdue, pending, recent
+// Returns payment dashboard data: metrics, open balances, overdue, pending, recent
 // ============================================================================
 router.get('/payments/dashboard', async (req: Request, res: Response) => {
   try {
     const orgId = req.orgId!;
+    const selectedCurrency =
+      typeof req.query.currency === 'string' && req.query.currency.trim()
+        ? normalizeCurrency(req.query.currency)
+        : null;
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
 
-    const [overdueRes, pendingPayments, recentPayments, metrics] = await Promise.all([
-      // Overdue reservations: balance_due > 0 and departure date has passed
+    const [openRes, pendingPayments, recentPayments, metrics, orgRow] = await Promise.all([
+      // All non-cancelled reservations with remaining balance_due > 0
       supabaseAdmin
         .from('reservations')
         .select(`
@@ -954,12 +959,9 @@ router.get('/payments/dashboard', async (req: Request, res: Response) => {
           departures!inner(depart_at, packages!inner(name))
         `)
         .eq('org_id', orgId)
-        .not('balance_due', 'eq', 0)
-        .not('balance_due', 'is', null)
+        .gt('balance_due', 0)
         .neq('status', 'cancelled')
-        .lt('departures.depart_at', now.toISOString())
-        .order('departures.depart_at', { ascending: false })
-        .limit(20),
+        .limit(200),
 
       // Pending payments
       supabaseAdmin
@@ -985,36 +987,86 @@ router.get('/payments/dashboard', async (req: Request, res: Response) => {
         .order('created_at', { ascending: false })
         .limit(10),
 
-      // Metrics
+      // Metrics (all org payments)
       supabaseAdmin
         .from('payments')
-        .select('status, amount, payment_date')
+        .select('status, amount, currency, payment_date')
         .eq('org_id', orgId),
+
+      // Organization default currency
+      supabaseAdmin
+        .from('organizations')
+        .select('currency')
+        .eq('id', orgId)
+        .maybeSingle(),
     ]);
 
-    const allPayments = metrics.data || [];
+    if (openRes.error || pendingPayments.error || recentPayments.error || metrics.error) {
+      const firstErr = openRes.error || pendingPayments.error || recentPayments.error || metrics.error;
+      console.error('[payments/dashboard] Query error:', firstErr);
+      return apiError(res, 500, 'QUERY_ERROR', 'Failed to load payment dashboard');
+    }
 
-    const totalPaidToday = allPayments
-      .filter(p => p.status === 'succeeded' && p.payment_date >= todayStr)
-      .reduce((sum, p) => sum + Number(p.amount), 0);
+    const orgCurrency = normalizeCurrency((orgRow.data as { currency?: string } | null)?.currency);
+    const allOpenRows = ((openRes.data || []) as any[])
+      .filter((r) => Number(r.balance_due) > 0 && r.status !== 'cancelled')
+      .sort((a, b) => {
+        const aTime = a.departures?.depart_at ? new Date(a.departures.depart_at).getTime() : Number.MAX_SAFE_INTEGER;
+        const bTime = b.departures?.depart_at ? new Date(b.departures.depart_at).getTime() : Number.MAX_SAFE_INTEGER;
+        return aTime - bTime;
+      });
+    const allPayments = (metrics.data || []) as any[];
 
-    const totalPaidThisMonth = allPayments
-      .filter(p => p.status === 'succeeded' && p.payment_date >= monthStart)
-      .reduce((sum, p) => sum + Number(p.amount), 0);
+    const availableCurrencies = Array.from(
+      new Set([
+        ...allOpenRows.map((r) => normalizeCurrency(r.currency || orgCurrency)),
+        ...allPayments.map((p) => normalizeCurrency(p.currency || orgCurrency)),
+      ])
+    ).sort();
 
-    const totalPendingAmount = allPayments
-      .filter(p => p.status === 'pending')
-      .reduce((sum, p) => sum + Number(p.amount), 0);
+    const multiCurrency = !selectedCurrency && availableCurrencies.length > 1;
+    const resolvedCurrency = selectedCurrency || (availableCurrencies.length === 1 ? availableCurrencies[0] : orgCurrency);
 
-    const totalFailedAmount = allPayments
-      .filter(p => p.status === 'failed')
-      .reduce((sum, p) => sum + Number(p.amount), 0);
-
-    const overdueAmount = (overdueRes.data || []).reduce(
-      (sum, r) => sum + Number(r.balance_due), 0
+    const openRows = selectedCurrency
+      ? allOpenRows.filter((r) => normalizeCurrency(r.currency || orgCurrency) === selectedCurrency)
+      : allOpenRows;
+    const overdueRows = openRows.filter((r) => {
+      const departAt = r.departures?.depart_at;
+      return Boolean(departAt && new Date(departAt).getTime() < now.getTime());
+    });
+    const filteredPayments = selectedCurrency
+      ? allPayments.filter((p) => normalizeCurrency(p.currency || orgCurrency) === selectedCurrency)
+      : allPayments;
+    const filteredPendingList = ((pendingPayments.data || []) as any[]).filter(
+      (p) => !selectedCurrency || normalizeCurrency(p.currency || orgCurrency) === selectedCurrency
+    );
+    const filteredRecentList = ((recentPayments.data || []) as any[]).filter(
+      (p) => !selectedCurrency || normalizeCurrency(p.currency || orgCurrency) === selectedCurrency
     );
 
-    const formatOverdue = (r: any) => ({
+    const sumCents = (items: any[], selector: (item: any) => unknown) =>
+      fromMoneyCents(items.reduce((sum, item) => sum + toMoneyCents(selector(item)), 0));
+
+    const totalPaidToday = multiCurrency
+      ? null
+      : sumCents(filteredPayments.filter((p) => p.status === 'succeeded' && p.payment_date >= todayStr), (p) => p.amount);
+
+    const totalPaidThisMonth = multiCurrency
+      ? null
+      : sumCents(filteredPayments.filter((p) => p.status === 'succeeded' && p.payment_date >= monthStart), (p) => p.amount);
+
+    const totalPendingAmount = multiCurrency
+      ? null
+      : sumCents(filteredPayments.filter((p) => p.status === 'pending'), (p) => p.amount);
+
+    const totalFailedAmount = multiCurrency
+      ? null
+      : sumCents(filteredPayments.filter((p) => p.status === 'failed'), (p) => p.amount);
+
+    const openBalanceAmount = multiCurrency ? null : sumCents(openRows, (r) => r.balance_due);
+    const overdueAmount = multiCurrency ? null : sumCents(overdueRows, (r) => r.balance_due);
+
+    const formatBalanceRow = (r: any) => ({
       id: r.id,
       customerName: r.customer_name,
       customerPhone: r.customer_phone,
@@ -1023,9 +1075,10 @@ router.get('/payments/dashboard', async (req: Request, res: Response) => {
       totalAmount: Number(r.total_amount),
       paidAmount: Number(r.paid_amount),
       balanceDue: Number(r.balance_due),
-      currency: r.currency || 'BAM',
+      currency: normalizeCurrency(r.currency || orgCurrency),
       paymentStatus: r.payment_status,
       reservationStatus: r.status,
+      isOverdue: Boolean(r.departures?.depart_at && new Date(r.departures.depart_at).getTime() < now.getTime()),
     });
 
     const formatPayment = (p: any) => ({
@@ -1034,7 +1087,7 @@ router.get('/payments/dashboard', async (req: Request, res: Response) => {
       customerName: p.reservations?.customer_name || '-',
       customerPhone: p.reservations?.customer_phone || '',
       amount: Number(p.amount),
-      currency: p.currency || 'BAM',
+      currency: normalizeCurrency(p.currency || orgCurrency),
       status: p.status,
       paymentMethod: p.payment_method,
       paymentDate: p.payment_date,
@@ -1042,18 +1095,24 @@ router.get('/payments/dashboard', async (req: Request, res: Response) => {
     });
 
     res.json({
+      currency: multiCurrency ? null : resolvedCurrency,
+      availableCurrencies,
+      multiCurrency,
       metrics: {
         totalPaidToday,
         totalPaidThisMonth,
         totalPendingAmount,
         totalFailedAmount,
         overdueAmount,
-        overdueCount: (overdueRes.data || []).length,
-        pendingCount: (pendingPayments.data || []).length,
+        overdueCount: overdueRows.length,
+        openBalanceAmount,
+        openBalanceCount: openRows.length,
+        pendingCount: filteredPendingList.length,
       },
-      overdueReservations: (overdueRes.data || []).map(formatOverdue),
-      pendingPayments: (pendingPayments.data || []).map(formatPayment),
-      recentPayments: (recentPayments.data || []).map(formatPayment),
+      openBalanceReservations: openRows.slice(0, 50).map(formatBalanceRow),
+      overdueReservations: overdueRows.slice(0, 20).map(formatBalanceRow),
+      pendingPayments: filteredPendingList.map(formatPayment),
+      recentPayments: filteredRecentList.map(formatPayment),
     });
   } catch (err) {
     console.error('[payments/dashboard] Error:', err);

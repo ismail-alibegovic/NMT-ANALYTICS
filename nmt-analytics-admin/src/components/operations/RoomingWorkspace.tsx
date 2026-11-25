@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useT } from "../../lib/i18n/context";
 import Button from "../ui/button/Button";
 import Badge from "../ui/badge/Badge";
+import { Modal } from "../ui/modal";
 import type { DeparturePassenger, DepartureRoomSlot } from "../../api/departures";
 import type { RoomingProposalOutput } from "../../api/departures";
 import {
@@ -649,39 +650,37 @@ export default function RoomingWorkspace({ departureId, passengers }: Props) {
         </div>
       </div>
 
-      {assignTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { if (!saving) setAssignTarget(null); }}>
-          <div role="dialog" aria-modal="true" aria-labelledby="rooming-select-title" className="mx-4 max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === "Escape" && !saving) { e.stopPropagation(); setAssignTarget(null); } }}>
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
-              <h3 id="rooming-select-title" className="font-semibold text-gray-900 dark:text-white">{rm.selectRoomHint} {assignTarget.passengerName}</h3>
-              <button type="button" aria-label={t?.common?.close || "Close"} disabled={saving} className="text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-gray-300 dark:hover:text-white disabled:opacity-50" onClick={() => setAssignTarget(null)}>×</button>
-            </div>
-            <div className="space-y-3 px-6 py-4">
-              {compatibleSlots.map(({ slot, occupied, isFull, matchesRequirement }) => (
-                <button
-                  key={slot.id}
-                  type="button"
-                  disabled={saving || applyLoading || !!savingAssignmentId || isFull || !matchesRequirement}
-                  onClick={() => assignToSlot(slot.id)}
-                  className={`w-full rounded-lg border p-3 text-left transition ${
-                    isFull || !matchesRequirement
-                      ? "border-gray-200 opacity-50 dark:border-gray-800"
-                      : "border-gray-200 hover:border-brand-300 dark:border-gray-800"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">{slot.hotel?.name || rm.unknownHotel} · {slot.displayLabel}</p>
-                      <p className="text-xs text-gray-500">{slot.roomType} · {occupied}/{slot.capacity}</p>
-                    </div>
-                    {!matchesRequirement ? <Badge color="warning" size="sm">{rm.incompatible}</Badge> : isFull ? <Badge color="warning" size="sm">{rm.full}</Badge> : <Badge color="success" size="sm">{rm.free}</Badge>}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+      <Modal
+        isOpen={!!assignTarget}
+        onClose={() => { if (!saving) setAssignTarget(null); }}
+        closeDisabled={saving}
+        className="max-w-xl"
+        title={assignTarget ? `${rm.selectRoomHint} ${assignTarget.passengerName}` : ""}
+      >
+        <div className="space-y-3 px-6 py-5">
+          {compatibleSlots.map(({ slot, occupied, isFull, matchesRequirement }) => (
+            <button
+              key={slot.id}
+              type="button"
+              disabled={saving || applyLoading || !!savingAssignmentId || isFull || !matchesRequirement}
+              onClick={() => assignToSlot(slot.id)}
+              className={`w-full rounded-lg border p-3 text-left transition ${
+                isFull || !matchesRequirement
+                  ? "border-gray-200 opacity-50 dark:border-gray-800"
+                  : "border-gray-200 hover:border-brand-300 dark:border-gray-800"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">{slot.hotel?.name || rm.unknownHotel} · {slot.displayLabel}</p>
+                  <p className="text-xs text-gray-500">{slot.roomType} · {occupied}/{slot.capacity}</p>
+                </div>
+                {!matchesRequirement ? <Badge color="warning" size="sm">{rm.incompatible}</Badge> : isFull ? <Badge color="warning" size="sm">{rm.full}</Badge> : <Badge color="success" size="sm">{rm.free}</Badge>}
+              </div>
+            </button>
+          ))}
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

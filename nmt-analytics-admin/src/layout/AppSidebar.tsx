@@ -39,7 +39,7 @@ type NavGroup = {
 };
 
 const AppSidebar: React.FC = () => {
-  const { isExpanded, isMobileOpen, isHovered, setIsHovered, activeScope } = useSidebar();
+  const { isExpanded, isMobileOpen, isHovered, setIsHovered, activeScope, toggleMobileSidebar } = useSidebar();
   const { userContext } = useApp();
   const location = useLocation();
   const role = userContext?.role;
@@ -54,7 +54,11 @@ const AppSidebar: React.FC = () => {
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const isActive = useCallback(
-    (path: string) => location.pathname === path,
+    (path: string) => {
+      if (location.pathname === path) return true;
+      if (path === "/settings") return false;
+      return location.pathname.startsWith(`${path}/`);
+    },
     [location.pathname]
   );
 
@@ -102,6 +106,7 @@ const AppSidebar: React.FC = () => {
     { icon: <ShootingStarIcon />, name: t.nav.excursions, path: "/operations/excursions", module: "travel_core", capability: "group_operations", minRole: "manager" },
     { icon: <GridIcon />, name: t.nav.hotels, path: "/operations/hotels", module: "travel_core", capability: "accommodation_operations", minRole: "manager" },
     { icon: <PaperPlaneIcon />, name: t.nav.flights, path: "/operations/flights", module: "travel_core", capability: "transport_operations", minRole: "manager" },
+    { icon: <FileIcon />, name: t.nav.waivers, path: "/admin/waivers", module: "travel_core", capability: "document_generation", minRole: "manager" },
     { icon: <MailIcon />, name: t.nav.communicationCenter, path: "/communication", minRole: "agent" },
   ];
 
@@ -112,7 +117,7 @@ const AppSidebar: React.FC = () => {
   ];
 
   const adminItems: NavItem[] = [
-    { icon: <SettingsIcon />, name: t.nav.settings, path: "/settings", minRole: "manager" },
+    { icon: <SettingsIcon />, name: t.nav.settings, path: "/settings", minRole: "director" },
     { icon: <LockIcon />, name: t.nav.auditLogs, path: "/admin/audit-logs", minRole: "director" },
     { icon: <FileIcon />, name: t.nav.documents, path: "/admin/documents", module: "documents", minRole: "manager" },
   ];
@@ -159,7 +164,10 @@ const AppSidebar: React.FC = () => {
             nav.path && (
               <Link
                 to={nav.path}
-                className={`menu-item group ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"}`}
+                title={!isExpanded && !isHovered && !isMobileOpen ? nav.name : undefined}
+                aria-label={nav.name}
+                onClick={() => { if (isMobileOpen) toggleMobileSidebar?.(); }}
+                className={`menu-item group ${!isExpanded && !isHovered && !isMobileOpen ? "lg:justify-center" : "lg:justify-start"} ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"}`}
               >
                 <span className={`menu-item-icon-size ${isActive(nav.path) ? "menu-item-icon-active" : "menu-item-icon-inactive"}`}>
                   {nav.icon}
