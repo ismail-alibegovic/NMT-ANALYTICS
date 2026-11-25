@@ -551,9 +551,8 @@ export default function DepartureDetail() {
   };
 
   const openSegmentAttacher = () => {
-    setSegmentMode(true);
     setAttachDirection("outbound");
-    openFlightSelector();
+    openFlightSelector(true);
   };
 
   const openPackage = () => {

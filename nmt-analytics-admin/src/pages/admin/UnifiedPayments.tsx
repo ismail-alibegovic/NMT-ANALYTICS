@@ -244,10 +244,10 @@ export default function UnifiedPayments() {
   const paymentListColumns: Column<Payment>[] = [
     { key: "id", header: u.columns.id, render: (v) => <span className="text-xs font-mono">{v ? String(v).substring(0, 8) : "—"}</span> },
     { key: "amount", header: u.columns.amount, render: (v, r) => formatCurrency(v as number, r.currency || "BAM", locale) },
-    { key: "payment_method", header: u.columns.method, render: (v) => formatMethod(v) },
+    { key: "paymentMethod", header: u.columns.method, render: (v) => formatMethod(v) },
     { key: "status", header: u.columns.status, render: (v) => statusBadge(v as string) },
     { key: "paymentDate", header: u.columns.date, render: (v) => formatDate(v as string, locale) },
-    { key: "reservation", header: u.columns.reservation, render: (v) => v ? (v as any).customerName || "-" : "-" },
+    { key: "reservation", header: u.columns.reservation, render: (v, r) => (v as any)?.customerName || (r as any)?.customerName || "-" },
   ];
 
   const txColumns: Column<Transaction>[] = [

@@ -101,6 +101,13 @@ function transformPayment(payment: any) {
         dueDate: payment.due_date ?? null,
         remainingAfter: payment.remaining_after !== null && payment.remaining_after !== undefined ? Number(payment.remaining_after) : null,
         createdAt: payment.created_at,
+        reservation: payment.reservations
+            ? {
+                  id: payment.reservations.id,
+                  customerName: payment.reservations.customer_name || null,
+                  customerPhone: payment.reservations.customer_phone || null,
+              }
+            : null,
     };
 }
 
@@ -203,7 +210,8 @@ router.get('/payments', async (req: Request, res: Response) => {
                 installment_number,
                 due_date,
                 remaining_after,
-                created_at
+                created_at,
+                reservations(id, customer_name, customer_phone)
             `, { count: 'exact' })
             .eq('org_id', orgId);
 
@@ -956,7 +964,7 @@ router.get('/payments/dashboard', async (req: Request, res: Response) => {
         .select(`
           id, customer_id, customer_name, customer_phone, total_amount, paid_amount,
           balance_due, payment_status, currency, status,
-          departures!inner(depart_at, packages!inner(name))
+          departures(depart_at, packages(name))
         `)
         .eq('org_id', orgId)
         .gt('balance_due', 0)

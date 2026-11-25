@@ -24,8 +24,11 @@ Deliverables: `docs/audits/intelligence/BUSINESS_LOGIC_MATRIX.md`, `ISSUE_REGIST
 ## Milestone 2 — Document audit & corrections — DONE
 Completed spec: `docs/tasks/active/intelligence-m2-document-corrections.md` (`ISS-002`, `ISS-003`, `ISS-005`, `ISS-008`).
 
-## Milestones 3–10 — PLANNED
-3 Product experience · 4 Academy · 5 Universal AI infrastructure · 6 AI commercial architecture · 7 Read-only Travline AI · 8 Intelligent dashboard · 9 Drafts & controlled actions · 10 Full staging verification.
+## Milestone 3 — Product experience & business logic — DONE
+Completed spec: `docs/tasks/active/intelligence-m3-business-logic-fixes.md` (`ISS-001`, `ISS-004`, `ISS-007`, `ISS-010`, `ISS-011`, `ISS-014`).
+
+## Milestones 4–10 — PLANNED
+4 Academy · 5 Universal AI infrastructure · 6 AI commercial architecture · 7 Read-only Travline AI · 8 Intelligent dashboard · 9 Drafts & controlled actions · 10 Full staging verification.
 
 Dependencies: 5 → 6 → 7 → 8 → 9. Milestones 2–4 are independent of the AI track and are executed first so that the AI answers about *verified* documentation and *consistent* financial definitions.
 

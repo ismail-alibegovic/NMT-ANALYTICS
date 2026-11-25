@@ -995,21 +995,21 @@ router.post('/reservations', authenticateToken, requireOrgContext, requireMinimu
             isOptional: Boolean(s.is_optional),
           }));
 
-          // Snapshot package hotels
+          // Snapshot package hotels using actual package_hotels schema columns
           const { data: hotels } = await supabaseAdmin
             .from('package_hotels')
-            .select('id, hotel_id, room_type, rooms_booked, price_per_person, currency, notes, hotels(name, address)')
+            .select('id, hotel_id, room_options, price_modifier, sort_order, hotels(name, address)')
             .eq('package_id', effectivePkgId)
-            .eq('org_id', orgId);
+            .eq('org_id', orgId)
+            .order('sort_order', { ascending: true });
           snapshot.accommodation = (hotels || []).map((h: any) => ({
             packageHotelId: h.id,
             hotelId: h.hotel_id,
             hotelName: h.hotels?.name || null,
-            roomType: h.room_type,
-            roomsBooked: h.rooms_booked,
-            pricePerPerson: Number(h.price_per_person || 0),
-            currency: h.currency || 'BAM',
-            notes: h.notes,
+            hotelAddress: h.hotels?.address || null,
+            roomOptions: Array.isArray(h.room_options) ? h.room_options : [],
+            priceModifier: Number(h.price_modifier || 0),
+            sortOrder: Number(h.sort_order || 0),
           }));
         }
 

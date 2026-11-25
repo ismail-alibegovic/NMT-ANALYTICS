@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
+import { requireMinimumRole } from '../middleware/requireRole';
+import { requireModule } from '../middleware/requireModule';
 import { apiError } from '../lib/errors';
 import { supabaseAdmin } from '../lib/supabase';
 import { z } from 'zod';
@@ -83,7 +85,7 @@ async function getMetricsForPeriod(orgId: string, from: Date, to: Date): Promise
     return metrics;
 }
 
-router.get('/ai/revenue-down', authenticateToken, requireOrgContext, async (req: Request, res: Response) => {
+router.get('/ai/revenue-down', authenticateToken, requireOrgContext, requireMinimumRole('manager'), requireModule('analytics'), async (req: Request, res: Response) => {
     try {
         const validation = QuerySchema.safeParse(req.query);
 
@@ -223,7 +225,7 @@ router.get('/ai/revenue-down', authenticateToken, requireOrgContext, async (req:
 /**
  * GET /ai/occupancy — Occupancy prediction
  */
-router.get('/ai/occupancy', authenticateToken, requireOrgContext, async (req: Request, res: Response) => {
+router.get('/ai/occupancy', authenticateToken, requireOrgContext, requireMinimumRole('manager'), requireModule('analytics'), async (req: Request, res: Response) => {
     try {
         const orgId = req.orgId!;
         const daysAhead = parseInt(req.query.days as string) || 30;
@@ -281,7 +283,7 @@ router.get('/ai/occupancy', authenticateToken, requireOrgContext, async (req: Re
 /**
  * GET /ai/recommend-packages — Package recommendations
  */
-router.get('/ai/recommend-packages', authenticateToken, requireOrgContext, async (req: Request, res: Response) => {
+router.get('/ai/recommend-packages', authenticateToken, requireOrgContext, requireMinimumRole('manager'), requireModule('analytics'), async (req: Request, res: Response) => {
     try {
         const orgId = req.orgId!;
         const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
