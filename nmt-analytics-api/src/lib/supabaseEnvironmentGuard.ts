@@ -34,16 +34,47 @@ export function supabaseRefFromUrl(value: string): string | null {
   }
 }
 
-function jwtRef(key: string | undefined): string | null {
+export interface SupabaseJwtPayload {
+  role?: unknown;
+  ref?: unknown;
+}
+
+export function decodeSupabaseJwtPayload(key: string | undefined): SupabaseJwtPayload | null {
   if (!key || !key.startsWith('ey')) return null;
   const parts = key.split('.');
-  if (parts.length !== 3) return null;
+  if (parts.length !== 3 || parts.some((part) => !part)) return null;
   try {
     const payload = JSON.parse(Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
-    return typeof payload?.ref === 'string' ? payload.ref : null;
+    return payload && typeof payload === 'object' ? (payload as SupabaseJwtPayload) : null;
   } catch {
     return null;
   }
+}
+
+function jwtRef(key: string | undefined): string | null {
+  const payload = decodeSupabaseJwtPayload(key);
+  return typeof payload?.ref === 'string' ? payload.ref : null;
+}
+
+export function isSupportedSupabaseServiceKey(key: string): boolean {
+  if (!key || /\s/.test(key)) return false;
+  if (/^sb_secret_[A-Za-z0-9_-]{8,}$/.test(key)) return true;
+  if (!key.startsWith('ey')) return false;
+  const parts = key.split('.');
+  if (parts.length !== 3 || parts.some((part) => !part)) return false;
+  const payload = decodeSupabaseJwtPayload(key);
+  if (payload && typeof payload.role === 'string') {
+    return payload.role === 'service_role';
+  }
+  return true;
+}
+
+export function isSupportedSupabaseAnonKey(key: string): boolean {
+  if (!key || /\s/.test(key)) return false;
+  if (key.startsWith('sb_secret_')) return false;
+  const payload = decodeSupabaseJwtPayload(key);
+  if (payload?.role === 'service_role') return false;
+  return true;
 }
 
 /** Returns human-readable violations; empty when the environment is safe. */
@@ -65,6 +96,24 @@ export function checkSupabaseEnvironment(
 
   if (!input.vercelEnv && isProductionProject && input.nodeEnv === 'development' && !input.allowLocalProductionAccess) {
     errors.push('Local development is pointed at the production Supabase project. Use a local or staging project, or set TRAVLINE_ALLOW_LOCAL_PRODUCTION_ACCESS=true to acknowledge production access explicitly');
+  }
+
+  if (input.serviceRoleKey) {
+    if (input.serviceRoleKey.startsWith('sb_publishable_')) {
+      errors.push('TRAVLINE_SUPABASE_SERVICE_ROLE_KEY must not contain a publishable key');
+    } else {
+      const servicePayload = decodeSupabaseJwtPayload(input.serviceRoleKey);
+      if (typeof servicePayload?.role === 'string' && servicePayload.role !== 'service_role') {
+        errors.push('TRAVLINE_SUPABASE_SERVICE_ROLE_KEY is not a service_role key');
+      }
+    }
+  }
+
+  if (input.anonKey) {
+    const anonPayload = decodeSupabaseJwtPayload(input.anonKey);
+    if (input.anonKey.startsWith('sb_secret_') || anonPayload?.role === 'service_role') {
+      errors.push('TRAVLINE_SUPABASE_ANON_KEY must not contain a privileged key');
+    }
   }
 
   if (ref) {
