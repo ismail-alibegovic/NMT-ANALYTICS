@@ -42,8 +42,11 @@ Status legend: `DONE` verified · `IN PROGRESS` · `PLANNED` · `BLOCKED` · `DE
 ## Milestone 8 — Intelligent dashboard — DONE
 - Commit `2ca5889`: Spec `docs/tasks/active/intelligence-m8-executive-signals.md` (`GET /api/ai/signals`, `ExecutiveSignalsCard.tsx`). Verified: API `tsc`, 2/2 test files (5/5), `npm run build`; Admin `lint` (0 errors), `tsc`, `npm run build`.
 
-## Milestones 9–10 — PLANNED
-9 Drafts & controlled actions · 10 Full staging verification.
+## Milestone 9 — Drafts & controlled actions — DONE
+- Spec `docs/tasks/active/intelligence-m9-ai-actions.md`: additive migration `20261125140000_ai_action_proposals.sql`, `aiActions.ts` (`/ai/proposals`, `/confirm`, `/reject` with idempotency, RBAC, audit logs), and Admin editable proposal UI.
+
+## Milestone 10 — Full staging verification — IN PROGRESS
+Full API, Admin, migration, PDF sample generation, GitHub draft PR, and isolated Vercel Preview verification.
 
 Dependencies: 5 → 6 → 7 → 8 → 9. Milestones 2–4 are independent of the AI track and are executed first so that the AI answers about *verified* documentation and *consistent* financial definitions.
 

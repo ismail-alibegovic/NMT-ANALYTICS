@@ -1,11 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import PageMeta from '../components/common/PageMeta';
 import Badge from '../components/ui/badge/Badge';
 import Button from '../components/ui/button/Button';
 import Input from '../components/form/input/InputField';
 import { useT } from '../lib/i18n/context';
-import { askTravlineAssistant, type AiAssistantResponse } from '../api/aiAssistant';
+import {
+  askTravlineAssistant,
+  listAiProposals,
+  createAiProposal,
+  confirmAiProposal,
+  rejectAiProposal,
+  type AiActionProposalDto,
+  type AiActionType,
+  type AiAssistantResponse,
+} from '../api/aiAssistant';
 
 interface MessageItem {
   id: string;
@@ -30,12 +39,100 @@ export default function AiAssistant() {
     noProviderError: string;
     configureProviderLink: string;
     genericError: string;
+    proposalsTitle: string;
+    proposalsDesc: string;
+    actionTypeLabel: string;
+    actionTypes: Record<AiActionType, string>;
+    proposalPromptPlaceholder: string;
+    generateDraftButton: string;
+    confirmExecuteButton: string;
+    rejectButton: string;
+    executedBadge: string;
+    draftBadge: string;
+    rejectedBadge: string;
+    openCreatedRecord: string;
+    invalidJsonError: string;
   };
 
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [noProvider, setNoProvider] = useState(false);
+
+  const [actionType, setActionType] = useState<AiActionType>('create_inquiry');
+  const [proposalPrompt, setProposalPrompt] = useState('');
+  const [proposalBusy, setProposalBusy] = useState(false);
+  const [proposals, setProposals] = useState<AiActionProposalDto[]>([]);
+  const [editedJsonById, setEditedJsonById] = useState<Record<string, string>>({});
+  const [proposalError, setProposalError] = useState<string | null>(null);
+
+  const loadProposals = async () => {
+    try {
+      const list = await listAiProposals();
+      setProposals(list);
+      const nextJson: Record<string, string> = {};
+      for (const p of list) {
+        nextJson[p.id] = JSON.stringify(p.edited_payload || p.proposed_payload || {}, null, 2);
+      }
+      setEditedJsonById(nextJson);
+    } catch {
+      // Non-blocking initial load
+    }
+  };
+
+  useEffect(() => {
+    void loadProposals();
+  }, []);
+
+  const handleGenerateDraft = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!proposalPrompt.trim() || proposalBusy) return;
+    setProposalBusy(true);
+    setProposalError(null);
+    try {
+      await createAiProposal(actionType, proposalPrompt.trim(), lang === 'en' ? 'en' : 'bs');
+      setProposalPrompt('');
+      await loadProposals();
+    } catch {
+      setProposalError(a.genericError);
+    } finally {
+      setProposalBusy(false);
+    }
+  };
+
+  const handleConfirmProposal = async (p: AiActionProposalDto) => {
+    setProposalError(null);
+    let parsedPayload: Record<string, any> | undefined;
+    try {
+      const raw = editedJsonById[p.id];
+      if (raw) parsedPayload = JSON.parse(raw);
+    } catch {
+      setProposalError(a.invalidJsonError);
+      return;
+    }
+    setProposalBusy(true);
+    try {
+      await confirmAiProposal(p.id, `confirm-${p.id}`, parsedPayload);
+      await loadProposals();
+    } catch {
+      setProposalError(a.genericError);
+    } finally {
+      setProposalBusy(false);
+    }
+  };
+
+  const handleRejectProposal = async (p: AiActionProposalDto) => {
+    setProposalBusy(true);
+    setProposalError(null);
+    try {
+      await rejectAiProposal(p.id);
+      await loadProposals();
+    } catch {
+      setProposalError(a.genericError);
+    } finally {
+      setProposalBusy(false);
+    }
+  };
 
   const submitQuestion = async (qText: string) => {
     const trimmed = qText.trim();
@@ -158,6 +255,79 @@ export default function AiAssistant() {
           </Button>
         </form>
       </div>
+
+      <section className="rounded-xl border border-gray-200 bg-white p-5 space-y-4 dark:border-gray-800 dark:bg-gray-900">
+        <div>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">{a.proposalsTitle}</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{a.proposalsDesc}</p>
+        </div>
+
+        <form onSubmit={handleGenerateDraft} className="flex flex-col gap-2 sm:flex-row">
+          <select
+            value={actionType}
+            onChange={(e) => setActionType(e.target.value as AiActionType)}
+            aria-label={a.actionTypeLabel}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+          >
+            <option value="create_inquiry">{a.actionTypes.create_inquiry}</option>
+            <option value="create_quotation_draft">{a.actionTypes.create_quotation_draft}</option>
+            <option value="create_customer_draft">{a.actionTypes.create_customer_draft}</option>
+          </select>
+          <div className="flex-1">
+            <Input
+              value={proposalPrompt}
+              onChange={(e) => setProposalPrompt(e.target.value)}
+              placeholder={a.proposalPromptPlaceholder}
+            />
+          </div>
+          <Button type="submit" disabled={proposalBusy || !proposalPrompt.trim()}>
+            {a.generateDraftButton}
+          </Button>
+        </form>
+
+        {proposalError && <p className="text-xs text-error-600 dark:text-error-400">{proposalError}</p>}
+
+        <div className="space-y-3">
+          {proposals.slice(0, 5).map((p) => (
+            <div key={p.id} className="rounded-lg border border-gray-200 p-4 space-y-2 dark:border-gray-800">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    {a.actionTypes[p.action_type]}
+                  </span>
+                  <Badge size="sm" color={p.status === 'executed' ? 'success' : p.status === 'rejected' ? 'error' : 'warning'}>
+                    {p.status === 'executed' ? a.executedBadge : p.status === 'rejected' ? a.rejectedBadge : a.draftBadge}
+                  </Badge>
+                </div>
+                {p.execution_result?.route && (
+                  <Link to={p.execution_result.route} className="text-xs font-semibold text-brand-600 hover:underline dark:text-brand-400">
+                    {a.openCreatedRecord} →
+                  </Link>
+                )}
+              </div>
+
+              <textarea
+                rows={4}
+                disabled={p.status !== 'draft'}
+                value={editedJsonById[p.id] ?? JSON.stringify(p.proposed_payload || {}, null, 2)}
+                onChange={(e) => setEditedJsonById((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 p-2.5 font-mono text-xs text-gray-800 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-200"
+              />
+
+              {p.status === 'draft' && (
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" size="sm" color="error" disabled={proposalBusy} onClick={() => void handleRejectProposal(p)}>
+                    {a.rejectButton}
+                  </Button>
+                  <Button size="sm" disabled={proposalBusy} onClick={() => void handleConfirmProposal(p)}>
+                    {a.confirmExecuteButton}
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
