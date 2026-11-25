@@ -154,7 +154,7 @@ export default function App() {
           <Route path="/payments" element={<SuspenseWrapper><ModuleGuard moduleKey="payments"><UnifiedPayments /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/reports" element={<SuspenseWrapper><ModuleGuard moduleKey="analytics" fallback={<NotFoundClientOnly />}><Reports /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/academy" element={<SuspenseWrapper><Academy /></SuspenseWrapper>} />
-          <Route path="/ai-assistant" element={<SuspenseWrapper><ModuleGuard moduleKey="ai_assistant" fallback={<NotFoundClientOnly />}><AiAssistant /></ModuleGuard></SuspenseWrapper>} />
+          <Route path="/ai-assistant" element={<SuspenseWrapper><AiAssistant /></SuspenseWrapper>} />
           <Route path="/integrations" element={<SuspenseWrapper><ModuleGuard moduleKey="integrations" fallback={<NotFoundClientOnly />}><Integrations /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/settings" element={<SuspenseWrapper><Settings /></SuspenseWrapper>} />
           <Route path="/settings/ai" element={<SuspenseWrapper><AiSettings /></SuspenseWrapper>} />

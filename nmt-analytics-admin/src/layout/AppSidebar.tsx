@@ -117,7 +117,7 @@ const AppSidebar: React.FC = () => {
   ];
 
   const adminItems: NavItem[] = [
-    { icon: <ShootingStarIcon />, name: t.nav.aiAssistant, path: "/ai-assistant", module: "ai_assistant", minRole: "agent" },
+    { icon: <ShootingStarIcon />, name: t.nav.aiAssistant, path: "/ai-assistant", minRole: "agent" },
     { icon: <ShootingStarIcon />, name: t.nav.academy, path: "/academy", minRole: "viewer" },
     { icon: <SettingsIcon />, name: t.nav.settings, path: "/settings", minRole: "director" },
     { icon: <PlugInIcon />, name: t.nav.aiSettings, path: "/settings/ai", minRole: "director" },
