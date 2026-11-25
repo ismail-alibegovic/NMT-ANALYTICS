@@ -33,6 +33,7 @@ const Departures = lazy(() => import("./pages/admin/Departures"));
 const DepartureDetail = lazy(() => import("./pages/DepartureDetail"));
 const UnifiedPayments = lazy(() => import("./pages/admin/UnifiedPayments"));
 const Reports = lazy(() => import("./pages/Reports"));
+const Academy = lazy(() => import("./pages/Academy"));
 const Integrations = lazy(() => import("./pages/admin/Integrations"));
 const Settings = lazy(() => import("./pages/admin/Settings"));
 const PublicForms = lazy(() => import("./pages/admin/PublicForms"));
@@ -150,6 +151,7 @@ export default function App() {
           <Route path="/departures/:id" element={<SuspenseWrapper><DepartureDetail /></SuspenseWrapper>} />
           <Route path="/payments" element={<SuspenseWrapper><ModuleGuard moduleKey="payments"><UnifiedPayments /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/reports" element={<SuspenseWrapper><ModuleGuard moduleKey="analytics" fallback={<NotFoundClientOnly />}><Reports /></ModuleGuard></SuspenseWrapper>} />
+          <Route path="/academy" element={<SuspenseWrapper><Academy /></SuspenseWrapper>} />
           <Route path="/integrations" element={<SuspenseWrapper><ModuleGuard moduleKey="integrations" fallback={<NotFoundClientOnly />}><Integrations /></ModuleGuard></SuspenseWrapper>} />
           <Route path="/settings" element={<SuspenseWrapper><Settings /></SuspenseWrapper>} />
           <Route path="/settings/public-forms" element={<SuspenseWrapper><PublicForms /></SuspenseWrapper>} />

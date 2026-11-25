@@ -117,6 +117,7 @@ const AppSidebar: React.FC = () => {
   ];
 
   const adminItems: NavItem[] = [
+    { icon: <ShootingStarIcon />, name: t.nav.academy, path: "/academy", minRole: "viewer" },
     { icon: <SettingsIcon />, name: t.nav.settings, path: "/settings", minRole: "director" },
     { icon: <LockIcon />, name: t.nav.auditLogs, path: "/admin/audit-logs", minRole: "director" },
     { icon: <FileIcon />, name: t.nav.documents, path: "/admin/documents", module: "documents", minRole: "manager" },

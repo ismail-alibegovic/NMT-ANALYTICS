@@ -27,8 +27,11 @@ Completed spec: `docs/tasks/active/intelligence-m2-document-corrections.md` (`IS
 ## Milestone 3 — Product experience & business logic — DONE
 Completed spec: `docs/tasks/active/intelligence-m3-business-logic-fixes.md` (`ISS-001`, `ISS-004`, `ISS-007`, `ISS-010`, `ISS-011`, `ISS-014`).
 
-## Milestones 4–10 — PLANNED
-4 Academy · 5 Universal AI infrastructure · 6 AI commercial architecture · 7 Read-only Travline AI · 8 Intelligent dashboard · 9 Drafts & controlled actions · 10 Full staging verification.
+## Milestone 4 — Travline Academy — DONE
+Completed spec: `docs/tasks/active/intelligence-m4-travline-academy.md`.
+
+## Milestones 5–10 — PLANNED
+5 Universal AI infrastructure · 6 AI commercial architecture · 7 Read-only Travline AI · 8 Intelligent dashboard · 9 Drafts & controlled actions · 10 Full staging verification.
 
 Dependencies: 5 → 6 → 7 → 8 → 9. Milestones 2–4 are independent of the AI track and are executed first so that the AI answers about *verified* documentation and *consistent* financial definitions.
 
