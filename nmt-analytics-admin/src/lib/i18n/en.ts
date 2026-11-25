@@ -3562,6 +3562,26 @@ applyProposal: 'Apply Proposal',
     configureProviderLink: 'Configure AI Provider',
     genericError: 'Failed to generate AI assistant response. Please try again.',
   },
+  executiveSignals: {
+    title: 'Executive & Operational Signals',
+    subtitle: 'Deterministic overview of departures, open balances, and inquiries needing attention',
+    askAiLink: 'Ask Travline AI',
+    openAction: 'Review items',
+    items: {
+      low_occupancy_departures: {
+        label: 'Low-occupancy departures (<50%)',
+        healthy: 'All upcoming departures are well-booked',
+      },
+      open_balance_reservations: {
+        label: 'Reservations with open balances',
+        healthy: 'No open balances due',
+      },
+      stale_inquiries: {
+        label: 'Stale inquiries (>3 days)',
+        healthy: 'All inquiries are up to date',
+      },
+    },
+  },
 };
 export type Translations = typeof en;
 

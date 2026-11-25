@@ -3562,5 +3562,25 @@ applyProposal: 'Primijeni prijedlog',
     configureProviderLink: 'Podesi AI provajdera',
     genericError: 'Generisanje AI odgovora nije uspjelo. Pokušajte ponovo.',
   },
+  executiveSignals: {
+    title: 'Operativni i finansijski signali',
+    subtitle: 'Automatski pregled polazaka, otvorenih bilansa i upita kojima je potrebna pažnja',
+    askAiLink: 'Pitaj Travline AI',
+    openAction: 'Pregledaj stavke',
+    items: {
+      low_occupancy_departures: {
+        label: 'Polasci sa niskom popunjenošću (<50%)',
+        healthy: 'Svi naredni polasci su dobro popunjeni',
+      },
+      open_balance_reservations: {
+        label: 'Rezervacije sa otvorenim bilansom',
+        healthy: 'Nema otvorenih potraživanja',
+      },
+      stale_inquiries: {
+        label: 'Upiti na čekanju (>3 dana)',
+        healthy: 'Svi upiti su ažurni',
+      },
+    },
+  },
 };
 

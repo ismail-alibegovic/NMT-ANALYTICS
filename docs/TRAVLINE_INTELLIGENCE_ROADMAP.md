@@ -39,8 +39,11 @@ Completed spec: `docs/tasks/active/intelligence-m6-ai-commercial.md`.
 ## Milestone 7 — Read-only Travline AI — DONE
 Completed spec: `docs/tasks/active/intelligence-m7-read-only-assistant.md`.
 
-## Milestones 8–10 — PLANNED
-8 Intelligent dashboard · 9 Drafts & controlled actions · 10 Full staging verification.
+## Milestone 8 — Intelligent dashboard — DONE
+Completed spec: `docs/tasks/active/intelligence-m8-executive-signals.md`.
+
+## Milestones 9–10 — PLANNED
+9 Drafts & controlled actions · 10 Full staging verification.
 
 Dependencies: 5 → 6 → 7 → 8 → 9. Milestones 2–4 are independent of the AI track and are executed first so that the AI answers about *verified* documentation and *consistent* financial definitions.
 

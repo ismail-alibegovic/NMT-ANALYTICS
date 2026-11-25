@@ -396,4 +396,118 @@ router.post(
     },
 );
 
+router.get(
+    '/ai/signals',
+    authenticateToken,
+    requireOrgContext,
+    requireMinimumRole('manager'),
+    requireModule('analytics'),
+    async (req: Request, res: Response) => {
+        const orgId = req.orgId!;
+        const now = new Date();
+        const nowIso = now.toISOString();
+        const in30DaysIso = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        const staleCutoffIso = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
+
+        try {
+            const [depRes, activeRes, inqRes] = await Promise.all([
+                supabaseAdmin
+                    .from('departures')
+                    .select('id, depart_at, capacity, status, packages(name)')
+                    .eq('org_id', orgId)
+                    .gte('depart_at', nowIso)
+                    .lte('depart_at', in30DaysIso)
+                    .neq('status', 'cancelled')
+                    .order('depart_at', { ascending: true })
+                    .limit(50),
+                supabaseAdmin
+                    .from('reservations')
+                    .select('id, departure_id, party_size, balance_due, currency, status, customer_name')
+                    .eq('org_id', orgId)
+                    .neq('status', 'cancelled')
+                    .limit(200),
+                supabaseAdmin
+                    .from('inquiries')
+                    .select('id, contact_name, stage, updated_at')
+                    .eq('org_id', orgId)
+                    .in('stage', ['new', 'proposal', 'follow_up'])
+                    .lte('updated_at', staleCutoffIso)
+                    .limit(50),
+            ]);
+
+            if (depRes.error || activeRes.error || inqRes.error) {
+                return apiError(res, 500, 'SIGNALS_ERROR', 'Failed to compute executive signals');
+            }
+
+            const bookedByDep = new Map<string, number>();
+            const openBalanceItems: Array<{ id: string; customerName: string; balanceDue: number; currency: string }> = [];
+            for (const r of (activeRes.data || []) as any[]) {
+                if (r.departure_id) {
+                    bookedByDep.set(r.departure_id, (bookedByDep.get(r.departure_id) || 0) + Number(r.party_size || 1));
+                }
+                const due = Number(r.balance_due || 0);
+                if (due > 0) {
+                    openBalanceItems.push({
+                        id: r.id,
+                        customerName: r.customer_name || 'Guest',
+                        balanceDue: due,
+                        currency: r.currency || 'BAM',
+                    });
+                }
+            }
+
+            const lowOccupancyItems = ((depRes.data || []) as any[])
+                .map((d) => {
+                    const cap = Number(d.capacity || 0);
+                    const booked = bookedByDep.get(d.id) || 0;
+                    const occupancyPct = cap > 0 ? Math.round((booked / cap) * 100) : 0;
+                    return {
+                        id: d.id,
+                        packageName: d.packages?.name || 'Departure',
+                        departAt: d.depart_at,
+                        booked,
+                        capacity: cap,
+                        occupancyPct,
+                    };
+                })
+                .filter((d) => d.capacity > 0 && d.occupancyPct < 50);
+
+            const staleInquiries = (inqRes.data || []) as any[];
+
+            return res.json({
+                generatedAt: nowIso,
+                signals: [
+                    {
+                        key: 'low_occupancy_departures',
+                        severity: lowOccupancyItems.length > 0 ? 'high' : 'info',
+                        count: lowOccupancyItems.length,
+                        route: '/departures',
+                        items: lowOccupancyItems.slice(0, 5),
+                    },
+                    {
+                        key: 'open_balance_reservations',
+                        severity: openBalanceItems.length > 0 ? 'medium' : 'info',
+                        count: openBalanceItems.length,
+                        route: '/payments',
+                        items: openBalanceItems.slice(0, 5),
+                    },
+                    {
+                        key: 'stale_inquiries',
+                        severity: staleInquiries.length > 0 ? 'medium' : 'info',
+                        count: staleInquiries.length,
+                        route: '/inquiries',
+                        items: staleInquiries.slice(0, 5).map((i) => ({
+                            id: i.id,
+                            contactName: i.contact_name,
+                            stage: i.stage,
+                        })),
+                    },
+                ],
+            });
+        } catch (err: any) {
+            return apiError(res, 500, 'SIGNALS_ERROR', err?.message || 'Failed to compute signals');
+        }
+    },
+);
+
 export default router;
