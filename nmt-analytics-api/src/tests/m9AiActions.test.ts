@@ -31,6 +31,10 @@ vi.mock('../middleware/requireModule', () => ({
   requireModule: () => (_req: any, _res: any, next: any) => next(),
 }));
 
+vi.mock('../middleware/requireAiEntitlement', () => ({
+  requireAiEntitlement: (_req: any, _res: any, next: any) => next(),
+}));
+
 vi.mock('../middleware/auditLogger', () => ({
   auditLog: () => (_req: any, _res: any, next: any) => next(),
   logAuditEntry: (...args: any[]) => mockLogAction(...args),
@@ -124,6 +128,17 @@ describe('M9 AI Drafts & Controlled Human-Approved Actions', () => {
           proposalStatus = 'executed';
           return chain;
         }),
+        maybeSingle: vi.fn(async () => ({
+          data: {
+            id: 'prop-1',
+            org_id: 'org-test-1',
+            action_type: 'create_inquiry',
+            status: 'executed',
+            proposed_payload: { contactName: 'Haris Kovac', travelers: 4 },
+            execution_result: storedResult,
+          },
+          error: null,
+        })),
         single: vi.fn(async () => {
           if (table === 'ai_action_proposals') {
             return {

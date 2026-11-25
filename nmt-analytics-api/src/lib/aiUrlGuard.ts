@@ -62,3 +62,20 @@ export function validateAiBaseUrl(rawUrl: string): URL {
 
   return parsed;
 }
+
+/**
+ * Safely normalizes an AI Base URL, preventing duplicate endpoint suffixes such as
+ * `/chat/completions/chat/completions` when a user pastes a full endpoint URL.
+ */
+export function normalizeAiBaseUrl(rawUrl: string): string {
+  const parsed = validateAiBaseUrl(rawUrl);
+  let pathname = parsed.pathname.replace(/\/+$/, '');
+  const suffixes = ['/chat/completions', '/responses', '/messages', '/models'];
+  for (const suffix of suffixes) {
+    if (pathname.endsWith(suffix)) {
+      pathname = pathname.slice(0, -suffix.length);
+      break;
+    }
+  }
+  return `${parsed.origin}${pathname}`.replace(/\/+$/, '');
+}

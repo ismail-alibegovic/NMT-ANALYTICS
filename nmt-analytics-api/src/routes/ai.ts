@@ -3,10 +3,13 @@ import { authenticateToken } from '../middleware/authenticateToken';
 import { requireOrgContext } from '../middleware/requireOrgContext';
 import { requireMinimumRole } from '../middleware/requireRole';
 import { requireModule } from '../middleware/requireModule';
+import { requireAiEntitlement } from '../middleware/requireAiEntitlement';
 import { apiError } from '../lib/errors';
 import { supabaseAdmin } from '../lib/supabase';
 import { buildOrgAiContext } from '../lib/aiContextBuilder';
-import { executeOrgAiCompletion } from '../lib/aiProviderService';
+import { runAuthorizedReadOnlyTools, BUSINESS_TOOL_REGISTRY } from '../lib/aiToolRegistry';
+import { executeOrgAiCompletion, type ResolvedAiProvider } from '../lib/aiProviderService';
+import { decryptSecret } from '../lib/secretVault';
 import { z } from 'zod';
 
 const router = Router();
@@ -333,53 +336,117 @@ router.get('/ai/recommend-packages', authenticateToken, requireOrgContext, requi
 const AssistantSchema = z.object({
     question: z.string().trim().min(1).max(2000),
     locale: z.enum(['bs', 'en']).default('bs'),
+    providerId: z.string().uuid().optional(),
+    modelId: z.string().trim().min(1).max(160).optional(),
+    pageContext: z.object({
+        route: z.string().max(200).optional(),
+        entityType: z.string().max(60).optional(),
+        entityId: z.string().max(80).optional(),
+    }).optional(),
 });
+
+router.get(
+    '/ai/tools',
+    authenticateToken,
+    requireOrgContext,
+    requireMinimumRole('agent'),
+    requireAiEntitlement,
+    (_req: Request, res: Response) => {
+        return res.json({
+            tools: BUSINESS_TOOL_REGISTRY.map((t) => ({
+                name: t.name,
+                description: t.description,
+                category: t.category,
+                minRole: t.minRole,
+                requiresConfirmation: t.requiresConfirmation,
+            })),
+        });
+    },
+);
 
 router.post(
     '/ai/assistant',
     authenticateToken,
     requireOrgContext,
     requireMinimumRole('agent'),
-    requireModule('ai_assistant'),
+    requireAiEntitlement,
     async (req: Request, res: Response) => {
         const parsed = AssistantSchema.safeParse(req.body);
         if (!parsed.success) {
             return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid assistant request', parsed.error.issues);
         }
 
-        const { question, locale } = parsed.data;
+        const { question, locale, providerId, modelId, pageContext } = parsed.data;
         const orgId = req.orgId!;
         const userRole = req.user?.role || 'agent';
 
         try {
-            const contextSnapshot = await buildOrgAiContext(orgId, userRole);
+            let overrideProvider: ResolvedAiProvider | undefined;
+            if (providerId) {
+                const { data: adminRow } = await supabaseAdmin
+                    .from('platform_admins')
+                    .select('user_id')
+                    .eq('user_id', req.user?.id || '')
+                    .eq('is_active', true)
+                    .maybeSingle();
+                if (!adminRow) {
+                    return apiError(res, 403, 'PLATFORM_ADMIN_REQUIRED', 'Only platform administrators can override AI provider routing');
+                }
+                const { data: pRow } = await supabaseAdmin.from('ai_providers').select('*').eq('id', providerId).single();
+                if (!pRow) return apiError(res, 404, 'NOT_FOUND', 'Selected AI provider not found');
+                overrideProvider = {
+                    id: pRow.id,
+                    scope: pRow.scope,
+                    providerType: pRow.provider_type,
+                    protocol: pRow.protocol || 'openai_chat_completions',
+                    apiKey: decryptSecret(pRow.encrypted_api_key),
+                    model: modelId || pRow.default_model,
+                    baseUrl: pRow.base_url ?? null,
+                    timeoutMs: Number(pRow.request_timeout_ms ?? 30000),
+                };
+            }
+
+            const [contextSnapshot, toolData] = await Promise.all([
+                buildOrgAiContext(orgId, userRole),
+                runAuthorizedReadOnlyTools(orgId, userRole),
+            ]);
+
             const systemPrompt = [
                 'You are Travline AI, a strictly read-only assistant for a travel agency.',
                 `Respond in ${locale === 'bs' ? 'Bosnian (bs)' : 'English (en)'}.`,
-                'Answer ONLY using the verified organization snapshot below and Travline operational rules:',
-                '- Packages are reusable templates; Departures are dated trip instances.',
-                '- Non-fiscal payment receipts use PU-YYYY-XXXX and are immutable once issued.',
-                '- Cancelled reservations are excluded from departure manifests and batch vouchers.',
-                'If data is not in the snapshot, say so clearly. Never invent numbers or claim to execute write actions.',
+                'Answer ONLY using the verified organization snapshot and typed tool outputs below.',
+                'Never invent numbers, customer names, prices, or claim to execute write actions.',
+                'Never mix incompatible currencies as if they were the same unit.',
+                pageContext ? `CURRENT_PAGE_CONTEXT: ${JSON.stringify(pageContext)}` : '',
                 `VERIFIED_ORG_SNAPSHOT: ${JSON.stringify(contextSnapshot)}`,
-            ].join('\n');
+                `VERIFIED_TOOL_DATA: ${JSON.stringify(toolData)}`,
+            ].filter(Boolean).join('\n');
 
-            const completion = await executeOrgAiCompletion(orgId, req.user?.id || null, 'read_only_assistant', {
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: question },
-                ],
-                temperature: 0.2,
-                maxTokens: 800,
-            });
+            const completion = await executeOrgAiCompletion(
+                orgId,
+                req.user?.id || null,
+                'read_only_assistant',
+                {
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: question },
+                    ],
+                    temperature: 0.2,
+                    maxTokens: 900,
+                },
+                fetch,
+                overrideProvider,
+            );
 
             return res.json({
                 answer: completion.text,
                 provider: completion.provider,
                 model: completion.model,
                 usage: completion.usage,
+                latencyMs: completion.latencyMs,
                 groundedAt: contextSnapshot.generatedAt,
                 roleScope: contextSnapshot.roleScope,
+                toolsUsed: Object.keys(toolData),
             });
         } catch (err: any) {
             if (err?.message === 'NO_ACTIVE_AI_PROVIDER') {
@@ -391,7 +458,7 @@ router.post(
                 );
             }
             console.error('[AI Assistant] Error:', err?.message || err);
-            return apiError(res, 500, 'AI_ASSISTANT_ERROR', 'Failed to generate AI assistant response');
+            return apiError(res, 502, 'AI_PROVIDER_ERROR', err?.message || 'Failed to generate AI assistant response');
         }
     },
 );

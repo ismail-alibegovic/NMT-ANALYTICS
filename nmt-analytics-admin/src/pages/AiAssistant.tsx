@@ -15,6 +15,7 @@ import {
   type AiActionType,
   type AiAssistantResponse,
 } from '../api/aiAssistant';
+import { getOrgAiEntitlement } from '../api/aiProviders';
 
 interface MessageItem {
   id: string;
@@ -65,6 +66,7 @@ export default function AiAssistant() {
   const [proposals, setProposals] = useState<AiActionProposalDto[]>([]);
   const [editedJsonById, setEditedJsonById] = useState<Record<string, string>>({});
   const [proposalError, setProposalError] = useState<string | null>(null);
+  const [aiEntitled, setAiEntitled] = useState<boolean | null>(null);
 
   const loadProposals = async () => {
     try {
@@ -81,7 +83,13 @@ export default function AiAssistant() {
   };
 
   useEffect(() => {
-    void loadProposals();
+    getOrgAiEntitlement()
+      .then((res) => {
+        const enabled = Boolean(res?.entitlement?.is_enabled && !res?.entitlement?.emergency_disabled);
+        setAiEntitled(enabled);
+        if (enabled) void loadProposals();
+      })
+      .catch(() => setAiEntitled(false));
   }, []);
 
   const handleGenerateDraft = async (e: React.FormEvent) => {
@@ -175,6 +183,12 @@ export default function AiAssistant() {
   return (
     <div className="space-y-6">
       <PageMeta title={`${a.pageTitle} | Travline`} description={a.pageDescription} />
+
+      {aiEntitled === false && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+          {a.noProviderError}
+        </div>
+      )}
 
       <header className="border-b border-gray-200 pb-4 dark:border-gray-800">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -272,6 +286,7 @@ export default function AiAssistant() {
             <option value="create_inquiry">{a.actionTypes.create_inquiry}</option>
             <option value="create_quotation_draft">{a.actionTypes.create_quotation_draft}</option>
             <option value="create_customer_draft">{a.actionTypes.create_customer_draft}</option>
+            <option value="create_package_draft">{a.actionTypes.create_package_draft}</option>
           </select>
           <div className="flex-1">
             <Input

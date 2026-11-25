@@ -30,6 +30,10 @@ vi.mock('../middleware/requireModule', () => ({
   requireModule: () => (_req: any, _res: any, next: any) => next(),
 }));
 
+vi.mock('../middleware/requireAiEntitlement', () => ({
+  requireAiEntitlement: (_req: any, _res: any, next: any) => next(),
+}));
+
 vi.mock('../lib/aiProviderService', () => ({
   executeOrgAiCompletion: (...args: any[]) => mockExecuteCompletion(...args),
 }));

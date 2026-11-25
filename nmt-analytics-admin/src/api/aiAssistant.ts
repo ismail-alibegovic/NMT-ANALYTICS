@@ -31,7 +31,11 @@ export async function getExecutiveSignals(): Promise<{ generatedAt: string; sign
   return data;
 }
 
-export type AiActionType = 'create_inquiry' | 'create_quotation_draft' | 'create_customer_draft';
+export type AiActionType =
+  | 'create_inquiry'
+  | 'create_quotation_draft'
+  | 'create_customer_draft'
+  | 'create_package_draft';
 
 export interface AiActionProposalDto {
   id: string;
