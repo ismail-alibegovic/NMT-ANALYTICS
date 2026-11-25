@@ -100,6 +100,18 @@ export async function deleteQuotationItem(quotationId: string, itemId: string) {
 
 export function quotationPdfUrl(id: string) { return `/api/quotations/${id}/pdf`; }
 
+export async function downloadQuotationPdf(id: string, reference?: string) {
+  const { data } = await get<Blob>(`/quotations/${id}/pdf`, { responseType: 'blob' });
+  const blobUrl = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type: 'application/pdf' }));
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = `offer-${reference || id}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+}
+
 export async function getQuotationBookingOptions(id:string){
   const {data}=await get<{departures:QuotationBookingDeparture[]}>(`/quotations/${id}/booking-options`);
   return data.departures;

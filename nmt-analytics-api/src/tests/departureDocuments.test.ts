@@ -89,6 +89,7 @@ function makeChain(data: any = []) {
   const chain: any = {
     select: vi.fn(() => chain),
     eq: vi.fn(() => chain),
+    neq: vi.fn(() => chain),
     order: vi.fn(() => chain),
     single: singleMock,
     maybeSingle: maybeSingleMock,

@@ -139,9 +139,12 @@ function buildInvoiceContext(reservation: any): RenderContext {
   const total = Number(reservation.total_amount || 0);
   const paid = Number(reservation.paid_amount || 0);
 
-  const hasServices = Array.isArray(reservation.package_services) && reservation.package_services.length > 0;
+  const includedServices = Array.isArray(reservation.package_services)
+    ? reservation.package_services.filter((s: any) => !s?.isOptional)
+    : [];
+  const hasServices = includedServices.length > 0;
   const lineItems: LineItem[] = hasServices
-    ? reservation.package_services.map((s: any) => {
+    ? includedServices.map((s: any) => {
         const label =
           s.description ||
           [s.serviceType, s.providerName]
@@ -153,7 +156,6 @@ function buildInvoiceContext(reservation: any): RenderContext {
         const qty = Number(s.quantity || 1);
         return {
           description: label,
-          sub: s.isOptional ? '(optional)' : undefined,
           qty,
           unitPrice,
           amount: Number(s.totalPrice || unitPrice * qty),
@@ -171,8 +173,9 @@ function buildInvoiceContext(reservation: any): RenderContext {
         },
       ];
 
+  // Authoritative commercial total is always reservation.total_amount when present.
   const servicesTotal = lineItems.reduce((sum, r) => sum + (r.amount || 0), 0);
-  const effectiveTotal = hasServices ? servicesTotal : total;
+  const effectiveTotal = total > 0 ? total : servicesTotal;
 
   const paymentRows: Array<[string, string]> = [
     ['Status', (reservation.payment_status || 'unpaid').replace(/_/g, ' ').toUpperCase()],
@@ -328,11 +331,23 @@ function buildContractContext(contract: any): RenderContext {
   };
 }
 
-const RECEIPT_TYPE_LABELS: Record<string, string> = {
+const FISCAL_RECEIPT_TYPE_LABELS: Record<string, string> = {
   advance: 'Avansni račun',
   final: 'Fiskalni račun',
   refund: 'Povrat sredstava',
 };
+
+const NON_FISCAL_RECEIPT_TYPE_LABELS: Record<string, string> = {
+  advance: 'Potvrda avansne uplate (Nefiskalni dokument)',
+  final: 'Potvrda uplate (Nefiskalni dokument)',
+  refund: 'Potvrda povrata sredstava (Nefiskalni dokument)',
+};
+
+function isReceiptFiscalized(receipt: any): boolean {
+  const f = receipt?.fiscal_data;
+  if (!f || typeof f !== 'object') return false;
+  return Boolean(f.cin || f.jir || f.zki || f.fiscalNumber);
+}
 
 function buildReceiptContext(receipt: any): RenderContext {
   const org = receipt.organizations || {};
@@ -341,14 +356,16 @@ function buildReceiptContext(receipt: any): RenderContext {
   const contract = receipt.contracts || {};
   const currency = receipt.currency || 'BAM';
   const amount = Number(receipt.amount ?? 0);
-  const typeLabel = RECEIPT_TYPE_LABELS[receipt.receipt_type] || 'Račun';
+  const fiscalized = isReceiptFiscalized(receipt);
+  const labels = fiscalized ? FISCAL_RECEIPT_TYPE_LABELS : NON_FISCAL_RECEIPT_TYPE_LABELS;
+  const typeLabel = labels[receipt.receipt_type] || (fiscalized ? 'Račun' : 'Potvrda uplate (Nefiskalni dokument)');
 
   const paymentRows: Array<[string, string]> = [
     ['Ukupno', fmtMoney(amount, currency)],
     ['Način plaćanja', receipt.payment_method || receipt.paymentMethod || '—'],
   ];
   if (receipt.linked_receipt_id) {
-    paymentRows.push(['Povezani račun', shortId(receipt.linked_receipt_id)]);
+    paymentRows.push(['Povezana potvrda', shortId(receipt.linked_receipt_id)]);
   }
 
   return {
@@ -356,9 +373,9 @@ function buildReceiptContext(receipt: any): RenderContext {
     org,
     banner: {
       height: 130,
-      title: 'RAČUN',
+      title: fiscalized ? 'RAČUN' : 'POTVRDA UPLATE',
       titleAlign: 'left',
-      titleSize: 26,
+      titleSize: fiscalized ? 26 : 22,
       metaLines: [
         `Broj: ${receipt.receipt_number || '—'}`,
         `Datum: ${fmtDate(receipt.issued_at)}`,
