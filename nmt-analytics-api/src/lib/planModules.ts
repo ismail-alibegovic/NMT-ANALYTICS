@@ -47,7 +47,8 @@ export type EntitledModuleKey =
   | "hotels"
   | "excursions"
   | "waivers"
-  | "proposals";
+  | "proposals"
+  | "ai_assistant";
 
 const CORE_V1_MODULES: EntitledModuleKey[] = [...MODULE_KEYS];
 const PRO_EXTRA_MODULES: EntitledModuleKey[] = [
@@ -61,13 +62,14 @@ const PRO_EXTRA_MODULES: EntitledModuleKey[] = [
 // DB plan_module_map grants all 13 core V1 modules to 'trial' and 'core' ('starter')
 // so newly registered and staging/trial agencies can operate every V1 screen cleanly.
 export const PLAN_MODULE_MAP: Record<PlanTier, ReadonlySet<EntitledModuleKey>> = {
-  trial: new Set<EntitledModuleKey>(CORE_V1_MODULES),
+  trial: new Set<EntitledModuleKey>([...CORE_V1_MODULES, "ai_assistant"]),
   starter: new Set<EntitledModuleKey>(CORE_V1_MODULES),
-  pro: new Set<EntitledModuleKey>([...CORE_V1_MODULES, ...PRO_EXTRA_MODULES]),
+  pro: new Set<EntitledModuleKey>([...CORE_V1_MODULES, ...PRO_EXTRA_MODULES, "ai_assistant"]),
   enterprise: new Set<EntitledModuleKey>([
     ...CORE_V1_MODULES,
     ...PRO_EXTRA_MODULES,
     "proposals",
+    "ai_assistant",
   ]),
 };
 
