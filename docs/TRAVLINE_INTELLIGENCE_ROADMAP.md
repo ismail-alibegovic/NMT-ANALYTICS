@@ -19,28 +19,28 @@ Status legend: `DONE` verified · `IN PROGRESS` · `PLANNED` · `BLOCKED` · `DE
 | Isolated environment | DECISION NEEDED | Shared Staging (`hlyqrwytlrimtrjncmez`) backs the verified RC preview. Intelligence migrations that are not backward-compatible must **not** be applied there without owner approval. Proposed: additive-only migrations on shared Staging, or a separate Supabase branch/project. |
 
 ## Milestone 1 — Business logic audit — DONE
-Deliverables: `docs/audits/intelligence/BUSINESS_LOGIC_MATRIX.md`, `ISSUE_REGISTER.md`, `SCENARIOS.md`.
+- Commit `0c92ab4`: Deliverables `docs/audits/intelligence/BASELINE.md`, `BUSINESS_LOGIC_MATRIX.md`, `ISSUE_REGISTER.md`, `SCENARIOS.md`.
 
 ## Milestone 2 — Document audit & corrections — DONE
-Completed spec: `docs/tasks/active/intelligence-m2-document-corrections.md` (`ISS-002`, `ISS-003`, `ISS-005`, `ISS-008`).
+- Commit `4131f0e`: Spec `docs/tasks/active/intelligence-m2-document-corrections.md` (`ISS-002`, `ISS-003`, `ISS-005`, `ISS-008`). Verified: API `tsc`, 4/4 test files (55/55 tests), `npm run build`; Admin `lint` (0 errors), `tsc`, `financeDocumentsLocale.test.tsx` (8/8), `npm run build`.
 
 ## Milestone 3 — Product experience & business logic — DONE
-Completed spec: `docs/tasks/active/intelligence-m3-business-logic-fixes.md` (`ISS-001`, `ISS-004`, `ISS-007`, `ISS-010`, `ISS-011`, `ISS-014`).
+- Commit `4283020`: Spec `docs/tasks/active/intelligence-m3-business-logic-fixes.md` (`ISS-001`, `ISS-004`, `ISS-007`, `ISS-010`, `ISS-011`, `ISS-014`). Verified: API `tsc`, 3/3 test files (12/12 tests), `npm run build`; Admin `lint` (0 errors), `tsc`, `financeDocumentsLocale.test.tsx` (8/8), `npm run build`.
 
 ## Milestone 4 — Travline Academy — DONE
-Completed spec: `docs/tasks/active/intelligence-m4-travline-academy.md`.
+- Commit `f8a43e3`: Spec `docs/tasks/active/intelligence-m4-travline-academy.md`. Verified: Admin `lint` (0 errors), `tsc`, `academy.test.tsx` (2/2), `npm run build`.
 
 ## Milestone 5 — Universal AI infrastructure — DONE
-Completed spec: `docs/tasks/active/intelligence-m5-universal-ai-infra.md`.
+- Commit `6b8fc82`: Spec `docs/tasks/active/intelligence-m5-universal-ai-infra.md` (additive-only migration `20261125130000_universal_ai_infrastructure.sql`, `secretVault`, `aiUrlGuard`, `aiProviders`). Verified: API `tsc`, `m5AiInfrastructure.test.ts` (3/3), `npm run build`.
 
 ## Milestone 6 — AI commercial architecture — DONE
-Completed spec: `docs/tasks/active/intelligence-m6-ai-commercial.md`.
+- Commit `84ec421`: Spec `docs/tasks/active/intelligence-m6-ai-commercial.md` (`requirePlatformAdmin`, `aiProviderService`, CRUD routes, `AiSettings.tsx`). Verified: API `tsc`, 2/2 test files (6/6), `npm run build`; Admin `lint` (0 errors), `tsc`, `npm run build`.
 
 ## Milestone 7 — Read-only Travline AI — DONE
-Completed spec: `docs/tasks/active/intelligence-m7-read-only-assistant.md`.
+- Commit `121ebc8`: Spec `docs/tasks/active/intelligence-m7-read-only-assistant.md` (`aiContextBuilder`, `POST /api/ai/assistant`, `AiAssistant.tsx`). Verified: API `tsc`, 3/3 test files (9/9), `npm run build`; Admin `lint` (0 errors), `tsc`, `npm run build`.
 
 ## Milestone 8 — Intelligent dashboard — DONE
-Completed spec: `docs/tasks/active/intelligence-m8-executive-signals.md`.
+- Commit `2ca5889`: Spec `docs/tasks/active/intelligence-m8-executive-signals.md` (`GET /api/ai/signals`, `ExecutiveSignalsCard.tsx`). Verified: API `tsc`, 2/2 test files (5/5), `npm run build`; Admin `lint` (0 errors), `tsc`, `npm run build`.
 
 ## Milestones 9–10 — PLANNED
 9 Drafts & controlled actions · 10 Full staging verification.
@@ -48,4 +48,4 @@ Completed spec: `docs/tasks/active/intelligence-m8-executive-signals.md`.
 Dependencies: 5 → 6 → 7 → 8 → 9. Milestones 2–4 are independent of the AI track and are executed first so that the AI answers about *verified* documentation and *consistent* financial definitions.
 
 ## Update log
-- 2026-11-25 — M0 started; branch created; roadmap created.
+- 2026-11-25 — M0–M8 completed locally and published to `origin/feat/travline-intelligence` via draft PR targeting `release/commercial-rc-2026-11-24`.
