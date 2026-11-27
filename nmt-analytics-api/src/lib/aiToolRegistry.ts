@@ -14,10 +14,15 @@ export interface TypedBusinessTool<TInput = any> {
 const MANAGER_ROLES = new Set(['manager', 'director', 'super_admin']);
 
 const ACADEMY_KNOWLEDGE = [
-  { topic: 'packages_vs_departures', title: 'Packages vs Departures', summary: 'Packages are reusable tour templates (destination, duration, included services, partner hotels). Departures are dated trip instances with capacity, room slots, bus/flight seating, and profitability.' },
+  { topic: 'customers', title: 'Customers', summary: 'Central CRM directory (/customers) storing traveler/client contact details and linked inquiries, quotations, and reservations.' },
+  { topic: 'inquiries_quotations', title: 'Sales Funnel: Inquiries & Quotations', summary: 'Leads enter via Inquiries (/inquiries) or Public Forms, convert into Quotations (/quotations) with day-by-day items, net price, markup, and sell totals, and convert into Reservations.' },
+  { topic: 'packages_vs_departures', title: 'Packages vs Departures', summary: 'Packages (/packages) are reusable tour templates (destination, duration, base price, transport, included hotels/services). Departures (/departures) are dated trip instances with capacity, booked seats, room slots, bus/flight seating, and profitability.' },
+  { topic: 'reservations_passengers', title: 'Reservations & Passengers', summary: 'Reservations (/reservations) link a client, departure/package, party size, installment schedule, and departure_passengers records with passport/DOB readiness.' },
+  { topic: 'payments_refunds', title: 'Payments & Refunds Ledger', summary: 'All incoming payments and outgoing refunds are recorded in the canonical payments ledger (/payments) separated strictly by currency (BAM, EUR, USD).' },
   { topic: 'receipts_pu', title: 'Non-Fiscal Payment Receipts (PU)', summary: 'Un-fiscalized payment confirmations use PU-YYYY-XXXX numbering and are labeled POTVRDA UPLATE (Nefiskalni dokument). Issued receipts are immutable; corrections require a refund/storno receipt.' },
+  { topic: 'rooming_seating', title: 'Rooming & Bus Seating', summary: 'Departure Workspace tabs manage hotel allocations, room slot assignments (departure_room_slot_assignments), and vehicle seat maps.' },
   { topic: 'manifests_vouchers', title: 'Manifests & Batch Vouchers', summary: 'Generated per departure from active (non-cancelled) reservations and departure_passengers. Cancelled bookings are automatically excluded.' },
-  { topic: 'sales_funnel', title: 'Inquiry -> Quotation -> Reservation', summary: 'Leads enter via Inquiries or Public Forms, convert into Quotations with line items, and become Reservations with passengers, accommodation, and payment schedules.' },
+  { topic: 'ai_assistant_proposals', title: 'Travline AI Assistant & Proposals', summary: 'Travline AI is read-only for Q&A and creates editable Action Proposals (/ai/proposals) that require explicit human confirmation before mutating business records.' },
 ];
 
 export const BUSINESS_TOOL_REGISTRY: TypedBusinessTool[] = [
@@ -34,7 +39,7 @@ export const BUSINESS_TOOL_REGISTRY: TypedBusinessTool[] = [
         .select('id, full_name, phone, email, created_at')
         .eq('org_id', orgId)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(15);
       if (args.query?.trim()) {
         q = q.ilike('full_name', `%${args.query.trim()}%`);
       }
@@ -43,14 +48,73 @@ export const BUSINESS_TOOL_REGISTRY: TypedBusinessTool[] = [
     },
   },
   {
+    name: 'search_packages',
+    description: 'List active travel packages with destination, durationDays, basePrice, currency, and maxParticipants.',
+    category: 'read_only',
+    minRole: 'agent',
+    requiresConfirmation: false,
+    inputSchema: z.object({ limit: z.number().int().min(1).max(30).default(15) }),
+    execute: async (orgId, _role, args) => {
+      const { data } = await supabaseAdmin
+        .from('packages')
+        .select('id, name, destination, duration_days, base_price, currency, max_participants, transport_type, trip_type, is_active')
+        .eq('org_id', orgId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(args.limit || 15);
+      return {
+        packages: (data || []).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          destination: p.destination,
+          durationDays: p.duration_days,
+          basePrice: Number(p.base_price || 0),
+          currency: p.currency || 'BAM',
+          maxParticipants: p.max_participants,
+          transportType: p.transport_type,
+          tripType: p.trip_type,
+          route: `/packages/${p.id}`,
+        })),
+      };
+    },
+  },
+  {
+    name: 'search_inquiries_and_quotations',
+    description: 'List recent inquiries and quotations in the organization sales pipeline.',
+    category: 'read_only',
+    minRole: 'agent',
+    requiresConfirmation: false,
+    inputSchema: z.object({}),
+    execute: async (orgId) => {
+      const [{ data: inq }, { data: quo }] = await Promise.all([
+        supabaseAdmin
+          .from('inquiries')
+          .select('id, contact_name, destination, travelers, stage, created_at')
+          .eq('org_id', orgId)
+          .order('created_at', { ascending: false })
+          .limit(10),
+        supabaseAdmin
+          .from('quotations')
+          .select('id, reference, title, status, currency, sell_total, created_at')
+          .eq('org_id', orgId)
+          .order('created_at', { ascending: false })
+          .limit(10),
+      ]);
+      return {
+        inquiries: (inq || []).map((i: any) => ({ ...i, route: '/inquiries' })),
+        quotations: (quo || []).map((q: any) => ({ ...q, route: `/quotations/${q.id}` })),
+      };
+    },
+  },
+  {
     name: 'search_open_balances',
     description: 'Find active non-cancelled reservations with outstanding balances (who owes money).',
     category: 'read_only',
     minRole: 'manager',
     requiresConfirmation: false,
-    inputSchema: z.object({ limit: z.number().int().min(1).max(50).default(20) }),
+    inputSchema: z.object({ limit: z.number().int().min(1).max(50).default(15) }),
     execute: async (orgId, role, args) => {
-      if (!MANAGER_ROLES.has(role)) return { error: 'INSUFFICIENT_ROLE_FOR_FINANCIAL_DATA' };
+      if (!MANAGER_ROLES.has((role || '').toLowerCase())) return { error: 'INSUFFICIENT_ROLE_FOR_FINANCIAL_DATA' };
       const { data } = await supabaseAdmin
         .from('reservations')
         .select('id, customer_name, total_amount, paid_amount, balance_due, currency, status, departures(depart_at, packages(name))')
@@ -58,7 +122,7 @@ export const BUSINESS_TOOL_REGISTRY: TypedBusinessTool[] = [
         .neq('status', 'cancelled')
         .gt('balance_due', 0)
         .order('balance_due', { ascending: false })
-        .limit(args.limit || 20);
+        .limit(args.limit || 15);
 
       const byCurrency: Record<string, number> = {};
       for (const r of (data || []) as any[]) {
@@ -76,6 +140,58 @@ export const BUSINESS_TOOL_REGISTRY: TypedBusinessTool[] = [
           packageName: r.departures?.packages?.name || null,
           route: `/reservations/${r.id}`,
         })),
+      };
+    },
+  },
+  {
+    name: 'get_financial_summary',
+    description: 'Get payments received, refunds, and supplier obligations grouped strictly by currency.',
+    category: 'read_only',
+    minRole: 'manager',
+    requiresConfirmation: false,
+    inputSchema: z.object({}),
+    execute: async (orgId, role) => {
+      if (!MANAGER_ROLES.has((role || '').toLowerCase())) return { error: 'INSUFFICIENT_ROLE_FOR_FINANCIAL_DATA' };
+      const [{ data: payRows }, { data: supRows }] = await Promise.all([
+        supabaseAdmin
+          .from('payments')
+          .select('amount, currency, status, payment_type')
+          .eq('org_id', orgId)
+          .eq('status', 'succeeded')
+          .limit(300),
+        supabaseAdmin
+          .from('supplier_obligations')
+          .select('amount, paid_amount, currency, status')
+          .eq('org_id', orgId)
+          .neq('status', 'cancelled')
+          .limit(200),
+      ]);
+
+      const receivedByCurrency: Record<string, number> = {};
+      const refundsByCurrency: Record<string, number> = {};
+      for (const p of (payRows || []) as any[]) {
+        const cur = String(p.currency || 'BAM');
+        const amt = Number(p.amount || 0);
+        if (amt < 0 || p.payment_type === 'refund') {
+          refundsByCurrency[cur] = Number(((refundsByCurrency[cur] || 0) + Math.abs(amt)).toFixed(2));
+        } else {
+          receivedByCurrency[cur] = Number(((receivedByCurrency[cur] || 0) + amt).toFixed(2));
+        }
+      }
+
+      const unpaidObligationsByCurrency: Record<string, number> = {};
+      for (const s of (supRows || []) as any[]) {
+        const cur = String(s.currency || 'BAM');
+        const unpaid = Math.max(0, Number(s.amount || 0) - Number(s.paid_amount || 0));
+        if (unpaid > 0) {
+          unpaidObligationsByCurrency[cur] = Number(((unpaidObligationsByCurrency[cur] || 0) + unpaid).toFixed(2));
+        }
+      }
+
+      return {
+        receivedByCurrency,
+        refundsByCurrency,
+        unpaidSupplierObligationsByCurrency: unpaidObligationsByCurrency,
       };
     },
   },
@@ -172,14 +288,16 @@ export const BUSINESS_TOOL_REGISTRY: TypedBusinessTool[] = [
 export async function runAuthorizedReadOnlyTools(orgId: string, role: string): Promise<Record<string, any>> {
   const results: Record<string, any> = {};
   const isManagerPlus = MANAGER_ROLES.has((role || '').toLowerCase());
-  for (const tool of BUSINESS_TOOL_REGISTRY) {
-    if (tool.category !== 'read_only') continue;
-    if (tool.minRole === 'manager' && !isManagerPlus) continue;
-    try {
-      results[tool.name] = await tool.execute(orgId, role, {});
-    } catch {
-      results[tool.name] = { error: 'TOOL_EXECUTION_FAILED' };
-    }
-  }
+  await Promise.all(
+    BUSINESS_TOOL_REGISTRY.map(async (tool) => {
+      if (tool.category !== 'read_only') return;
+      if (tool.minRole === 'manager' && !isManagerPlus) return;
+      try {
+        results[tool.name] = await tool.execute(orgId, role, {});
+      } catch {
+        results[tool.name] = { error: 'TOOL_EXECUTION_FAILED' };
+      }
+    }),
+  );
   return results;
 }

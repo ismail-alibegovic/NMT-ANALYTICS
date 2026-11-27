@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import PageMeta from '../../components/common/PageMeta';
 import Badge from '../../components/ui/badge/Badge';
 import Button from '../../components/ui/button/Button';
@@ -21,6 +21,7 @@ import {
   createManualPlatformModel,
   updatePlatformAiModel,
   runPlatformPlayground,
+  streamPlatformPlayground,
   listPlatformAiEntitlements,
   updatePlatformAiEntitlement,
   getPlatformAiUsage,
@@ -40,20 +41,25 @@ interface ProviderPreset {
   label: string;
   providerType: AiProviderType;
   protocol: AiProtocol;
+  authMethod: string;
   baseUrl: string;
   defaultModel: string;
 }
 
 const THIRD_PARTY_PRESETS: ProviderPreset[] = [
-  { slug: 'openai', label: 'OpenAI', providerType: 'openai', protocol: 'openai_chat_completions', baseUrl: 'https://api.openai.com/v1', defaultModel: 'gpt-4o-mini' },
-  { slug: 'anthropic', label: 'Anthropic (Claude)', providerType: 'anthropic', protocol: 'anthropic_messages', baseUrl: 'https://api.anthropic.com/v1', defaultModel: 'claude-3-5-sonnet-latest' },
-  { slug: 'gemini', label: 'Google Gemini', providerType: 'gemini', protocol: 'gemini_generate_content', baseUrl: 'https://generativelanguage.googleapis.com/v1beta', defaultModel: 'gemini-2.5-flash' },
-  { slug: 'deepseek', label: 'DeepSeek', providerType: 'openai_compatible', protocol: 'openai_chat_completions', baseUrl: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-chat' },
-  { slug: 'openrouter', label: 'OpenRouter', providerType: 'openai_compatible', protocol: 'openai_chat_completions', baseUrl: 'https://openrouter.ai/api/v1', defaultModel: 'openai/gpt-4o-mini' },
-  { slug: 'groq', label: 'Groq', providerType: 'openai_compatible', protocol: 'openai_chat_completions', baseUrl: 'https://api.groq.com/openai/v1', defaultModel: 'llama-3.3-70b-versatile' },
-  { slug: 'mistral', label: 'Mistral AI', providerType: 'openai_compatible', protocol: 'openai_chat_completions', baseUrl: 'https://api.mistral.ai/v1', defaultModel: 'mistral-small-latest' },
-  { slug: 'together', label: 'Together AI', providerType: 'openai_compatible', protocol: 'openai_chat_completions', baseUrl: 'https://api.together.xyz/v1', defaultModel: 'meta-llama/Llama-3.3-70B-Instruct-Turbo' },
+  { slug: 'openai', label: 'OpenAI', providerType: 'openai', protocol: 'openai_chat_completions', authMethod: 'bearer', baseUrl: 'https://api.openai.com/v1', defaultModel: 'gpt-4o-mini' },
+  { slug: 'anthropic', label: 'Anthropic (Claude)', providerType: 'anthropic', protocol: 'anthropic_messages', authMethod: 'x_api_key', baseUrl: 'https://api.anthropic.com/v1', defaultModel: 'claude-3-5-sonnet-latest' },
+  { slug: 'gemini', label: 'Google Gemini', providerType: 'gemini', protocol: 'gemini_generate_content', authMethod: 'x_goog_api_key', baseUrl: 'https://generativelanguage.googleapis.com/v1beta', defaultModel: 'gemini-2.5-flash' },
+  { slug: 'deepseek', label: 'DeepSeek', providerType: 'openai_compatible', protocol: 'openai_chat_completions', authMethod: 'bearer', baseUrl: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-chat' },
+  { slug: 'openrouter', label: 'OpenRouter', providerType: 'openai_compatible', protocol: 'openai_chat_completions', authMethod: 'bearer', baseUrl: 'https://openrouter.ai/api/v1', defaultModel: 'openai/gpt-4o-mini' },
+  { slug: 'groq', label: 'Groq', providerType: 'openai_compatible', protocol: 'openai_chat_completions', authMethod: 'bearer', baseUrl: 'https://api.groq.com/openai/v1', defaultModel: 'llama-3.3-70b-versatile' },
+  { slug: 'mistral', label: 'Mistral AI', providerType: 'openai_compatible', protocol: 'openai_chat_completions', authMethod: 'bearer', baseUrl: 'https://api.mistral.ai/v1', defaultModel: 'mistral-small-latest' },
+  { slug: 'together', label: 'Together AI', providerType: 'openai_compatible', protocol: 'openai_chat_completions', authMethod: 'bearer', baseUrl: 'https://api.together.xyz/v1', defaultModel: 'meta-llama/Llama-3.3-70B-Instruct-Turbo' },
 ];
+
+function extractErrorMsg(err: any, fallback: string): string {
+  return err?.response?.data?.error || err?.response?.data?.message || err?.message || fallback;
+}
 
 export default function AiSettings() {
   const { t } = useT();
@@ -78,7 +84,8 @@ export default function AiSettings() {
     summary: { count: 0, totalTokens: 0, totalKnownCostUsd: 0 },
   });
 
-  // Provider form state
+  // Provider form state (create + edit)
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [configMode, setConfigMode] = useState<ConfigMode>('preset');
   const [selectedPresetSlug, setSelectedPresetSlug] = useState('openai');
   const [providerSlug, setProviderSlug] = useState('openai');
@@ -87,8 +94,10 @@ export default function AiSettings() {
   const [authMethod, setAuthMethod] = useState('bearer');
   const [displayName, setDisplayName] = useState('OpenAI');
   const [baseUrl, setBaseUrl] = useState('https://api.openai.com/v1');
+  const [modelsEndpoint, setModelsEndpoint] = useState('');
   const [defaultModel, setDefaultModel] = useState('gpt-4o-mini');
   const [fallbackModel, setFallbackModel] = useState('');
+  const [connectTimeoutMs, setConnectTimeoutMs] = useState(10000);
   const [requestTimeoutMs, setRequestTimeoutMs] = useState(30000);
   const [maxOutputTokens, setMaxOutputTokens] = useState(2048);
   const [apiKey, setApiKey] = useState('');
@@ -112,12 +121,14 @@ export default function AiSettings() {
   const [pgModelId, setPgModelId] = useState('');
   const [pgPrompt, setPgPrompt] = useState('');
   const [pgTemp, setPgTemp] = useState(0.2);
-  const [pgMaxTokens, setPgMaxTokens] = useState(512);
+  const [pgMaxTokens, setPgMaxTokens] = useState(1024);
+  const [pgStream, setPgStream] = useState(true);
   const [pgJsonMode, setPgJsonMode] = useState(false);
   const [pgToolTest, setPgToolTest] = useState(false);
   const [pgRunning, setPgRunning] = useState(false);
   const [pgHistory, setPgHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string; stats?: any }>>([]);
   const [pgError, setPgError] = useState<string | null>(null);
+  const pgAbortRef = useRef<AbortController | null>(null);
 
   const loadAll = async () => {
     setLoading(true);
@@ -139,9 +150,10 @@ export default function AiSettings() {
         setEntitlements(eList);
         setPlatformUsage(uRes);
         if (pList.length > 0 && !pgProviderId) {
-          setPgProviderId(pList[0].id);
-          setPgModelId(pList[0].defaultModel);
-          setManualProviderId(pList[0].id);
+          const def = pList.find((p) => p.isDefault) || pList[0];
+          setPgProviderId(def.id);
+          setPgModelId(def.defaultModel);
+          setManualProviderId(def.id);
         }
       } else {
         const [entRes, usageRes] = await Promise.all([
@@ -152,7 +164,7 @@ export default function AiSettings() {
         setOrgLogs(usageRes.logs || []);
       }
     } catch (err: any) {
-      setLoadError(err?.response?.data?.message || s.loadError);
+      setLoadError(extractErrorMsg(err, s.loadError));
     } finally {
       setLoading(false);
     }
@@ -170,9 +182,23 @@ export default function AiSettings() {
     setProviderSlug(p.slug);
     setProviderType(p.providerType);
     setProtocol(p.protocol);
+    setAuthMethod(p.authMethod);
     setDisplayName(p.label);
     setBaseUrl(p.baseUrl);
+    setModelsEndpoint('');
     setDefaultModel(p.defaultModel);
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setApiKey('');
+    setModelsEndpoint('');
+    setFallbackModel('');
+    setConnectTimeoutMs(10000);
+    setRequestTimeoutMs(30000);
+    setMaxOutputTokens(2048);
+    applyPreset(selectedPresetSlug);
+    setConfigMode('preset');
   };
 
   const switchMode = (mode: ConfigMode) => {
@@ -181,8 +207,10 @@ export default function AiSettings() {
       setProviderSlug('');
       setProviderType('openai_compatible');
       setProtocol('openai_chat_completions');
+      setAuthMethod('bearer');
       setDisplayName('');
       setBaseUrl('');
+      setModelsEndpoint('');
       setDefaultModel('');
     } else {
       applyPreset(selectedPresetSlug);
@@ -190,6 +218,7 @@ export default function AiSettings() {
   };
 
   const applyHcnsecTemplate = () => {
+    setEditingId(null);
     setConfigMode('custom');
     setProviderSlug('hcnsec');
     setProviderType('openai_compatible');
@@ -197,35 +226,76 @@ export default function AiSettings() {
     setAuthMethod('bearer');
     setDisplayName('HCNSEC AI Models');
     setBaseUrl('https://api.hcnsec.cn/v1');
+    setModelsEndpoint('');
     setDefaultModel('auto');
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const startEditingProvider = (p: AiProviderDto) => {
+    setEditingId(p.id);
+    setConfigMode('custom');
+    setProviderSlug(p.providerSlug || '');
+    setProviderType(p.providerType);
+    setProtocol(p.protocol);
+    setAuthMethod(p.authMethod || 'bearer');
+    setDisplayName(p.displayName);
+    setBaseUrl(p.baseUrl || '');
+    setModelsEndpoint(p.modelsEndpoint || '');
+    setDefaultModel(p.defaultModel);
+    setFallbackModel(p.fallbackModel || '');
+    setConnectTimeoutMs(p.connectTimeoutMs || 10000);
+    setRequestTimeoutMs(p.requestTimeoutMs || 30000);
+    setMaxOutputTokens(p.maxOutputTokens || 2048);
+    setApiKey('');
+  };
+
+  const handleCreateOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!displayName.trim() || !apiKey.trim() || !defaultModel.trim()) {
+    if (!displayName.trim() || !defaultModel.trim() || (!editingId && !apiKey.trim())) {
       showError(s.validationError);
       return;
     }
     setSaving(true);
     try {
-      await createPlatformAiProvider({
-        providerSlug: providerSlug.trim() || null,
-        providerType,
-        protocol,
-        authMethod,
-        displayName: displayName.trim(),
-        baseUrl: baseUrl.trim() || null,
-        defaultModel: defaultModel.trim(),
-        fallbackModel: fallbackModel.trim() || null,
-        requestTimeoutMs,
-        maxOutputTokens,
-        apiKey: apiKey.trim(),
-      });
-      setApiKey('');
-      showSuccess(s.createdSuccess);
+      if (editingId) {
+        await updatePlatformAiProvider(editingId, {
+          providerSlug: providerSlug.trim() || null,
+          providerType,
+          protocol,
+          authMethod,
+          displayName: displayName.trim(),
+          baseUrl: baseUrl.trim() || null,
+          modelsEndpoint: modelsEndpoint.trim() || null,
+          defaultModel: defaultModel.trim(),
+          fallbackModel: fallbackModel.trim() || null,
+          connectTimeoutMs,
+          requestTimeoutMs,
+          maxOutputTokens,
+          ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
+        });
+        showSuccess(s.updatedSuccess);
+        resetForm();
+      } else {
+        await createPlatformAiProvider({
+          providerSlug: providerSlug.trim() || null,
+          providerType,
+          protocol,
+          authMethod,
+          displayName: displayName.trim(),
+          baseUrl: baseUrl.trim() || null,
+          modelsEndpoint: modelsEndpoint.trim() || null,
+          defaultModel: defaultModel.trim(),
+          fallbackModel: fallbackModel.trim() || null,
+          connectTimeoutMs,
+          requestTimeoutMs,
+          maxOutputTokens,
+          apiKey: apiKey.trim(),
+        });
+        setApiKey('');
+        showSuccess(s.createdSuccess);
+      }
       await loadAll();
     } catch (err: any) {
-      showError(err?.response?.data?.message || s.saveError);
+      showError(extractErrorMsg(err, s.saveError));
     } finally {
       setSaving(false);
     }
@@ -236,9 +306,10 @@ export default function AiSettings() {
     try {
       const res = await testPlatformAiProvider(p.id);
       if (res.ok) {
+        const modelTag = res.routedModel && res.routedModel !== p.defaultModel ? ` -> ${res.routedModel}` : '';
         setTestResultById((prev) => ({
           ...prev,
-          [p.id]: `OK (${res.latencyMs}ms) · ${res.discoveredCount ?? 0} models · "${res.sampleReply || 'OK'}"`,
+          [p.id]: `OK (${res.latencyMs}ms)${modelTag} · ${res.discoveredCount ?? 0} models · "${res.sampleReply || 'OK'}"`,
         }));
         showSuccess(`${p.displayName}: OK (${res.latencyMs}ms)`);
       } else {
@@ -247,7 +318,7 @@ export default function AiSettings() {
       }
       await loadAll();
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.response?.data?.message || 'Connection test failed';
+      const msg = extractErrorMsg(err, 'Connection test failed');
       setTestResultById((prev) => ({ ...prev, [p.id]: `FAIL: ${msg}` }));
       showError(msg);
     } finally {
@@ -267,7 +338,7 @@ export default function AiSettings() {
         showError(res.error || s.discoveryUnsupported);
       }
     } catch (err: any) {
-      showError(err?.response?.data?.message || s.discoveryUnsupported);
+      showError(extractErrorMsg(err, s.discoveryUnsupported));
     } finally {
       setDiscoveringId(null);
     }
@@ -288,7 +359,7 @@ export default function AiSettings() {
       showSuccess(s.modelRegistered);
       await loadAll();
     } catch (err: any) {
-      showError(err?.response?.data?.message || s.saveError);
+      showError(extractErrorMsg(err, s.saveError));
     }
   };
 
@@ -312,36 +383,97 @@ export default function AiSettings() {
     });
   }, [models, pgProviderId, pgModelSearch]);
 
+  const handlePlaygroundProviderChange = (nextProviderId: string) => {
+    setPgProviderId(nextProviderId);
+    const chosen = providers.find((p) => p.id === nextProviderId);
+    if (chosen) {
+      setPgModelId(chosen.defaultModel);
+    }
+  };
+
   const handleRunPlayground = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pgProviderId || !pgModelId.trim() || !pgPrompt.trim() || pgRunning) return;
-    const nextHistory = [...pgHistory, { role: 'user' as const, content: pgPrompt.trim() }];
+    const promptText = pgPrompt.trim();
+    const nextHistory = [...pgHistory, { role: 'user' as const, content: promptText }];
     setPgHistory(nextHistory);
     setPgPrompt('');
     setPgError(null);
     setPgRunning(true);
+
+    const requestPayload = {
+      providerId: pgProviderId,
+      modelId: pgModelId.trim(),
+      messages: nextHistory.map((m) => ({ role: m.role, content: m.content })),
+      temperature: pgTemp,
+      maxTokens: pgMaxTokens,
+      responseFormat: (pgJsonMode ? 'json_object' : 'text') as 'text' | 'json_object',
+      testTools: pgToolTest,
+    };
+
     try {
-      const res = await runPlatformPlayground({
-        providerId: pgProviderId,
-        modelId: pgModelId.trim(),
-        messages: nextHistory.map((m) => ({ role: m.role, content: m.content })),
-        temperature: pgTemp,
-        maxTokens: pgMaxTokens,
-        responseFormat: pgJsonMode ? 'json_object' : 'text',
-        testTools: pgToolTest,
-      });
-      setPgHistory((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: res.text || (res.toolCalls ? JSON.stringify(res.toolCalls, null, 2) : '(empty response)'),
-          stats: { latencyMs: res.latencyMs, tokensPerSec: res.tokensPerSec, usage: res.usage },
-        },
-      ]);
+      if (pgStream && !pgToolTest) {
+        const controller = new AbortController();
+        pgAbortRef.current = controller;
+        setPgHistory((prev) => [...prev, { role: 'assistant', content: '' }]);
+        let streamedText = '';
+        const res = await streamPlatformPlayground(
+          requestPayload,
+          (delta) => {
+            streamedText += delta;
+            setPgHistory((prev) => {
+              const copy = [...prev];
+              const lastIdx = copy.length - 1;
+              if (lastIdx >= 0 && copy[lastIdx].role === 'assistant') {
+                copy[lastIdx] = { ...copy[lastIdx], content: streamedText };
+              }
+              return copy;
+            });
+          },
+          controller.signal,
+        );
+        if (res) {
+          setPgHistory((prev) => {
+            const copy = [...prev];
+            const lastIdx = copy.length - 1;
+            if (lastIdx >= 0 && copy[lastIdx].role === 'assistant') {
+              copy[lastIdx] = {
+                role: 'assistant',
+                content: res.text || streamedText || '(empty response)',
+                stats: {
+                  routedModel: res.routedModel || res.model,
+                  ttftMs: res.ttftMs,
+                  latencyMs: res.latencyMs,
+                  tokensPerSec: res.tokensPerSec,
+                  usage: res.usage,
+                },
+              };
+            }
+            return copy;
+          });
+        }
+      } else {
+        const res = await runPlatformPlayground(requestPayload);
+        setPgHistory((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: res.text || (res.toolCalls ? JSON.stringify(res.toolCalls, null, 2) : '(empty response)'),
+            stats: {
+              routedModel: res.routedModel || res.model,
+              ttftMs: res.ttftMs,
+              latencyMs: res.latencyMs,
+              tokensPerSec: res.tokensPerSec,
+              usage: res.usage,
+            },
+          },
+        ]);
+      }
       await loadAll();
     } catch (err: any) {
-      setPgError(err?.response?.data?.error || err?.response?.data?.message || 'Playground execution failed');
+      setPgError(extractErrorMsg(err, 'Playground execution failed'));
     } finally {
+      pgAbortRef.current = null;
       setPgRunning(false);
     }
   };
@@ -364,7 +496,7 @@ export default function AiSettings() {
     );
   }
 
-  // Ordinary Agency Director View (Section 9 — No platform keys, base URLs, or Playground)
+  // Ordinary Agency Director View (no platform keys, base URLs, or Playground)
   if (!isPlatformAdmin) {
     const ent = orgEnt?.entitlement;
     const cons = orgEnt?.consumption;
@@ -435,7 +567,6 @@ export default function AiSettings() {
     );
   }
 
-  // Platform Owner Universal AI Harness View
   return (
     <div className="space-y-6">
       <PageMeta title={`${s.pageTitle} | Travline`} description={s.pageDescription} />
@@ -469,32 +600,43 @@ export default function AiSettings() {
 
       {activeTab === 'providers' && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <form onSubmit={handleCreate} className="rounded-xl border border-gray-200 bg-white p-5 space-y-3.5 dark:border-gray-800 dark:bg-gray-900">
+          <form onSubmit={handleCreateOrUpdate} className="rounded-xl border border-gray-200 bg-white p-5 space-y-3.5 dark:border-gray-800 dark:bg-gray-900">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white">{s.addProviderTitle}</h2>
-              <button type="button" onClick={applyHcnsecTemplate} className="text-xs font-semibold text-brand-600 hover:underline dark:text-brand-400">
-                HCNSEC Preset
-              </button>
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                {editingId ? s.editProvider : s.addProviderTitle}
+              </h2>
+              <div className="flex items-center gap-2">
+                {editingId && (
+                  <button type="button" onClick={resetForm} className="text-xs font-medium text-gray-500 hover:underline">
+                    {s.cancelEdit}
+                  </button>
+                )}
+                <button type="button" onClick={applyHcnsecTemplate} className="text-xs font-semibold text-brand-600 hover:underline dark:text-brand-400">
+                  HCNSEC Preset
+                </button>
+              </div>
             </div>
 
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => switchMode('preset')}
-                className={`flex-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${configMode === 'preset' ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300' : 'border-gray-200 dark:border-gray-700'}`}
-              >
-                {s.modePreset}
-              </button>
-              <button
-                type="button"
-                onClick={() => switchMode('custom')}
-                className={`flex-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${configMode === 'custom' ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300' : 'border-gray-200 dark:border-gray-700'}`}
-              >
-                {s.modeCustom}
-              </button>
-            </div>
+            {!editingId && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => switchMode('preset')}
+                  className={`flex-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${configMode === 'preset' ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300' : 'border-gray-200 dark:border-gray-700'}`}
+                >
+                  {s.modePreset}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchMode('custom')}
+                  className={`flex-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${configMode === 'custom' ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300' : 'border-gray-200 dark:border-gray-700'}`}
+                >
+                  {s.modeCustom}
+                </button>
+              </div>
+            )}
 
-            {configMode === 'preset' && (
+            {!editingId && configMode === 'preset' && (
               <div>
                 <Label>{s.presetLabel}</Label>
                 <select
@@ -530,9 +672,25 @@ export default function AiSettings() {
               </div>
             </div>
 
-            <div>
-              <Label>{s.displayNameLabel}</Label>
-              <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="HCNSEC AI Models" />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>{s.displayNameLabel}</Label>
+                <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="HCNSEC AI Models" />
+              </div>
+              <div>
+                <Label>{s.authMethodLabel}</Label>
+                <select
+                  value={authMethod}
+                  onChange={(e) => setAuthMethod(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-xs dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="bearer">Bearer Token</option>
+                  <option value="x_api_key">x-api-key</option>
+                  <option value="x_goog_api_key">x-goog-api-key</option>
+                  <option value="custom_header">Custom Header</option>
+                  <option value="none">None</option>
+                </select>
+              </div>
             </div>
 
             <div>
@@ -540,6 +698,13 @@ export default function AiSettings() {
               <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://api.hcnsec.cn/v1" />
               <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{s.baseUrlHelp}</p>
             </div>
+
+            {configMode === 'custom' && (
+              <div>
+                <Label>{s.modelsEndpointLabel}</Label>
+                <Input value={modelsEndpoint} onChange={(e) => setModelsEndpoint(e.target.value)} placeholder="https://api.hcnsec.cn/v1/models" />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -552,9 +717,13 @@ export default function AiSettings() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <div>
-                <Label>Timeout (ms)</Label>
+                <Label>Connect (ms)</Label>
+                <Input type="number" value={connectTimeoutMs} onChange={(e) => setConnectTimeoutMs(Number(e.target.value) || 10000)} />
+              </div>
+              <div>
+                <Label>Request (ms)</Label>
                 <Input type="number" value={requestTimeoutMs} onChange={(e) => setRequestTimeoutMs(Number(e.target.value) || 30000)} />
               </div>
               <div>
@@ -565,12 +734,17 @@ export default function AiSettings() {
 
             <div>
               <Label>{s.apiKeyLabel}</Label>
-              <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." />
+              <Input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={editingId ? s.replaceApiKeyPlaceholder : 'sk-...'}
+              />
               <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{s.apiKeyHint}</p>
             </div>
 
             <Button type="submit" disabled={saving} className="w-full">
-              {saving ? s.saving : s.addButton}
+              {saving ? s.saving : editingId ? s.updateButton : s.addButton}
             </Button>
           </form>
 
@@ -587,6 +761,7 @@ export default function AiSettings() {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-semibold text-gray-900 dark:text-white">{p.displayName}</span>
                           {p.isDefault && <Badge size="sm" color="info">Default</Badge>}
+                          {p.isFallback && <Badge size="sm" color="warning">{s.fallbackBadge}</Badge>}
                           <Badge size="sm" color={p.isActive ? 'success' : 'light'}>{p.isActive ? s.active : s.inactive}</Badge>
                           <span className="text-xs font-mono text-gray-500">{p.providerSlug || p.providerType} · {p.protocol}</span>
                         </div>
@@ -597,9 +772,17 @@ export default function AiSettings() {
                           <Button variant="outline" size="sm" disabled={discoveringId === p.id} onClick={() => void handleDiscover(p)}>
                             {discoveringId === p.id ? '...' : s.fetchModels}
                           </Button>
+                          <Button variant="outline" size="sm" onClick={() => startEditingProvider(p)}>
+                            {s.editProvider}
+                          </Button>
                           {!p.isDefault && (
                             <Button variant="outline" size="sm" onClick={() => void updatePlatformAiProvider(p.id, { isDefault: true }).then(loadAll)}>
                               {s.setDefault}
+                            </Button>
+                          )}
+                          {!p.isFallback && (
+                            <Button variant="outline" size="sm" onClick={() => void updatePlatformAiProvider(p.id, { isFallback: true }).then(loadAll)}>
+                              {s.setFallback}
                             </Button>
                           )}
                           <Button variant="outline" size="sm" onClick={() => void updatePlatformAiProvider(p.id, { isActive: !p.isActive }).then(loadAll)}>
@@ -611,7 +794,8 @@ export default function AiSettings() {
                         </div>
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Model: <span className="font-mono">{p.defaultModel}</span> · Key: <span className="font-mono">{p.keyHint}</span>
+                        Model: <span className="font-mono">{p.defaultModel}</span>
+                        {p.fallbackModel ? ` · Fallback: ${p.fallbackModel}` : ''} · Key: <span className="font-mono">{p.keyHint}</span>
                         {p.baseUrl ? ` · ${p.baseUrl}` : ''}
                       </p>
                       {(testResultById[p.id] || p.lastTestStatus) && (
@@ -687,7 +871,7 @@ export default function AiSettings() {
                   <th className="py-2 pr-3">Model ID</th>
                   <th className="py-2 pr-3">Provider</th>
                   <th className="py-2 pr-3">Category</th>
-                  <th className="py-2 pr-3">Source</th>
+                  <th className="py-2 pr-3">Routing</th>
                   <th className="py-2 pr-3">Pricing</th>
                   <th className="py-2 pr-3">Status</th>
                   <th className="py-2 pr-3">Actions</th>
@@ -699,10 +883,28 @@ export default function AiSettings() {
                     <td className="py-2.5 pr-3 font-mono font-medium text-gray-900 dark:text-white">{m.model_id}</td>
                     <td className="py-2.5 pr-3">{m.ai_providers?.display_name || '—'}</td>
                     <td className="py-2.5 pr-3"><Badge size="sm" color={m.category === 'chat' || m.category === 'reasoning' ? 'info' : 'light'}>{m.category}</Badge></td>
-                    <td className="py-2.5 pr-3">{m.source}</td>
+                    <td className="py-2.5 pr-3 space-x-1">
+                      {m.is_default_chat && <Badge size="sm" color="success">{s.defaultChatBadge}</Badge>}
+                      {m.is_default_tools && <Badge size="sm" color="info">{s.defaultToolsBadge}</Badge>}
+                      {!m.is_default_chat && !m.is_default_tools && <span className="text-gray-400">{m.source}</span>}
+                    </td>
                     <td className="py-2.5 pr-3">{m.pricing_type}</td>
                     <td className="py-2.5 pr-3"><Badge size="sm" color={m.is_enabled ? 'success' : 'light'}>{m.is_enabled ? s.active : s.inactive}</Badge></td>
-                    <td className="py-2.5 pr-3 flex gap-2">
+                    <td className="py-2.5 pr-3 flex flex-wrap gap-1.5">
+                      {(m.category === 'chat' || m.category === 'reasoning') && (
+                        <>
+                          {!m.is_default_chat && (
+                            <Button variant="outline" size="sm" onClick={() => void updatePlatformAiModel(m.id, { isDefaultChat: true }).then(loadAll)}>
+                              {s.setDefaultChat}
+                            </Button>
+                          )}
+                          {!m.is_default_tools && (
+                            <Button variant="outline" size="sm" onClick={() => void updatePlatformAiModel(m.id, { isDefaultTools: true }).then(loadAll)}>
+                              {s.setDefaultTools}
+                            </Button>
+                          )}
+                        </>
+                      )}
                       <Button variant="outline" size="sm" onClick={() => void updatePlatformAiModel(m.id, { isEnabled: !m.is_enabled }).then(loadAll)}>
                         {m.is_enabled ? s.disable : s.enable}
                       </Button>
@@ -724,7 +926,7 @@ export default function AiSettings() {
             <h2 className="text-base font-semibold text-gray-900 dark:text-white">{s.playgroundConfig}</h2>
             <div>
               <Label>Provider</Label>
-              <select value={pgProviderId} onChange={(e) => setPgProviderId(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+              <select value={pgProviderId} onChange={(e) => handlePlaygroundProviderChange(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                 {providers.map((p) => <option key={p.id} value={p.id}>{p.displayName}</option>)}
               </select>
             </div>
@@ -748,9 +950,13 @@ export default function AiSettings() {
               </div>
               <div>
                 <Label>Max Tokens</Label>
-                <Input type="number" value={pgMaxTokens} onChange={(e) => setPgMaxTokens(Number(e.target.value) || 512)} />
+                <Input type="number" value={pgMaxTokens} onChange={(e) => setPgMaxTokens(Number(e.target.value) || 1024)} />
               </div>
             </div>
+            <label className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
+              <input type="checkbox" checked={pgStream} onChange={(e) => setPgStream(e.target.checked)} />
+              {s.streamResponses}
+            </label>
             <label className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
               <input type="checkbox" checked={pgJsonMode} onChange={(e) => setPgJsonMode(e.target.checked)} />
               Test Structured JSON Output
@@ -771,7 +977,10 @@ export default function AiSettings() {
                   <p className="whitespace-pre-wrap">{m.content}</p>
                   {m.stats && (
                     <p className="mt-2 text-[11px] font-mono text-gray-400">
-                      Latency: {m.stats.latencyMs}ms · Speed: {m.stats.tokensPerSec ?? '—'} tok/s · Prompt: {m.stats.usage?.promptTokens} · Completion: {m.stats.usage?.completionTokens} · Total: {m.stats.usage?.totalTokens}
+                      Model: {m.stats.routedModel}
+                      {m.stats.ttftMs ? ` · TTFT: ${m.stats.ttftMs}ms` : ''}
+                      {` · Latency: ${m.stats.latencyMs}ms · Speed: ${m.stats.tokensPerSec ?? '—'} tok/s · Prompt: ${m.stats.usage?.promptTokens} · Completion: ${m.stats.usage?.completionTokens} · Total: ${m.stats.usage?.totalTokens}`}
+                      {m.stats.usage?.cachedTokens ? ` · Cached: ${m.stats.usage.cachedTokens}` : ''}
                     </p>
                   )}
                 </div>
@@ -782,6 +991,11 @@ export default function AiSettings() {
               <div className="flex-1">
                 <Input value={pgPrompt} onChange={(e) => setPgPrompt(e.target.value)} placeholder="Send a synthetic test prompt..." />
               </div>
+              {pgRunning && (
+                <Button type="button" variant="outline" color="error" onClick={() => pgAbortRef.current?.abort()}>
+                  {s.cancelRun}
+                </Button>
+              )}
               <Button type="submit" disabled={pgRunning || !pgPrompt.trim()}>{pgRunning ? '...' : 'Run'}</Button>
             </form>
           </div>

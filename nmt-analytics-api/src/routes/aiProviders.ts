@@ -9,7 +9,12 @@ import { supabaseAdmin, handleSupabaseError } from '../lib/supabase';
 import { apiError } from '../lib/errors';
 import { decryptSecret, encryptSecret, maskSecret } from '../lib/secretVault';
 import { normalizeAiBaseUrl } from '../lib/aiUrlGuard';
-import { sanitizeAiProviderRow, executeOrgAiCompletion } from '../lib/aiProviderService';
+import {
+  sanitizeAiProviderRow,
+  parseEncryptedCustomHeaders,
+  executeOrgAiCompletion,
+  executeOrgAiCompletionStream,
+} from '../lib/aiProviderService';
 import { discoverAiModels, invokeAiCompletion, type AiProtocol } from '../lib/aiProviders';
 
 const router = Router();
@@ -24,6 +29,33 @@ const protocols = [
 ] as const;
 const authMethods = ['bearer', 'x_api_key', 'x_goog_api_key', 'custom_header', 'none'] as const;
 
+const DISALLOWED_HEADER_NAMES = new Set([
+  'host',
+  'content-length',
+  'transfer-encoding',
+  'cookie',
+  'connection',
+  'upgrade',
+  'proxy-authorization',
+]);
+
+function sanitizeCustomHeadersInput(raw?: Record<string, string> | null): Record<string, string> | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const key = k.trim();
+    if (!key) continue;
+    if (DISALLOWED_HEADER_NAMES.has(key.toLowerCase())) {
+      throw new Error(`Header "${key}" is not allowed in customHeaders`);
+    }
+    if (!/^[A-Za-z0-9-]+$/.test(key)) {
+      throw new Error(`Invalid custom header name "${key}"`);
+    }
+    out[key] = String(v).trim().slice(0, 500);
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 const createProviderSchema = z.object({
   providerSlug: z.string().trim().min(1).max(64).optional().nullable(),
   providerType: z.enum(providerTypes),
@@ -32,6 +64,7 @@ const createProviderSchema = z.object({
   displayName: z.string().trim().min(1).max(120),
   baseUrl: z.string().trim().url().optional().nullable(),
   modelsEndpoint: z.string().trim().url().optional().nullable(),
+  customHeaders: z.record(z.string(), z.string()).optional().nullable(),
   apiKey: z.string().trim().min(4).max(500),
   defaultModel: z.string().trim().min(1).max(120),
   fallbackModel: z.string().trim().max(120).optional().nullable(),
@@ -320,22 +353,40 @@ router.post('/platform/ai-providers', authenticateToken, requirePlatformAdmin, a
 
   let normalizedBaseUrl: string | null = null;
   let normalizedModelsEndpoint: string | null = null;
+  let validatedCustomHeaders: Record<string, string> | null = null;
   try {
     normalizedBaseUrl = validateProviderEndpoint(b.providerType, b.baseUrl);
     if (b.modelsEndpoint) normalizedModelsEndpoint = normalizeAiBaseUrl(b.modelsEndpoint);
+    validatedCustomHeaders = sanitizeCustomHeadersInput(b.customHeaders);
   } catch (err: any) {
     return apiError(res, 400, 'INVALID_BASE_URL', err.message);
   }
 
   let encryptedKey: string;
+  let encryptedHeaders: string | null = null;
   try {
     encryptedKey = encryptSecret(b.apiKey);
+    if (validatedCustomHeaders) encryptedHeaders = encryptSecret(JSON.stringify(validatedCustomHeaders));
   } catch (err: any) {
     return apiError(res, 500, 'VAULT_NOT_CONFIGURED', err.message);
   }
 
-  if (b.isDefault) {
+  let shouldBeDefault = b.isDefault;
+  if (!shouldBeDefault && b.isActive !== false) {
+    const { count: defaultCount } = await supabaseAdmin
+      .from('ai_providers')
+      .select('id', { count: 'exact', head: true })
+      .eq('scope', 'platform')
+      .is('org_id', null)
+      .eq('is_default', true);
+    if ((defaultCount || 0) === 0) shouldBeDefault = true;
+  }
+
+  if (shouldBeDefault) {
     await supabaseAdmin.from('ai_providers').update({ is_default: false }).eq('scope', 'platform').is('org_id', null);
+  }
+  if (b.isFallback) {
+    await supabaseAdmin.from('ai_providers').update({ is_fallback: false }).eq('scope', 'platform').is('org_id', null);
   }
 
   const { data, error } = await supabaseAdmin
@@ -350,6 +401,7 @@ router.post('/platform/ai-providers', authenticateToken, requirePlatformAdmin, a
       display_name: b.displayName,
       base_url: normalizedBaseUrl,
       models_endpoint: normalizedModelsEndpoint,
+      custom_headers_encrypted: encryptedHeaders,
       encrypted_api_key: encryptedKey,
       key_hint: maskSecret(b.apiKey),
       default_model: b.defaultModel,
@@ -357,7 +409,7 @@ router.post('/platform/ai-providers', authenticateToken, requirePlatformAdmin, a
       connect_timeout_ms: b.connectTimeoutMs,
       request_timeout_ms: b.requestTimeoutMs,
       max_output_tokens: b.maxOutputTokens,
-      is_default: b.isDefault,
+      is_default: shouldBeDefault,
       is_fallback: b.isFallback,
       is_active: b.isActive,
       priority: b.priority,
@@ -387,9 +439,13 @@ router.patch('/platform/ai-providers/:id', authenticateToken, requirePlatformAdm
   if (b.isDefault) {
     await supabaseAdmin.from('ai_providers').update({ is_default: false }).eq('scope', 'platform').is('org_id', null);
   }
+  if (b.isFallback) {
+    await supabaseAdmin.from('ai_providers').update({ is_fallback: false }).eq('scope', 'platform').is('org_id', null);
+  }
 
   const updates: Record<string, any> = { updated_at: new Date().toISOString() };
   if (b.providerSlug !== undefined) updates.provider_slug = b.providerSlug;
+  if (b.providerType !== undefined) updates.provider_type = b.providerType;
   if (b.protocol !== undefined) updates.protocol = b.protocol;
   if (b.authMethod !== undefined) updates.auth_method = b.authMethod;
   if (b.displayName !== undefined) updates.display_name = b.displayName;
@@ -416,9 +472,17 @@ router.patch('/platform/ai-providers/:id', authenticateToken, requirePlatformAdm
       return apiError(res, 400, 'INVALID_BASE_URL', err.message);
     }
   }
-  if (b.apiKey !== undefined) {
-    updates.encrypted_api_key = encryptSecret(b.apiKey);
-    updates.key_hint = maskSecret(b.apiKey);
+  if (b.customHeaders !== undefined) {
+    try {
+      const cleanedHeaders = sanitizeCustomHeadersInput(b.customHeaders);
+      updates.custom_headers_encrypted = cleanedHeaders ? encryptSecret(JSON.stringify(cleanedHeaders)) : null;
+    } catch (err: any) {
+      return apiError(res, 400, 'VALIDATION_ERROR', err.message);
+    }
+  }
+  if (b.apiKey !== undefined && b.apiKey.trim()) {
+    updates.encrypted_api_key = encryptSecret(b.apiKey.trim());
+    updates.key_hint = maskSecret(b.apiKey.trim());
   }
 
   const { data, error } = await supabaseAdmin
@@ -457,27 +521,37 @@ router.post('/platform/ai-providers/:id/test', authenticateToken, requirePlatfor
   const startedAt = Date.now();
   try {
     const apiKey = decryptSecret(p.encrypted_api_key);
+    const customHeaders = parseEncryptedCustomHeaders(p.custom_headers_encrypted);
+
     const discovery = await discoverAiModels({
       providerType: p.provider_type,
       protocol: p.protocol as AiProtocol,
+      authMethod: p.auth_method || 'bearer',
       apiKey,
       baseUrl: p.base_url,
       modelsEndpoint: p.models_endpoint,
+      customHeaders,
       timeoutMs: p.connect_timeout_ms || 10000,
     });
 
     const completion = await invokeAiCompletion({
       providerType: p.provider_type,
       protocol: p.protocol as AiProtocol,
+      authMethod: p.auth_method || 'bearer',
       apiKey,
       model: req.body?.model || p.default_model,
       baseUrl: p.base_url,
+      customHeaders,
       timeoutMs: p.request_timeout_ms || 30000,
     }, {
-      messages: [{ role: 'user', content: 'Reply with OK' }],
+      messages: [{ role: 'user', content: 'Reply concisely with: OK' }],
       temperature: 0,
-      maxTokens: 16,
+      maxTokens: 128,
     });
+
+    if (!completion.text.trim() && !completion.toolCalls?.length) {
+      throw new Error('Provider responded with empty content');
+    }
 
     await supabaseAdmin
       .from('ai_providers')
@@ -491,9 +565,11 @@ router.post('/platform/ai-providers/:id/test', authenticateToken, requirePlatfor
     return res.json({
       ok: true,
       latencyMs: Date.now() - startedAt,
+      routedModel: completion.routedModel || completion.model,
       discoverySupported: discovery.supported,
       discoveredCount: discovery.models.length,
-      sampleReply: completion.text.slice(0, 100),
+      discoveryError: discovery.error || null,
+      sampleReply: completion.text.slice(0, 120),
       usage: completion.usage,
     });
   } catch (err: any) {
@@ -525,30 +601,47 @@ router.post('/platform/ai-providers/:id/discover-models', authenticateToken, req
   if (error || !p) return apiError(res, 404, 'NOT_FOUND', 'Platform AI provider not found');
 
   const apiKey = decryptSecret(p.encrypted_api_key);
+  const customHeaders = parseEncryptedCustomHeaders(p.custom_headers_encrypted);
+
   const result = await discoverAiModels({
     providerType: p.provider_type,
     protocol: p.protocol as AiProtocol,
+    authMethod: p.auth_method || 'bearer',
     apiKey,
     baseUrl: p.base_url,
     modelsEndpoint: p.models_endpoint,
+    customHeaders,
     timeoutMs: p.connect_timeout_ms || 15000,
   });
 
+  let savedCount = 0;
   if (result.supported && result.models.length > 0) {
-    const rows = result.models.map((m) => ({
-      provider_id: p.id,
-      model_id: m.modelId,
-      display_name: m.displayName,
-      category: m.category,
-      source: 'discovered',
-      advertised_capabilities: m.advertisedCapabilities,
-      context_window: m.contextWindow,
-      updated_at: new Date().toISOString(),
-    }));
-    await supabaseAdmin.from('ai_models').upsert(rows, { onConflict: 'provider_id,model_id' });
+    const uniqueByModelId = new Map<string, any>();
+    const nowIso = new Date().toISOString();
+    for (const m of result.models) {
+      if (uniqueByModelId.has(m.modelId)) continue;
+      uniqueByModelId.set(m.modelId, {
+        provider_id: p.id,
+        model_id: m.modelId,
+        display_name: m.displayName,
+        category: m.category,
+        source: 'discovered',
+        advertised_capabilities: m.advertisedCapabilities,
+        context_window: m.contextWindow,
+        updated_at: nowIso,
+      });
+    }
+    const rows = Array.from(uniqueByModelId.values());
+    const { error: upsertErr } = await supabaseAdmin
+      .from('ai_models')
+      .upsert(rows, { onConflict: 'provider_id,model_id' });
+    if (upsertErr) {
+      return handleSupabaseError(res, upsertErr, 'Failed to save discovered AI models');
+    }
+    savedCount = rows.length;
   }
 
-  return res.json(result);
+  return res.json({ ...result, savedCount });
 });
 
 router.get('/platform/ai-models', authenticateToken, requirePlatformAdmin, async (req: Request, res: Response) => {
@@ -607,6 +700,23 @@ router.patch('/platform/ai-models/:id', authenticateToken, requirePlatformAdmin,
   if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid model update', parsed.error.issues);
   const b = parsed.data;
 
+  const { data: existing, error: fetchErr } = await supabaseAdmin
+    .from('ai_models')
+    .select('id, provider_id, model_id')
+    .eq('id', req.params.id)
+    .single();
+  if (fetchErr || !existing) return apiError(res, 404, 'NOT_FOUND', 'AI model not found');
+
+  if (b.isDefaultChat === true) {
+    await supabaseAdmin.from('ai_models').update({ is_default_chat: false }).eq('provider_id', existing.provider_id);
+  }
+  if (b.isDefaultTools === true) {
+    await supabaseAdmin.from('ai_models').update({ is_default_tools: false }).eq('provider_id', existing.provider_id);
+  }
+  if (b.isFallback === true) {
+    await supabaseAdmin.from('ai_models').update({ is_fallback: false }).eq('provider_id', existing.provider_id);
+  }
+
   const updates: Record<string, any> = { updated_at: new Date().toISOString() };
   if (b.displayName !== undefined) updates.display_name = b.displayName;
   if (b.category !== undefined) updates.category = b.category;
@@ -621,20 +731,29 @@ router.patch('/platform/ai-models/:id', authenticateToken, requirePlatformAdmin,
 
   const { data, error } = await supabaseAdmin.from('ai_models').update(updates).eq('id', req.params.id).select('*').single();
   if (error) return handleSupabaseError(res, error, 'Failed to update AI model');
+
+  if (b.isDefaultChat === true) {
+    await supabaseAdmin.from('ai_providers').update({ default_model: existing.model_id, updated_at: new Date().toISOString() }).eq('id', existing.provider_id);
+  }
+  if (b.isFallback === true) {
+    await supabaseAdmin.from('ai_providers').update({ fallback_model: existing.model_id, updated_at: new Date().toISOString() }).eq('id', existing.provider_id);
+  }
+
   return res.json(data);
 });
 
+const playgroundSchema = z.object({
+  providerId: z.string().uuid(),
+  modelId: z.string().trim().min(1),
+  messages: z.array(z.object({ role: z.enum(['system', 'user', 'assistant']), content: z.string().min(1) })).min(1),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().int().min(1).max(16384).optional(),
+  responseFormat: z.enum(['text', 'json_object']).optional(),
+  testTools: z.boolean().optional(),
+});
+
 router.post('/platform/ai-playground/run', authenticateToken, requirePlatformAdmin, async (req: Request, res: Response) => {
-  const schema = z.object({
-    providerId: z.string().uuid(),
-    modelId: z.string().trim().min(1),
-    messages: z.array(z.object({ role: z.enum(['system', 'user', 'assistant']), content: z.string().min(1) })).min(1),
-    temperature: z.number().min(0).max(2).optional(),
-    maxTokens: z.number().int().min(1).max(16384).optional(),
-    responseFormat: z.enum(['text', 'json_object']).optional(),
-    testTools: z.boolean().optional(),
-  });
-  const parsed = schema.safeParse(req.body);
+  const parsed = playgroundSchema.safeParse(req.body);
   if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid playground request', parsed.error.issues);
   const b = parsed.data;
 
@@ -642,6 +761,7 @@ router.post('/platform/ai-playground/run', authenticateToken, requirePlatformAdm
   if (error || !p) return apiError(res, 404, 'NOT_FOUND', 'Provider not found');
 
   const apiKey = decryptSecret(p.encrypted_api_key);
+  const customHeaders = parseEncryptedCustomHeaders(p.custom_headers_encrypted);
   const tools = b.testTools
     ? [{
         name: 'search_departures',
@@ -668,15 +788,91 @@ router.post('/platform/ai-playground/run', authenticateToken, requirePlatformAdm
         scope: p.scope,
         providerType: p.provider_type,
         protocol: p.protocol || 'openai_chat_completions',
+        authMethod: p.auth_method || 'bearer',
         apiKey,
         model: b.modelId,
         baseUrl: p.base_url,
+        customHeaders,
         timeoutMs: p.request_timeout_ms || 30000,
       },
     );
     return res.json(result);
   } catch (err: any) {
     return res.status(502).json({ error: err?.message || 'Playground execution failed' });
+  }
+});
+
+router.post('/platform/ai-playground/stream', authenticateToken, requirePlatformAdmin, async (req: Request, res: Response) => {
+  const parsed = playgroundSchema.safeParse(req.body);
+  if (!parsed.success) return apiError(res, 400, 'VALIDATION_ERROR', 'Invalid playground stream request', parsed.error.issues);
+  const b = parsed.data;
+
+  const { data: p, error } = await supabaseAdmin.from('ai_providers').select('*').eq('id', b.providerId).single();
+  if (error || !p) return apiError(res, 404, 'NOT_FOUND', 'Provider not found');
+
+  const apiKey = decryptSecret(p.encrypted_api_key);
+  const customHeaders = parseEncryptedCustomHeaders(p.custom_headers_encrypted);
+  const tools = b.testTools
+    ? [{
+        name: 'search_departures',
+        description: 'Search upcoming synthetic Travline departures',
+        parameters: { type: 'object', properties: { destination: { type: 'string' } } },
+      }]
+    : undefined;
+
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  if (typeof (res as any).flushHeaders === 'function') (res as any).flushHeaders();
+
+  const abortController = new AbortController();
+  const onClose = () => abortController.abort();
+  req.on('close', onClose);
+
+  try {
+    const result = await executeOrgAiCompletionStream(
+      req.orgId || p.org_id || '00000000-0000-0000-0000-000000000000',
+      req.user?.id || null,
+      'developer_playground',
+      {
+        messages: b.messages,
+        temperature: b.temperature,
+        maxTokens: b.maxTokens,
+        responseFormat: b.responseFormat,
+        tools,
+      },
+      {
+        id: p.id,
+        scope: p.scope,
+        providerType: p.provider_type,
+        protocol: p.protocol || 'openai_chat_completions',
+        authMethod: p.auth_method || 'bearer',
+        apiKey,
+        model: b.modelId,
+        baseUrl: p.base_url,
+        customHeaders,
+        timeoutMs: p.request_timeout_ms || 30000,
+      },
+      (delta) => {
+        if (!res.writableEnded) {
+          res.write(`data: ${JSON.stringify({ type: 'delta', text: delta })}\n\n`);
+        }
+      },
+      fetch,
+      abortController.signal,
+    );
+
+    if (!res.writableEnded) {
+      res.write(`data: ${JSON.stringify({ type: 'done', result })}\n\n`);
+      res.end();
+    }
+  } catch (err: any) {
+    if (!res.writableEnded) {
+      res.write(`data: ${JSON.stringify({ type: 'error', error: err?.message || 'Playground stream failed' })}\n\n`);
+      res.end();
+    }
+  } finally {
+    req.off('close', onClose);
   }
 });
 
@@ -735,7 +931,7 @@ router.put('/platform/ai-entitlements/:orgId', authenticateToken, requirePlatfor
 router.get('/platform/ai-usage', authenticateToken, requirePlatformAdmin, async (_req: Request, res: Response) => {
   const { data, error } = await supabaseAdmin
     .from('ai_usage_logs')
-    .select('id, org_id, provider_type, model, feature_key, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, actual_cost_usd, cost_status, status, latency_ms, tokens_per_sec, created_at')
+    .select('id, org_id, provider_type, model, feature_key, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, actual_cost_usd, cost_status, status, latency_ms, ttft_ms, tokens_per_sec, error_message, created_at')
     .order('created_at', { ascending: false })
     .limit(250);
 

@@ -44,9 +44,10 @@ export default function ExecutiveSignalsCard() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-5">
         {signals.map((sig) => {
           const copy = s.items[sig.key];
+          if (!copy) return null;
           const color = sig.count === 0 ? 'success' : sig.severity === 'high' ? 'error' : 'warning';
           return (
             <Link
@@ -54,7 +55,7 @@ export default function ExecutiveSignalsCard() {
               to={sig.route}
               className="flex items-center justify-between rounded-xl border border-gray-200 p-3.5 transition hover:border-brand-300 dark:border-gray-800 dark:hover:border-brand-500/40"
             >
-              <div>
+              <div className="pr-2">
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{copy.label}</p>
                 <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                   {sig.count === 0 ? copy.healthy : s.openAction}
