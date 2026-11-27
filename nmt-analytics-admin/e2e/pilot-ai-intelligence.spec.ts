@@ -60,30 +60,42 @@ test.describe('Travline Intelligence — Live Preview AI & HCNSEC Verification',
       await page.locator('#signin-email').fill(process.env.E2E_MANAGER_EMAIL!);
       await page.locator('#signin-password').fill(process.env.E2E_MANAGER_PASSWORD!);
       await page.getByRole('button', { name: /sign in|prijavi/i }).click();
-      await expect(page).not.toHaveURL(/\/auth\/signin/);
+      await expect(page).not.toHaveURL(/\/auth\/signin/, { timeout: 25_000 });
     }
 
     // 1. Open /settings/ai and verify HCNSEC provider
     await page.goto('/settings/ai', { waitUntil: 'networkidle' });
     await expect(page.getByText('HCNSEC AI Models').first()).toBeVisible({ timeout: 20_000 });
 
-    // 2. Test Connection
-    const testBtn = page.getByRole('button', { name: /Test Connection|Testiraj vezu/i }).first();
-    await testBtn.click();
-    await expect(page.getByText(/OK \(\d+ms\)/i).first()).toBeVisible({ timeout: 45_000 });
-
-    // 3. Fetch Available Models -> Model Catalog
+    // 2. Fetch Available Models -> Model Catalog
     const fetchBtn = page.getByRole('button', { name: /Fetch Available Models|Preuzmi modele/i }).first();
     await fetchBtn.click();
-    await expect(page.getByPlaceholder('DeepSeek, Qwen, gpt-4o...')).toBeVisible({ timeout: 45_000 });
-
-    // Verify searchable model catalog has models
     const catalogSearch = page.getByPlaceholder('DeepSeek, Qwen, gpt-4o...');
+    await expect(catalogSearch).toBeVisible({ timeout: 45_000 });
+
+    // Search catalog & switch Default Chat + Default Tools to a discovered chat model (e.g., DeepSeek-V4.1-Flash)
     await catalogSearch.fill('DeepSeek');
-    await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 15_000 });
+    const firstRow = page.locator('table tbody tr').first();
+    await expect(firstRow).toBeVisible({ timeout: 15_000 });
+    const setDefaultChatBtn = firstRow.getByRole('button', { name: /Default Chat|Zadani za Chat/i });
+    if (await setDefaultChatBtn.isVisible().catch(() => false)) {
+      await setDefaultChatBtn.click();
+      await expect(firstRow.getByText(/Chat Default|Zadani Chat/i)).toBeVisible({ timeout: 15_000 });
+    }
+    const setDefaultToolsBtn = firstRow.getByRole('button', { name: /Default Tools|Zadani za Alate/i });
+    if (await setDefaultToolsBtn.isVisible().catch(() => false)) {
+      await setDefaultToolsBtn.click();
+      await expect(firstRow.getByText(/Tools Default|Zadani Alati/i)).toBeVisible({ timeout: 15_000 });
+    }
     await catalogSearch.fill('');
 
-    // 4. Developer Playground live prompt
+    // 3. Test Connection on Providers tab
+    await page.getByRole('button', { name: /^Providers$|^Provajderi$/i }).click();
+    const testBtn = page.getByRole('button', { name: /Test Connection|Testiraj vezu/i }).first();
+    await testBtn.click();
+    await expect(page.getByText(/OK \(\d+ms\)/i).first()).toBeVisible({ timeout: 55_000 });
+
+    // 4. Developer Playground live prompt (streaming SSE enabled by default)
     await page.getByRole('button', { name: /Developer Playground/i }).click();
     const pgInput = page.getByPlaceholder('Send a synthetic test prompt...');
     await expect(pgInput).toBeVisible();

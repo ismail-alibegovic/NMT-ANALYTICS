@@ -100,6 +100,43 @@ describe('Gap Closure — Universal AI Harness, URL Normalization & Entitlement 
     expect(result.reasoningText).toBe('Internal planning');
   });
 
+  it('invokeAiCompletion retries transient HTTP 500 channel errors (e.g. HCNSEC auto retry)', async () => {
+    let calls = 0;
+    const fetchMock = vi.fn(async () => {
+      calls++;
+      if (calls === 1) {
+        return new Response(
+          JSON.stringify({ error: { message: 'No available channel for model sensenova-6.8-flash-lite under group auto (retry)' } }),
+          { status: 500 },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          model: 'DeepSeek-V4.1-Flash',
+          choices: [{ finish_reason: 'stop', message: { content: 'OK' } }],
+          usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 },
+        }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch;
+
+    const result = await invokeAiCompletion(
+      {
+        providerType: 'openai_compatible',
+        protocol: 'openai_chat_completions',
+        apiKey: 'test-key-1234',
+        model: 'auto',
+        baseUrl: 'https://api.hcnsec.cn/v1',
+      },
+      { messages: [{ role: 'user', content: 'Say OK' }] },
+      fetchMock,
+    );
+
+    expect(calls).toBe(2);
+    expect(result.text).toBe('OK');
+    expect(result.routedModel).toBe('DeepSeek-V4.1-Flash');
+  });
+
   it('computeCostAccounting distinguishes unknown pricing (null) from genuine zero cost (0)', () => {
     const unknownCost = computeCostAccounting(null, { promptTokens: 100, completionTokens: 50, totalTokens: 150 });
     expect(unknownCost.costStatus).toBe('unknown');

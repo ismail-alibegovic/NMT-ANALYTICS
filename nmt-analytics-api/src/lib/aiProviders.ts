@@ -428,6 +428,24 @@ export async function invokeAiCompletion(
         );
       }
 
+      // Transient upstream router/channel retry (e.g., HCNSEC `auto` "No available channel ... (retry)")
+      for (let retryIdx = 0; !attempt.ok && attempt.status >= 500 && attempt.status <= 504 && retryIdx < 2 && !controller.signal.aborted; retryIdx++) {
+        await new Promise((r) => setTimeout(r, 300 * (retryIdx + 1)));
+        if (controller.signal.aborted) break;
+        attempt = await runOpenAiChatCompletionOnce(
+          endpoint,
+          config,
+          protocol,
+          req,
+          false,
+          undefined,
+          undefined,
+          fetchImpl,
+          controller.signal,
+          startedAt,
+        );
+      }
+
       if (!attempt.ok) {
         throw new Error(attempt.error);
       }
