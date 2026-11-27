@@ -34,11 +34,19 @@ router.get('/me', authenticateToken, requireOrgContext, async (req, res) => {
 
     if (orgError) return handleSupabaseError(res, orgError, "Failed to fetch organization details");
 
+    const { data: platformAdminRow } = await supabaseAdmin
+      .from('platform_admins')
+      .select('user_id')
+      .eq('user_id', req.user!.id)
+      .eq('is_active', true)
+      .maybeSingle();
+
     res.json({
       user: {
         id: req.user!.id,
         email: req.user!.email,
         role: req.user!.role,
+        isPlatformAdmin: Boolean(platformAdminRow),
       },
       org: org,
       orgId: req.orgId,

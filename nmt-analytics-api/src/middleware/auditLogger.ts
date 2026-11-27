@@ -31,6 +31,8 @@ export type AuditEntity =
   | 'contract'
   | 'receipt'
   | 'sub_agent'
+  | 'ai_provider'
+  | 'ai_action_proposal'
   | 'excursion_passenger'
   | 'package_service'
   | 'hotel'

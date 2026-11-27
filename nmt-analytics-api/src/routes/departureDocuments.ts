@@ -9,8 +9,14 @@ import PDFDocument from 'pdfkit';
 
 const router = Router();
 
-type CustBase = { first_name: string; last_name: string };
+type CustBase = { full_name?: string; first_name?: string; last_name?: string };
 type CustFull = CustBase & { phone?: string; email?: string };
+
+function formatCustomerName(c: CustFull | null | undefined, fallback = 'Gost'): string {
+  if (!c) return fallback;
+  const full = (c.full_name || `${c.first_name || ''} ${c.last_name || ''}`).trim();
+  return full || fallback;
+}
 
 interface ManifestRow {
   rbr: number;
@@ -61,25 +67,37 @@ async function loadDepartureDocumentData(departureId: string, orgId: string) {
 
   if (!departure) return null;
 
-  // 1. Reservations
-  const { data: resRows } = await supabaseAdmin
+  // 1. Reservations (exclude cancelled bookings from manifests/documents)
+  const { data: resRows, error: resErr } = await supabaseAdmin
     .from('reservations')
-    .select('id, party_size, customer_id, customers:customer_id(first_name, last_name, phone, email), hotel_name, room_type, check_in, check_out, total_amount, paid_amount, payment_status, currency, status, notes, tour_guide')
+    .select('id, party_size, customer_id, customers:customer_id(full_name, phone, email), hotel_name, room_type, check_in, check_out, total_amount, paid_amount, payment_status, currency, status, notes, tour_guide')
     .eq('departure_id', departure.id)
     .eq('org_id', orgId)
+    .neq('status', 'cancelled')
     .order('created_at');
 
-  const reservations = (resRows || []) as any[];
+  if (resErr) {
+    throw new Error(`Failed to load departure reservations: ${resErr.message}`);
+  }
+
+  const reservations = ((resRows || []) as any[]).filter((r) => r.status !== 'cancelled');
+  const activeReservationIds = new Set(reservations.map((r) => r.id));
 
   // 2. Departure Passengers
-  const { data: passRows } = await supabaseAdmin
+  const { data: passRows, error: passErr } = await supabaseAdmin
     .from('departure_passengers')
     .select('id, reservation_id, full_name, phone, email, seat_number, notes, id_document_type, id_document_number, id_document_expiry, nationality, date_of_birth, reservation_accommodation_requirement_id')
     .eq('departure_id', departure.id)
     .eq('org_id', orgId)
     .order('seat_number', { ascending: true, nullsFirst: false });
 
-  const passengers = (passRows || []) as any[];
+  if (passErr) {
+    throw new Error(`Failed to load departure passengers: ${passErr.message}`);
+  }
+
+  const passengers = ((passRows || []) as any[]).filter(
+    (p) => !p.reservation_id || activeReservationIds.has(p.reservation_id)
+  );
 
   // 3. Room Slots & Assignments
   const { data: roomSlotsData } = await supabaseAdmin
@@ -128,7 +146,7 @@ async function loadDepartureDocumentData(departureId: string, orgId: string) {
   let rbr = 0;
   for (const r of reservations) {
     const c = r.customers as CustFull | null;
-    const custFullName = c ? `${c.first_name || ''} ${c.last_name || ''}`.trim() : 'Gost';
+    const custFullName = formatCustomerName(c);
     const resPass = passengersByRes[r.id] || [];
     const paid = Number(r.paid_amount || 0);
     const total = Number(r.total_amount || 0);
@@ -425,7 +443,7 @@ router.get('/departures/:id/rooming-list.pdf', authenticateToken, requireOrgCont
       const c = r.customers as CustBase | null;
       (hotels[hotel] ||= []).push({
         roomType: r.room_type || 'Standard',
-        guests: c ? `${c.first_name || ''} ${c.last_name || ''}${r.party_size > 1 ? ` (+${r.party_size - 1})` : ''}` : `${r.party_size} putnika`,
+        guests: c ? `${formatCustomerName(c)}${r.party_size > 1 ? ` (+${r.party_size - 1})` : ''}` : `${r.party_size} putnika`,
         total: r.party_size,
       });
     }
@@ -501,7 +519,7 @@ router.get('/departures/:id/rooming-list.csv', authenticateToken, requireOrgCont
         escapeCsv('—'),
         escapeCsv(r.room_type || 'Standard'),
         escapeCsv(r.party_size || 1),
-        escapeCsv(c ? `${c.first_name || ''} ${c.last_name || ''}`.trim() : 'Gost'),
+        escapeCsv(formatCustomerName(c)),
         escapeCsv('—'),
         escapeCsv('—'),
         escapeCsv(r.id?.slice(0, 8) || '—'),
@@ -645,14 +663,19 @@ router.get('/departures/:id/vouchers-batch.pdf', authenticateToken, requireOrgCo
 
   if (!departure) return apiError(res, 404, 'NOT_FOUND', 'Departure not found');
 
-  const { data: reservations } = await supabaseAdmin
+  const { data: reservations, error: resErr } = await supabaseAdmin
     .from('reservations')
-    .select('id, customer_id, customers:customer_id(first_name, last_name, phone, email), party_size, total_amount, paid_amount, hotel_name, room_type, check_in, check_out, currency')
+    .select('id, customer_id, customers:customer_id(full_name, phone, email), party_size, total_amount, paid_amount, hotel_name, room_type, check_in, check_out, currency, status')
     .eq('departure_id', departure.id)
     .eq('org_id', req.orgId!)
+    .neq('status', 'cancelled')
     .order('created_at');
 
-  const all = (reservations || []) as any[];
+  if (resErr) {
+    return apiError(res, 500, 'INTERNAL_ERROR', 'Failed to load departure reservations', resErr.message);
+  }
+
+  const all = ((reservations || []) as any[]).filter((r) => r.status !== 'cancelled');
   if (!all.length) return apiError(res, 404, 'NOT_FOUND', 'No reservations for this departure');
 
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
@@ -668,7 +691,7 @@ router.get('/departures/:id/vouchers-batch.pdf', authenticateToken, requireOrgCo
   for (let i = 0; i < all.length; i++) {
     const r = all[i];
     const c = r.customers as CustFull | null;
-    const travelerName = c ? `${c.first_name || ''} ${c.last_name || ''}`.trim() : 'Gost';
+    const travelerName = formatCustomerName(c);
 
     if (i > 0) doc.addPage();
 

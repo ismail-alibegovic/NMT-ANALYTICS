@@ -10,7 +10,7 @@ import { apiError } from '../lib/errors';
 const router = Router();
 const stages = ['new', 'qualified', 'proposal', 'follow_up', 'won', 'lost'] as const;
 const tripTypes = ['scheduled_group', 'tailor_made', 'accommodation_only', 'flight_only', 'corporate', 'pilgrimage', 'excursion', 'transfer', 'other'] as const;
-const sources = ['web', 'phone', 'email', 'walk_in', 'partner', 'social', 'referral', 'other'] as const;
+const sources = ['web', 'public_form', 'phone', 'email', 'walk_in', 'partner', 'social', 'referral', 'other'] as const;
 
 const createSchema = z.object({
   contactName: z.string().trim().min(1).max(150),
@@ -38,6 +38,7 @@ function transform(row: any) {
   return {
     id: row.id, contactName: row.contact_name, phone: row.phone, email: row.email,
     tripType: row.trip_type, stage: row.stage, source: row.source,
+    sourceMetadata: row.source_metadata ?? null,
     destination: row.destination, travelStart: row.travel_start, travelEnd: row.travel_end,
     travelers: row.travelers, budget: row.budget === null ? null : Number(row.budget),
     currency: row.currency, assignedTo: row.assigned_to, nextActionAt: row.next_action_at,

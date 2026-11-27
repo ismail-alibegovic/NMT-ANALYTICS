@@ -995,21 +995,21 @@ router.post('/reservations', authenticateToken, requireOrgContext, requireMinimu
             isOptional: Boolean(s.is_optional),
           }));
 
-          // Snapshot package hotels
+          // Snapshot package hotels using actual package_hotels schema columns
           const { data: hotels } = await supabaseAdmin
             .from('package_hotels')
-            .select('id, hotel_id, room_type, rooms_booked, price_per_person, currency, notes, hotels(name, address)')
+            .select('id, hotel_id, room_options, price_modifier, sort_order, hotels(name, address)')
             .eq('package_id', effectivePkgId)
-            .eq('org_id', orgId);
+            .eq('org_id', orgId)
+            .order('sort_order', { ascending: true });
           snapshot.accommodation = (hotels || []).map((h: any) => ({
             packageHotelId: h.id,
             hotelId: h.hotel_id,
             hotelName: h.hotels?.name || null,
-            roomType: h.room_type,
-            roomsBooked: h.rooms_booked,
-            pricePerPerson: Number(h.price_per_person || 0),
-            currency: h.currency || 'BAM',
-            notes: h.notes,
+            hotelAddress: h.hotels?.address || null,
+            roomOptions: Array.isArray(h.room_options) ? h.room_options : [],
+            priceModifier: Number(h.price_modifier || 0),
+            sortOrder: Number(h.sort_order || 0),
           }));
         }
 
@@ -1400,7 +1400,8 @@ router.get('/reservations/:id/invoice.pdf', authenticateToken, requireOrgContext
       return apiError(res, 404, "NOT_FOUND", "Reservation not found");
     }
 
-    // Sprint 2.4: fetch package_services line items for the reservation's package
+    // Fetch only included (non-optional) package_services as breakdown items;
+    // reservation.total_amount remains authoritative for the invoice total.
     const packageId = reservation?.departures?.package_id
       || reservation?.departures?.packages?.id
       || reservation?.package_id
@@ -1412,18 +1413,21 @@ router.get('/reservations/:id/invoice.pdf', authenticateToken, requireOrgContext
         .select('id, service_type, provider_name, description, unit_price, currency, quantity, total_price, is_optional')
         .eq('package_id', packageId)
         .eq('org_id', orgId)
+        .eq('is_optional', false)
         .order('service_type');
       if (svcErr) console.error('[INVOICE.pdf] package_services fetch error:', svcErr.message);
-      services = (svcRows || []).map((r: any) => ({
-        serviceType: r.service_type,
-        providerName: r.provider_name,
-        description: r.description,
-        unitPrice: Number(r.unit_price || 0),
-        currency: r.currency || 'BAM',
-        quantity: Number(r.quantity || 1),
-        totalPrice: Number(r.total_price || 0),
-        isOptional: Boolean(r.is_optional),
-      }));
+      services = (svcRows || [])
+        .filter((r: any) => !r.is_optional)
+        .map((r: any) => ({
+          serviceType: r.service_type,
+          providerName: r.provider_name,
+          description: r.description,
+          unitPrice: Number(r.unit_price || 0),
+          currency: r.currency || 'BAM',
+          quantity: Number(r.quantity || 1),
+          totalPrice: Number(r.total_price || 0),
+          isOptional: false,
+        }));
     }
     reservation.package_services = services;
 

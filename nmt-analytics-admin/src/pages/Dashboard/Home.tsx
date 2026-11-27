@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Link, useNavigate } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import OnboardingChecklist from "../../components/common/OnboardingChecklist";
+import ExecutiveSignalsCard from "../../components/dashboard/ExecutiveSignalsCard";
 import { getRevenueSeries, getBookingsSeries, DataPoint } from "../../api/metrics";
 import { getAnalyticsOverview, AnalyticsOverview, getDashboardStats, DashboardStats } from "../../api/analytics";
 import { downloadAllData } from "../../api/export";
@@ -182,6 +183,8 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {isManagerPlus && !upgradeRequired && <ExecutiveSignalsCard />}
 
       {isManagerPlus && availableCurrencies.length > 1 && (
         <div className="mb-6 flex flex-wrap items-center gap-2">

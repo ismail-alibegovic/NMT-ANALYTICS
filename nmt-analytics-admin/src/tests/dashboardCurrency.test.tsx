@@ -27,6 +27,10 @@ vi.mock('../api/export', () => ({
   downloadAllData: vi.fn(),
 }));
 
+vi.mock('../components/dashboard/ExecutiveSignalsCard', () => ({
+  default: () => null,
+}));
+
 vi.mock('../context/AppContext', () => ({
   useApp: () => ({
     userContext: { role: 'manager', org: { currency: 'BAM' } },

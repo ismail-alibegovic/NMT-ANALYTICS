@@ -12,7 +12,7 @@ import { useToast } from '../context/ToastContext';
 import { useT } from '../lib/i18n/context';
 import { formatDate } from '../utils/business';
 import {
-  getQuotation, updateQuotation, quotationPdfUrl,
+  getQuotation, updateQuotation, downloadQuotationPdf,
   addQuotationItem, editQuotationItem, deleteQuotationItem,
   type Quotation, type QuotationItem, type CreateQuotationItem,
 } from '../api/quotations';
@@ -147,7 +147,7 @@ export default function QuotationDetail() {
           <Button variant="outline" color="success" onClick={() => void changeStatus('accepted')} disabled={saving}>{c.markAccepted}</Button>
           <Button variant="outline" color="error" onClick={() => void changeStatus('rejected')} disabled={saving}>{c.markRejected}</Button>
         </>}
-        <Button variant="outline" onClick={() => window.open(quotationPdfUrl(id), '_blank')}>{c.downloadPdf}</Button>
+        <Button variant="outline" onClick={() => void downloadQuotationPdf(id!, data.reference)}>{c.downloadPdf}</Button>
       </div>
     </header>
 

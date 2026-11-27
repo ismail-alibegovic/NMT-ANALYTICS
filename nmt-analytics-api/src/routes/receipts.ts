@@ -197,7 +197,9 @@ router.post(
         return apiError(res, 400, 'CURRENCY_MISMATCH', 'Receipt currency must match reservation currency');
       }
 
-      // Mint receipt number FR-YYYY-XXXX with retry on collision.
+      // Mint non-fiscal receipt number PU-YYYY-XXXX (or FR-YYYY-XXXX only when fiscalized).
+      const hasFiscalReference = Boolean(body.fiscalData && (body.fiscalData.cin || body.fiscalData.jir || body.fiscalData.zki || body.fiscalData.fiscalNumber));
+      const numberPrefix = hasFiscalReference ? 'FR' : 'PU';
       let receiptInserted: any | null = null;
       let lastErr: any = null;
       for (let attempt = 0; attempt < 5; attempt++) {
@@ -208,7 +210,7 @@ router.post(
           .eq('org_id', orgId)
           .gte('issued_at', `${year}-01-01T00:00:00Z`);
         const seq = (count || 0) + attempt + 1;
-        const receiptNumber = `FR-${year}-${String(seq).padStart(4, '0')}`;
+        const receiptNumber = `${numberPrefix}-${year}-${String(seq).padStart(4, '0')}`;
         const insertPayload: any = {
           org_id: orgId,
           reservation_id: body.reservationId,
@@ -279,6 +281,15 @@ router.patch(
         return apiError(res, 404, 'NOT_FOUND', 'Receipt not found');
       }
 
+      if (existing.issued_at) {
+        return apiError(
+          res,
+          409,
+          'RECEIPT_IMMUTABLE',
+          'Issued receipts cannot be modified; issue a refund or storno receipt instead.'
+        );
+      }
+
       const b = r.data;
       const updateData: any = {};
       if (b.receiptType !== undefined) updateData.receipt_type = b.receiptType;
@@ -346,7 +357,7 @@ router.post(
         return apiError(res, 404, 'NOT_FOUND', 'Receipt not found');
       }
 
-      // Mint refund receipt number FR-YYYY-XXXX — retry on collision (seq race).
+      // Mint non-fiscal refund receipt number PU-YYYY-XXXX — retry on collision (seq race).
       let refundInserted: any | null = null;
       let refundErr: any = null;
       for (let attempt = 0; attempt < 5 && !refundInserted; attempt++) {
@@ -357,7 +368,7 @@ router.post(
           .eq('org_id', orgId)
           .gte('issued_at', `${year}-01-01T00:00:00Z`);
         const seq = (count || 0) + attempt + 1;
-        const receiptNumber = `FR-${year}-${String(seq).padStart(4, '0')}`;
+        const receiptNumber = `PU-${year}-${String(seq).padStart(4, '0')}`;
 
         const refundPayload: any = {
           org_id: orgId,
@@ -415,6 +426,23 @@ router.delete(
     try {
       const { id } = req.params;
       const orgId = req.orgId!;
+      const { data: existing, error: fetchErr } = await supabaseAdmin
+        .from('receipts')
+        .select('id, issued_at')
+        .eq('id', id)
+        .eq('org_id', orgId)
+        .single();
+      if (fetchErr || !existing) {
+        return apiError(res, 404, 'NOT_FOUND', 'Receipt not found');
+      }
+      if (existing.issued_at) {
+        return apiError(
+          res,
+          409,
+          'RECEIPT_IMMUTABLE',
+          'Issued receipts cannot be deleted; issue a refund receipt instead.'
+        );
+      }
       const { error } = await supabaseAdmin
         .from('receipts')
         .delete()

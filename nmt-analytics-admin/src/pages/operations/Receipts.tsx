@@ -215,7 +215,7 @@ export default function Receipts() {
       <PageMeta title={`${tr.title} | Travline`} description={tr.description} />
       <PageToolbar
         title={tr.title}
-        description={`${tr.description} · FR-YYYY-XXXX`}
+        description={`${tr.description} · PU-YYYY-XXXX`}
         searchPlaceholder={tr.search}
         searchValue={search}
         onSearchChange={handleSearch}
